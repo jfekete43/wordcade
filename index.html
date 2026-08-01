@@ -67,7 +67,6 @@
         
         #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 20px;}
         
-        /* --- NEW COLOR LEGEND --- */
         #legend {
             display: flex;
             gap: 20px;
@@ -77,19 +76,10 @@
             text-transform: uppercase;
             font-weight: bold;
         }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .legend-box {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-        }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-box { width: 14px; height: 14px; border-radius: 3px; }
         .correct-box { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
         .present-box { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
-        /* ------------------------ */
 
         #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; margin-bottom: 20px;}
         .row { display: grid; grid-template-columns: repeat(5, 60px); grid-gap: 5px; }
@@ -105,23 +95,9 @@
             transition: transform 0.25s linear; 
         }
         
-        .correct { 
-            background-color: #00ffff; 
-            border-color: #00ffff; 
-            color: #000; 
-            box-shadow: 0 0 12px #00ffff; 
-        } 
-        .present { 
-            background-color: #ff00ff; 
-            border-color: #ff00ff; 
-            color: #fff; 
-            box-shadow: 0 0 12px #ff00ff; 
-        } 
-        .absent { 
-            background-color: #1a1a1d; 
-            border-color: #222; 
-            color: #444; 
-        }  
+        .correct { background-color: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 12px #00ffff; } 
+        .present { background-color: #ff00ff; border-color: #ff00ff; color: #fff; box-shadow: 0 0 12px #ff00ff; } 
+        .absent { background-color: #1a1a1d; border-color: #222; color: #444; }  
 
         #keyboard {
             display: flex;
@@ -132,133 +108,48 @@
             max-width: 500px;
             margin-bottom: 20px;
         }
-        .key-row {
-            display: flex;
-            justify-content: center;
-            gap: 6px;
-            width: 100%;
-        }
+        .key-row { display: flex; justify-content: center; gap: 6px; width: 100%; }
         .key {
-            background-color: #333;
-            color: white;
-            border: 2px solid #555;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: bold;
-            padding: 15px 12px;
-            cursor: pointer;
-            text-transform: uppercase;
-            flex: 1; 
-            max-width: 45px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: all 0.2s;
+            background-color: #333; color: white; border: 2px solid #555; border-radius: 4px;
+            font-size: 16px; font-weight: bold; padding: 15px 12px; cursor: pointer;
+            text-transform: uppercase; flex: 1; max-width: 45px; display: flex;
+            justify-content: center; align-items: center; transition: all 0.2s;
         }
         .key:active { transform: scale(0.95); } 
-        
-        .key.wide {
-            max-width: 65px;
-            font-size: 14px; 
-        }
-
-        /* --- THE KEYBOARD FIX --- 
-           Forces incorrect keys to drastically fade into the background 
-        */
-        .key.absent {
-            opacity: 0.25; /* Makes it 75% transparent */
-            background-color: #000;
-            color: #555;
-            border-color: #111;
-        }
-        /* ------------------------ */
+        .key.wide { max-width: 65px; font-size: 14px; }
+        .key.absent { opacity: 0.25; background-color: #000; color: #555; border-color: #111; }
 
         #ad-banner {
-            margin-top: auto; 
-            margin-bottom: 20px;
-            width: 320px;
-            height: 50px;
-            background-color: #333;
-            border: 1px dashed #777;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #777;
-            font-size: 14px;
+            margin-top: auto; margin-bottom: 20px; width: 320px; height: 50px;
+            background-color: #333; border: 1px dashed #777; display: flex;
+            justify-content: center; align-items: center; color: #777; font-size: 14px;
         }
 
-        #modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: rgba(0, 0, 0, 0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100; 
-            display: none; 
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center;
+            align-items: center; z-index: 100; 
         }
         
         .modal-box {
-            background-color: #1a1a1d;
-            border: 3px solid #ff00ff;
-            border-radius: 10px;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0 0 20px #ff00ff;
-            min-width: 250px;
+            background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px;
+            padding: 30px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 250px;
         }
 
-        .modal-title {
-            color: #00ffff;
-            font-size: 28px;
-            margin: 0 0 20px 0;
-            text-transform: uppercase;
-            font-style: italic;
-        }
+        .modal-title { color: #00ffff; font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
+        .modal-stats { font-size: 20px; margin-bottom: 30px; line-height: 1.6; }
+        .modal-stats span { color: #4caf50; font-weight: bold; font-size: 24px; }
+        .modal-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .modal-buttons button { padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; border: none; transition: all 0.2s; }
 
-        .modal-stats {
-            font-size: 20px;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
-        .modal-stats span {
-            color: #4caf50;
-            font-weight: bold;
-            font-size: 24px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .modal-buttons button {
-            padding: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            border-radius: 5px;
-            border: none;
-            transition: all 0.2s;
-        }
-
-        #btn-share {
-            background-color: #00ffff;
-            color: #000;
-        }
-        #btn-share:hover { background-color: #00cccc; }
-
-        #btn-new-run {
-            background-color: #333;
-            color: white;
-            border: 2px solid #777;
-        }
-        #btn-new-run:hover { background-color: #555; }
+        .btn-cyan { background-color: #00ffff; color: #000; }
+        .btn-cyan:hover { background-color: #00cccc; }
+        .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
+        .btn-dark:hover { background-color: #555; }
+        
+        /* Google Login Button Style */
+        .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        .btn-google:hover { background-color: #f1f1f1; }
     </style>
 </head>
 <body>
@@ -266,9 +157,10 @@
     <h1 class="arcade-title">WordCade</h1>
     
     <nav class="arcade-menu">
-        <button onclick="document.activeElement.blur(); alert('Leaderboard coming soon!')">Leaderboard</button>
-        <button onclick="document.activeElement.blur(); alert('Item Shop coming soon!')">Item Shop</button>
-        <button class="cash-out-btn" onclick="triggerCashOut()">Cash Out</button>
+        <button onclick="window.showLogin()">Login</button>
+        <button onclick="window.showStats()">Stats</button>
+        <button onclick="alert('Leaderboard coming soon!')">Leaderboard</button>
+        <button class="cash-out-btn" onclick="window.triggerCashOut()">Cash Out</button>
     </nav>
 
     <div id="score-board">
@@ -278,82 +170,154 @@
     
     <div id="message"></div>
 
-    <!-- NEW LEGEND HTML -->
     <div id="legend">
         <div class="legend-item"><div class="legend-box correct-box"></div> Correct Spot</div>
         <div class="legend-item"><div class="legend-box present-box"></div> Wrong Spot</div>
     </div>
-    <!-- ---------------- -->
 
     <div id="board"></div>
 
     <div id="keyboard">
         <div class="key-row">
-            <button class="key" data-key="Q">Q</button>
-            <button class="key" data-key="W">W</button>
-            <button class="key" data-key="E">E</button>
-            <button class="key" data-key="R">R</button>
-            <button class="key" data-key="T">T</button>
-            <button class="key" data-key="Y">Y</button>
-            <button class="key" data-key="U">U</button>
-            <button class="key" data-key="I">I</button>
-            <button class="key" data-key="O">O</button>
-            <button class="key" data-key="P">P</button>
+            <button class="key" data-key="Q">Q</button><button class="key" data-key="W">W</button><button class="key" data-key="E">E</button><button class="key" data-key="R">R</button><button class="key" data-key="T">T</button><button class="key" data-key="Y">Y</button><button class="key" data-key="U">U</button><button class="key" data-key="I">I</button><button class="key" data-key="O">O</button><button class="key" data-key="P">P</button>
         </div>
         <div class="key-row">
-            <button class="key" data-key="A">A</button>
-            <button class="key" data-key="S">S</button>
-            <button class="key" data-key="D">D</button>
-            <button class="key" data-key="F">F</button>
-            <button class="key" data-key="G">G</button>
-            <button class="key" data-key="H">H</button>
-            <button class="key" data-key="J">J</button>
-            <button class="key" data-key="K">K</button>
-            <button class="key" data-key="L">L</button>
+            <button class="key" data-key="A">A</button><button class="key" data-key="S">S</button><button class="key" data-key="D">D</button><button class="key" data-key="F">F</button><button class="key" data-key="G">G</button><button class="key" data-key="H">H</button><button class="key" data-key="J">J</button><button class="key" data-key="K">K</button><button class="key" data-key="L">L</button>
         </div>
         <div class="key-row">
-            <button class="key wide" data-key="ENTER">ENTER</button>
-            <button class="key" data-key="Z">Z</button>
-            <button class="key" data-key="X">X</button>
-            <button class="key" data-key="C">C</button>
-            <button class="key" data-key="V">V</button>
-            <button class="key" data-key="B">B</button>
-            <button class="key" data-key="N">N</button>
-            <button class="key" data-key="M">M</button>
-            <button class="key wide" data-key="BACKSPACE">⌫</button>
+            <button class="key wide" data-key="ENTER">ENTER</button><button class="key" data-key="Z">Z</button><button class="key" data-key="X">X</button><button class="key" data-key="C">C</button><button class="key" data-key="V">V</button><button class="key" data-key="B">B</button><button class="key" data-key="N">N</button><button class="key" data-key="M">M</button><button class="key wide" data-key="BACKSPACE">⌫</button>
         </div>
     </div>
 
-    <div id="ad-banner">
-        Advertisement Space (320x50)
-    </div>
+    <div id="ad-banner">Advertisement Space (320x50)</div>
 
-    <div id="modal-overlay">
+    <!-- Cash Out / Game Over Modal -->
+    <div id="modal-overlay" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
             <div class="modal-stats">
                 <div>Total Score: <br><span id="modal-score">0</span></div>
                 <div style="margin-top: 15px;">Words Guessed: <br><span id="modal-words">0</span></div>
+                <div style="margin-top: 15px; font-size: 14px; color: #aaa;" id="cloud-save-status">Saving to cloud...</div>
             </div>
             <div class="modal-buttons">
-                <button id="btn-share" onclick="shareStats()">Share Score</button>
-                <button id="btn-new-run" onclick="startNewRun()">New Run</button>
+                <button class="btn-cyan" id="btn-share" onclick="window.shareStats()">Share Score</button>
+                <button class="btn-dark" id="btn-new-run" onclick="window.startNewRun()">New Run</button>
             </div>
         </div>
     </div>
 
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 class="modal-title">Player Profile</h2>
+            <div class="modal-stats">
+                <div>Status: <br><span id="login-status-text" style="color: white; font-size: 18px;">Loading...</span></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-google" onclick="window.signInWithGoogle()">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" height="20"> Sign in with Google
+                </button>
+                <button class="btn-dark" onclick="document.getElementById('login-modal').style.display='none'">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 class="modal-title">Career Stats</h2>
+            <div class="modal-stats">
+                <div>Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff;">0</span> pts</div>
+                <div style="margin-top: 15px;">Total Words Guessed: <br><span id="stat-total-words">0</span></div>
+                <div style="margin-top: 15px; font-size: 14px; color: #777;">(Detailed guess stats coming soon!)</div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="document.getElementById('stats-modal').style.display='none'">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load our dictionary file -->
     <script src="words.js"></script>
 
-    <script>
+    <!-- OUR NEW FIREBASE ENGINE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+
+        // Your Exact Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
+            authDomain: "wordcade-387e8.firebaseapp.com",
+            projectId: "wordcade-387e8",
+            storageBucket: "wordcade-387e8.firebasestorage.app",
+            messagingSenderId: "720073432718",
+            appId: "1:720073432718:web:3f0a9dea471126e912b3df",
+            measurementId: "G-74FPWNG390"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let userProfileData = null;
+
+        // AUTHENTICATION LISTENER
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                let isGuest = user.isAnonymous;
+                let username = isGuest ? "Guest_" + user.uid.substring(0, 5) : user.displayName;
+                
+                document.getElementById("login-status-text").innerText = `Logged in as: ${username}`;
+
+                // Check if this player has a save file in Firestore
+                const userRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(userRef);
+
+                if (!docSnap.exists()) {
+                    // Create a new save file for new players!
+                    userProfileData = {
+                        username: username,
+                        isGuest: isGuest,
+                        careerBank: 0,
+                        totalWordsGuessed: 0
+                    };
+                    await setDoc(userRef, userProfileData);
+                } else {
+                    // Load existing stats
+                    userProfileData = docSnap.data();
+                }
+            } else {
+                // If nobody is logged in, instantly create a Ghost/Anonymous account
+                signInAnonymously(auth);
+            }
+        });
+
+        // GOOGLE LOGIN FUNCTION
+        window.signInWithGoogle = async function() {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                alert("Successfully linked to Google!");
+                document.getElementById('login-modal').style.display = 'none';
+            } catch (error) {
+                alert("Login Error: " + error.message);
+            }
+        }
+
+        // --- GAME LOGIC ---
         let targetWord = "";
         let currentGuess = "";
         let currentRow = 0;
-        
         let score = 0;
         let continues = 1; 
         let wordsGuessed = 0; 
         let isAnimating = false; 
-        
         const scorePoints = [500, 250, 150, 50, 10]; 
 
         const boardDisplay = document.getElementById("board");
@@ -367,13 +331,61 @@
             continuesDisplay.innerText = continues;
         }
 
-        function triggerCashOut() {
+        // MODALS
+        window.showLogin = function() {
+            document.activeElement.blur();
+            document.getElementById("login-modal").style.display = "flex";
+        }
+
+        window.showStats = async function() {
+            document.activeElement.blur();
+            if(currentUser) {
+                const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+                if(docSnap.exists()) {
+                    document.getElementById("stat-career-bank").innerText = docSnap.data().careerBank;
+                    document.getElementById("stat-total-words").innerText = docSnap.data().totalWordsGuessed || 0;
+                }
+            }
+            document.getElementById("stats-modal").style.display = "flex";
+        }
+
+        // SAVE DATA TO FIREBASE
+        async function saveRunToCloud() {
+            document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
+            if (currentUser && score > 0) {
+                try {
+                    // 1. Update their Career Bank
+                    const userRef = doc(db, "users", currentUser.uid);
+                    await updateDoc(userRef, {
+                        careerBank: increment(score),
+                        totalWordsGuessed: increment(wordsGuessed)
+                    });
+
+                    // 2. Save the Run for the Leaderboards
+                    await addDoc(collection(db, "runs"), {
+                        uid: currentUser.uid,
+                        username: userProfileData.username,
+                        score: score,
+                        wordsGuessed: wordsGuessed,
+                        timestamp: serverTimestamp()
+                    });
+
+                    document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!";
+                    document.getElementById("cloud-save-status").style.color = "#4caf50";
+                } catch (e) {
+                    document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed.";
+                    document.getElementById("cloud-save-status").style.color = "#ff3333";
+                    console.error(e);
+                }
+            } else {
+                document.getElementById("cloud-save-status").innerText = "No points to save.";
+            }
+        }
+
+        window.triggerCashOut = function() {
             document.activeElement.blur(); 
             if (isAnimating) return; 
-            if (score <= 0) {
-                showMessage("NO POINTS TO CASH OUT!");
-                return;
-            }
+            if (score <= 0) { showMessage("NO POINTS TO CASH OUT!"); return; }
             
             document.getElementById("modal-title-text").innerText = "Cashed Out!";
             document.getElementById("modal-title-text").style.color = "#00ffff"; 
@@ -381,6 +393,7 @@
             document.getElementById("modal-words").innerText = wordsGuessed;
             
             modalOverlay.style.display = "flex"; 
+            saveRunToCloud(); // NEW: Triggers the database save!
         }
 
         function triggerGameOver() {
@@ -390,11 +403,11 @@
             document.getElementById("modal-words").innerText = wordsGuessed;
             
             modalOverlay.style.display = "flex"; 
+            saveRunToCloud(); // NEW: Still saves whatever score they accumulated before dying
         }
 
-        function shareStats() {
+        window.shareStats = function() {
             let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
-            
             navigator.clipboard.writeText(shareText).then(() => {
                 let shareBtn = document.getElementById("btn-share");
                 shareBtn.innerText = "COPIED!";
@@ -402,25 +415,21 @@
             });
         }
 
-        function startNewRun() {
+        window.startNewRun = function() {
             modalOverlay.style.display = "none"; 
-            score = 0;
-            continues = 1; 
-            wordsGuessed = 0; 
-            updateScoreBoard();
-            startRound();
+            document.getElementById("cloud-save-status").innerText = ""; // Reset status text
+            document.getElementById("cloud-save-status").style.color = "#aaa";
+            score = 0; continues = 1; wordsGuessed = 0; 
+            updateScoreBoard(); startRound();
         }
 
         function createBoard() {
             boardDisplay.innerHTML = ""; 
             for (let i = 0; i < 5; i++) {
-                let row = document.createElement("div");
-                row.className = "row";
+                let row = document.createElement("div"); row.className = "row";
                 for (let j = 0; j < 5; j++) {
-                    let tile = document.createElement("div");
-                    tile.className = "tile";
-                    tile.id = "tile-" + i + "-" + j;
-                    row.appendChild(tile);
+                    let tile = document.createElement("div"); tile.className = "tile";
+                    tile.id = "tile-" + i + "-" + j; row.appendChild(tile);
                 }
                 boardDisplay.appendChild(row);
             }
@@ -428,35 +437,29 @@
 
         function resetKeyboardColors() {
             let keys = document.querySelectorAll(".key");
-            keys.forEach(key => {
-                key.classList.remove("correct", "present", "absent");
-            });
+            keys.forEach(key => { key.classList.remove("correct", "present", "absent"); });
         }
 
         function startRound() {
-            targetWord = targetWords[Math.floor(Math.random() * targetWords.length)];
-            currentGuess = "";
-            currentRow = 0;
-            isAnimating = false;
-            createBoard();
-            resetKeyboardColors(); 
+            targetWord = window.targetWords[Math.floor(Math.random() * window.targetWords.length)];
+            currentGuess = ""; currentRow = 0; isAnimating = false;
+            createBoard(); resetKeyboardColors(); 
         }
 
         const keys = document.querySelectorAll(".key");
         keys.forEach(key => {
             key.addEventListener("click", () => {
-                handleInput(key.getAttribute("data-key"));
+                window.handleInput(key.getAttribute("data-key"));
                 key.blur(); 
             });
         });
 
-        function handleInput(key) {
+        window.handleInput = function(key) {
             if (isAnimating || modalOverlay.style.display === "flex") return; 
 
             if (key === "ENTER" && currentGuess.length === 5) {
-                if (!allValidWords.includes(currentGuess)) {
-                    showMessage("Not in word list");
-                    return; 
+                if (!window.allValidWords.includes(currentGuess)) {
+                    showMessage("Not in word list"); return; 
                 }
                 checkGuess();
             } else if (key === "BACKSPACE" || key === "⌫") {
@@ -467,16 +470,12 @@
             updateBoard();
         }
 
-        document.addEventListener("keyup", (e) => {
-            handleInput(e.key.toUpperCase());
-        });
+        document.addEventListener("keyup", (e) => { window.handleInput(e.key.toUpperCase()); });
 
         function updateBoard() {
             for (let i = 0; i < 5; i++) {
                 let tile = document.getElementById("tile-" + currentRow + "-" + i);
-                if (tile) {
-                    tile.innerText = currentGuess[i] || "";
-                }
+                if (tile) { tile.innerText = currentGuess[i] || ""; }
             }
         }
 
@@ -485,31 +484,25 @@
             let guessArr = currentGuess.split("");
             let targetArr = targetWord.split("");
             let correctCount = 0;
-            
             let tileColors = ["absent", "absent", "absent", "absent", "absent"];
 
             for (let i = 0; i < 5; i++) {
                 if (guessArr[i] === targetArr[i]) {
-                    tileColors[i] = "correct"; 
-                    targetArr[i] = null;       
-                    correctCount++;
+                    tileColors[i] = "correct"; targetArr[i] = null; correctCount++;
                 }
             }
 
             for (let i = 0; i < 5; i++) {
                 if (tileColors[i] === "correct") continue; 
-
                 let targetIndex = targetArr.indexOf(guessArr[i]);
                 if (targetIndex !== -1) {
-                    tileColors[i] = "present"; 
-                    targetArr[targetIndex] = null; 
+                    tileColors[i] = "present"; targetArr[targetIndex] = null; 
                 }
             }
 
             for (let i = 0; i < 5; i++) {
                 setTimeout(() => {
                     let tile = document.getElementById("tile-" + currentRow + "-" + i);
-                    
                     tile.style.transform = "rotateX(90deg)"; 
                     
                     setTimeout(() => {
@@ -519,11 +512,9 @@
                         let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
                         if (keyBtn) {
                             if (tileColors[i] === "correct") {
-                                keyBtn.classList.remove("present", "absent");
-                                keyBtn.classList.add("correct");
+                                keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct");
                             } else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) {
-                                keyBtn.classList.remove("absent");
-                                keyBtn.classList.add("present");
+                                keyBtn.classList.remove("absent"); keyBtn.classList.add("present");
                             } else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) {
                                 keyBtn.classList.add("absent");
                             }
@@ -535,30 +526,23 @@
             setTimeout(() => {
                 if (correctCount === 5) {
                     let earned = scorePoints[currentRow];
-                    score += earned;
-                    wordsGuessed++; 
-                    showMessage(`+${earned} POINTS!`);
-                    updateScoreBoard();
+                    score += earned; wordsGuessed++; 
+                    showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
                 } else if (currentRow === 4) { 
                     continues--;
-                    
                     if (continues < 0) {
                         showMessage(`WORD WAS ${targetWord}.`);
                         setTimeout(triggerGameOver, 1500); 
                     } else {
-                        showMessage(`WORD WAS ${targetWord}.`);
-                        updateScoreBoard();
-                        
+                        showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
                         setTimeout(() => {
                             alert("⚠️ WARNING! ⚠️\n\nYou have 0 Continues left!\nIf you fail the next word, you will lose ALL your points.\n\nCash out now, or risk it all!");
                             startRound();
                         }, 1500); 
                     }
                 } else {
-                    currentRow++;
-                    currentGuess = "";
-                    isAnimating = false; 
+                    currentRow++; currentGuess = ""; isAnimating = false; 
                 }
             }, 1500); 
         }
@@ -568,7 +552,8 @@
             setTimeout(() => { messageDisplay.innerText = ""; }, 2000);
         }
 
-        startRound();
+        // Delay starting the game slightly to ensure words.js has loaded
+        setTimeout(startRound, 200);
     </script>
 </body>
 </html>
