@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WordCade</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #121213; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            margin: 0;
+            padding-top: 30px; 
+            min-height: 100vh; 
+        }
+
+        .arcade-title {
+            font-size: 48px;
+            margin: 10px 0;
+            color: #fff;
+            text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 20px #ff00ff;
+            letter-spacing: 5px;
+            font-style: italic;
+            text-transform: uppercase;
+        }
+
+        .arcade-menu {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .arcade-menu button {
+            background-color: #222;
+            color: #00ffff;
+            border: 2px solid #00ffff;
+            padding: 8px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .arcade-menu button:hover {
+            background-color: #00ffff;
+            color: #000;
+        }
+        .arcade-menu .cash-out-btn {
+            color: #4caf50;
+            border-color: #4caf50;
+        }
+        .arcade-menu .cash-out-btn:hover {
+            background-color: #4caf50;
+            color: #000;
+        }
+
+        #score-board { 
+            font-size: 20px; 
+            margin: 0 0 15px 0; 
+            font-weight: bold; 
+            display: flex;
+            gap: 30px;
+        }
+        .score-text { color: #4caf50; }
+        .lives-text { color: #ff3333; }
+        
+        #message { height: 24px; margin-bottom: 15px; color: #ff9800; font-weight: bold; font-size: 20px;}
+        
+        #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; }
+        .row { display: grid; grid-template-columns: repeat(5, 60px); grid-gap: 5px; }
+        
+        .tile { 
+            border: 2px solid #3a3a3c; 
+            font-size: 32px; 
+            font-weight: bold; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            text-transform: uppercase; 
+            transition: transform 0.25s linear; 
+        }
+        
+        .correct { background-color: #538d4e; border-color: #538d4e; } 
+        .present { background-color: #b59f3b; border-color: #b59f3b; } 
+        .absent { background-color: #3a3a3c; border-color: #3a3a3c; }  
+
+        #ad-banner {
+            margin-top: auto; 
+            margin-bottom: 20px;
+            width: 320px;
+            height: 50px;
+            background-color: #333;
+            border: 1px dashed #777;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #777;
+            font-size: 14px;
+        }
+
+        /* --- NEW MODAL STYLES --- */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100; /* Makes sure it sits on top of everything */
+            display: none; /* Hidden by default */
+        }
+        
+        .modal-box {
+            background-color: #1a1a1d;
+            border: 3px solid #ff00ff;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 0 20px #ff00ff;
+            min-width: 250px;
+        }
+
+        .modal-title {
+            color: #00ffff;
+            font-size: 28px;
+            margin: 0 0 20px 0;
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        .modal-stats {
+            font-size: 20px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .modal-stats span {
+            color: #4caf50;
+            font-weight: bold;
+            font-size: 24px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .modal-buttons button {
+            padding: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        #btn-share {
+            background-color: #00ffff;
+            color: #000;
+        }
+        #btn-share:hover { background-color: #00cccc; }
+
+        #btn-new-run {
+            background-color: #333;
+            color: white;
+            border: 2px solid #777;
+        }
+        #btn-new-run:hover { background-color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1 class="arcade-title">WordCade</h1>
+    
+    <nav class="arcade-menu">
+        <button onclick="document.activeElement.blur(); alert('Leaderboard coming soon!')">Leaderboard</button>
+        <button onclick="document.activeElement.blur(); alert('Item Shop coming soon!')">Item Shop</button>
+        <button class="cash-out-btn" onclick="triggerCashOut()">Cash Out</button>
+    </nav>
+
+    <div id="score-board">
+        <div class="score-text">SCORE: <span id="score">0</span></div>
+        <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
+    </div>
+    
+    <div id="message"></div>
+    <div id="board"></div>
+
+    <div id="ad-banner">
+        Advertisement Space (320x50)
+    </div>
+
+    <!-- NEW POP-UP MODAL HTML -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
+            <div class="modal-stats">
+                <div>Total Score: <br><span id="modal-score">0</span></div>
+                <div style="margin-top: 15px;">Words Guessed: <br><span id="modal-words">0</span></div>
+            </div>
+            <div class="modal-buttons">
+                <button id="btn-share" onclick="shareStats()">Share Score</button>
+                <button id="btn-new-run" onclick="startNewRun()">New Run</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const wordList = ["APPLE", "TRAIN", "HOUSE", "GHOST", "BRAIN", "PLANT", "SPACE", "DANCE"]; 
+        let targetWord = "";
+        let currentGuess = "";
+        let currentRow = 0;
+        
+        let score = 0;
+        let continues = 1; 
+        let wordsGuessed = 0; // NEW: Tracks words survived in the current run
+        let isAnimating = false; 
+        
+        const scorePoints = [500, 250, 150, 50, 10]; 
+
+        const boardDisplay = document.getElementById("board");
+        const scoreDisplay = document.getElementById("score");
+        const continuesDisplay = document.getElementById("continues");
+        const messageDisplay = document.getElementById("message");
+        const modalOverlay = document.getElementById("modal-overlay");
+
+        function updateScoreBoard() {
+            scoreDisplay.innerText = score;
+            continuesDisplay.innerText = continues;
+        }
+
+        // --- NEW MODAL LOGIC ---
+        function triggerCashOut() {
+            document.activeElement.blur(); 
+            if (isAnimating) return; 
+            if (score <= 0) {
+                showMessage("NO POINTS TO CASH OUT!");
+                return;
+            }
+            
+            // Populate and show the modal
+            document.getElementById("modal-title-text").innerText = "Cashed Out!";
+            document.getElementById("modal-title-text").style.color = "#00ffff"; // Cyan for success
+            document.getElementById("modal-score").innerText = score;
+            document.getElementById("modal-words").innerText = wordsGuessed;
+            
+            // Show the modal overlay
+            modalOverlay.style.display = "flex"; 
+        }
+
+        function triggerGameOver() {
+            // Repurpose the modal for game over!
+            document.getElementById("modal-title-text").innerText = "Game Over!";
+            document.getElementById("modal-title-text").style.color = "#ff3333"; // Red for fail
+            document.getElementById("modal-score").innerText = score;
+            document.getElementById("modal-words").innerText = wordsGuessed;
+            
+            modalOverlay.style.display = "flex"; 
+        }
+
+        function shareStats() {
+            // Build the share text
+            let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(shareText).then(() => {
+                let shareBtn = document.getElementById("btn-share");
+                shareBtn.innerText = "COPIED!";
+                setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000);
+            });
+        }
+
+        function startNewRun() {
+            modalOverlay.style.display = "none"; // Hide modal
+            score = 0;
+            continues = 1; 
+            wordsGuessed = 0; // Reset streak
+            updateScoreBoard();
+            startRound();
+        }
+        // -----------------------
+
+        function createBoard() {
+            boardDisplay.innerHTML = ""; 
+            for (let i = 0; i < 5; i++) {
+                let row = document.createElement("div");
+                row.className = "row";
+                for (let j = 0; j < 5; j++) {
+                    let tile = document.createElement("div");
+                    tile.className = "tile";
+                    tile.id = "tile-" + i + "-" + j;
+                    row.appendChild(tile);
+                }
+                boardDisplay.appendChild(row);
+            }
+        }
+
+        function startRound() {
+            targetWord = wordList[Math.floor(Math.random() * wordList.length)];
+            currentGuess = "";
+            currentRow = 0;
+            isAnimating = false;
+            createBoard();
+        }
+
+        document.addEventListener("keyup", (e) => {
+            // Block typing if animating OR if modal is open
+            if (isAnimating || modalOverlay.style.display === "flex") return; 
+
+            let key = e.key.toUpperCase();
+
+            if (key === "ENTER" && currentGuess.length === 5) {
+                checkGuess();
+            } else if (key === "BACKSPACE") {
+                currentGuess = currentGuess.slice(0, -1);
+            } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5) {
+                currentGuess += key;
+            }
+            updateBoard();
+        });
+
+        function updateBoard() {
+            for (let i = 0; i < 5; i++) {
+                let tile = document.getElementById("tile-" + currentRow + "-" + i);
+                if (tile) {
+                    tile.innerText = currentGuess[i] || "";
+                }
+            }
+        }
+
+        function checkGuess() {
+            isAnimating = true; 
+            let guessArr = currentGuess.split("");
+            let targetArr = targetWord.split("");
+            let correctCount = 0;
+            
+            let tileColors = ["absent", "absent", "absent", "absent", "absent"];
+
+            for (let i = 0; i < 5; i++) {
+                if (guessArr[i] === targetArr[i]) {
+                    tileColors[i] = "correct"; 
+                    targetArr[i] = null;       
+                    correctCount++;
+                }
+            }
+
+            for (let i = 0; i < 5; i++) {
+                if (tileColors[i] === "correct") continue; 
+
+                let targetIndex = targetArr.indexOf(guessArr[i]);
+                if (targetIndex !== -1) {
+                    tileColors[i] = "present"; 
+                    targetArr[targetIndex] = null; 
+                }
+            }
+
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    let tile = document.getElementById("tile-" + currentRow + "-" + i);
+                    
+                    tile.style.transform = "rotateX(90deg)"; 
+                    
+                    setTimeout(() => {
+                        tile.classList.add(tileColors[i]); 
+                        tile.style.transform = "rotateX(0deg)"; 
+                    }, 250); 
+                }, i * 300); 
+            }
+
+            setTimeout(() => {
+                if (correctCount === 5) {
+                    let earned = scorePoints[currentRow];
+                    score += earned;
+                    wordsGuessed++; // NEW: Increment streak
+                    showMessage(`+${earned} POINTS!`);
+                    updateScoreBoard();
+                    setTimeout(startRound, 1500); 
+                } else if (currentRow === 4) { 
+                    continues--;
+                    
+                    if (continues < 0) {
+                        showMessage(`WORD WAS ${targetWord}.`);
+                        setTimeout(triggerGameOver, 1500); // Shows the red "Game Over" modal
+                    } else {
+                        showMessage(`WORD WAS ${targetWord}.`);
+                        updateScoreBoard();
+                        
+                        setTimeout(() => {
+                            alert("⚠️ WARNING! ⚠️\n\nYou have 0 Continues left!\nIf you fail the next word, you will lose ALL your points.\n\nCash out now, or risk it all!");
+                            startRound();
+                        }, 1500); 
+                    }
+                } else {
+                    currentRow++;
+                    currentGuess = "";
+                    isAnimating = false; 
+                }
+            }, 1500); 
+        }
+
+        function showMessage(msg) {
+            messageDisplay.innerText = msg;
+            setTimeout(() => { messageDisplay.innerText = ""; }, 2000);
+        }
+
+        startRound();
+    </script>
+</body>
+</html>
