@@ -211,8 +211,12 @@
         </div>
     </div>
 
+    <!-- Add this right above your existing <script> tag to load your new file -->
+    <script src="words.js"></script>
+
     <script>
-        const wordList = ["APPLE", "TRAIN", "HOUSE", "GHOST", "BRAIN", "PLANT", "SPACE", "DANCE"]; 
+        // We removed the old wordList array because the game now gets it from words.js!
+        
         let targetWord = "";
         let currentGuess = "";
         let currentRow = 0;
@@ -302,7 +306,8 @@
         }
 
         function startRound() {
-            targetWord = wordList[Math.floor(Math.random() * wordList.length)];
+            // Updated to pick from targetWords instead of wordList
+            targetWord = targetWords[Math.floor(Math.random() * targetWords.length)];
             currentGuess = "";
             currentRow = 0;
             isAnimating = false;
@@ -310,12 +315,17 @@
         }
 
         document.addEventListener("keyup", (e) => {
-            // Block typing if animating OR if modal is open
             if (isAnimating || modalOverlay.style.display === "flex") return; 
 
             let key = e.key.toUpperCase();
 
             if (key === "ENTER" && currentGuess.length === 5) {
+                // NEW: Check if the word is in our dictionary!
+                if (!allValidWords.includes(currentGuess)) {
+                    showMessage("Not in word list");
+                    // We shake the row to show it's invalid (optional, but fun!)
+                    return; 
+                }
                 checkGuess();
             } else if (key === "BACKSPACE") {
                 currentGuess = currentGuess.slice(0, -1);
