@@ -57,7 +57,7 @@
 
         #score-board { 
             font-size: 20px; 
-            margin: 0 0 15px 0; 
+            margin: 0 0 10px 0; 
             font-weight: bold; 
             display: flex;
             gap: 30px;
@@ -67,6 +67,30 @@
         
         #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 20px;}
         
+        /* --- NEW COLOR LEGEND --- */
+        #legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #ccc;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-box {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+        .correct-box { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
+        .present-box { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
+        /* ------------------------ */
+
         #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; margin-bottom: 20px;}
         .row { display: grid; grid-template-columns: repeat(5, 60px); grid-gap: 5px; }
         
@@ -99,7 +123,6 @@
             color: #444; 
         }  
 
-        /* --- NEW KEYBOARD STYLES --- */
         #keyboard {
             display: flex;
             flex-direction: column;
@@ -125,20 +148,30 @@
             padding: 15px 12px;
             cursor: pointer;
             text-transform: uppercase;
-            flex: 1; /* Makes keys stretch evenly */
+            flex: 1; 
             max-width: 45px;
             display: flex;
             justify-content: center;
             align-items: center;
             transition: all 0.2s;
         }
-        .key:active { transform: scale(0.95); } /* Nice physical button press effect */
+        .key:active { transform: scale(0.95); } 
         
         .key.wide {
             max-width: 65px;
-            font-size: 14px; /* Slightly smaller text to fit ENTER */
+            font-size: 14px; 
         }
-        /* --------------------------- */
+
+        /* --- THE KEYBOARD FIX --- 
+           Forces incorrect keys to drastically fade into the background 
+        */
+        .key.absent {
+            opacity: 0.25; /* Makes it 75% transparent */
+            background-color: #000;
+            color: #555;
+            border-color: #111;
+        }
+        /* ------------------------ */
 
         #ad-banner {
             margin-top: auto; 
@@ -244,9 +277,16 @@
     </div>
     
     <div id="message"></div>
+
+    <!-- NEW LEGEND HTML -->
+    <div id="legend">
+        <div class="legend-item"><div class="legend-box correct-box"></div> Correct Spot</div>
+        <div class="legend-item"><div class="legend-box present-box"></div> Wrong Spot</div>
+    </div>
+    <!-- ---------------- -->
+
     <div id="board"></div>
 
-    <!-- NEW ON-SCREEN KEYBOARD -->
     <div id="keyboard">
         <div class="key-row">
             <button class="key" data-key="Q">Q</button>
@@ -386,7 +426,6 @@
             }
         }
 
-        // NEW: Function to reset the on-screen keyboard colors
         function resetKeyboardColors() {
             let keys = document.querySelectorAll(".key");
             keys.forEach(key => {
@@ -395,25 +434,22 @@
         }
 
         function startRound() {
-            // Updated to pick from our targetWords file!
             targetWord = targetWords[Math.floor(Math.random() * targetWords.length)];
             currentGuess = "";
             currentRow = 0;
             isAnimating = false;
             createBoard();
-            resetKeyboardColors(); // Wipe the keyboard clean for the next word
+            resetKeyboardColors(); 
         }
 
-        // NEW: Handle Virtual Keyboard Clicks
         const keys = document.querySelectorAll(".key");
         keys.forEach(key => {
             key.addEventListener("click", () => {
                 handleInput(key.getAttribute("data-key"));
-                key.blur(); // Remove focus so pressing Enter on physical keyboard doesn't re-click it
+                key.blur(); 
             });
         });
 
-        // REFACTORED: Moved the input logic into a single function so both physical and virtual keyboards can use it
         function handleInput(key) {
             if (isAnimating || modalOverlay.style.display === "flex") return; 
 
@@ -480,10 +516,8 @@
                         tile.classList.add(tileColors[i]); 
                         tile.style.transform = "rotateX(0deg)"; 
                         
-                        // NEW: Update the Keyboard Colors alongside the tiles
                         let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
                         if (keyBtn) {
-                            // "Upgrade" logic for colors
                             if (tileColors[i] === "correct") {
                                 keyBtn.classList.remove("present", "absent");
                                 keyBtn.classList.add("correct");
