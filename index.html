@@ -12,7 +12,7 @@
             flex-direction: column; 
             align-items: center; 
             margin: 0;
-            padding-top: 30px; 
+            padding-top: 20px; 
             min-height: 100vh; 
         }
 
@@ -65,9 +65,9 @@
         .score-text { color: #4caf50; }
         .lives-text { color: #ff3333; }
         
-        #message { height: 24px; margin-bottom: 15px; color: #ff9800; font-weight: bold; font-size: 20px;}
+        #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 20px;}
         
-        #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; }
+        #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; margin-bottom: 20px;}
         .row { display: grid; grid-template-columns: repeat(5, 60px); grid-gap: 5px; }
         
         .tile { 
@@ -81,25 +81,64 @@
             transition: transform 0.25s linear; 
         }
         
-        /* --- NEW ARCADE COLORS --- */
         .correct { 
-            background-color: #00ffff; /* Neon Cyan */
+            background-color: #00ffff; 
             border-color: #00ffff; 
-            color: #000; /* Black text for readability */
-            box-shadow: 0 0 12px #00ffff; /* Glowing effect */
+            color: #000; 
+            box-shadow: 0 0 12px #00ffff; 
         } 
         .present { 
-            background-color: #ff00ff; /* Neon Pink */
+            background-color: #ff00ff; 
             border-color: #ff00ff; 
-            color: #fff; /* White text */
-            box-shadow: 0 0 12px #ff00ff; /* Glowing effect */
+            color: #fff; 
+            box-shadow: 0 0 12px #ff00ff; 
         } 
         .absent { 
-            background-color: #1a1a1d; /* Very dark grey */
-            border-color: #222; /* Dim border */
-            color: #444; /* Dimmed text to push it to the background */
+            background-color: #1a1a1d; 
+            border-color: #222; 
+            color: #444; 
         }  
-        /* ------------------------- */
+
+        /* --- NEW KEYBOARD STYLES --- */
+        #keyboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+        }
+        .key-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+        }
+        .key {
+            background-color: #333;
+            color: white;
+            border: 2px solid #555;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 15px 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            flex: 1; /* Makes keys stretch evenly */
+            max-width: 45px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .key:active { transform: scale(0.95); } /* Nice physical button press effect */
+        
+        .key.wide {
+            max-width: 65px;
+            font-size: 14px; /* Slightly smaller text to fit ENTER */
+        }
+        /* --------------------------- */
 
         #ad-banner {
             margin-top: auto; 
@@ -207,6 +246,44 @@
     <div id="message"></div>
     <div id="board"></div>
 
+    <!-- NEW ON-SCREEN KEYBOARD -->
+    <div id="keyboard">
+        <div class="key-row">
+            <button class="key" data-key="Q">Q</button>
+            <button class="key" data-key="W">W</button>
+            <button class="key" data-key="E">E</button>
+            <button class="key" data-key="R">R</button>
+            <button class="key" data-key="T">T</button>
+            <button class="key" data-key="Y">Y</button>
+            <button class="key" data-key="U">U</button>
+            <button class="key" data-key="I">I</button>
+            <button class="key" data-key="O">O</button>
+            <button class="key" data-key="P">P</button>
+        </div>
+        <div class="key-row">
+            <button class="key" data-key="A">A</button>
+            <button class="key" data-key="S">S</button>
+            <button class="key" data-key="D">D</button>
+            <button class="key" data-key="F">F</button>
+            <button class="key" data-key="G">G</button>
+            <button class="key" data-key="H">H</button>
+            <button class="key" data-key="J">J</button>
+            <button class="key" data-key="K">K</button>
+            <button class="key" data-key="L">L</button>
+        </div>
+        <div class="key-row">
+            <button class="key wide" data-key="ENTER">ENTER</button>
+            <button class="key" data-key="Z">Z</button>
+            <button class="key" data-key="X">X</button>
+            <button class="key" data-key="C">C</button>
+            <button class="key" data-key="V">V</button>
+            <button class="key" data-key="B">B</button>
+            <button class="key" data-key="N">N</button>
+            <button class="key" data-key="M">M</button>
+            <button class="key wide" data-key="BACKSPACE">⌫</button>
+        </div>
+    </div>
+
     <div id="ad-banner">
         Advertisement Space (320x50)
     </div>
@@ -225,7 +302,6 @@
         </div>
     </div>
 
-    <!-- Your external dictionary file -->
     <script src="words.js"></script>
 
     <script>
@@ -310,18 +386,36 @@
             }
         }
 
+        // NEW: Function to reset the on-screen keyboard colors
+        function resetKeyboardColors() {
+            let keys = document.querySelectorAll(".key");
+            keys.forEach(key => {
+                key.classList.remove("correct", "present", "absent");
+            });
+        }
+
         function startRound() {
+            // Updated to pick from our targetWords file!
             targetWord = targetWords[Math.floor(Math.random() * targetWords.length)];
             currentGuess = "";
             currentRow = 0;
             isAnimating = false;
             createBoard();
+            resetKeyboardColors(); // Wipe the keyboard clean for the next word
         }
 
-        document.addEventListener("keyup", (e) => {
-            if (isAnimating || modalOverlay.style.display === "flex") return; 
+        // NEW: Handle Virtual Keyboard Clicks
+        const keys = document.querySelectorAll(".key");
+        keys.forEach(key => {
+            key.addEventListener("click", () => {
+                handleInput(key.getAttribute("data-key"));
+                key.blur(); // Remove focus so pressing Enter on physical keyboard doesn't re-click it
+            });
+        });
 
-            let key = e.key.toUpperCase();
+        // REFACTORED: Moved the input logic into a single function so both physical and virtual keyboards can use it
+        function handleInput(key) {
+            if (isAnimating || modalOverlay.style.display === "flex") return; 
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (!allValidWords.includes(currentGuess)) {
@@ -329,12 +423,16 @@
                     return; 
                 }
                 checkGuess();
-            } else if (key === "BACKSPACE") {
+            } else if (key === "BACKSPACE" || key === "⌫") {
                 currentGuess = currentGuess.slice(0, -1);
-            } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5) {
+            } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) {
                 currentGuess += key;
             }
             updateBoard();
+        }
+
+        document.addEventListener("keyup", (e) => {
+            handleInput(e.key.toUpperCase());
         });
 
         function updateBoard() {
@@ -381,6 +479,21 @@
                     setTimeout(() => {
                         tile.classList.add(tileColors[i]); 
                         tile.style.transform = "rotateX(0deg)"; 
+                        
+                        // NEW: Update the Keyboard Colors alongside the tiles
+                        let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
+                        if (keyBtn) {
+                            // "Upgrade" logic for colors
+                            if (tileColors[i] === "correct") {
+                                keyBtn.classList.remove("present", "absent");
+                                keyBtn.classList.add("correct");
+                            } else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) {
+                                keyBtn.classList.remove("absent");
+                                keyBtn.classList.add("present");
+                            } else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) {
+                                keyBtn.classList.add("absent");
+                            }
+                        }
                     }, 250); 
                 }, i * 300); 
             }
