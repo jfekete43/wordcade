@@ -12979,6 +12979,6 @@ zymic
 `;
 
 // 3. The magic code that automatically capitalizes and formats your lists!
-const targetWords = rawAnswers.toUpperCase().trim().split(/\s+/);
-const validGuesses = rawGuesses.toUpperCase().trim().split(/\s+/);
-const allValidWords = [...targetWords, ...validGuesses];
+window.targetWords = rawAnswers.toUpperCase().trim().split(/\s+/);
+window.validGuesses = rawGuesses.toUpperCase().trim().split(/\s+/);
+window.allValidWords = [...window.targetWords, ...window.validGuesses];
