@@ -81,9 +81,25 @@
             transition: transform 0.25s linear; 
         }
         
-        .correct { background-color: #538d4e; border-color: #538d4e; } 
-        .present { background-color: #b59f3b; border-color: #b59f3b; } 
-        .absent { background-color: #3a3a3c; border-color: #3a3a3c; }  
+        /* --- NEW ARCADE COLORS --- */
+        .correct { 
+            background-color: #00ffff; /* Neon Cyan */
+            border-color: #00ffff; 
+            color: #000; /* Black text for readability */
+            box-shadow: 0 0 12px #00ffff; /* Glowing effect */
+        } 
+        .present { 
+            background-color: #ff00ff; /* Neon Pink */
+            border-color: #ff00ff; 
+            color: #fff; /* White text */
+            box-shadow: 0 0 12px #ff00ff; /* Glowing effect */
+        } 
+        .absent { 
+            background-color: #1a1a1d; /* Very dark grey */
+            border-color: #222; /* Dim border */
+            color: #444; /* Dimmed text to push it to the background */
+        }  
+        /* ------------------------- */
 
         #ad-banner {
             margin-top: auto; 
@@ -99,7 +115,6 @@
             font-size: 14px;
         }
 
-        /* --- NEW MODAL STYLES --- */
         #modal-overlay {
             position: fixed;
             top: 0;
@@ -110,8 +125,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 100; /* Makes sure it sits on top of everything */
-            display: none; /* Hidden by default */
+            z-index: 100; 
+            display: none; 
         }
         
         .modal-box {
@@ -196,7 +211,6 @@
         Advertisement Space (320x50)
     </div>
 
-    <!-- NEW POP-UP MODAL HTML -->
     <div id="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
@@ -211,19 +225,17 @@
         </div>
     </div>
 
-    <!-- Add this right above your existing <script> tag to load your new file -->
+    <!-- Your external dictionary file -->
     <script src="words.js"></script>
 
     <script>
-        // We removed the old wordList array because the game now gets it from words.js!
-        
         let targetWord = "";
         let currentGuess = "";
         let currentRow = 0;
         
         let score = 0;
         let continues = 1; 
-        let wordsGuessed = 0; // NEW: Tracks words survived in the current run
+        let wordsGuessed = 0; 
         let isAnimating = false; 
         
         const scorePoints = [500, 250, 150, 50, 10]; 
@@ -239,7 +251,6 @@
             continuesDisplay.innerText = continues;
         }
 
-        // --- NEW MODAL LOGIC ---
         function triggerCashOut() {
             document.activeElement.blur(); 
             if (isAnimating) return; 
@@ -248,20 +259,17 @@
                 return;
             }
             
-            // Populate and show the modal
             document.getElementById("modal-title-text").innerText = "Cashed Out!";
-            document.getElementById("modal-title-text").style.color = "#00ffff"; // Cyan for success
+            document.getElementById("modal-title-text").style.color = "#00ffff"; 
             document.getElementById("modal-score").innerText = score;
             document.getElementById("modal-words").innerText = wordsGuessed;
             
-            // Show the modal overlay
             modalOverlay.style.display = "flex"; 
         }
 
         function triggerGameOver() {
-            // Repurpose the modal for game over!
             document.getElementById("modal-title-text").innerText = "Game Over!";
-            document.getElementById("modal-title-text").style.color = "#ff3333"; // Red for fail
+            document.getElementById("modal-title-text").style.color = "#ff3333"; 
             document.getElementById("modal-score").innerText = score;
             document.getElementById("modal-words").innerText = wordsGuessed;
             
@@ -269,10 +277,8 @@
         }
 
         function shareStats() {
-            // Build the share text
             let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
             
-            // Copy to clipboard
             navigator.clipboard.writeText(shareText).then(() => {
                 let shareBtn = document.getElementById("btn-share");
                 shareBtn.innerText = "COPIED!";
@@ -281,14 +287,13 @@
         }
 
         function startNewRun() {
-            modalOverlay.style.display = "none"; // Hide modal
+            modalOverlay.style.display = "none"; 
             score = 0;
             continues = 1; 
-            wordsGuessed = 0; // Reset streak
+            wordsGuessed = 0; 
             updateScoreBoard();
             startRound();
         }
-        // -----------------------
 
         function createBoard() {
             boardDisplay.innerHTML = ""; 
@@ -306,7 +311,6 @@
         }
 
         function startRound() {
-            // Updated to pick from targetWords instead of wordList
             targetWord = targetWords[Math.floor(Math.random() * targetWords.length)];
             currentGuess = "";
             currentRow = 0;
@@ -320,10 +324,8 @@
             let key = e.key.toUpperCase();
 
             if (key === "ENTER" && currentGuess.length === 5) {
-                // NEW: Check if the word is in our dictionary!
                 if (!allValidWords.includes(currentGuess)) {
                     showMessage("Not in word list");
-                    // We shake the row to show it's invalid (optional, but fun!)
                     return; 
                 }
                 checkGuess();
@@ -387,7 +389,7 @@
                 if (correctCount === 5) {
                     let earned = scorePoints[currentRow];
                     score += earned;
-                    wordsGuessed++; // NEW: Increment streak
+                    wordsGuessed++; 
                     showMessage(`+${earned} POINTS!`);
                     updateScoreBoard();
                     setTimeout(startRound, 1500); 
@@ -396,7 +398,7 @@
                     
                     if (continues < 0) {
                         showMessage(`WORD WAS ${targetWord}.`);
-                        setTimeout(triggerGameOver, 1500); // Shows the red "Game Over" modal
+                        setTimeout(triggerGameOver, 1500); 
                     } else {
                         showMessage(`WORD WAS ${targetWord}.`);
                         updateScoreBoard();
