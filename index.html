@@ -147,9 +147,25 @@
         .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
         .btn-dark:hover { background-color: #555; }
         
-        /* Google Login Button Style */
         .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px;}
         .btn-google:hover { background-color: #f1f1f1; }
+
+        /* Username Input Styling */
+        #username-input {
+            padding: 10px;
+            font-size: 18px;
+            width: 80%;
+            text-align: center;
+            border-radius: 5px;
+            border: 2px solid #ff00ff;
+            background: #222;
+            color: #fff;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        #username-input:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
     </style>
 </head>
 <body>
@@ -157,7 +173,7 @@
     <h1 class="arcade-title">WordCade</h1>
     
     <nav class="arcade-menu">
-        <button onclick="window.showLogin()">Login</button>
+        <button onclick="window.showLogin()">Profile</button>
         <button onclick="window.showStats()">Stats</button>
         <button onclick="alert('Leaderboard coming soon!')">Leaderboard</button>
         <button class="cash-out-btn" onclick="window.triggerCashOut()">Cash Out</button>
@@ -191,7 +207,7 @@
 
     <div id="ad-banner">Advertisement Space (320x50)</div>
 
-    <!-- Cash Out / Game Over Modal -->
+    <!-- Cash Out Modal -->
     <div id="modal-overlay" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
@@ -207,15 +223,23 @@
         </div>
     </div>
 
-    <!-- Login Modal -->
+    <!-- Profile & Login Modal -->
     <div id="login-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Player Profile</h2>
             <div class="modal-stats">
-                <div>Status: <br><span id="login-status-text" style="color: white; font-size: 18px;">Loading...</span></div>
+                <div>Status: <br><span id="login-status-text" style="color: white; font-size: 16px;">Loading...</span></div>
+                
+                <!-- NEW CUSTOM USERNAME SECTION -->
+                <div id="username-section" style="margin-top: 25px; display: none;">
+                    <div style="font-size: 14px; margin-bottom: 8px; color: #aaa; text-transform: uppercase;">Arcade Handle</div>
+                    <input type="text" id="username-input" maxlength="12" placeholder="ENTER NAME">
+                    <button class="btn-cyan" onclick="window.saveUsername()" style="padding: 8px 15px; font-size: 14px; margin-bottom: 10px;">Update Name</button>
+                </div>
             </div>
+            
             <div class="modal-buttons">
-                <button class="btn-google" onclick="window.signInWithGoogle()">
+                <button id="btn-google-login" class="btn-google" onclick="window.signInWithGoogle()" style="display: none;">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" height="20"> Sign in with Google
                 </button>
                 <button class="btn-dark" onclick="document.getElementById('login-modal').style.display='none'">Close</button>
@@ -238,16 +262,13 @@
         </div>
     </div>
 
-    <!-- Load our dictionary file -->
     <script src="words.js"></script>
 
-    <!-- OUR NEW FIREBASE ENGINE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
-        // Your Exact Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
             authDomain: "wordcade-387e8.firebaseapp.com",
@@ -258,7 +279,6 @@
             measurementId: "G-74FPWNG390"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -266,44 +286,65 @@
         let currentUser = null;
         let userProfileData = null;
 
-        // AUTHENTICATION LISTENER
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 let isGuest = user.isAnonymous;
-                let username = isGuest ? "Guest_" + user.uid.substring(0, 5) : user.displayName;
                 
-                document.getElementById("login-status-text").innerText = `Logged in as: ${username}`;
-
-                // Check if this player has a save file in Firestore
                 const userRef = doc(db, "users", user.uid);
                 const docSnap = await getDoc(userRef);
 
                 if (!docSnap.exists()) {
-                    // Create a new save file for new players!
+                    let defaultUsername = isGuest ? "GUEST_" + user.uid.substring(0, 4) : user.displayName.split(" ")[0].toUpperCase();
                     userProfileData = {
-                        username: username,
+                        username: defaultUsername,
                         isGuest: isGuest,
                         careerBank: 0,
                         totalWordsGuessed: 0
                     };
                     await setDoc(userRef, userProfileData);
                 } else {
-                    // Load existing stats
                     userProfileData = docSnap.data();
                 }
+
+                document.getElementById("login-status-text").innerText = isGuest ? "Playing as Guest" : "Logged in via Google";
+                document.getElementById("username-section").style.display = "block";
+                document.getElementById("username-input").value = userProfileData.username;
+
+                if (isGuest) {
+                    document.getElementById("btn-google-login").style.display = "flex";
+                } else {
+                    document.getElementById("btn-google-login").style.display = "none";
+                }
             } else {
-                // If nobody is logged in, instantly create a Ghost/Anonymous account
                 signInAnonymously(auth);
             }
         });
 
-        // GOOGLE LOGIN FUNCTION
+        // NEW: Save custom username logic
+        window.saveUsername = async function() {
+            let newName = document.getElementById("username-input").value.trim().toUpperCase();
+            if(newName.length < 3) {
+                alert("Arcade Handle must be at least 3 characters long!");
+                return;
+            }
+            if(currentUser) {
+                try {
+                    const userRef = doc(db, "users", currentUser.uid);
+                    await updateDoc(userRef, { username: newName });
+                    userProfileData.username = newName; 
+                    alert("Success! Your Arcade Handle is now: " + newName);
+                } catch (e) {
+                    alert("Error saving username!");
+                    console.error(e);
+                }
+            }
+        };
+
         window.signInWithGoogle = async function() {
             const provider = new GoogleAuthProvider();
             try {
                 await signInWithPopup(auth, provider);
-                alert("Successfully linked to Google!");
                 document.getElementById('login-modal').style.display = 'none';
             } catch (error) {
                 alert("Login Error: " + error.message);
@@ -331,7 +372,6 @@
             continuesDisplay.innerText = continues;
         }
 
-        // MODALS
         window.showLogin = function() {
             document.activeElement.blur();
             document.getElementById("login-modal").style.display = "flex";
@@ -349,19 +389,16 @@
             document.getElementById("stats-modal").style.display = "flex";
         }
 
-        // SAVE DATA TO FIREBASE
         async function saveRunToCloud() {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
             if (currentUser && score > 0) {
                 try {
-                    // 1. Update their Career Bank
                     const userRef = doc(db, "users", currentUser.uid);
                     await updateDoc(userRef, {
                         careerBank: increment(score),
                         totalWordsGuessed: increment(wordsGuessed)
                     });
 
-                    // 2. Save the Run for the Leaderboards
                     await addDoc(collection(db, "runs"), {
                         uid: currentUser.uid,
                         username: userProfileData.username,
@@ -393,7 +430,7 @@
             document.getElementById("modal-words").innerText = wordsGuessed;
             
             modalOverlay.style.display = "flex"; 
-            saveRunToCloud(); // NEW: Triggers the database save!
+            saveRunToCloud(); 
         }
 
         function triggerGameOver() {
@@ -403,7 +440,7 @@
             document.getElementById("modal-words").innerText = wordsGuessed;
             
             modalOverlay.style.display = "flex"; 
-            saveRunToCloud(); // NEW: Still saves whatever score they accumulated before dying
+            saveRunToCloud(); 
         }
 
         window.shareStats = function() {
@@ -417,7 +454,7 @@
 
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; 
-            document.getElementById("cloud-save-status").innerText = ""; // Reset status text
+            document.getElementById("cloud-save-status").innerText = ""; 
             document.getElementById("cloud-save-status").style.color = "#aaa";
             score = 0; continues = 1; wordsGuessed = 0; 
             updateScoreBoard(); startRound();
@@ -441,7 +478,11 @@
         }
 
         function startRound() {
-            targetWord = window.targetWords[Math.floor(Math.random() * window.targetWords.length)];
+            if(window.targetWords && window.targetWords.length > 0) {
+                targetWord = window.targetWords[Math.floor(Math.random() * window.targetWords.length)];
+            } else {
+                targetWord = "APPLE"; // Fallback just in case words.js hasn't loaded yet
+            }
             currentGuess = ""; currentRow = 0; isAnimating = false;
             createBoard(); resetKeyboardColors(); 
         }
@@ -458,7 +499,7 @@
             if (isAnimating || modalOverlay.style.display === "flex") return; 
 
             if (key === "ENTER" && currentGuess.length === 5) {
-                if (!window.allValidWords.includes(currentGuess)) {
+                if (window.allValidWords && !window.allValidWords.includes(currentGuess)) {
                     showMessage("Not in word list"); return; 
                 }
                 checkGuess();
@@ -552,8 +593,7 @@
             setTimeout(() => { messageDisplay.innerText = ""; }, 2000);
         }
 
-        // Delay starting the game slightly to ensure words.js has loaded
-        setTimeout(startRound, 200);
+        setTimeout(startRound, 300);
     </script>
 </body>
 </html>
