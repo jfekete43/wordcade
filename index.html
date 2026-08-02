@@ -133,13 +133,13 @@
         
         .modal-box {
             background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px;
-            padding: 30px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 250px;
+            padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 90vw;
         }
 
         .modal-title { color: #00ffff; font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
-        .modal-stats { font-size: 20px; margin-bottom: 30px; line-height: 1.6; }
+        .modal-stats { font-size: 20px; margin-bottom: 20px; line-height: 1.6; }
         .modal-stats span { color: #4caf50; font-weight: bold; font-size: 24px; }
-        .modal-buttons { display: flex; flex-direction: column; gap: 10px; }
+        .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         .modal-buttons button { padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; border: none; transition: all 0.2s; }
 
         .btn-cyan { background-color: #00ffff; color: #000; }
@@ -150,22 +150,41 @@
         .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px;}
         .btn-google:hover { background-color: #f1f1f1; }
 
-        /* Username Input Styling */
         #username-input {
-            padding: 10px;
-            font-size: 18px;
-            width: 80%;
-            text-align: center;
-            border-radius: 5px;
-            border: 2px solid #ff00ff;
-            background: #222;
-            color: #fff;
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
+            padding: 10px; font-size: 18px; width: 80%; text-align: center; border-radius: 5px;
+            border: 2px solid #ff00ff; background: #222; color: #fff; text-transform: uppercase;
+            font-weight: bold; margin-bottom: 10px; letter-spacing: 2px;
         }
         #username-input:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
+
+        /* --- NEW LEADERBOARD STYLES --- */
+        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        .tab-btn { 
+            background: #222; color: #aaa; border: 1px solid #555; padding: 8px 12px; 
+            border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase;
+        }
+        .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
+        
+        .sub-tabs { display: flex; justify-content: center; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
+        .sub-tab-btn {
+            background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px;
+            border-radius: 3px; cursor: pointer; font-size: 12px; text-transform: uppercase;
+        }
+        .sub-tab-btn.active { background: #00ffff; color: black; }
+
+        #leaderboard-list {
+            background: #111; border: 1px solid #333; border-radius: 5px; 
+            padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;
+        }
+        .lb-entry { 
+            display: flex; justify-content: space-between; padding: 8px 0; 
+            border-bottom: 1px dashed #333; font-size: 16px; 
+        }
+        .lb-entry:last-child { border-bottom: none; }
+        .lb-rank { font-weight: bold; color: #ff9800; width: 30px; }
+        .lb-name { flex-grow: 1; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+        .lb-score { font-weight: bold; color: #4caf50; }
+        .lb-loading { text-align: center; color: #aaa; font-style: italic; padding: 20px 0; }
     </style>
 </head>
 <body>
@@ -175,7 +194,7 @@
     <nav class="arcade-menu">
         <button onclick="window.showLogin()">Profile</button>
         <button onclick="window.showStats()">Stats</button>
-        <button onclick="alert('Leaderboard coming soon!')">Leaderboard</button>
+        <button onclick="window.showLeaderboard()">Leaderboard</button>
         <button class="cash-out-btn" onclick="window.triggerCashOut()">Cash Out</button>
     </nav>
 
@@ -207,7 +226,7 @@
 
     <div id="ad-banner">Advertisement Space (320x50)</div>
 
-    <!-- Cash Out Modal -->
+    <!-- Modals -->
     <div id="modal-overlay" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
@@ -223,21 +242,17 @@
         </div>
     </div>
 
-    <!-- Profile & Login Modal -->
     <div id="login-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Player Profile</h2>
             <div class="modal-stats">
                 <div>Status: <br><span id="login-status-text" style="color: white; font-size: 16px;">Loading...</span></div>
-                
-                <!-- NEW CUSTOM USERNAME SECTION -->
                 <div id="username-section" style="margin-top: 25px; display: none;">
                     <div style="font-size: 14px; margin-bottom: 8px; color: #aaa; text-transform: uppercase;">Arcade Handle</div>
                     <input type="text" id="username-input" maxlength="12" placeholder="ENTER NAME">
                     <button class="btn-cyan" onclick="window.saveUsername()" style="padding: 8px 15px; font-size: 14px; margin-bottom: 10px;">Update Name</button>
                 </div>
             </div>
-            
             <div class="modal-buttons">
                 <button id="btn-google-login" class="btn-google" onclick="window.signInWithGoogle()" style="display: none;">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" height="20"> Sign in with Google
@@ -247,7 +262,6 @@
         </div>
     </div>
 
-    <!-- Stats Modal -->
     <div id="stats-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Career Stats</h2>
@@ -262,12 +276,40 @@
         </div>
     </div>
 
+    <!-- NEW LEADERBOARD MODAL -->
+    <div id="leaderboard-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 class="modal-title">Hall of Fame</h2>
+            
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-single" onclick="window.setLbType('single')">Single Run</button>
+                <button class="tab-btn" id="tab-career" onclick="window.setLbType('career')">Career Bank</button>
+            </div>
+
+            <div class="sub-tabs">
+                <button class="sub-tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
+                <button class="sub-tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
+                <button class="sub-tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
+                <button class="sub-tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
+            </div>
+
+            <div id="leaderboard-list">
+                <div class="lb-loading">Loading scores...</div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="words.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+        // NEW: Imported query, orderBy, limit, where, getDocs for the leaderboards
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
@@ -310,34 +352,22 @@
                 document.getElementById("login-status-text").innerText = isGuest ? "Playing as Guest" : "Logged in via Google";
                 document.getElementById("username-section").style.display = "block";
                 document.getElementById("username-input").value = userProfileData.username;
-
-                if (isGuest) {
-                    document.getElementById("btn-google-login").style.display = "flex";
-                } else {
-                    document.getElementById("btn-google-login").style.display = "none";
-                }
+                document.getElementById("btn-google-login").style.display = isGuest ? "flex" : "none";
             } else {
                 signInAnonymously(auth);
             }
         });
 
-        // NEW: Save custom username logic
         window.saveUsername = async function() {
             let newName = document.getElementById("username-input").value.trim().toUpperCase();
-            if(newName.length < 3) {
-                alert("Arcade Handle must be at least 3 characters long!");
-                return;
-            }
+            if(newName.length < 3) { alert("Arcade Handle must be at least 3 characters long!"); return; }
             if(currentUser) {
                 try {
                     const userRef = doc(db, "users", currentUser.uid);
                     await updateDoc(userRef, { username: newName });
                     userProfileData.username = newName; 
                     alert("Success! Your Arcade Handle is now: " + newName);
-                } catch (e) {
-                    alert("Error saving username!");
-                    console.error(e);
-                }
+                } catch (e) { alert("Error saving username!"); console.error(e); }
             }
         };
 
@@ -346,10 +376,106 @@
             try {
                 await signInWithPopup(auth, provider);
                 document.getElementById('login-modal').style.display = 'none';
+            } catch (error) { alert("Login Error: " + error.message); }
+        }
+
+        // --- NEW LEADERBOARD LOGIC ---
+        let currentLbType = 'single'; // 'single' or 'career'
+        let currentLbTime = 'all'; // 'all', 'daily', 'weekly', 'monthly'
+
+        window.showLeaderboard = function() {
+            document.activeElement.blur();
+            document.getElementById("leaderboard-modal").style.display = "flex";
+            window.loadLeaderboardData();
+        }
+
+        window.setLbType = function(type) {
+            currentLbType = type;
+            document.getElementById("tab-single").classList.toggle("active", type === 'single');
+            document.getElementById("tab-career").classList.toggle("active", type === 'career');
+            window.loadLeaderboardData();
+        }
+
+        window.setLbTime = function(time) {
+            currentLbTime = time;
+            document.querySelectorAll(".sub-tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById("tab-" + time).classList.add("active");
+            window.loadLeaderboardData();
+        }
+
+        window.loadLeaderboardData = async function() {
+            const listDiv = document.getElementById("leaderboard-list");
+            listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
+            
+            let html = "";
+            let dataArr = [];
+
+            try {
+                if (currentLbTime === 'all') {
+                    // ALL TIME QUERIES
+                    if (currentLbType === 'single') {
+                        const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(10));
+                        const snapshot = await getDocs(q);
+                        snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
+                    } else {
+                        const q = query(collection(db, "users"), orderBy("careerBank", "desc"), limit(10));
+                        const snapshot = await getDocs(q);
+                        snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().careerBank }); });
+                    }
+                } else {
+                    // TIME FILTERED QUERIES (Handled client-side to prevent complex Firestore Index errors)
+                    const now = new Date();
+                    let start = new Date();
+                    if (currentLbTime === 'daily') { start.setHours(0,0,0,0); }
+                    else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); }
+                    else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
+
+                    // Fetch all runs since the start time
+                    const q = query(collection(db, "runs"), where("timestamp", ">=", start));
+                    const snapshot = await getDocs(q);
+                    
+                    if (currentLbType === 'single') {
+                        snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
+                        // Sort and slice top 10
+                        dataArr.sort((a, b) => b.score - a.score);
+                        dataArr = dataArr.slice(0, 10);
+                    } else {
+                        // For Career Bank time-filters, we sum up the runs per user during this timeframe
+                        let userTotals = {};
+                        snapshot.forEach(doc => {
+                            let name = doc.data().username;
+                            userTotals[name] = (userTotals[name] || 0) + doc.data().score;
+                        });
+                        for (let name in userTotals) {
+                            dataArr.push({ name: name, score: userTotals[name] });
+                        }
+                        dataArr.sort((a, b) => b.score - a.score);
+                        dataArr = dataArr.slice(0, 10);
+                    }
+                }
+
+                if (dataArr.length === 0) {
+                    listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>';
+                    return;
+                }
+
+                dataArr.forEach((entry, index) => {
+                    html += `
+                        <div class="lb-entry">
+                            <div class="lb-rank">#${index + 1}</div>
+                            <div class="lb-name">${entry.name}</div>
+                            <div class="lb-score">${entry.score.toLocaleString()}</div>
+                        </div>
+                    `;
+                });
+                listDiv.innerHTML = html;
+
             } catch (error) {
-                alert("Login Error: " + error.message);
+                console.error("Leaderboard Error:", error);
+                listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>';
             }
         }
+        // ------------------------------
 
         // --- GAME LOGIC ---
         let targetWord = "";
@@ -382,7 +508,7 @@
             if(currentUser) {
                 const docSnap = await getDoc(doc(db, "users", currentUser.uid));
                 if(docSnap.exists()) {
-                    document.getElementById("stat-career-bank").innerText = docSnap.data().careerBank;
+                    document.getElementById("stat-career-bank").innerText = docSnap.data().careerBank.toLocaleString();
                     document.getElementById("stat-total-words").innerText = docSnap.data().totalWordsGuessed || 0;
                 }
             }
@@ -426,7 +552,7 @@
             
             document.getElementById("modal-title-text").innerText = "Cashed Out!";
             document.getElementById("modal-title-text").style.color = "#00ffff"; 
-            document.getElementById("modal-score").innerText = score;
+            document.getElementById("modal-score").innerText = score.toLocaleString();
             document.getElementById("modal-words").innerText = wordsGuessed;
             
             modalOverlay.style.display = "flex"; 
@@ -436,7 +562,7 @@
         function triggerGameOver() {
             document.getElementById("modal-title-text").innerText = "Game Over!";
             document.getElementById("modal-title-text").style.color = "#ff3333"; 
-            document.getElementById("modal-score").innerText = score;
+            document.getElementById("modal-score").innerText = score.toLocaleString();
             document.getElementById("modal-words").innerText = wordsGuessed;
             
             modalOverlay.style.display = "flex"; 
@@ -444,7 +570,7 @@
         }
 
         window.shareStats = function() {
-            let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+            let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
             navigator.clipboard.writeText(shareText).then(() => {
                 let shareBtn = document.getElementById("btn-share");
                 shareBtn.innerText = "COPIED!";
@@ -481,7 +607,7 @@
             if(window.targetWords && window.targetWords.length > 0) {
                 targetWord = window.targetWords[Math.floor(Math.random() * window.targetWords.length)];
             } else {
-                targetWord = "APPLE"; // Fallback just in case words.js hasn't loaded yet
+                targetWord = "APPLE"; 
             }
             currentGuess = ""; currentRow = 0; isAnimating = false;
             createBoard(); resetKeyboardColors(); 
@@ -497,6 +623,8 @@
 
         window.handleInput = function(key) {
             if (isAnimating || modalOverlay.style.display === "flex") return; 
+            let anyModalOpen = document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0;
+            if(anyModalOpen) return;
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) {
