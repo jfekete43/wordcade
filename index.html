@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>WordCade</title>
     <style>
+        /* NEW: This magic line prevents double-tap zooming and removes the 300ms tap delay! */
+        * { touch-action: manipulation; }
+
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #121213; 
@@ -14,6 +17,7 @@
             margin: 0;
             padding-top: 20px; 
             min-height: 100vh; 
+            overflow-x: hidden;
         }
 
         .arcade-title {
@@ -26,41 +30,19 @@
             text-transform: uppercase;
         }
 
-        .arcade-menu {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
+        .arcade-menu { display: flex; gap: 15px; margin-bottom: 20px; }
         .arcade-menu button {
-            background-color: #222;
-            color: #00ffff;
-            border: 2px solid #00ffff;
-            padding: 8px 15px;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 5px;
-            text-transform: uppercase;
-            transition: all 0.2s;
+            background-color: #222; color: #00ffff; border: 2px solid #00ffff;
+            padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 5px;
+            text-transform: uppercase; transition: all 0.2s;
         }
-        .arcade-menu button:hover {
-            background-color: #00ffff;
-            color: #000;
-        }
-        .arcade-menu .cash-out-btn {
-            color: #4caf50;
-            border-color: #4caf50;
-        }
-        .arcade-menu .cash-out-btn:hover {
-            background-color: #4caf50;
-            color: #000;
-        }
+        .arcade-menu button:hover { background-color: #00ffff; color: #000; }
+        .arcade-menu .cash-out-btn { color: #4caf50; border-color: #4caf50; }
+        .arcade-menu .cash-out-btn:hover { background-color: #4caf50; color: #000; }
 
         #score-board { 
-            font-size: 20px; 
-            margin: 0 0 10px 0; 
-            font-weight: bold; 
-            display: flex;
-            gap: 30px;
+            font-size: 20px; margin: 0 0 10px 0; font-weight: bold; 
+            display: flex; gap: 30px;
         }
         .score-text { color: #4caf50; }
         .lives-text { color: #ff3333; }
@@ -68,31 +50,44 @@
         #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 20px;}
         
         #legend {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 15px;
-            font-size: 14px;
-            color: #ccc;
-            text-transform: uppercase;
-            font-weight: bold;
+            display: flex; gap: 20px; margin-bottom: 15px; font-size: 14px;
+            color: #ccc; text-transform: uppercase; font-weight: bold;
         }
         .legend-item { display: flex; align-items: center; gap: 8px; }
         .legend-box { width: 14px; height: 14px; border-radius: 3px; }
         .correct-box { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
         .present-box { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
-        #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; margin-bottom: 20px;}
+        /* NEW: Board Container Styling */
+        #board-container {
+            position: relative;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        /* NEW: Invisible input field to trigger mobile keyboards */
+        #native-input {
+            position: absolute;
+            opacity: 0;
+            left: -9999px;
+        }
+
+        /* NEW: Tap prompt for mobile users */
+        #tap-prompt {
+            text-align: center; color: #888; font-size: 12px; text-transform: uppercase;
+            letter-spacing: 2px; margin-top: 10px; animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; } 50% { opacity: 1; color: #00ffff;} 100% { opacity: 0.5; }
+        }
+
+        #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; }
         .row { display: grid; grid-template-columns: repeat(5, 60px); grid-gap: 5px; }
         
         .tile { 
-            border: 2px solid #3a3a3c; 
-            font-size: 32px; 
-            font-weight: bold; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            text-transform: uppercase; 
-            transition: transform 0.25s linear; 
+            border: 2px solid #3a3a3c; font-size: 32px; font-weight: bold; 
+            display: flex; justify-content: center; align-items: center; 
+            text-transform: uppercase; transition: transform 0.25s linear; 
         }
         
         .correct { background-color: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 12px #00ffff; } 
@@ -100,13 +95,9 @@
         .absent { background-color: #1a1a1d; border-color: #222; color: #444; }  
 
         #keyboard {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            width: 100%;
-            max-width: 500px;
-            margin-bottom: 20px;
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            width: 100%; max-width: 500px; margin-bottom: 20px;
+            user-select: none; /* Prevents text highlighting when tapping fast */
         }
         .key-row { display: flex; justify-content: center; gap: 6px; width: 100%; }
         .key {
@@ -146,7 +137,6 @@
         .btn-cyan:hover { background-color: #00cccc; }
         .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
         .btn-dark:hover { background-color: #555; }
-        
         .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px;}
         .btn-google:hover { background-color: #f1f1f1; }
 
@@ -173,7 +163,6 @@
         .lb-score { font-weight: bold; color: #4caf50; }
         .lb-loading { text-align: center; color: #aaa; font-style: italic; padding: 20px 0; }
 
-        /* --- NEW STATS BAR STYLES --- */
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: #333; height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
@@ -203,8 +192,14 @@
         <div class="legend-item"><div class="legend-box present-box"></div> Wrong Spot</div>
     </div>
 
-    <div id="board"></div>
+    <!-- NEW: The Board is now clickable to summon the native mobile keyboard -->
+    <div id="board-container" onclick="document.getElementById('native-input').focus()">
+        <input type="text" id="native-input" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" maxlength="5">
+        <div id="board"></div>
+        <div id="tap-prompt">Tap grid to use phone keyboard</div>
+    </div>
 
+    <!-- The Visual On-Screen Keyboard -->
     <div id="keyboard">
         <div class="key-row">
             <button class="key" data-key="Q">Q</button><button class="key" data-key="W">W</button><button class="key" data-key="E">E</button><button class="key" data-key="R">R</button><button class="key" data-key="T">T</button><button class="key" data-key="Y">Y</button><button class="key" data-key="U">U</button><button class="key" data-key="I">I</button><button class="key" data-key="O">O</button><button class="key" data-key="P">P</button>
@@ -255,7 +250,6 @@
         </div>
     </div>
 
-    <!-- UPDATED DETAILED STATS MODAL -->
     <div id="stats-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 320px;">
             <h2 class="modal-title">Career Stats</h2>
@@ -263,17 +257,12 @@
                 <div style="text-align: center; margin-bottom: 20px;">
                     Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts
                 </div>
-                
                 <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 10px;">
                     <div style="text-align: center;">Words Played<br><span id="stat-played" style="color:white; font-size: 20px;">0</span></div>
                     <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:white; font-size: 20px;">0%</span></div>
                 </div>
-                
                 <div style="font-size: 14px; margin-bottom: 10px; color: #00ffff; text-transform: uppercase; text-align: center;">Guess Distribution</div>
-                
-                <div id="stat-distribution">
-                    <!-- HTML Bars will be injected here by Javascript -->
-                </div>
+                <div id="stat-distribution"></div>
             </div>
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="document.getElementById('stats-modal').style.display='none'">Close</button>
@@ -281,7 +270,6 @@
         </div>
     </div>
 
-    <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
@@ -295,9 +283,7 @@
                 <button class="sub-tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
                 <button class="sub-tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
             </div>
-            <div id="leaderboard-list">
-                <div class="lb-loading">Loading scores...</div>
-            </div>
+            <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button>
             </div>
@@ -332,32 +318,23 @@
             if (user) {
                 currentUser = user;
                 let isGuest = user.isAnonymous;
-                
                 const userRef = doc(db, "users", user.uid);
                 const docSnap = await getDoc(userRef);
 
                 if (!docSnap.exists()) {
                     let defaultUsername = isGuest ? "GUEST_" + user.uid.substring(0, 4) : user.displayName.split(" ")[0].toUpperCase();
                     userProfileData = {
-                        username: defaultUsername,
-                        isGuest: isGuest,
-                        careerBank: 0,
-                        totalWordsGuessed: 0,
-                        // NEW: Initialize stats for new users
+                        username: defaultUsername, isGuest: isGuest, careerBank: 0, totalWordsGuessed: 0,
                         wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0
                     };
                     await setDoc(userRef, userProfileData);
-                } else {
-                    userProfileData = docSnap.data();
-                }
+                } else { userProfileData = docSnap.data(); }
 
                 document.getElementById("login-status-text").innerText = isGuest ? "Playing as Guest" : "Logged in via Google";
                 document.getElementById("username-section").style.display = "block";
                 document.getElementById("username-input").value = userProfileData.username;
                 document.getElementById("btn-google-login").style.display = isGuest ? "flex" : "none";
-            } else {
-                signInAnonymously(auth);
-            }
+            } else { signInAnonymously(auth); }
         });
 
         window.saveUsername = async function() {
@@ -365,8 +342,7 @@
             if(newName.length < 3) { alert("Arcade Handle must be at least 3 characters long!"); return; }
             if(currentUser) {
                 try {
-                    const userRef = doc(db, "users", currentUser.uid);
-                    await updateDoc(userRef, { username: newName });
+                    await updateDoc(doc(db, "users", currentUser.uid), { username: newName });
                     userProfileData.username = newName; 
                     alert("Success! Your Arcade Handle is now: " + newName);
                 } catch (e) { alert("Error saving username!"); console.error(e); }
@@ -374,9 +350,8 @@
         };
 
         window.signInWithGoogle = async function() {
-            const provider = new GoogleAuthProvider();
             try {
-                await signInWithPopup(auth, provider);
+                await signInWithPopup(auth, new GoogleAuthProvider());
                 document.getElementById('login-modal').style.display = 'none';
             } catch (error) { alert("Login Error: " + error.message); }
         }
@@ -386,9 +361,7 @@
         let currentLbTime = 'all'; 
 
         window.showLeaderboard = function() {
-            document.activeElement.blur();
-            document.getElementById("leaderboard-modal").style.display = "flex";
-            window.loadLeaderboardData();
+            document.activeElement.blur(); document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData();
         }
 
         window.setLbType = function(type) {
@@ -408,132 +381,77 @@
         window.loadLeaderboardData = async function() {
             const listDiv = document.getElementById("leaderboard-list");
             listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
-            
-            let html = "";
-            let dataArr = [];
-
+            let html = ""; let dataArr = [];
             try {
                 if (currentLbTime === 'all') {
                     if (currentLbType === 'single') {
-                        const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(10));
-                        const snapshot = await getDocs(q);
+                        const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(10)));
                         snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
                     } else {
-                        const q = query(collection(db, "users"), orderBy("careerBank", "desc"), limit(10));
-                        const snapshot = await getDocs(q);
+                        const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(10)));
                         snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().careerBank }); });
                     }
                 } else {
-                    const now = new Date();
-                    let start = new Date();
+                    const now = new Date(); let start = new Date();
                     if (currentLbTime === 'daily') { start.setHours(0,0,0,0); }
                     else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); }
                     else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
 
-                    const q = query(collection(db, "runs"), where("timestamp", ">=", start));
-                    const snapshot = await getDocs(q);
-                    
+                    const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
                     if (currentLbType === 'single') {
                         snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
-                        dataArr.sort((a, b) => b.score - a.score);
-                        dataArr = dataArr.slice(0, 10);
+                        dataArr.sort((a, b) => b.score - a.score); dataArr = dataArr.slice(0, 10);
                     } else {
                         let userTotals = {};
-                        snapshot.forEach(doc => {
-                            let name = doc.data().username;
-                            userTotals[name] = (userTotals[name] || 0) + doc.data().score;
-                        });
+                        snapshot.forEach(doc => { let name = doc.data().username; userTotals[name] = (userTotals[name] || 0) + doc.data().score; });
                         for (let name in userTotals) { dataArr.push({ name: name, score: userTotals[name] }); }
-                        dataArr.sort((a, b) => b.score - a.score);
-                        dataArr = dataArr.slice(0, 10);
+                        dataArr.sort((a, b) => b.score - a.score); dataArr = dataArr.slice(0, 10);
                     }
                 }
 
                 if (dataArr.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
-
                 dataArr.forEach((entry, index) => {
                     html += `<div class="lb-entry"><div class="lb-rank">#${index + 1}</div><div class="lb-name">${entry.name}</div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
                 });
                 listDiv.innerHTML = html;
-
-            } catch (error) {
-                console.error("Leaderboard Error:", error);
-                listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>';
-            }
+            } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
         // --- GAME LOGIC ---
-        let targetWord = "";
-        let currentGuess = "";
-        let currentRow = 0;
-        let score = 0;
-        let continues = 1; 
-        let wordsGuessed = 0; 
-        let isAnimating = false; 
+        let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
-
-        // NEW: Local tracker for the current run's stats
         let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
 
-        const boardDisplay = document.getElementById("board");
-        const scoreDisplay = document.getElementById("score");
-        const continuesDisplay = document.getElementById("continues");
-        const messageDisplay = document.getElementById("message");
-        const modalOverlay = document.getElementById("modal-overlay");
+        const boardDisplay = document.getElementById("board"); const scoreDisplay = document.getElementById("score");
+        const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
+        const modalOverlay = document.getElementById("modal-overlay"); const nativeInput = document.getElementById("native-input");
 
         function updateScoreBoard() {
-            scoreDisplay.innerText = score;
-            continuesDisplay.innerText = continues;
+            scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
         }
 
         window.showLogin = function() {
-            document.activeElement.blur();
-            document.getElementById("login-modal").style.display = "flex";
+            document.activeElement.blur(); document.getElementById("login-modal").style.display = "flex";
         }
 
-        // UPDATED: Show Stats calculates and draws the UI Bar Chart
         window.showStats = async function() {
             document.activeElement.blur();
             if(currentUser) {
                 const docSnap = await getDoc(doc(db, "users", currentUser.uid));
                 if(docSnap.exists()) {
                     let data = docSnap.data();
-                    
                     document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
-                    
-                    let played = data.wordsPlayed || 0;
-                    let fails = data.fails || 0;
-                    let wins = played - fails;
+                    let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails;
                     let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
-                    
-                    document.getElementById("stat-played").innerText = played;
-                    document.getElementById("stat-win-rate").innerText = winRate + "%";
-
-                    // Build the Bar Chart
-                    let distHtml = "";
-                    const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails];
-                    const labels = ["1", "2", "3", "4", "5", "X"];
-                    
-                    // Find the largest stat to scale the bars properly
-                    let trueMax = Math.max(...counts, 1); 
-                    
+                    document.getElementById("stat-played").innerText = played; document.getElementById("stat-win-rate").innerText = winRate + "%";
+                    let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails];
+                    const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
                     for(let i = 0; i < 6; i++) {
                         let pct = Math.round((counts[i] / trueMax) * 100);
-                        let barColor = i === 5 ? "#ff3333" : "#00ffff"; // Red for fails, Cyan for wins
-                        
-                        // Formatting tweaks based on how full the bar is
-                        let textColor = pct > 10 ? "black" : "white";
-                        let justify = pct > 10 ? "flex-end" : "flex-start";
+                        let barColor = i === 5 ? "#ff3333" : "#00ffff"; 
+                        let textColor = pct > 10 ? "black" : "white"; let justify = pct > 10 ? "flex-end" : "flex-start";
                         let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
-                        
-                        distHtml += `
-                            <div class="stat-bar-container">
-                                <div class="stat-label">${labels[i]}</div>
-                                <div class="stat-bar-bg">
-                                    <div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div>
-                                </div>
-                            </div>
-                        `;
+                        distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
                     }
                     document.getElementById("stat-distribution").innerHTML = distHtml;
                 }
@@ -541,89 +459,49 @@
             document.getElementById("stats-modal").style.display = "flex";
         }
 
-        // UPDATED: Sends the local runStats to Firebase
         async function saveRunToCloud() {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
             if (currentUser && (score > 0 || runStats.played > 0)) {
                 try {
-                    const userRef = doc(db, "users", currentUser.uid);
-                    await updateDoc(userRef, {
-                        careerBank: increment(score),
-                        totalWordsGuessed: increment(wordsGuessed),
-                        wordsPlayed: increment(runStats.played),
-                        guess1: increment(runStats.guess1),
-                        guess2: increment(runStats.guess2),
-                        guess3: increment(runStats.guess3),
-                        guess4: increment(runStats.guess4),
-                        guess5: increment(runStats.guess5),
-                        fails: increment(runStats.fails)
+                    await updateDoc(doc(db, "users", currentUser.uid), {
+                        careerBank: increment(score), totalWordsGuessed: increment(wordsGuessed), wordsPlayed: increment(runStats.played),
+                        guess1: increment(runStats.guess1), guess2: increment(runStats.guess2), guess3: increment(runStats.guess3),
+                        guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails)
                     });
-
-                    // Only log to leaderboard if they scored points
                     if (score > 0) {
-                        await addDoc(collection(db, "runs"), {
-                            uid: currentUser.uid,
-                            username: userProfileData.username,
-                            score: score,
-                            wordsGuessed: wordsGuessed,
-                            timestamp: serverTimestamp()
-                        });
+                        await addDoc(collection(db, "runs"), { uid: currentUser.uid, username: userProfileData.username, score: score, wordsGuessed: wordsGuessed, timestamp: serverTimestamp() });
                     }
-
-                    document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!";
-                    document.getElementById("cloud-save-status").style.color = "#4caf50";
+                    document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
                 } catch (e) {
-                    document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed.";
-                    document.getElementById("cloud-save-status").style.color = "#ff3333";
-                    console.error(e);
+                    document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed."; document.getElementById("cloud-save-status").style.color = "#ff3333"; console.error(e);
                 }
-            } else {
-                document.getElementById("cloud-save-status").innerText = "No stats to save.";
-            }
+            } else { document.getElementById("cloud-save-status").innerText = "No stats to save."; }
         }
 
         window.triggerCashOut = function() {
-            document.activeElement.blur(); 
-            if (isAnimating) return; 
-            if (score <= 0) { showMessage("NO POINTS TO CASH OUT!"); return; }
-            
-            document.getElementById("modal-title-text").innerText = "Cashed Out!";
-            document.getElementById("modal-title-text").style.color = "#00ffff"; 
-            document.getElementById("modal-score").innerText = score.toLocaleString();
-            document.getElementById("modal-words").innerText = wordsGuessed;
-            
-            modalOverlay.style.display = "flex"; 
-            saveRunToCloud(); 
+            document.activeElement.blur(); if (isAnimating) return; if (score <= 0) { showMessage("NO POINTS TO CASH OUT!"); return; }
+            document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff"; 
+            document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
+            modalOverlay.style.display = "flex"; saveRunToCloud(); 
         }
 
         function triggerGameOver() {
-            document.getElementById("modal-title-text").innerText = "Game Over!";
-            document.getElementById("modal-title-text").style.color = "#ff3333"; 
-            document.getElementById("modal-score").innerText = score.toLocaleString();
-            document.getElementById("modal-words").innerText = wordsGuessed;
-            
-            modalOverlay.style.display = "flex"; 
-            saveRunToCloud(); 
+            document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "#ff3333"; 
+            document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
+            modalOverlay.style.display = "flex"; saveRunToCloud(); 
         }
 
         window.shareStats = function() {
             let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
             navigator.clipboard.writeText(shareText).then(() => {
-                let shareBtn = document.getElementById("btn-share");
-                shareBtn.innerText = "COPIED!";
+                let shareBtn = document.getElementById("btn-share"); shareBtn.innerText = "COPIED!";
                 setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000);
             });
         }
 
         window.startNewRun = function() {
-            modalOverlay.style.display = "none"; 
-            document.getElementById("cloud-save-status").innerText = ""; 
-            document.getElementById("cloud-save-status").style.color = "#aaa";
-            
-            // Reset game variables and local stats
-            score = 0; continues = 1; wordsGuessed = 0; 
-            runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
-            
+            modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
+            score = 0; continues = 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
             updateScoreBoard(); startRound();
         }
 
@@ -639,21 +517,36 @@
             }
         }
 
-        function resetKeyboardColors() {
-            let keys = document.querySelectorAll(".key");
-            keys.forEach(key => { key.classList.remove("correct", "present", "absent"); });
-        }
+        function resetKeyboardColors() { document.querySelectorAll(".key").forEach(key => { key.classList.remove("correct", "present", "absent"); }); }
 
         function startRound() {
-            if(window.targetWords && window.targetWords.length > 0) {
-                targetWord = window.targetWords[Math.floor(Math.random() * window.targetWords.length)];
-            } else {
-                targetWord = "APPLE"; 
-            }
-            currentGuess = ""; currentRow = 0; isAnimating = false;
+            targetWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "APPLE"; 
+            currentGuess = ""; currentRow = 0; isAnimating = false; nativeInput.value = ""; // Clear mobile input
             createBoard(); resetKeyboardColors(); 
         }
 
+        // --- NEW: NATIVE KEYBOARD EVENT LISTENERS ---
+        nativeInput.addEventListener("input", (e) => {
+            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) {
+                nativeInput.value = currentGuess; // Prevent typing if locked
+                return;
+            }
+            // Strip out numbers/symbols, force uppercase, limit to 5
+            let val = nativeInput.value.toUpperCase().replace(/[^A-Z]/g, '');
+            if (val.length > 5) val = val.substring(0, 5);
+            currentGuess = val;
+            nativeInput.value = currentGuess; // Sync the invisible box back
+            updateBoard();
+        });
+
+        // Listen for the Native Mobile Keyboard "Enter/Go/Return" button
+        nativeInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                window.handleInput("ENTER");
+            }
+        });
+
+        // Existing on-screen keyboard listeners (still work perfectly!)
         const keys = document.querySelectorAll(".key");
         keys.forEach(key => {
             key.addEventListener("click", () => {
@@ -663,9 +556,7 @@
         });
 
         window.handleInput = function(key) {
-            if (isAnimating || modalOverlay.style.display === "flex") return; 
-            let anyModalOpen = document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0;
-            if(anyModalOpen) return;
+            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) {
@@ -677,6 +568,7 @@
             } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) {
                 currentGuess += key;
             }
+            nativeInput.value = currentGuess; // Keep mobile input in sync with on-screen clicks
             updateBoard();
         }
 
@@ -691,74 +583,46 @@
 
         function checkGuess() {
             isAnimating = true; 
-            let guessArr = currentGuess.split("");
-            let targetArr = targetWord.split("");
-            let correctCount = 0;
-            let tileColors = ["absent", "absent", "absent", "absent", "absent"];
+            let guessArr = currentGuess.split(""); let targetArr = targetWord.split("");
+            let correctCount = 0; let tileColors = ["absent", "absent", "absent", "absent", "absent"];
 
-            for (let i = 0; i < 5; i++) {
-                if (guessArr[i] === targetArr[i]) {
-                    tileColors[i] = "correct"; targetArr[i] = null; correctCount++;
-                }
-            }
-
+            for (let i = 0; i < 5; i++) { if (guessArr[i] === targetArr[i]) { tileColors[i] = "correct"; targetArr[i] = null; correctCount++; } }
             for (let i = 0; i < 5; i++) {
                 if (tileColors[i] === "correct") continue; 
                 let targetIndex = targetArr.indexOf(guessArr[i]);
-                if (targetIndex !== -1) {
-                    tileColors[i] = "present"; targetArr[targetIndex] = null; 
-                }
+                if (targetIndex !== -1) { tileColors[i] = "present"; targetArr[targetIndex] = null; }
             }
 
             for (let i = 0; i < 5; i++) {
                 setTimeout(() => {
                     let tile = document.getElementById("tile-" + currentRow + "-" + i);
                     tile.style.transform = "rotateX(90deg)"; 
-                    
                     setTimeout(() => {
-                        tile.classList.add(tileColors[i]); 
-                        tile.style.transform = "rotateX(0deg)"; 
-                        
+                        tile.classList.add(tileColors[i]); tile.style.transform = "rotateX(0deg)"; 
                         let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
                         if (keyBtn) {
-                            if (tileColors[i] === "correct") {
-                                keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct");
-                            } else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) {
-                                keyBtn.classList.remove("absent"); keyBtn.classList.add("present");
-                            } else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) {
-                                keyBtn.classList.add("absent");
-                            }
+                            if (tileColors[i] === "correct") { keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct"); } 
+                            else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); } 
+                            else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
                         }
                     }, 250); 
                 }, i * 300); 
             }
 
             setTimeout(() => {
+                nativeInput.value = ""; // Clear mobile keyboard for next row
                 if (correctCount === 5) {
-                    // NEW: Record local win stats
-                    runStats.played++;
-                    runStats['guess' + (currentRow + 1)]++; 
-
-                    let earned = scorePoints[currentRow];
-                    score += earned; wordsGuessed++; 
+                    runStats.played++; runStats['guess' + (currentRow + 1)]++; 
+                    let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
                     showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
                 } else if (currentRow === 4) { 
-                    continues--;
-                    
-                    // NEW: Record local fail stats
-                    runStats.played++;
-                    runStats.fails++; 
-
+                    continues--; runStats.played++; runStats.fails++; 
                     if (continues < 0) {
-                        showMessage(`WORD WAS ${targetWord}.`);
-                        setTimeout(triggerGameOver, 1500); 
+                        showMessage(`WORD WAS ${targetWord}.`); setTimeout(triggerGameOver, 1500); 
                     } else {
                         showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
-                        setTimeout(() => {
-                            alert("⚠️ WARNING! ⚠️\n\nYou have 0 Continues left!\nIf you fail the next word, you will lose ALL your points.\n\nCash out now, or risk it all!");
-                            startRound();
-                        }, 1500); 
+                        setTimeout(() => { alert("⚠️ WARNING! ⚠️\n\nYou have 0 Continues left!\nIf you fail the next word, you will lose ALL your points.\n\nCash out now, or risk it all!"); startRound(); }, 1500); 
                     }
                 } else {
                     currentRow++; currentGuess = ""; isAnimating = false; 
@@ -766,10 +630,7 @@
             }, 1500); 
         }
 
-        function showMessage(msg) {
-            messageDisplay.innerText = msg;
-            setTimeout(() => { messageDisplay.innerText = ""; }, 2000);
-        }
+        function showMessage(msg) { messageDisplay.innerText = msg; setTimeout(() => { messageDisplay.innerText = ""; }, 2000); }
 
         setTimeout(startRound, 300);
     </script>
