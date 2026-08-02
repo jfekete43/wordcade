@@ -572,7 +572,11 @@
             updateBoard();
         }
 
-        document.addEventListener("keyup", (e) => { window.handleInput(e.key.toUpperCase()); });
+        document.addEventListener("keyup", (e) => { 
+    // Prevent double-typing! If the hidden mobile box is active, ignore the global key stroke.
+    if (document.activeElement === nativeInput) return;
+    window.handleInput(e.key.toUpperCase()); 
+});
 
         function updateBoard() {
             for (let i = 0; i < 5; i++) {
