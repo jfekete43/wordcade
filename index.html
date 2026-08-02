@@ -157,34 +157,27 @@
         }
         #username-input:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
 
-        /* --- NEW LEADERBOARD STYLES --- */
         .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
-        .tab-btn { 
-            background: #222; color: #aaa; border: 1px solid #555; padding: 8px 12px; 
-            border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase;
-        }
+        .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase;}
         .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
         
         .sub-tabs { display: flex; justify-content: center; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
-        .sub-tab-btn {
-            background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px;
-            border-radius: 3px; cursor: pointer; font-size: 12px; text-transform: uppercase;
-        }
+        .sub-tab-btn { background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; text-transform: uppercase;}
         .sub-tab-btn.active { background: #00ffff; color: black; }
 
-        #leaderboard-list {
-            background: #111; border: 1px solid #333; border-radius: 5px; 
-            padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;
-        }
-        .lb-entry { 
-            display: flex; justify-content: space-between; padding: 8px 0; 
-            border-bottom: 1px dashed #333; font-size: 16px; 
-        }
+        #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
+        .lb-entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 16px; }
         .lb-entry:last-child { border-bottom: none; }
         .lb-rank { font-weight: bold; color: #ff9800; width: 30px; }
         .lb-name { flex-grow: 1; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
         .lb-score { font-weight: bold; color: #4caf50; }
         .lb-loading { text-align: center; color: #aaa; font-style: italic; padding: 20px 0; }
+
+        /* --- NEW STATS BAR STYLES --- */
+        .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
+        .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
+        .stat-bar-bg { flex-grow: 1; background: #333; height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
+        .stat-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-out; display: flex; align-items: center; font-weight: bold; font-size: 12px;}
     </style>
 </head>
 <body>
@@ -262,13 +255,25 @@
         </div>
     </div>
 
+    <!-- UPDATED DETAILED STATS MODAL -->
     <div id="stats-modal" class="modal-overlay">
-        <div class="modal-box">
+        <div class="modal-box" style="min-width: 320px;">
             <h2 class="modal-title">Career Stats</h2>
-            <div class="modal-stats">
-                <div>Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff;">0</span> pts</div>
-                <div style="margin-top: 15px;">Total Words Guessed: <br><span id="stat-total-words">0</span></div>
-                <div style="margin-top: 15px; font-size: 14px; color: #777;">(Detailed guess stats coming soon!)</div>
+            <div class="modal-stats" style="text-align: left;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 10px;">
+                    <div style="text-align: center;">Words Played<br><span id="stat-played" style="color:white; font-size: 20px;">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:white; font-size: 20px;">0%</span></div>
+                </div>
+                
+                <div style="font-size: 14px; margin-bottom: 10px; color: #00ffff; text-transform: uppercase; text-align: center;">Guess Distribution</div>
+                
+                <div id="stat-distribution">
+                    <!-- HTML Bars will be injected here by Javascript -->
+                </div>
             </div>
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="document.getElementById('stats-modal').style.display='none'">Close</button>
@@ -276,27 +281,23 @@
         </div>
     </div>
 
-    <!-- NEW LEADERBOARD MODAL -->
+    <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
-            
             <div class="tabs">
                 <button class="tab-btn active" id="tab-single" onclick="window.setLbType('single')">Single Run</button>
                 <button class="tab-btn" id="tab-career" onclick="window.setLbType('career')">Career Bank</button>
             </div>
-
             <div class="sub-tabs">
                 <button class="sub-tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="sub-tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
                 <button class="sub-tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
                 <button class="sub-tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
             </div>
-
             <div id="leaderboard-list">
                 <div class="lb-loading">Loading scores...</div>
             </div>
-
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button>
             </div>
@@ -308,7 +309,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
-        // NEW: Imported query, orderBy, limit, where, getDocs for the leaderboards
         import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -342,7 +342,9 @@
                         username: defaultUsername,
                         isGuest: isGuest,
                         careerBank: 0,
-                        totalWordsGuessed: 0
+                        totalWordsGuessed: 0,
+                        // NEW: Initialize stats for new users
+                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0
                     };
                     await setDoc(userRef, userProfileData);
                 } else {
@@ -379,9 +381,9 @@
             } catch (error) { alert("Login Error: " + error.message); }
         }
 
-        // --- NEW LEADERBOARD LOGIC ---
-        let currentLbType = 'single'; // 'single' or 'career'
-        let currentLbTime = 'all'; // 'all', 'daily', 'weekly', 'monthly'
+        // --- LEADERBOARD LOGIC ---
+        let currentLbType = 'single'; 
+        let currentLbTime = 'all'; 
 
         window.showLeaderboard = function() {
             document.activeElement.blur();
@@ -412,7 +414,6 @@
 
             try {
                 if (currentLbTime === 'all') {
-                    // ALL TIME QUERIES
                     if (currentLbType === 'single') {
                         const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(10));
                         const snapshot = await getDocs(q);
@@ -423,50 +424,35 @@
                         snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().careerBank }); });
                     }
                 } else {
-                    // TIME FILTERED QUERIES (Handled client-side to prevent complex Firestore Index errors)
                     const now = new Date();
                     let start = new Date();
                     if (currentLbTime === 'daily') { start.setHours(0,0,0,0); }
                     else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); }
                     else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
 
-                    // Fetch all runs since the start time
                     const q = query(collection(db, "runs"), where("timestamp", ">=", start));
                     const snapshot = await getDocs(q);
                     
                     if (currentLbType === 'single') {
                         snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
-                        // Sort and slice top 10
                         dataArr.sort((a, b) => b.score - a.score);
                         dataArr = dataArr.slice(0, 10);
                     } else {
-                        // For Career Bank time-filters, we sum up the runs per user during this timeframe
                         let userTotals = {};
                         snapshot.forEach(doc => {
                             let name = doc.data().username;
                             userTotals[name] = (userTotals[name] || 0) + doc.data().score;
                         });
-                        for (let name in userTotals) {
-                            dataArr.push({ name: name, score: userTotals[name] });
-                        }
+                        for (let name in userTotals) { dataArr.push({ name: name, score: userTotals[name] }); }
                         dataArr.sort((a, b) => b.score - a.score);
                         dataArr = dataArr.slice(0, 10);
                     }
                 }
 
-                if (dataArr.length === 0) {
-                    listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>';
-                    return;
-                }
+                if (dataArr.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
 
                 dataArr.forEach((entry, index) => {
-                    html += `
-                        <div class="lb-entry">
-                            <div class="lb-rank">#${index + 1}</div>
-                            <div class="lb-name">${entry.name}</div>
-                            <div class="lb-score">${entry.score.toLocaleString()}</div>
-                        </div>
-                    `;
+                    html += `<div class="lb-entry"><div class="lb-rank">#${index + 1}</div><div class="lb-name">${entry.name}</div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
                 });
                 listDiv.innerHTML = html;
 
@@ -475,7 +461,6 @@
                 listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>';
             }
         }
-        // ------------------------------
 
         // --- GAME LOGIC ---
         let targetWord = "";
@@ -486,6 +471,9 @@
         let wordsGuessed = 0; 
         let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
+
+        // NEW: Local tracker for the current run's stats
+        let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
 
         const boardDisplay = document.getElementById("board");
         const scoreDisplay = document.getElementById("score");
@@ -503,35 +491,84 @@
             document.getElementById("login-modal").style.display = "flex";
         }
 
+        // UPDATED: Show Stats calculates and draws the UI Bar Chart
         window.showStats = async function() {
             document.activeElement.blur();
             if(currentUser) {
                 const docSnap = await getDoc(doc(db, "users", currentUser.uid));
                 if(docSnap.exists()) {
-                    document.getElementById("stat-career-bank").innerText = docSnap.data().careerBank.toLocaleString();
-                    document.getElementById("stat-total-words").innerText = docSnap.data().totalWordsGuessed || 0;
+                    let data = docSnap.data();
+                    
+                    document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
+                    
+                    let played = data.wordsPlayed || 0;
+                    let fails = data.fails || 0;
+                    let wins = played - fails;
+                    let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+                    
+                    document.getElementById("stat-played").innerText = played;
+                    document.getElementById("stat-win-rate").innerText = winRate + "%";
+
+                    // Build the Bar Chart
+                    let distHtml = "";
+                    const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails];
+                    const labels = ["1", "2", "3", "4", "5", "X"];
+                    
+                    // Find the largest stat to scale the bars properly
+                    let trueMax = Math.max(...counts, 1); 
+                    
+                    for(let i = 0; i < 6; i++) {
+                        let pct = Math.round((counts[i] / trueMax) * 100);
+                        let barColor = i === 5 ? "#ff3333" : "#00ffff"; // Red for fails, Cyan for wins
+                        
+                        // Formatting tweaks based on how full the bar is
+                        let textColor = pct > 10 ? "black" : "white";
+                        let justify = pct > 10 ? "flex-end" : "flex-start";
+                        let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
+                        
+                        distHtml += `
+                            <div class="stat-bar-container">
+                                <div class="stat-label">${labels[i]}</div>
+                                <div class="stat-bar-bg">
+                                    <div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    document.getElementById("stat-distribution").innerHTML = distHtml;
                 }
             }
             document.getElementById("stats-modal").style.display = "flex";
         }
 
+        // UPDATED: Sends the local runStats to Firebase
         async function saveRunToCloud() {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
-            if (currentUser && score > 0) {
+            if (currentUser && (score > 0 || runStats.played > 0)) {
                 try {
                     const userRef = doc(db, "users", currentUser.uid);
                     await updateDoc(userRef, {
                         careerBank: increment(score),
-                        totalWordsGuessed: increment(wordsGuessed)
+                        totalWordsGuessed: increment(wordsGuessed),
+                        wordsPlayed: increment(runStats.played),
+                        guess1: increment(runStats.guess1),
+                        guess2: increment(runStats.guess2),
+                        guess3: increment(runStats.guess3),
+                        guess4: increment(runStats.guess4),
+                        guess5: increment(runStats.guess5),
+                        fails: increment(runStats.fails)
                     });
 
-                    await addDoc(collection(db, "runs"), {
-                        uid: currentUser.uid,
-                        username: userProfileData.username,
-                        score: score,
-                        wordsGuessed: wordsGuessed,
-                        timestamp: serverTimestamp()
-                    });
+                    // Only log to leaderboard if they scored points
+                    if (score > 0) {
+                        await addDoc(collection(db, "runs"), {
+                            uid: currentUser.uid,
+                            username: userProfileData.username,
+                            score: score,
+                            wordsGuessed: wordsGuessed,
+                            timestamp: serverTimestamp()
+                        });
+                    }
 
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!";
                     document.getElementById("cloud-save-status").style.color = "#4caf50";
@@ -541,7 +578,7 @@
                     console.error(e);
                 }
             } else {
-                document.getElementById("cloud-save-status").innerText = "No points to save.";
+                document.getElementById("cloud-save-status").innerText = "No stats to save.";
             }
         }
 
@@ -582,7 +619,11 @@
             modalOverlay.style.display = "none"; 
             document.getElementById("cloud-save-status").innerText = ""; 
             document.getElementById("cloud-save-status").style.color = "#aaa";
+            
+            // Reset game variables and local stats
             score = 0; continues = 1; wordsGuessed = 0; 
+            runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+            
             updateScoreBoard(); startRound();
         }
 
@@ -694,12 +735,21 @@
 
             setTimeout(() => {
                 if (correctCount === 5) {
+                    // NEW: Record local win stats
+                    runStats.played++;
+                    runStats['guess' + (currentRow + 1)]++; 
+
                     let earned = scorePoints[currentRow];
                     score += earned; wordsGuessed++; 
                     showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
                 } else if (currentRow === 4) { 
                     continues--;
+                    
+                    // NEW: Record local fail stats
+                    runStats.played++;
+                    runStats.fails++; 
+
                     if (continues < 0) {
                         showMessage(`WORD WAS ${targetWord}.`);
                         setTimeout(triggerGameOver, 1500); 
