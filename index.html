@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- NEW: Forces perfect mobile scaling and disables zooming -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WordCade</title>
     <style>
-        /* NEW: This magic line prevents double-tap zooming and removes the 300ms tap delay! */
-        * { touch-action: manipulation; }
+        * { touch-action: manipulation; box-sizing: border-box; }
 
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -21,71 +22,48 @@
         }
 
         .arcade-title {
-            font-size: 48px;
+            font-size: 40px; /* Slightly smaller to guarantee fit on narrow phones */
             margin: 10px 0;
             color: #fff;
             text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 20px #ff00ff;
-            letter-spacing: 5px;
+            letter-spacing: 4px;
             font-style: italic;
             text-transform: uppercase;
         }
 
-        .arcade-menu { display: flex; gap: 15px; margin-bottom: 20px; }
+        .arcade-menu { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;}
         .arcade-menu button {
             background-color: #222; color: #00ffff; border: 2px solid #00ffff;
-            padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 5px;
-            text-transform: uppercase; transition: all 0.2s;
+            padding: 8px 12px; font-weight: bold; cursor: pointer; border-radius: 5px;
+            text-transform: uppercase; transition: all 0.2s; font-size: 14px;
         }
         .arcade-menu button:hover { background-color: #00ffff; color: #000; }
         .arcade-menu .cash-out-btn { color: #4caf50; border-color: #4caf50; }
         .arcade-menu .cash-out-btn:hover { background-color: #4caf50; color: #000; }
 
         #score-board { 
-            font-size: 20px; margin: 0 0 10px 0; font-weight: bold; 
-            display: flex; gap: 30px;
+            font-size: 18px; margin: 0 0 10px 0; font-weight: bold; 
+            display: flex; gap: 20px;
         }
         .score-text { color: #4caf50; }
         .lives-text { color: #ff3333; }
         
-        #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 20px;}
+        #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 18px;}
         
         #legend {
-            display: flex; gap: 20px; margin-bottom: 15px; font-size: 14px;
+            display: flex; gap: 15px; margin-bottom: 15px; font-size: 12px;
             color: #ccc; text-transform: uppercase; font-weight: bold;
         }
-        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
         .legend-box { width: 14px; height: 14px; border-radius: 3px; }
         .correct-box { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
         .present-box { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
-        /* NEW: Board Container Styling */
-        #board-container {
-            position: relative;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
-        
-        /* NEW: Invisible input field to trigger mobile keyboards */
-        #native-input {
-            position: absolute;
-            opacity: 0;
-            left: -9999px;
-        }
-
-        /* NEW: Tap prompt for mobile users */
-        #tap-prompt {
-            text-align: center; color: #888; font-size: 12px; text-transform: uppercase;
-            letter-spacing: 2px; margin-top: 10px; animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 0.5; } 50% { opacity: 1; color: #00ffff;} 100% { opacity: 0.5; }
-        }
-
-        #board { display: grid; grid-template-rows: repeat(5, 60px); grid-gap: 5px; }
-        .row { display: grid; grid-template-columns: repeat(5, 60px); grid-gap: 5px; }
+        #board { display: grid; grid-template-rows: repeat(5, 55px); grid-gap: 5px; margin-bottom: 20px;}
+        .row { display: grid; grid-template-columns: repeat(5, 55px); grid-gap: 5px; }
         
         .tile { 
-            border: 2px solid #3a3a3c; font-size: 32px; font-weight: bold; 
+            border: 2px solid #3a3a3c; font-size: 30px; font-weight: bold; 
             display: flex; justify-content: center; align-items: center; 
             text-transform: uppercase; transition: transform 0.25s linear; 
         }
@@ -97,12 +75,13 @@
         #keyboard {
             display: flex; flex-direction: column; align-items: center; gap: 6px;
             width: 100%; max-width: 500px; margin-bottom: 20px;
-            user-select: none; /* Prevents text highlighting when tapping fast */
+            user-select: none; 
+            padding: 0 5px; /* Keeps edges from touching screen on mobile */
         }
-        .key-row { display: flex; justify-content: center; gap: 6px; width: 100%; }
+        .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
         .key {
             background-color: #333; color: white; border: 2px solid #555; border-radius: 4px;
-            font-size: 16px; font-weight: bold; padding: 15px 12px; cursor: pointer;
+            font-size: 16px; font-weight: bold; padding: 15px 10px; cursor: pointer;
             text-transform: uppercase; flex: 1; max-width: 45px; display: flex;
             justify-content: center; align-items: center; transition: all 0.2s;
         }
@@ -110,10 +89,10 @@
         .key.wide { max-width: 65px; font-size: 14px; }
         .key.absent { opacity: 0.25; background-color: #000; color: #555; border-color: #111; }
 
-        #ad-banner {
-            margin-top: auto; margin-bottom: 20px; width: 320px; height: 50px;
-            background-color: #333; border: 1px dashed #777; display: flex;
-            justify-content: center; align-items: center; color: #777; font-size: 14px;
+        /* NEW: Live Feed Styling */
+        #live-feed-container {
+            width: 90%; max-width: 320px; background: #111; border: 1px solid #333;
+            border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center;
         }
 
         .modal-overlay {
@@ -156,10 +135,12 @@
         .sub-tab-btn.active { background: #00ffff; color: black; }
 
         #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
-        .lb-entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 16px; }
+        .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 16px; }
         .lb-entry:last-child { border-bottom: none; }
-        .lb-rank { font-weight: bold; color: #ff9800; width: 30px; }
-        .lb-name { flex-grow: 1; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+        .lb-rank { font-weight: bold; color: #ff9800; width: 35px; }
+        .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; }
+        .lb-name { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
+        .lb-date { font-size: 11px; color: #777; margin-top: 2px; }
         .lb-score { font-weight: bold; color: #4caf50; }
         .lb-loading { text-align: center; color: #aaa; font-style: italic; padding: 20px 0; }
 
@@ -192,14 +173,8 @@
         <div class="legend-item"><div class="legend-box present-box"></div> Wrong Spot</div>
     </div>
 
-    <!-- NEW: The Board is now clickable to summon the native mobile keyboard -->
-    <div id="board-container" onclick="document.getElementById('native-input').focus()">
-        <input type="text" id="native-input" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" maxlength="5">
-        <div id="board"></div>
-        <div id="tap-prompt">Tap grid to use phone keyboard</div>
-    </div>
+    <div id="board"></div>
 
-    <!-- The Visual On-Screen Keyboard -->
     <div id="keyboard">
         <div class="key-row">
             <button class="key" data-key="Q">Q</button><button class="key" data-key="W">W</button><button class="key" data-key="E">E</button><button class="key" data-key="R">R</button><button class="key" data-key="T">T</button><button class="key" data-key="Y">Y</button><button class="key" data-key="U">U</button><button class="key" data-key="I">I</button><button class="key" data-key="O">O</button><button class="key" data-key="P">P</button>
@@ -212,7 +187,11 @@
         </div>
     </div>
 
-    <div id="ad-banner">Advertisement Space (320x50)</div>
+    <!-- NEW: Live Feed Container -->
+    <div id="live-feed-container">
+        <div style="color: #00ffff; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;">Live Arcade Feed</div>
+        <div id="live-feed-list" style="font-size: 14px; color: #aaa; font-style: italic;">Connecting to server...</div>
+    </div>
 
     <!-- Modals -->
     <div id="modal-overlay" class="modal-overlay">
@@ -235,6 +214,11 @@
             <h2 class="modal-title">Player Profile</h2>
             <div class="modal-stats">
                 <div>Status: <br><span id="login-status-text" style="color: white; font-size: 16px;">Loading...</span></div>
+                
+                <div id="guest-promo" style="display: none; margin-top: 20px; font-size: 14px; color: #aaa; line-height: 1.4;">
+                    Link a Google account below to customize your Arcade Handle, save your progress, and unlock future avatars!
+                </div>
+
                 <div id="username-section" style="margin-top: 25px; display: none;">
                     <div style="font-size: 14px; margin-bottom: 8px; color: #aaa; text-transform: uppercase;">Arcade Handle</div>
                     <input type="text" id="username-input" maxlength="12" placeholder="ENTER NAME">
@@ -295,7 +279,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
@@ -314,6 +298,19 @@
         let currentUser = null;
         let userProfileData = null;
 
+        // NEW: Real-time Live Feed listener
+        const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
+        onSnapshot(liveFeedQuery, (snapshot) => {
+            let html = "";
+            snapshot.forEach(doc => {
+                let data = doc.data();
+                html += `<div style="margin-bottom: 4px;">
+                            <span style="color:#ff00ff; font-weight: bold;">${data.username}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${data.score.toLocaleString()}</span> pts
+                         </div>`;
+            });
+            document.getElementById("live-feed-list").innerHTML = html || "No recent activity.";
+        });
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -322,7 +319,16 @@
                 const docSnap = await getDoc(userRef);
 
                 if (!docSnap.exists()) {
-                    let defaultUsername = isGuest ? "GUEST_" + user.uid.substring(0, 4) : user.displayName.split(" ")[0].toUpperCase();
+                    let defaultUsername = "";
+                    if (isGuest) {
+                        // Generate a fun Guest name from the dictionary
+                        let randWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "Player";
+                        randWord = randWord.charAt(0).toUpperCase() + randWord.slice(1).toLowerCase();
+                        defaultUsername = "Guest_" + randWord;
+                    } else {
+                        defaultUsername = user.displayName.split(" ")[0].toUpperCase();
+                    }
+
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, totalWordsGuessed: 0,
                         wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0
@@ -331,8 +337,17 @@
                 } else { userProfileData = docSnap.data(); }
 
                 document.getElementById("login-status-text").innerText = isGuest ? "Playing as Guest" : "Logged in via Google";
-                document.getElementById("username-section").style.display = "block";
-                document.getElementById("username-input").value = userProfileData.username;
+                
+                // Hide input for guests, show promo
+                if (isGuest) {
+                    document.getElementById("username-section").style.display = "none";
+                    document.getElementById("guest-promo").style.display = "block";
+                } else {
+                    document.getElementById("username-section").style.display = "block";
+                    document.getElementById("username-input").value = userProfileData.username;
+                    document.getElementById("guest-promo").style.display = "none";
+                }
+
                 document.getElementById("btn-google-login").style.display = isGuest ? "flex" : "none";
             } else { signInAnonymously(auth); }
         });
@@ -381,15 +396,28 @@
         window.loadLeaderboardData = async function() {
             const listDiv = document.getElementById("leaderboard-list");
             listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
-            let html = ""; let dataArr = [];
+            let html = ""; let rawData = []; let finalData = [];
+            
             try {
                 if (currentLbTime === 'all') {
                     if (currentLbType === 'single') {
-                        const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(10)));
-                        snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
+                        // Fetch more so we can filter duplicates safely
+                        const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(100)));
+                        snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
+                        
+                        // Filter for unique players
+                        let uniquePlayers = new Set();
+                        for (let item of rawData) {
+                            if (!uniquePlayers.has(item.name)) {
+                                uniquePlayers.add(item.name);
+                                finalData.push(item);
+                                if(finalData.length === 25) break; // Cap at 25
+                            }
+                        }
                     } else {
-                        const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(10)));
-                        snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().careerBank }); });
+                        // Career Bank All Time - users are inherently unique
+                        const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(25)));
+                        snapshot.forEach(doc => { finalData.push({ name: doc.data().username, score: doc.data().careerBank }); });
                     }
                 } else {
                     const now = new Date(); let start = new Date();
@@ -399,19 +427,42 @@
 
                     const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
                     if (currentLbType === 'single') {
-                        snapshot.forEach(doc => { dataArr.push({ name: doc.data().username, score: doc.data().score }); });
-                        dataArr.sort((a, b) => b.score - a.score); dataArr = dataArr.slice(0, 10);
+                        snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score }); });
+                        rawData.sort((a, b) => b.score - a.score);
+                        
+                        let uniquePlayers = new Set();
+                        for (let item of rawData) {
+                            if (!uniquePlayers.has(item.name)) {
+                                uniquePlayers.add(item.name);
+                                finalData.push(item);
+                                if(finalData.length === 25) break; 
+                            }
+                        }
                     } else {
                         let userTotals = {};
                         snapshot.forEach(doc => { let name = doc.data().username; userTotals[name] = (userTotals[name] || 0) + doc.data().score; });
-                        for (let name in userTotals) { dataArr.push({ name: name, score: userTotals[name] }); }
-                        dataArr.sort((a, b) => b.score - a.score); dataArr = dataArr.slice(0, 10);
+                        for (let name in userTotals) { rawData.push({ name: name, score: userTotals[name] }); }
+                        rawData.sort((a, b) => b.score - a.score); 
+                        finalData = rawData.slice(0, 25);
                     }
                 }
 
-                if (dataArr.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
-                dataArr.forEach((entry, index) => {
-                    html += `<div class="lb-entry"><div class="lb-rank">#${index + 1}</div><div class="lb-name">${entry.name}</div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
+                if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
+                
+                finalData.forEach((entry, index) => {
+                    let dateStr = "";
+                    if (currentLbTime === 'all' && currentLbType === 'single' && entry.ts) {
+                        dateStr = `<div class="lb-date">${entry.ts.toDate().toLocaleDateString()}</div>`;
+                    }
+                    
+                    html += `<div class="lb-entry">
+                                <div class="lb-rank">#${index + 1}</div>
+                                <div class="lb-name-col">
+                                    <div class="lb-name">${entry.name}</div>
+                                    ${dateStr}
+                                </div>
+                                <div class="lb-score">${entry.score.toLocaleString()}</div>
+                             </div>`;
                 });
                 listDiv.innerHTML = html;
             } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
@@ -424,7 +475,7 @@
 
         const boardDisplay = document.getElementById("board"); const scoreDisplay = document.getElementById("score");
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
-        const modalOverlay = document.getElementById("modal-overlay"); const nativeInput = document.getElementById("native-input");
+        const modalOverlay = document.getElementById("modal-overlay");
 
         function updateScoreBoard() {
             scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
@@ -521,32 +572,10 @@
 
         function startRound() {
             targetWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "APPLE"; 
-            currentGuess = ""; currentRow = 0; isAnimating = false; nativeInput.value = ""; // Clear mobile input
+            currentGuess = ""; currentRow = 0; isAnimating = false; 
             createBoard(); resetKeyboardColors(); 
         }
 
-        // --- NEW: NATIVE KEYBOARD EVENT LISTENERS ---
-        nativeInput.addEventListener("input", (e) => {
-            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) {
-                nativeInput.value = currentGuess; // Prevent typing if locked
-                return;
-            }
-            // Strip out numbers/symbols, force uppercase, limit to 5
-            let val = nativeInput.value.toUpperCase().replace(/[^A-Z]/g, '');
-            if (val.length > 5) val = val.substring(0, 5);
-            currentGuess = val;
-            nativeInput.value = currentGuess; // Sync the invisible box back
-            updateBoard();
-        });
-
-        // Listen for the Native Mobile Keyboard "Enter/Go/Return" button
-        nativeInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                window.handleInput("ENTER");
-            }
-        });
-
-        // Existing on-screen keyboard listeners (still work perfectly!)
         const keys = document.querySelectorAll(".key");
         keys.forEach(key => {
             key.addEventListener("click", () => {
@@ -568,15 +597,10 @@
             } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) {
                 currentGuess += key;
             }
-            nativeInput.value = currentGuess; // Keep mobile input in sync with on-screen clicks
             updateBoard();
         }
 
-        document.addEventListener("keyup", (e) => { 
-    // Prevent double-typing! If the hidden mobile box is active, ignore the global key stroke.
-    if (document.activeElement === nativeInput) return;
-    window.handleInput(e.key.toUpperCase()); 
-});
+        document.addEventListener("keyup", (e) => { window.handleInput(e.key.toUpperCase()); });
 
         function updateBoard() {
             for (let i = 0; i < 5; i++) {
@@ -614,7 +638,6 @@
             }
 
             setTimeout(() => {
-                nativeInput.value = ""; // Clear mobile keyboard for next row
                 if (correctCount === 5) {
                     runStats.played++; runStats['guess' + (currentRow + 1)]++; 
                     let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
