@@ -40,7 +40,6 @@
         .arcade-menu .cash-out-btn { color: #4caf50; border-color: #4caf50; }
         .arcade-menu .cash-out-btn:hover { background-color: #4caf50; color: #000; }
         
-        /* NEW: Test Mode Button Styling */
         #btn-mode { color: #ff9800; border-color: #ff9800; }
         #btn-mode:hover { background-color: #ff9800; color: #000; }
 
@@ -62,7 +61,6 @@
         .correct-box { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
         .present-box { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
-        /* UPDATED: Removed hardcoded rows so JS can make it 4 or 5 dynamically */
         #board { display: grid; grid-gap: 5px; margin-bottom: 20px;}
         .row { display: grid; grid-template-columns: repeat(5, 55px); grid-gap: 5px; }
         
@@ -107,6 +105,7 @@
         .modal-box {
             background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px;
             padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 90vw;
+            max-height: 90vh; overflow-y: auto;
         }
 
         .modal-title { color: #00ffff; font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
@@ -119,11 +118,11 @@
         .btn-cyan:hover { background-color: #00cccc; }
         .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
         .btn-dark:hover { background-color: #555; }
-        .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px;}
         .btn-google:hover { background-color: #f1f1f1; }
 
         #username-input {
-            padding: 10px; font-size: 18px; width: 80%; text-align: center; border-radius: 5px;
+            padding: 10px; font-size: 18px; width: 100%; text-align: center; border-radius: 5px;
             border: 2px solid #ff00ff; background: #222; color: #fff; text-transform: uppercase;
             font-weight: bold; margin-bottom: 10px; letter-spacing: 2px;
         }
@@ -151,6 +150,8 @@
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: #333; height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
         .stat-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-out; display: flex; align-items: center; font-weight: bold; font-size: 12px;}
+        
+        hr { border: 0; border-top: 1px dashed #555; margin: 25px 0; }
     </style>
 </head>
 <body>
@@ -158,8 +159,7 @@
     <h1 class="arcade-title">WordCade</h1>
     
     <nav class="arcade-menu">
-        <button onclick="window.showLogin()">Profile</button>
-        <button onclick="window.showStats()">Stats</button>
+        <button onclick="window.showMenu()">Menu</button>
         <button onclick="window.showLeaderboard()">Leaderboard</button>
         <button id="btn-mode" onclick="window.toggleMode()">Mode: Standard</button>
         <button class="cash-out-btn" onclick="window.triggerCashOut()">Cash Out</button>
@@ -167,7 +167,7 @@
 
     <div id="score-board">
         <div class="score-text">SCORE: <span id="score">0</span></div>
-        <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
+        <div class="lives-text">CONTINUES: <span id="continues">0</span></div>
     </div>
     
     <div id="message"></div>
@@ -196,7 +196,7 @@
         <div id="live-feed-list" style="font-size: 14px; color: #aaa; font-style: italic;">Connecting to server...</div>
     </div>
 
-    <!-- Modals -->
+    <!-- Game Over Modal -->
     <div id="modal-overlay" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
@@ -212,34 +212,33 @@
         </div>
     </div>
 
-    <div id="login-modal" class="modal-overlay">
-        <div class="modal-box">
-            <h2 class="modal-title">Player Profile</h2>
-            <div class="modal-stats">
-                <div>Status: <br><span id="login-status-text" style="color: white; font-size: 16px;">Loading...</span></div>
+    <!-- CONSOLIDATED MENU MODAL -->
+    <div id="menu-modal" class="modal-overlay">
+        <div class="modal-box" style="min-width: 340px;">
+            <h2 class="modal-title">Command Center</h2>
+            
+            <!-- Profile Section -->
+            <div class="modal-stats" style="text-align: center; margin-bottom: 10px;">
+                <div id="login-status-text" style="color: white; font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
                 
-                <div id="guest-promo" style="display: none; margin-top: 20px; font-size: 14px; color: #aaa; line-height: 1.4;">
-                    Link a Google account below to customize your Arcade Handle, save your progress, and unlock future avatars!
-                </div>
-
-                <div id="username-section" style="margin-top: 25px; display: none;">
-                    <div style="font-size: 14px; margin-bottom: 8px; color: #aaa; text-transform: uppercase;">Arcade Handle</div>
+                <div id="username-section" style="display: none;">
                     <input type="text" id="username-input" maxlength="12" placeholder="ENTER NAME">
-                    <button class="btn-cyan" onclick="window.saveUsername()" style="padding: 8px 15px; font-size: 14px; margin-bottom: 10px;">Update Name</button>
+                    <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer;">Update Handle</button>
+                </div>
+                
+                <div id="auth-action-section" style="display: none; margin-top: 10px;">
+                    <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
+                        Link a Google account to set a custom Arcade Handle and securely back up your Career Bank!
+                    </div>
+                    <button class="btn-google" onclick="window.signInWithGoogle()" style="width: 100%; font-weight: bold; cursor: pointer; border-radius: 5px;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" height="20"> Sign in with Google
+                    </button>
                 </div>
             </div>
-            <div class="modal-buttons">
-                <button id="btn-google-login" class="btn-google" onclick="window.signInWithGoogle()" style="display: none;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" height="20"> Sign in with Google
-                </button>
-                <button class="btn-dark" onclick="document.getElementById('login-modal').style.display='none'">Close</button>
-            </div>
-        </div>
-    </div>
 
-    <div id="stats-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 320px;">
-            <h2 class="modal-title">Career Stats</h2>
+            <hr>
+
+            <!-- Stats Section -->
             <div class="modal-stats" style="text-align: left;">
                 <div style="text-align: center; margin-bottom: 20px;">
                     Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts
@@ -251,8 +250,9 @@
                 <div style="font-size: 14px; margin-bottom: 10px; color: #00ffff; text-transform: uppercase; text-align: center;">Guess Distribution</div>
                 <div id="stat-distribution"></div>
             </div>
+
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="document.getElementById('stats-modal').style.display='none'">Close</button>
+                <button class="btn-dark" onclick="document.getElementById('menu-modal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -337,18 +337,6 @@
                     await setDoc(userRef, userProfileData);
                 } else { userProfileData = docSnap.data(); }
 
-                document.getElementById("login-status-text").innerText = isGuest ? "Playing as Guest" : "Logged in via Google";
-                
-                if (isGuest) {
-                    document.getElementById("username-section").style.display = "none";
-                    document.getElementById("guest-promo").style.display = "block";
-                } else {
-                    document.getElementById("username-section").style.display = "block";
-                    document.getElementById("username-input").value = userProfileData.username;
-                    document.getElementById("guest-promo").style.display = "none";
-                }
-
-                document.getElementById("btn-google-login").style.display = isGuest ? "flex" : "none";
             } else { signInAnonymously(auth); }
         });
 
@@ -367,10 +355,54 @@
         window.signInWithGoogle = async function() {
             try {
                 await signInWithPopup(auth, new GoogleAuthProvider());
-                document.getElementById('login-modal').style.display = 'none';
+                alert("Account linked successfully!");
+                document.getElementById('menu-modal').style.display = 'none';
+                // Reload the page smoothly to refresh the auth state completely
+                setTimeout(() => { window.location.reload(); }, 500); 
             } catch (error) { alert("Login Error: " + error.message); }
         }
 
+        // --- CONSOLIDATED MENU LOGIC ---
+        window.showMenu = async function() {
+            document.activeElement.blur();
+            if(!currentUser || !userProfileData) return;
+
+            // Handle Profile UI
+            if (userProfileData.isGuest) {
+                document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`;
+                document.getElementById("username-section").style.display = "none";
+                document.getElementById("auth-action-section").style.display = "block";
+            } else {
+                document.getElementById("login-status-text").innerText = "Linked via Google";
+                document.getElementById("username-input").value = userProfileData.username;
+                document.getElementById("username-section").style.display = "block";
+                document.getElementById("auth-action-section").style.display = "none";
+            }
+
+            // Handle Stats UI
+            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+            if(docSnap.exists()) {
+                let data = docSnap.data();
+                document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
+                let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails;
+                let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+                document.getElementById("stat-played").innerText = played; document.getElementById("stat-win-rate").innerText = winRate + "%";
+                let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails];
+                const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
+                for(let i = 0; i < 6; i++) {
+                    let pct = Math.round((counts[i] / trueMax) * 100);
+                    let barColor = i === 5 ? "#ff3333" : "#00ffff"; 
+                    let justify = pct > 10 ? "flex-end" : "flex-start";
+                    let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
+                    distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
+                }
+                document.getElementById("stat-distribution").innerHTML = distHtml;
+            }
+
+            document.getElementById("menu-modal").style.display = "flex";
+        }
+
+        // --- LEADERBOARD LOGIC ---
         let currentLbType = 'single'; 
         let currentLbTime = 'all'; 
 
@@ -400,7 +432,6 @@
             try {
                 if (currentLbTime === 'all') {
                     if (currentLbType === 'single') {
-                        // UPDATED: Now queries up to 50 for stronger duplicate filtering
                         const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50)));
                         snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
                         
@@ -465,10 +496,10 @@
             } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
-        // --- NEW GAME MODE VARIABLES ---
+        // --- GAME MODE VARIABLES ---
         let isTestMode = false;
         let maxGuesses = 5;
-        let startingContinues = 1;
+        let startingContinues = 0; // UPDATED: Standard mode now starts with 0 continues
         
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = startingContinues; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
@@ -478,7 +509,6 @@
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
         const modalOverlay = document.getElementById("modal-overlay");
 
-        // NEW: Toggle game mode function
         window.toggleMode = function() {
             document.activeElement.blur();
             if (score > 0 || runStats.played > 0) {
@@ -489,7 +519,7 @@
             
             isTestMode = !isTestMode;
             maxGuesses = isTestMode ? 4 : 5;
-            startingContinues = isTestMode ? 2 : 1;
+            startingContinues = isTestMode ? 2 : 0; // Test mode gets 2, Standard gets 0
             
             document.getElementById("btn-mode").innerText = isTestMode ? "Mode: Test (4 Guesses)" : "Mode: Standard";
             
@@ -498,35 +528,6 @@
 
         function updateScoreBoard() {
             scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
-        }
-
-        window.showLogin = function() {
-            document.activeElement.blur(); document.getElementById("login-modal").style.display = "flex";
-        }
-
-        window.showStats = async function() {
-            document.activeElement.blur();
-            if(currentUser) {
-                const docSnap = await getDoc(doc(db, "users", currentUser.uid));
-                if(docSnap.exists()) {
-                    let data = docSnap.data();
-                    document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
-                    let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails;
-                    let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
-                    document.getElementById("stat-played").innerText = played; document.getElementById("stat-win-rate").innerText = winRate + "%";
-                    let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails];
-                    const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
-                    for(let i = 0; i < 6; i++) {
-                        let pct = Math.round((counts[i] / trueMax) * 100);
-                        let barColor = i === 5 ? "#ff3333" : "#00ffff"; 
-                        let textColor = pct > 10 ? "black" : "white"; let justify = pct > 10 ? "flex-end" : "flex-start";
-                        let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
-                        distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
-                    }
-                    document.getElementById("stat-distribution").innerHTML = distHtml;
-                }
-            }
-            document.getElementById("stats-modal").style.display = "flex";
         }
 
         async function saveRunToCloud() {
@@ -575,7 +576,6 @@
             updateScoreBoard(); startRound();
         }
 
-        // UPDATED: Dynamically draws 4 or 5 rows based on the maxGuesses variable
         function createBoard() {
             boardDisplay.innerHTML = ""; 
             boardDisplay.style.gridTemplateRows = `repeat(${maxGuesses}, 55px)`;
@@ -664,7 +664,7 @@
                     let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
                     showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
-                } else if (currentRow === maxGuesses - 1) { // UPDATED: Relies on maxGuesses variable
+                } else if (currentRow === maxGuesses - 1) { 
                     continues--; runStats.played++; runStats.fails++; 
                     if (continues < 0) {
                         showMessage(`WORD WAS ${targetWord}.`); setTimeout(triggerGameOver, 1500); 
