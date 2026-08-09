@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- NEW: Forces perfect mobile scaling and disables zooming -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WordCade</title>
     <style>
@@ -22,7 +21,7 @@
         }
 
         .arcade-title {
-            font-size: 40px; /* Slightly smaller to guarantee fit on narrow phones */
+            font-size: 40px; 
             margin: 10px 0;
             color: #fff;
             text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 20px #ff00ff;
@@ -40,6 +39,10 @@
         .arcade-menu button:hover { background-color: #00ffff; color: #000; }
         .arcade-menu .cash-out-btn { color: #4caf50; border-color: #4caf50; }
         .arcade-menu .cash-out-btn:hover { background-color: #4caf50; color: #000; }
+        
+        /* NEW: Test Mode Button Styling */
+        #btn-mode { color: #ff9800; border-color: #ff9800; }
+        #btn-mode:hover { background-color: #ff9800; color: #000; }
 
         #score-board { 
             font-size: 18px; margin: 0 0 10px 0; font-weight: bold; 
@@ -59,7 +62,8 @@
         .correct-box { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
         .present-box { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
-        #board { display: grid; grid-template-rows: repeat(5, 55px); grid-gap: 5px; margin-bottom: 20px;}
+        /* UPDATED: Removed hardcoded rows so JS can make it 4 or 5 dynamically */
+        #board { display: grid; grid-gap: 5px; margin-bottom: 20px;}
         .row { display: grid; grid-template-columns: repeat(5, 55px); grid-gap: 5px; }
         
         .tile { 
@@ -76,7 +80,7 @@
             display: flex; flex-direction: column; align-items: center; gap: 6px;
             width: 100%; max-width: 500px; margin-bottom: 20px;
             user-select: none; 
-            padding: 0 5px; /* Keeps edges from touching screen on mobile */
+            padding: 0 5px;
         }
         .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
         .key {
@@ -89,7 +93,6 @@
         .key.wide { max-width: 65px; font-size: 14px; }
         .key.absent { opacity: 0.25; background-color: #000; color: #555; border-color: #111; }
 
-        /* NEW: Live Feed Styling */
         #live-feed-container {
             width: 90%; max-width: 320px; background: #111; border: 1px solid #333;
             border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center;
@@ -158,6 +161,7 @@
         <button onclick="window.showLogin()">Profile</button>
         <button onclick="window.showStats()">Stats</button>
         <button onclick="window.showLeaderboard()">Leaderboard</button>
+        <button id="btn-mode" onclick="window.toggleMode()">Mode: Standard</button>
         <button class="cash-out-btn" onclick="window.triggerCashOut()">Cash Out</button>
     </nav>
 
@@ -187,7 +191,6 @@
         </div>
     </div>
 
-    <!-- NEW: Live Feed Container -->
     <div id="live-feed-container">
         <div style="color: #00ffff; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;">Live Arcade Feed</div>
         <div id="live-feed-list" style="font-size: 14px; color: #aaa; font-style: italic;">Connecting to server...</div>
@@ -298,7 +301,6 @@
         let currentUser = null;
         let userProfileData = null;
 
-        // NEW: Real-time Live Feed listener
         const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
         onSnapshot(liveFeedQuery, (snapshot) => {
             let html = "";
@@ -321,7 +323,6 @@
                 if (!docSnap.exists()) {
                     let defaultUsername = "";
                     if (isGuest) {
-                        // Generate a fun Guest name from the dictionary
                         let randWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "Player";
                         randWord = randWord.charAt(0).toUpperCase() + randWord.slice(1).toLowerCase();
                         defaultUsername = "Guest_" + randWord;
@@ -338,7 +339,6 @@
 
                 document.getElementById("login-status-text").innerText = isGuest ? "Playing as Guest" : "Logged in via Google";
                 
-                // Hide input for guests, show promo
                 if (isGuest) {
                     document.getElementById("username-section").style.display = "none";
                     document.getElementById("guest-promo").style.display = "block";
@@ -371,7 +371,6 @@
             } catch (error) { alert("Login Error: " + error.message); }
         }
 
-        // --- LEADERBOARD LOGIC ---
         let currentLbType = 'single'; 
         let currentLbTime = 'all'; 
 
@@ -401,21 +400,19 @@
             try {
                 if (currentLbTime === 'all') {
                     if (currentLbType === 'single') {
-                        // Fetch more so we can filter duplicates safely
-                        const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(100)));
+                        // UPDATED: Now queries up to 50 for stronger duplicate filtering
+                        const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50)));
                         snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
                         
-                        // Filter for unique players
                         let uniquePlayers = new Set();
                         for (let item of rawData) {
                             if (!uniquePlayers.has(item.name)) {
                                 uniquePlayers.add(item.name);
                                 finalData.push(item);
-                                if(finalData.length === 25) break; // Cap at 25
+                                if(finalData.length === 25) break; 
                             }
                         }
                     } else {
-                        // Career Bank All Time - users are inherently unique
                         const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(25)));
                         snapshot.forEach(doc => { finalData.push({ name: doc.data().username, score: doc.data().careerBank }); });
                     }
@@ -468,14 +465,36 @@
             } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
-        // --- GAME LOGIC ---
-        let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
+        // --- NEW GAME MODE VARIABLES ---
+        let isTestMode = false;
+        let maxGuesses = 5;
+        let startingContinues = 1;
+        
+        let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = startingContinues; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
         let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
 
         const boardDisplay = document.getElementById("board"); const scoreDisplay = document.getElementById("score");
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
         const modalOverlay = document.getElementById("modal-overlay");
+
+        // NEW: Toggle game mode function
+        window.toggleMode = function() {
+            document.activeElement.blur();
+            if (score > 0 || runStats.played > 0) {
+                let confirmSwitch = confirm("Switching modes will end your current run and cash out your score. Continue?");
+                if (!confirmSwitch) return;
+                saveRunToCloud();
+            }
+            
+            isTestMode = !isTestMode;
+            maxGuesses = isTestMode ? 4 : 5;
+            startingContinues = isTestMode ? 2 : 1;
+            
+            document.getElementById("btn-mode").innerText = isTestMode ? "Mode: Test (4 Guesses)" : "Mode: Standard";
+            
+            window.startNewRun();
+        }
 
         function updateScoreBoard() {
             scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
@@ -552,13 +571,15 @@
 
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
-            score = 0; continues = 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+            score = 0; continues = startingContinues; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
             updateScoreBoard(); startRound();
         }
 
+        // UPDATED: Dynamically draws 4 or 5 rows based on the maxGuesses variable
         function createBoard() {
             boardDisplay.innerHTML = ""; 
-            for (let i = 0; i < 5; i++) {
+            boardDisplay.style.gridTemplateRows = `repeat(${maxGuesses}, 55px)`;
+            for (let i = 0; i < maxGuesses; i++) {
                 let row = document.createElement("div"); row.className = "row";
                 for (let j = 0; j < 5; j++) {
                     let tile = document.createElement("div"); tile.className = "tile";
@@ -643,13 +664,13 @@
                     let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
                     showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
-                } else if (currentRow === 4) { 
+                } else if (currentRow === maxGuesses - 1) { // UPDATED: Relies on maxGuesses variable
                     continues--; runStats.played++; runStats.fails++; 
                     if (continues < 0) {
                         showMessage(`WORD WAS ${targetWord}.`); setTimeout(triggerGameOver, 1500); 
                     } else {
                         showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
-                        setTimeout(() => { alert("⚠️ WARNING! ⚠️\n\nYou have 0 Continues left!\nIf you fail the next word, you will lose ALL your points.\n\nCash out now, or risk it all!"); startRound(); }, 1500); 
+                        setTimeout(() => { alert(`⚠️ WARNING! ⚠️\n\nYou have ${continues} Continues left!\nIf you fail when you reach 0, you will lose ALL your points.\n\nCash out now, or risk it all!`); startRound(); }, 1500); 
                     }
                 } else {
                     currentRow++; currentGuess = ""; isAnimating = false; 
