@@ -212,12 +212,26 @@
         </div>
     </div>
 
+    <!-- NEW: Custom Warning Box for Continues -->
+    <div id="warning-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
+            <h2 class="modal-title" style="color: #ff9800;">⚠️ WARNING! ⚠️</h2>
+            <div class="modal-stats" style="color: white; font-size: 18px;">
+                You have <span style="color: #ff3333;" id="warning-continues-text">0 Continues</span> left!<br><br>
+                If you fail when you reach 0, you will <span style="color: #ff3333;">lose ALL your points</span>.<br><br>
+                Cash out now, or risk it all!
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="window.dismissWarning()">Continue Playing</button>
+            </div>
+        </div>
+    </div>
+
     <!-- CONSOLIDATED MENU MODAL -->
     <div id="menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Command Center</h2>
             
-            <!-- Profile Section -->
             <div class="modal-stats" style="text-align: center; margin-bottom: 10px;">
                 <div id="login-status-text" style="color: white; font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
                 
@@ -238,7 +252,6 @@
 
             <hr>
 
-            <!-- Stats Section -->
             <div class="modal-stats" style="text-align: left;">
                 <div style="text-align: center; margin-bottom: 20px;">
                     Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts
@@ -357,17 +370,14 @@
                 await signInWithPopup(auth, new GoogleAuthProvider());
                 alert("Account linked successfully!");
                 document.getElementById('menu-modal').style.display = 'none';
-                // Reload the page smoothly to refresh the auth state completely
                 setTimeout(() => { window.location.reload(); }, 500); 
             } catch (error) { alert("Login Error: " + error.message); }
         }
 
-        // --- CONSOLIDATED MENU LOGIC ---
         window.showMenu = async function() {
             document.activeElement.blur();
             if(!currentUser || !userProfileData) return;
 
-            // Handle Profile UI
             if (userProfileData.isGuest) {
                 document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`;
                 document.getElementById("username-section").style.display = "none";
@@ -379,7 +389,6 @@
                 document.getElementById("auth-action-section").style.display = "none";
             }
 
-            // Handle Stats UI
             const docSnap = await getDoc(doc(db, "users", currentUser.uid));
             if(docSnap.exists()) {
                 let data = docSnap.data();
@@ -398,11 +407,9 @@
                 }
                 document.getElementById("stat-distribution").innerHTML = distHtml;
             }
-
             document.getElementById("menu-modal").style.display = "flex";
         }
 
-        // --- LEADERBOARD LOGIC ---
         let currentLbType = 'single'; 
         let currentLbTime = 'all'; 
 
@@ -496,10 +503,9 @@
             } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
-        // --- GAME MODE VARIABLES ---
         let isTestMode = false;
         let maxGuesses = 5;
-        let startingContinues = 0; // UPDATED: Standard mode now starts with 0 continues
+        let startingContinues = 0; 
         
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = startingContinues; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
@@ -519,15 +525,19 @@
             
             isTestMode = !isTestMode;
             maxGuesses = isTestMode ? 4 : 5;
-            startingContinues = isTestMode ? 2 : 0; // Test mode gets 2, Standard gets 0
+            startingContinues = isTestMode ? 2 : 0; 
             
             document.getElementById("btn-mode").innerText = isTestMode ? "Mode: Test (4 Guesses)" : "Mode: Standard";
-            
             window.startNewRun();
         }
 
         function updateScoreBoard() {
             scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
+        }
+
+        window.dismissWarning = function() {
+            document.getElementById("warning-modal").style.display = "none";
+            startRound();
         }
 
         async function saveRunToCloud() {
@@ -667,10 +677,14 @@
                 } else if (currentRow === maxGuesses - 1) { 
                     continues--; runStats.played++; runStats.fails++; 
                     if (continues < 0) {
-                        showMessage(`WORD WAS ${targetWord}.`); setTimeout(triggerGameOver, 1500); 
+                        showMessage(`WORD WAS ${targetWord}.`); 
+                        score = 0; // NEW: Wipe active score to 0 on death
+                        updateScoreBoard();
+                        setTimeout(triggerGameOver, 1500); 
                     } else {
                         showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
-                        setTimeout(() => { alert(`⚠️ WARNING! ⚠️\n\nYou have ${continues} Continues left!\nIf you fail when you reach 0, you will lose ALL your points.\n\nCash out now, or risk it all!`); startRound(); }, 1500); 
+                        document.getElementById("warning-continues-text").innerText = `${continues} Continues`;
+                        setTimeout(() => { document.getElementById("warning-modal").style.display = "flex"; }, 1500); 
                     }
                 } else {
                     currentRow++; currentGuess = ""; isAnimating = false; 
