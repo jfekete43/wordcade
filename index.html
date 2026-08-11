@@ -437,9 +437,18 @@
             
             try {
                 if (currentLbTime === 'career') {
-                    // Fetch all-time Career Bank
-                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(25)));
-                    snapshot.forEach(doc => { finalData.push({ name: doc.data().username, score: doc.data().careerBank }); });
+                    // Fetch all-time Career Bank (pull 50 to filter duplicates safely)
+                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50)));
+                    snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().careerBank }); });
+    
+                    let uniquePlayers = new Set();
+                    for (let item of rawData) {
+                        if (!uniquePlayers.has(item.name)) {
+                            uniquePlayers.add(item.name);
+                            finalData.push(item);
+                            if(finalData.length === 25) break; 
+                        }
+                    }
                 } else {
                     // Fetch single run queries
                     if (currentLbTime === 'all') {
