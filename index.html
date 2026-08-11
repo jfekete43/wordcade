@@ -128,13 +128,10 @@
         }
         #username-input:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
 
-        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
-        .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase;}
+        /* UPDATED: Simplified tabs layout */
+        .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
         .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
-        
-        .sub-tabs { display: flex; justify-content: center; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
-        .sub-tab-btn { background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; text-transform: uppercase;}
-        .sub-tab-btn.active { background: #00ffff; color: black; }
 
         #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 16px; }
@@ -167,7 +164,7 @@
 
     <div id="score-board">
         <div class="score-text">SCORE: <span id="score">0</span></div>
-        <div class="lives-text">CONTINUES: <span id="continues">0</span></div>
+        <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
     </div>
     
     <div id="message"></div>
@@ -196,7 +193,6 @@
         <div id="live-feed-list" style="font-size: 14px; color: #aaa; font-style: italic;">Connecting to server...</div>
     </div>
 
-    <!-- Game Over Modal -->
     <div id="modal-overlay" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
@@ -212,7 +208,6 @@
         </div>
     </div>
 
-    <!-- NEW: Custom Warning Box for Continues -->
     <div id="warning-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
             <h2 class="modal-title" style="color: #ff9800;">⚠️ WARNING! ⚠️</h2>
@@ -227,7 +222,6 @@
         </div>
     </div>
 
-    <!-- CONSOLIDATED MENU MODAL -->
     <div id="menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Command Center</h2>
@@ -270,18 +264,16 @@
         </div>
     </div>
 
+    <!-- UPDATED: Simplified Leaderboard Tabs -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
             <div class="tabs">
-                <button class="tab-btn active" id="tab-single" onclick="window.setLbType('single')">Single Run</button>
-                <button class="tab-btn" id="tab-career" onclick="window.setLbType('career')">Career Bank</button>
-            </div>
-            <div class="sub-tabs">
-                <button class="sub-tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
-                <button class="sub-tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
-                <button class="sub-tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
-                <button class="sub-tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
+                <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
+                <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
+                <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
+                <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
+                <button class="tab-btn" id="tab-career" onclick="window.setLbTime('career')">Career</button>
             </div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <div class="modal-buttons">
@@ -353,11 +345,25 @@
             } else { signInAnonymously(auth); }
         });
 
+        // UPDATED: Now queries the database to prevent duplicate usernames
         window.saveUsername = async function() {
             let newName = document.getElementById("username-input").value.trim().toUpperCase();
             if(newName.length < 3) { alert("Arcade Handle must be at least 3 characters long!"); return; }
             if(currentUser) {
                 try {
+                    const q = query(collection(db, "users"), where("username", "==", newName));
+                    const snapshot = await getDocs(q);
+                    
+                    let nameTaken = false;
+                    snapshot.forEach(doc => {
+                        if (doc.id !== currentUser.uid) { nameTaken = true; }
+                    });
+                    
+                    if (nameTaken) {
+                        alert("That Arcade Handle is already taken! Please choose another.");
+                        return;
+                    }
+
                     await updateDoc(doc(db, "users", currentUser.uid), { username: newName });
                     userProfileData.username = newName; 
                     alert("Success! Your Arcade Handle is now: " + newName);
@@ -410,23 +416,16 @@
             document.getElementById("menu-modal").style.display = "flex";
         }
 
-        let currentLbType = 'single'; 
+        // --- UPDATED LEADERBOARD LOGIC ---
         let currentLbTime = 'all'; 
 
         window.showLeaderboard = function() {
             document.activeElement.blur(); document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData();
         }
 
-        window.setLbType = function(type) {
-            currentLbType = type;
-            document.getElementById("tab-single").classList.toggle("active", type === 'single');
-            document.getElementById("tab-career").classList.toggle("active", type === 'career');
-            window.loadLeaderboardData();
-        }
-
         window.setLbTime = function(time) {
             currentLbTime = time;
-            document.querySelectorAll(".sub-tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
             document.getElementById("tab-" + time).classList.add("active");
             window.loadLeaderboardData();
         }
@@ -437,8 +436,13 @@
             let html = ""; let rawData = []; let finalData = [];
             
             try {
-                if (currentLbTime === 'all') {
-                    if (currentLbType === 'single') {
+                if (currentLbTime === 'career') {
+                    // Fetch all-time Career Bank
+                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(25)));
+                    snapshot.forEach(doc => { finalData.push({ name: doc.data().username, score: doc.data().careerBank }); });
+                } else {
+                    // Fetch single run queries
+                    if (currentLbTime === 'all') {
                         const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50)));
                         snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
                         
@@ -451,17 +455,12 @@
                             }
                         }
                     } else {
-                        const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(25)));
-                        snapshot.forEach(doc => { finalData.push({ name: doc.data().username, score: doc.data().careerBank }); });
-                    }
-                } else {
-                    const now = new Date(); let start = new Date();
-                    if (currentLbTime === 'daily') { start.setHours(0,0,0,0); }
-                    else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); }
-                    else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
+                        const now = new Date(); let start = new Date();
+                        if (currentLbTime === 'daily') { start.setHours(0,0,0,0); }
+                        else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); }
+                        else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
 
-                    const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
-                    if (currentLbType === 'single') {
+                        const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
                         snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score }); });
                         rawData.sort((a, b) => b.score - a.score);
                         
@@ -473,12 +472,6 @@
                                 if(finalData.length === 25) break; 
                             }
                         }
-                    } else {
-                        let userTotals = {};
-                        snapshot.forEach(doc => { let name = doc.data().username; userTotals[name] = (userTotals[name] || 0) + doc.data().score; });
-                        for (let name in userTotals) { rawData.push({ name: name, score: userTotals[name] }); }
-                        rawData.sort((a, b) => b.score - a.score); 
-                        finalData = rawData.slice(0, 25);
                     }
                 }
 
@@ -486,7 +479,7 @@
                 
                 finalData.forEach((entry, index) => {
                     let dateStr = "";
-                    if (currentLbTime === 'all' && currentLbType === 'single' && entry.ts) {
+                    if (currentLbTime === 'all' && entry.ts) {
                         dateStr = `<div class="lb-date">${entry.ts.toDate().toLocaleDateString()}</div>`;
                     }
                     
@@ -505,7 +498,7 @@
 
         let isTestMode = false;
         let maxGuesses = 5;
-        let startingContinues = 0; 
+        let startingContinues = 1; // UPDATED: 1 Continue for Standard Mode
         
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = startingContinues; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
@@ -514,6 +507,39 @@
         const boardDisplay = document.getElementById("board"); const scoreDisplay = document.getElementById("score");
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
         const modalOverlay = document.getElementById("modal-overlay");
+
+        // NEW: Local Storage System
+        function saveLocalState() {
+            const state = {
+                score: score, continues: continues, wordsGuessed: wordsGuessed,
+                runStats: runStats, isTestMode: isTestMode
+            };
+            localStorage.setItem("wordcade_save", JSON.stringify(state));
+        }
+
+        function clearLocalState() { localStorage.removeItem("wordcade_save"); }
+
+        function loadLocalState() {
+            const saved = localStorage.getItem("wordcade_save");
+            if (saved) {
+                try {
+                    const state = JSON.parse(saved);
+                    score = state.score || 0;
+                    continues = state.continues !== undefined ? state.continues : (state.isTestMode ? 2 : 1);
+                    wordsGuessed = state.wordsGuessed || 0;
+                    runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+                    
+                    if (state.isTestMode !== undefined && state.isTestMode !== isTestMode) {
+                        isTestMode = state.isTestMode;
+                        maxGuesses = isTestMode ? 4 : 5;
+                        startingContinues = isTestMode ? 2 : 1; 
+                        document.getElementById("btn-mode").innerText = isTestMode ? "Mode: Test (4 Guesses)" : "Mode: Standard";
+                    }
+                    return true;
+                } catch (e) { console.error("Save file corrupted"); return false; }
+            }
+            return false;
+        }
 
         window.toggleMode = function() {
             document.activeElement.blur();
@@ -525,7 +551,7 @@
             
             isTestMode = !isTestMode;
             maxGuesses = isTestMode ? 4 : 5;
-            startingContinues = isTestMode ? 2 : 0; 
+            startingContinues = isTestMode ? 2 : 1; 
             
             document.getElementById("btn-mode").innerText = isTestMode ? "Mode: Test (4 Guesses)" : "Mode: Standard";
             window.startNewRun();
@@ -537,6 +563,7 @@
 
         window.dismissWarning = function() {
             document.getElementById("warning-modal").style.display = "none";
+            saveLocalState();
             startRound();
         }
 
@@ -563,13 +590,17 @@
             document.activeElement.blur(); if (isAnimating) return; if (score <= 0) { showMessage("NO POINTS TO CASH OUT!"); return; }
             document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff"; 
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
-            modalOverlay.style.display = "flex"; saveRunToCloud(); 
+            modalOverlay.style.display = "flex"; 
+            clearLocalState(); // Wipe saved game
+            saveRunToCloud(); 
         }
 
         function triggerGameOver() {
             document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "#ff3333"; 
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
-            modalOverlay.style.display = "flex"; saveRunToCloud(); 
+            modalOverlay.style.display = "flex"; 
+            clearLocalState(); // Wipe saved game
+            saveRunToCloud(); 
         }
 
         window.shareStats = function() {
@@ -583,6 +614,7 @@
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
             score = 0; continues = startingContinues; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+            clearLocalState(); 
             updateScoreBoard(); startRound();
         }
 
@@ -672,13 +704,14 @@
                 if (correctCount === 5) {
                     runStats.played++; runStats['guess' + (currentRow + 1)]++; 
                     let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
+                    saveLocalState(); // Auto-save on win
                     showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
                 } else if (currentRow === maxGuesses - 1) { 
                     continues--; runStats.played++; runStats.fails++; 
                     if (continues < 0) {
                         showMessage(`WORD WAS ${targetWord}.`); 
-                        score = 0; // NEW: Wipe active score to 0 on death
+                        score = 0; 
                         updateScoreBoard();
                         setTimeout(triggerGameOver, 1500); 
                     } else {
@@ -694,7 +727,11 @@
 
         function showMessage(msg) { messageDisplay.innerText = msg; setTimeout(() => { messageDisplay.innerText = ""; }, 2000); }
 
-        setTimeout(startRound, 300);
+        // Start game loop, loading saved run if it exists
+        setTimeout(() => {
+            if (loadLocalState()) { updateScoreBoard(); }
+            startRound();
+        }, 300);
     </script>
 </body>
 </html>
