@@ -162,7 +162,6 @@
         .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
         .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
-        /* LEADERBOARD & SHOP CSS */
         #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         
         .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 5px; border-bottom: 1px dashed #333; font-size: 16px; position: relative; z-index: 1;}
@@ -174,7 +173,7 @@
         .lb-score { font-weight: bold; color: #4caf50; z-index: 2;}
         .lb-loading { text-align: center; color: #aaa; font-style: italic; padding: 20px 0; }
 
-        /* NEW: BANNER COSMETICS */
+        /* BANNER COSMETICS */
         .banner_default { background: transparent; }
         .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid #00ffff; border-radius: 3px;}
         
@@ -185,7 +184,7 @@
         }
         @keyframes matrix-scroll { 0% { background-position: 0 0; } 100% { background-position: 0 200px; } }
 
-        /* NEW: REFRACTOR EFFECT COSMETICS */
+        /* REFRACTOR EFFECT COSMETICS */
         .effect_none { color: #fff; }
         .effect_holo {
             background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%);
@@ -213,17 +212,28 @@
         .social-btn { background: #222; border: 2px solid #555; color: #fff; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; text-decoration: none; font-weight: bold; font-size: 20px; transition: all 0.2s;}
         .social-btn:hover { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
 
-        .shop-grid { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
-        .shop-item { background: #111; border: 1px solid #444; border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center;}
-        .shop-item-info { display: flex; flex-direction: column; }
-        .shop-item-name { font-weight: bold; color: #fff; font-size: 16px; }
-        .shop-item-desc { color: #aaa; font-size: 11px; margin-top: 3px; font-style: italic; }
-        .shop-btn { background: transparent; border: 2px solid #4caf50; color: #4caf50; padding: 6px 12px; font-weight: bold; border-radius: 3px; cursor: pointer; text-transform: uppercase; font-size: 12px;}
-        .shop-btn:hover { background: #4caf50; color: #000; }
-        .shop-btn-equipped { background: #444; border-color: #444; color: #aaa; cursor: default; }
-        .shop-btn-equipped:hover { background: #444; color: #aaa; }
-        .shop-btn-equip { border-color: #00ffff; color: #00ffff; }
-        .shop-btn-equip:hover { background: #00ffff; color: #000; }
+        /* SHOP & CHALLENGES CSS */
+        .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
+        .grid-item { background: #111; border: 1px solid #444; border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center;}
+        .grid-item-info { display: flex; flex-direction: column; flex-grow: 1; padding-right: 10px; }
+        .grid-item-name { font-weight: bold; color: #fff; font-size: 16px; }
+        .grid-item-desc { color: #aaa; font-size: 11px; margin-top: 3px; font-style: italic; margin-bottom: 6px;}
+        
+        .action-btn { background: transparent; border: 2px solid #4caf50; color: #4caf50; padding: 6px 12px; font-weight: bold; border-radius: 3px; cursor: pointer; text-transform: uppercase; font-size: 12px; white-space: nowrap;}
+        .action-btn:hover { background: #4caf50; color: #000; }
+        
+        .btn-equipped { background: #444; border-color: #444; color: #aaa; cursor: default; }
+        .btn-equipped:hover { background: #444; color: #aaa; }
+        .btn-equip { border-color: #00ffff; color: #00ffff; }
+        .btn-equip:hover { background: #00ffff; color: #000; }
+        
+        .btn-claim { border-color: #ff9800; color: #ff9800; animation: pulse-claim 1.5s infinite;}
+        .btn-claim:hover { background: #ff9800; color: #000; }
+        @keyframes pulse-claim { 0% { box-shadow: 0 0 5px #ff9800; } 50% { box-shadow: 0 0 15px #ff9800; } 100% { box-shadow: 0 0 5px #ff9800; } }
+
+        .progress-bar-bg { background: #333; height: 10px; border-radius: 5px; overflow: hidden; width: 100%; position: relative; margin-top: 5px;}
+        .progress-bar-fill { background: #00ffff; height: 100%; width: 0%; transition: width 0.3s; }
+        .progress-text { font-size: 10px; color: #fff; position: absolute; width: 100%; text-align: center; top: -1px; font-weight: bold;}
     </style>
 </head>
 <body>
@@ -306,7 +316,7 @@
                 <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
                 <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
                 <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
-                <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="alert('Challenges coming soon!')">Challenges</button>
+                <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="window.openChallengesMenu()">Challenges</button>
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
                 <button class="menu-list-btn" style="color: #777; border-color: #777; margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
             </div>
@@ -314,6 +324,24 @@
             <div class="social-buttons">
                 <a href="#" class="social-btn" title="Join Discord">D</a>
                 <a href="#" class="social-btn" title="Follow on X">X</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHALLENGES MODAL -->
+    <div id="challenges-modal" class="modal-overlay">
+        <div class="modal-box" style="min-width: 340px; border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff;">
+            <h2 class="modal-title" style="color: #ff00ff;">Challenges</h2>
+            
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-chal-daily" onclick="window.renderChallenges('daily')">Daily</button>
+                <button class="tab-btn" id="tab-chal-career" onclick="window.renderChallenges('career')">Career</button>
+            </div>
+
+            <div id="challenges-list" class="grid-container"></div>
+
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="document.getElementById('challenges-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button>
             </div>
         </div>
     </div>
@@ -333,7 +361,7 @@
                 <button class="tab-btn" id="tab-shop-effects" onclick="window.renderShop('effects')">Effects</button>
             </div>
 
-            <div id="shop-list" class="shop-grid"></div>
+            <div id="shop-list" class="grid-container"></div>
 
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="document.getElementById('shop-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button>
@@ -444,13 +472,29 @@
             ]
         };
 
-        // UPDATED: Live Feed now reads equipped data
+        // NEW: Challenges Master Data
+        const CHALLENGES = {
+            daily: [
+                { id: "d_warmup", name: "Batting Practice", desc: "Play 5 words today.", req: 5, field: "played", reward: 1000 },
+                { id: "d_homerun", name: "Home Run", desc: "Guess a word on the 1st try today.", req: 1, field: "guess1", reward: 2500 },
+                { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 }
+            ],
+            career: [
+                { id: "c_rookie", name: "Rookie Card", desc: "Guess 50 total words correctly.", req: 50, field: "totalWordsGuessed", reward: 5000 },
+                { id: "c_gemmint", name: "Gem Mint 10", desc: "Guess 500 total words correctly.", req: 500, field: "totalWordsGuessed", reward: 25000 },
+                { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 }
+            ]
+        };
+
+        function getTodayDateStr() {
+            return new Date().toLocaleDateString();
+        }
+
         const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
         onSnapshot(liveFeedQuery, (snapshot) => {
             let html = "";
             snapshot.forEach(doc => {
                 let data = doc.data();
-                
                 let eq = data.equipped || { banner: 'banner_default', effect: 'effect_none' };
                 let bannerClass = eq.banner;
                 let nameClass = eq.effect;
@@ -474,6 +518,8 @@
                 const userRef = doc(db, "users", user.uid);
                 const docSnap = await getDoc(userRef);
 
+                let todayStr = getTodayDateStr();
+
                 if (!docSnap.exists()) {
                     let defaultUsername = "";
                     if (isGuest) {
@@ -488,15 +534,35 @@
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, totalWordsGuessed: 0,
                         wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0,
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
-                        equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" }
+                        equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
+                        claimedCareer: [],
+                        dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] }
                     };
                     await setDoc(userRef, userProfileData);
                 } else { 
                     userProfileData = docSnap.data(); 
+                    
+                    let needsUpdate = false;
+                    
                     if (!userProfileData.inventory) {
                         userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"];
                         userProfileData.equipped = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
-                        await updateDoc(userRef, { inventory: userProfileData.inventory, equipped: userProfileData.equipped });
+                        needsUpdate = true;
+                    }
+                    if (!userProfileData.claimedCareer) {
+                        userProfileData.claimedCareer = [];
+                        needsUpdate = true;
+                    }
+                    if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) {
+                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] };
+                        needsUpdate = true;
+                    }
+
+                    if (needsUpdate) {
+                        await updateDoc(userRef, { 
+                            inventory: userProfileData.inventory, equipped: userProfileData.equipped,
+                            claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats
+                        });
                     }
                 }
                 
@@ -613,6 +679,103 @@
             document.getElementById("profile-modal").style.display = "flex";
         }
 
+        // --- NEW: CHALLENGES LOGIC ---
+        window.openChallengesMenu = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            if(!currentUser || !userProfileData) return;
+            
+            // Sync with DB to get accurate progress
+            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+            if(docSnap.exists()) {
+                userProfileData = docSnap.data();
+                let todayStr = getTodayDateStr();
+                if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) {
+                    userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] };
+                    await updateDoc(doc(db, "users", currentUser.uid), { dailyStats: userProfileData.dailyStats });
+                }
+                if (!userProfileData.claimedCareer) userProfileData.claimedCareer = [];
+            }
+            
+            window.renderChallenges('daily');
+            document.getElementById("challenges-modal").style.display = "flex";
+        }
+
+        window.renderChallenges = function(type) {
+            document.querySelectorAll("#challenges-modal .tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById(`tab-chal-${type}`).classList.add("active");
+
+            const listDiv = document.getElementById("challenges-list");
+            listDiv.innerHTML = "";
+            
+            const challenges = CHALLENGES[type];
+            let html = "";
+            
+            challenges.forEach(chal => {
+                let currentProgress = 0;
+                let isClaimed = false;
+
+                if (type === 'daily') {
+                    currentProgress = userProfileData.dailyStats[chal.field] || 0;
+                    isClaimed = userProfileData.dailyStats.claimed.includes(chal.id);
+                } else {
+                    currentProgress = userProfileData[chal.field] || 0;
+                    isClaimed = userProfileData.claimedCareer.includes(chal.id);
+                }
+
+                if (isClaimed) return; // Hide completely if claimed to keep UI clean
+
+                let isComplete = currentProgress >= chal.req;
+                let pct = Math.min((currentProgress / chal.req) * 100, 100);
+                
+                let btnHtml = "";
+                if (isComplete) {
+                    btnHtml = `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}', ${chal.reward})">CLAIM<br>${chal.reward.toLocaleString()}</button>`;
+                } else {
+                    btnHtml = `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
+                }
+
+                html += `<div class="grid-item">
+                            <div class="grid-item-info">
+                                <div class="grid-item-name">${chal.name}</div>
+                                <div class="grid-item-desc">${chal.desc}</div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill" style="width: ${pct}%;"></div>
+                                    <div class="progress-text">${currentProgress} / ${chal.req}</div>
+                                </div>
+                            </div>
+                            ${btnHtml}
+                         </div>`;
+            });
+            
+            if (html === "") {
+                html = `<div style="text-align: center; color: #4caf50; padding: 20px; font-weight: bold;">All ${type} challenges completed!</div>`;
+            }
+            
+            listDiv.innerHTML = html;
+        }
+
+        window.claimChallenge = async function(id, type, reward) {
+            try {
+                let updatePayload = { careerBank: increment(reward) };
+                
+                if (type === 'daily') {
+                    userProfileData.dailyStats.claimed.push(id);
+                    updatePayload.dailyStats = userProfileData.dailyStats;
+                } else {
+                    userProfileData.claimedCareer.push(id);
+                    updatePayload.claimedCareer = userProfileData.claimedCareer;
+                }
+                
+                await updateDoc(doc(db, "users", currentUser.uid), updatePayload);
+                userProfileData.careerBank += reward;
+                
+                alert(`Challenge Completed! +${reward.toLocaleString()} pts added to your Career Bank.`);
+                window.renderChallenges(type);
+                
+            } catch (e) { alert("Claim failed."); console.error(e); }
+        }
+
+        // SHOP UI
         window.openShopMenu = async function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             if(!currentUser || !userProfileData) return;
@@ -646,19 +809,19 @@
                 
                 let btnHtml = "";
                 if (isEquipped) {
-                    btnHtml = `<button class="shop-btn shop-btn-equipped">Equipped</button>`;
+                    btnHtml = `<button class="action-btn btn-equipped">Equipped</button>`;
                 } else if (isOwned) {
-                    btnHtml = `<button class="shop-btn shop-btn-equip" onclick="window.equipItem('${item.id}', '${eqKey}')">Equip</button>`;
+                    btnHtml = `<button class="action-btn btn-equip" onclick="window.equipItem('${item.id}', '${eqKey}')">Equip</button>`;
                 } else {
                     let canAfford = userProfileData.careerBank >= item.cost;
                     let color = canAfford ? "#4caf50" : "#ff3333";
-                    btnHtml = `<button class="shop-btn" style="border-color:${color}; color:${color};" onclick="window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
+                    btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
                 }
 
-                html += `<div class="shop-item">
-                            <div class="shop-item-info">
-                                <div class="shop-item-name">${item.name}</div>
-                                <div class="shop-item-desc">${item.desc}</div>
+                html += `<div class="grid-item">
+                            <div class="grid-item-info">
+                                <div class="grid-item-name">${item.name}</div>
+                                <div class="grid-item-desc">${item.desc}</div>
                             </div>
                             ${btnHtml}
                          </div>`;
@@ -719,7 +882,6 @@
             window.loadLeaderboardData();
         }
 
-        // UPDATED: Leaderboard data fetches equipped loadout
         window.loadLeaderboardData = async function() {
             const listDiv = document.getElementById("leaderboard-list");
             listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
@@ -774,7 +936,6 @@
 
                 if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
                 
-                // UPDATED: Render the loaded cosmetics
                 finalData.forEach((entry, index) => {
                     let dateStr = "";
                     if (currentLbTime === 'all' && entry.ts) {
@@ -880,16 +1041,33 @@
             startRound();
         }
 
-        // UPDATED: Now bundles the player's equipped cosmetics with their score
+        // UPDATED: Tracks Daily Stats alongside Career Stats
         async function saveRunToCloud() {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
             if (currentUser && (score > 0 || runStats.played > 0)) {
                 try {
-                    await updateDoc(doc(db, "users", currentUser.uid), {
-                        careerBank: increment(score), totalWordsGuessed: increment(wordsGuessed), wordsPlayed: increment(runStats.played),
+                    let todayStr = getTodayDateStr();
+                    
+                    // Reset daily stats if it is a new day before saving
+                    if (userProfileData.dailyStats && userProfileData.dailyStats.date !== todayStr) {
+                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] };
+                    }
+
+                    // Prepare the update payload for nested Firebase fields
+                    let updates = {
+                        careerBank: increment(score), 
+                        totalWordsGuessed: increment(wordsGuessed), 
+                        wordsPlayed: increment(runStats.played),
                         guess1: increment(runStats.guess1), guess2: increment(runStats.guess2), guess3: increment(runStats.guess3),
-                        guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails)
-                    });
+                        guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails),
+                        "dailyStats.date": todayStr,
+                        "dailyStats.played": increment(runStats.played),
+                        "dailyStats.guessed": increment(wordsGuessed),
+                        "dailyStats.guess1": increment(runStats.guess1)
+                    };
+
+                    await updateDoc(doc(db, "users", currentUser.uid), updates);
+                    
                     if (score > 0) {
                         await addDoc(collection(db, "runs"), { 
                             uid: currentUser.uid, 
