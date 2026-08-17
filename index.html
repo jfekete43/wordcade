@@ -70,6 +70,17 @@
             text-transform: uppercase; transition: transform 0.25s linear; 
         }
         
+        /* NEW: Danger Row Pulsing Animation */
+        .danger-tile {
+            border-color: #ff3333 !important;
+            animation: pulse-danger 1.5s infinite;
+        }
+        @keyframes pulse-danger {
+            0% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; }
+            50% { box-shadow: 0 0 20px #ff3333 inset, 0 0 15px #ff3333; }
+            100% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; }
+        }
+
         .correct { background-color: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 12px #00ffff; } 
         .present { background-color: #ff00ff; border-color: #ff00ff; color: #fff; box-shadow: 0 0 12px #ff00ff; } 
         .absent { background-color: #1a1a1d; border-color: #222; color: #444; }  
@@ -128,7 +139,6 @@
         }
         #username-input:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
 
-        /* UPDATED: Simplified tabs layout */
         .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
         .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
@@ -149,6 +159,14 @@
         .stat-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-out; display: flex; align-items: center; font-weight: bold; font-size: 12px;}
         
         hr { border: 0; border-top: 1px dashed #555; margin: 25px 0; }
+
+        /* NEW: Main Menu List Styles */
+        .menu-list-btn { background: #222; border: 2px solid; color: white; padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
+        .menu-list-btn:hover { background: #333; }
+        
+        .social-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+        .social-btn { background: #222; border: 2px solid #555; color: #fff; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; text-decoration: none; font-weight: bold; font-size: 20px; transition: all 0.2s;}
+        .social-btn:hover { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
     </style>
 </head>
 <body>
@@ -156,7 +174,7 @@
     <h1 class="arcade-title">WordCade</h1>
     
     <nav class="arcade-menu">
-        <button onclick="window.showMenu()">Menu</button>
+        <button onclick="window.showMainMenu()">Menu</button>
         <button onclick="window.showLeaderboard()">Leaderboard</button>
         <button id="btn-mode" onclick="window.toggleMode()">Mode: Standard</button>
         <button class="cash-out-btn" onclick="window.triggerCashOut()">Cash Out</button>
@@ -222,9 +240,32 @@
         </div>
     </div>
 
-    <div id="menu-modal" class="modal-overlay">
+    <!-- NEW: Master Main Menu Modal -->
+    <div id="main-menu-modal" class="modal-overlay">
+        <div class="modal-box" style="min-width: 300px;">
+            <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
+            
+            <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
+                <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
+                <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
+                <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="alert('Item Shop coming soon!')">Item Shop</button>
+                <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="alert('Challenges coming soon!')">Challenges</button>
+                <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
+                <button class="menu-list-btn" style="color: #777; border-color: #777; margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
+            </div>
+
+            <!-- Social Links -->
+            <div class="social-buttons">
+                <a href="#" class="social-btn" title="Join Discord">D</a>
+                <a href="#" class="social-btn" title="Follow on X">X</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOVED: Profile & Stats sub-menu -->
+    <div id="profile-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
-            <h2 class="modal-title">Command Center</h2>
+            <h2 class="modal-title">Profile</h2>
             
             <div class="modal-stats" style="text-align: center; margin-bottom: 10px;">
                 <div id="login-status-text" style="color: white; font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
@@ -234,13 +275,10 @@
                     <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer;">Update Handle</button>
                 </div>
                 
-                <div id="auth-action-section" style="display: none; margin-top: 10px;">
+                <div id="auth-promo-section" style="display: none; margin-top: 10px;">
                     <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
-                        Link a Google account to set a custom Arcade Handle and securely back up your Career Bank!
+                        Link a Google account from the Main Menu to set a custom Arcade Handle!
                     </div>
-                    <button class="btn-google" onclick="window.signInWithGoogle()" style="width: 100%; font-weight: bold; cursor: pointer; border-radius: 5px;">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" height="20"> Sign in with Google
-                    </button>
                 </div>
             </div>
 
@@ -259,12 +297,11 @@
             </div>
 
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="document.getElementById('menu-modal').style.display='none'">Close</button>
+                <button class="btn-dark" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button>
             </div>
         </div>
     </div>
 
-    <!-- UPDATED: Simplified Leaderboard Tabs -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
@@ -285,8 +322,9 @@
     <script src="words.js"></script>
 
     <script type="module">
+        // NEW: Imported signOut from firebase-auth
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -322,6 +360,10 @@
             if (user) {
                 currentUser = user;
                 let isGuest = user.isAnonymous;
+                
+                // Dynamically update the Auth Button text based on login state
+                document.getElementById("auth-action-btn").innerText = isGuest ? "Sign Up / Log In" : "Sign Out";
+                
                 const userRef = doc(db, "users", user.uid);
                 const docSnap = await getDoc(userRef);
 
@@ -345,7 +387,6 @@
             } else { signInAnonymously(auth); }
         });
 
-        // UPDATED: Now queries the database to prevent duplicate usernames
         window.saveUsername = async function() {
             let newName = document.getElementById("username-input").value.trim().toUpperCase();
             if(newName.length < 3) { alert("Arcade Handle must be at least 3 characters long!"); return; }
@@ -371,28 +412,57 @@
             }
         };
 
-        window.signInWithGoogle = async function() {
-            try {
-                await signInWithPopup(auth, new GoogleAuthProvider());
-                alert("Account linked successfully!");
-                document.getElementById('menu-modal').style.display = 'none';
-                setTimeout(() => { window.location.reload(); }, 500); 
-            } catch (error) { alert("Login Error: " + error.message); }
+        window.handleAuthAction = async function() {
+            if (userProfileData && !userProfileData.isGuest) {
+                // If they are logged in, this button signs them out
+                let confirmOut = confirm("Are you sure you want to sign out?");
+                if (confirmOut) {
+                    await signOut(auth);
+                    window.location.reload();
+                }
+            } else {
+                // If they are a guest, this button links Google Auth
+                try {
+                    await signInWithPopup(auth, new GoogleAuthProvider());
+                    alert("Account linked successfully!");
+                    document.getElementById('main-menu-modal').style.display = 'none';
+                    setTimeout(() => { window.location.reload(); }, 500); 
+                } catch (error) { alert("Login Error: " + error.message); }
+            }
         }
 
-        window.showMenu = async function() {
+        // --- NEW MAIN MENU LOGIC ---
+        window.showMainMenu = function() {
             document.activeElement.blur();
+            document.getElementById('main-menu-modal').style.display = 'flex';
+        }
+
+        window.confirmNewGame = function() {
+            if (score > 0 || runStats.played > 0) {
+                let confirmSwitch = confirm("Start a new game? This will end your current run and cash out your score.");
+                if (!confirmSwitch) return;
+                document.getElementById('main-menu-modal').style.display = 'none';
+                saveRunToCloud();
+                window.startNewRun();
+            } else {
+                document.getElementById('main-menu-modal').style.display = 'none';
+                window.startNewRun();
+            }
+        }
+
+        window.openProfileMenu = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
             if(!currentUser || !userProfileData) return;
 
             if (userProfileData.isGuest) {
                 document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`;
                 document.getElementById("username-section").style.display = "none";
-                document.getElementById("auth-action-section").style.display = "block";
+                document.getElementById("auth-promo-section").style.display = "block";
             } else {
                 document.getElementById("login-status-text").innerText = "Linked via Google";
                 document.getElementById("username-input").value = userProfileData.username;
                 document.getElementById("username-section").style.display = "block";
-                document.getElementById("auth-action-section").style.display = "none";
+                document.getElementById("auth-promo-section").style.display = "none";
             }
 
             const docSnap = await getDoc(doc(db, "users", currentUser.uid));
@@ -413,10 +483,9 @@
                 }
                 document.getElementById("stat-distribution").innerHTML = distHtml;
             }
-            document.getElementById("menu-modal").style.display = "flex";
+            document.getElementById("profile-modal").style.display = "flex";
         }
 
-        // --- UPDATED LEADERBOARD LOGIC ---
         let currentLbTime = 'all'; 
 
         window.showLeaderboard = function() {
@@ -437,10 +506,9 @@
             
             try {
                 if (currentLbTime === 'career') {
-                    // Fetch all-time Career Bank (pull 50 to filter duplicates safely)
                     const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50)));
                     snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().careerBank }); });
-    
+                    
                     let uniquePlayers = new Set();
                     for (let item of rawData) {
                         if (!uniquePlayers.has(item.name)) {
@@ -450,7 +518,6 @@
                         }
                     }
                 } else {
-                    // Fetch single run queries
                     if (currentLbTime === 'all') {
                         const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50)));
                         snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
@@ -507,7 +574,7 @@
 
         let isTestMode = false;
         let maxGuesses = 5;
-        let startingContinues = 1; // UPDATED: 1 Continue for Standard Mode
+        let startingContinues = 1; 
         
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = startingContinues; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
@@ -517,7 +584,6 @@
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
         const modalOverlay = document.getElementById("modal-overlay");
 
-        // NEW: Local Storage System
         function saveLocalState() {
             const state = {
                 score: score, continues: continues, wordsGuessed: wordsGuessed,
@@ -570,6 +636,17 @@
             scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
         }
 
+        // NEW: Danger Row function evaluates if the final guess row needs to glow red
+        function checkDangerRow() {
+            document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile'));
+            if (continues <= 0 && currentRow === maxGuesses - 1) {
+                for (let j = 0; j < 5; j++) {
+                    let tile = document.getElementById(`tile-${currentRow}-${j}`);
+                    if (tile) tile.classList.add('danger-tile');
+                }
+            }
+        }
+
         window.dismissWarning = function() {
             document.getElementById("warning-modal").style.display = "none";
             saveLocalState();
@@ -600,7 +677,7 @@
             document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff"; 
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
             modalOverlay.style.display = "flex"; 
-            clearLocalState(); // Wipe saved game
+            clearLocalState(); 
             saveRunToCloud(); 
         }
 
@@ -608,7 +685,7 @@
             document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "#ff3333"; 
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
             modalOverlay.style.display = "flex"; 
-            clearLocalState(); // Wipe saved game
+            clearLocalState(); 
             saveRunToCloud(); 
         }
 
@@ -646,6 +723,7 @@
             targetWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "APPLE"; 
             currentGuess = ""; currentRow = 0; isAnimating = false; 
             createBoard(); resetKeyboardColors(); 
+            checkDangerRow();
         }
 
         const keys = document.querySelectorAll(".key");
@@ -713,7 +791,7 @@
                 if (correctCount === 5) {
                     runStats.played++; runStats['guess' + (currentRow + 1)]++; 
                     let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
-                    saveLocalState(); // Auto-save on win
+                    saveLocalState(); 
                     showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
                 } else if (currentRow === maxGuesses - 1) { 
@@ -730,15 +808,15 @@
                     }
                 } else {
                     currentRow++; currentGuess = ""; isAnimating = false; 
+                    checkDangerRow();
                 }
             }, 1500); 
         }
 
         function showMessage(msg) { messageDisplay.innerText = msg; setTimeout(() => { messageDisplay.innerText = ""; }, 2000); }
 
-        // Start game loop, loading saved run if it exists
         setTimeout(() => {
-            if (loadLocalState()) { updateScoreBoard(); }
+            if (loadLocalState()) { updateScoreBoard(); checkDangerRow(); }
             startRound();
         }, 300);
     </script>
