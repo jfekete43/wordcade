@@ -31,7 +31,6 @@
             text-transform: uppercase;
         }
 
-        /* NEW: Equipped Title Display */
         #player-title-display {
             font-size: 12px; color: #ff9800; text-transform: uppercase; letter-spacing: 2px;
             margin-top: -5px; margin-bottom: 15px; font-weight: bold; height: 14px;
@@ -124,6 +123,8 @@
             width: 90%; max-width: 320px; background: #111; border: 1px solid #333;
             border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center;
         }
+        
+        .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
 
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -161,15 +162,42 @@
         .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
         .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
+        /* LEADERBOARD & SHOP CSS */
         #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
-        .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #333; font-size: 16px; }
+        
+        .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 5px; border-bottom: 1px dashed #333; font-size: 16px; position: relative; z-index: 1;}
         .lb-entry:last-child { border-bottom: none; }
-        .lb-rank { font-weight: bold; color: #ff9800; width: 35px; }
-        .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; }
+        .lb-rank { font-weight: bold; color: #ff9800; width: 35px; z-index: 2;}
+        .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; z-index: 2;}
         .lb-name { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
         .lb-date { font-size: 11px; color: #777; margin-top: 2px; }
-        .lb-score { font-weight: bold; color: #4caf50; }
+        .lb-score { font-weight: bold; color: #4caf50; z-index: 2;}
         .lb-loading { text-align: center; color: #aaa; font-style: italic; padding: 20px 0; }
+
+        /* NEW: BANNER COSMETICS */
+        .banner_default { background: transparent; }
+        .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid #00ffff; border-radius: 3px;}
+        
+        .banner_matrix::after {
+            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,255,0,0.08) 0px, transparent 2px, transparent 4px);
+            z-index: -1; animation: matrix-scroll 10s linear infinite; border-left: 3px solid #00ff00; border-radius: 3px;
+        }
+        @keyframes matrix-scroll { 0% { background-position: 0 0; } 100% { background-position: 0 200px; } }
+
+        /* NEW: REFRACTOR EFFECT COSMETICS */
+        .effect_none { color: #fff; }
+        .effect_holo {
+            background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%);
+            background-size: 200% auto;
+            color: #fff;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 3s linear infinite;
+        }
+        @keyframes shine { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
+
 
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
@@ -185,7 +213,6 @@
         .social-btn { background: #222; border: 2px solid #555; color: #fff; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; text-decoration: none; font-weight: bold; font-size: 20px; transition: all 0.2s;}
         .social-btn:hover { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
 
-        /* SHOP CSS */
         .shop-grid { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
         .shop-item { background: #111; border: 1px solid #444; border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center;}
         .shop-item-info { display: flex; flex-direction: column; }
@@ -291,7 +318,6 @@
         </div>
     </div>
 
-    <!-- NEW: Item Shop Modal -->
     <div id="shop-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px; border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
             <h2 class="modal-title" style="color: #ff9800;">Item Shop</h2>
@@ -395,7 +421,6 @@
         let currentUser = null;
         let userProfileData = null;
 
-        // NEW: Shop Master Data
         const SHOP_ITEMS = {
             titles: [
                 { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
@@ -419,13 +444,21 @@
             ]
         };
 
+        // UPDATED: Live Feed now reads equipped data
         const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
         onSnapshot(liveFeedQuery, (snapshot) => {
             let html = "";
             snapshot.forEach(doc => {
                 let data = doc.data();
-                html += `<div style="margin-bottom: 4px;">
-                            <span style="color:#ff00ff; font-weight: bold;">${data.username}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${data.score.toLocaleString()}</span> pts
+                
+                let eq = data.equipped || { banner: 'banner_default', effect: 'effect_none' };
+                let bannerClass = eq.banner;
+                let nameClass = eq.effect;
+                if (!['banner_default', 'banner_cyan', 'banner_matrix'].includes(bannerClass)) bannerClass = 'banner_default';
+                if (!['effect_none', 'effect_holo'].includes(nameClass)) nameClass = 'effect_none';
+
+                html += `<div class="live-feed-item ${bannerClass}">
+                            <span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${data.username}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${data.score.toLocaleString()}</span> pts
                          </div>`;
             });
             document.getElementById("live-feed-list").innerHTML = html || "No recent activity.";
@@ -460,8 +493,6 @@
                     await setDoc(userRef, userProfileData);
                 } else { 
                     userProfileData = docSnap.data(); 
-                    
-                    // Legacy migration: If old user doesn't have inventory, add it
                     if (!userProfileData.inventory) {
                         userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"];
                         userProfileData.equipped = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
@@ -474,16 +505,13 @@
             } else { signInAnonymously(auth); }
         });
 
-        // NEW: Apply local cosmetics on load
         function applyEquippedCosmetics() {
             if (!userProfileData || !userProfileData.equipped) return;
             
-            // Apply Title
             const eqTitleId = userProfileData.equipped.title;
             const titleObj = SHOP_ITEMS.titles.find(t => t.id === eqTitleId);
             document.getElementById("player-title-display").innerText = titleObj && titleObj.display ? titleObj.display : "";
 
-            // Apply Skin
             const eqSkinId = userProfileData.equipped.skin;
             const skinObj = SHOP_ITEMS.skins.find(s => s.id === eqSkinId);
             document.body.className = skinObj && skinObj.themeClass ? skinObj.themeClass : "";
@@ -585,12 +613,10 @@
             document.getElementById("profile-modal").style.display = "flex";
         }
 
-        // --- NEW: SHOP LOGIC ---
         window.openShopMenu = async function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             if(!currentUser || !userProfileData) return;
             
-            // Refresh bank visual
             const docSnap = await getDoc(doc(db, "users", currentUser.uid));
             if(docSnap.exists()) {
                 userProfileData.careerBank = docSnap.data().careerBank || 0;
@@ -613,9 +639,8 @@
             
             items.forEach(item => {
                 let isOwned = userProfileData.inventory.includes(item.id);
-                // For legacy mapping, category maps to equipped object keys (e.g. 'skins' -> 'skin')
                 let eqKey = category.slice(0, -1); 
-                if (category === 'effects') eqKey = 'effect'; // Fix grammar
+                if (category === 'effects') eqKey = 'effect'; 
                 
                 let isEquipped = userProfileData.equipped[eqKey] === item.id;
                 
@@ -651,7 +676,6 @@
             if (!confirmBuy) return;
 
             try {
-                // Deduct cost and add to inventory
                 userProfileData.careerBank -= cost;
                 userProfileData.inventory.push(id);
                 
@@ -675,14 +699,12 @@
                 
                 applyEquippedCosmetics();
                 
-                // Hacky map to get back to tab category
                 let renderCat = equipCategoryKey + "s";
                 if (equipCategoryKey === "effect") renderCat = "effects";
                 window.renderShop(renderCat);
                 
             } catch (e) { alert("Equip failed."); console.error(e); }
         }
-
 
         let currentLbTime = 'all'; 
 
@@ -697,6 +719,7 @@
             window.loadLeaderboardData();
         }
 
+        // UPDATED: Leaderboard data fetches equipped loadout
         window.loadLeaderboardData = async function() {
             const listDiv = document.getElementById("leaderboard-list");
             listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
@@ -705,7 +728,7 @@
             try {
                 if (currentLbTime === 'career') {
                     const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50)));
-                    snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().careerBank }); });
+                    snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); });
                     
                     let uniquePlayers = new Set();
                     for (let item of rawData) {
@@ -718,7 +741,7 @@
                 } else {
                     if (currentLbTime === 'all') {
                         const snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50)));
-                        snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
+                        snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp, equipped: doc.data().equipped }); });
                         
                         let uniquePlayers = new Set();
                         for (let item of rawData) {
@@ -735,7 +758,7 @@
                         else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
 
                         const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
-                        snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score }); });
+                        snapshot.forEach(doc => { rawData.push({ name: doc.data().username, score: doc.data().score, equipped: doc.data().equipped }); });
                         rawData.sort((a, b) => b.score - a.score);
                         
                         let uniquePlayers = new Set();
@@ -751,16 +774,23 @@
 
                 if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
                 
+                // UPDATED: Render the loaded cosmetics
                 finalData.forEach((entry, index) => {
                     let dateStr = "";
                     if (currentLbTime === 'all' && entry.ts) {
                         dateStr = `<div class="lb-date">${entry.ts.toDate().toLocaleDateString()}</div>`;
                     }
                     
-                    html += `<div class="lb-entry">
+                    let eq = entry.equipped || { banner: 'banner_default', effect: 'effect_none' };
+                    let bannerClass = eq.banner;
+                    let nameClass = eq.effect;
+                    if (!['banner_default', 'banner_cyan', 'banner_matrix'].includes(bannerClass)) bannerClass = 'banner_default';
+                    if (!['effect_none', 'effect_holo'].includes(nameClass)) nameClass = 'effect_none';
+                    
+                    html += `<div class="lb-entry ${bannerClass}">
                                 <div class="lb-rank">#${index + 1}</div>
                                 <div class="lb-name-col">
-                                    <div class="lb-name">${entry.name}</div>
+                                    <div class="lb-name ${nameClass}">${entry.name}</div>
                                     ${dateStr}
                                 </div>
                                 <div class="lb-score">${entry.score.toLocaleString()}</div>
@@ -850,6 +880,7 @@
             startRound();
         }
 
+        // UPDATED: Now bundles the player's equipped cosmetics with their score
         async function saveRunToCloud() {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
             if (currentUser && (score > 0 || runStats.played > 0)) {
@@ -860,7 +891,14 @@
                         guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails)
                     });
                     if (score > 0) {
-                        await addDoc(collection(db, "runs"), { uid: currentUser.uid, username: userProfileData.username, score: score, wordsGuessed: wordsGuessed, timestamp: serverTimestamp() });
+                        await addDoc(collection(db, "runs"), { 
+                            uid: currentUser.uid, 
+                            username: userProfileData.username, 
+                            score: score, 
+                            wordsGuessed: wordsGuessed, 
+                            timestamp: serverTimestamp(),
+                            equipped: userProfileData.equipped
+                        });
                     }
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
                 } catch (e) {
