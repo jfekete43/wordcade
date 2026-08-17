@@ -18,6 +18,7 @@
             padding-top: 20px; 
             min-height: 100vh; 
             overflow-x: hidden;
+            transition: background-color 0.3s;
         }
 
         .arcade-title {
@@ -28,6 +29,12 @@
             letter-spacing: 4px;
             font-style: italic;
             text-transform: uppercase;
+        }
+
+        /* NEW: Equipped Title Display */
+        #player-title-display {
+            font-size: 12px; color: #ff9800; text-transform: uppercase; letter-spacing: 2px;
+            margin-top: -5px; margin-bottom: 15px; font-weight: bold; height: 14px;
         }
 
         .arcade-menu { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;}
@@ -67,10 +74,9 @@
         .tile { 
             border: 2px solid #3a3a3c; font-size: 30px; font-weight: bold; 
             display: flex; justify-content: center; align-items: center; 
-            text-transform: uppercase; transition: transform 0.25s linear; 
+            text-transform: uppercase; transition: transform 0.25s linear, border-color 0.3s; 
         }
         
-        /* NEW: Danger Row Pulsing Animation */
         .danger-tile {
             border-color: #ff3333 !important;
             animation: pulse-danger 1.5s infinite;
@@ -88,8 +94,7 @@
         #keyboard {
             display: flex; flex-direction: column; align-items: center; gap: 6px;
             width: 100%; max-width: 500px; margin-bottom: 20px;
-            user-select: none; 
-            padding: 0 5px;
+            user-select: none; padding: 0 5px;
         }
         .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
         .key {
@@ -101,6 +106,19 @@
         .key:active { transform: scale(0.95); } 
         .key.wide { max-width: 65px; font-size: 14px; }
         .key.absent { opacity: 0.25; background-color: #000; color: #555; border-color: #111; }
+
+        /* THEMES CSS */
+        body.theme-8bit { background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        body.theme-8bit .tile { border-radius: 0; border: 4px solid #fff; font-family: 'Courier New', Courier, monospace; }
+        body.theme-8bit .key { border-radius: 0; font-family: 'Courier New', Courier, monospace; }
+        body.theme-8bit .correct { background-color: #00cc00; border-color: #00cc00; box-shadow: none; color: #fff;}
+        body.theme-8bit .present { background-color: #ccaa00; border-color: #ccaa00; box-shadow: none; color: #fff;}
+
+        body.theme-camo { background-color: #1c231c; }
+        body.theme-camo .tile { border: 2px solid #4a5c4a; background-color: #2b362b; }
+        body.theme-camo .key { background-color: #3e4a3e; border-color: #2b362b; }
+        body.theme-camo .correct { background-color: #8da84b; border-color: #8da84b; box-shadow: none; color: #111;}
+        body.theme-camo .present { background-color: #b89c49; border-color: #b89c49; box-shadow: none; color: #111;}
 
         #live-feed-container {
             width: 90%; max-width: 320px; background: #111; border: 1px solid #333;
@@ -160,18 +178,31 @@
         
         hr { border: 0; border-top: 1px dashed #555; margin: 25px 0; }
 
-        /* NEW: Main Menu List Styles */
         .menu-list-btn { background: #222; border: 2px solid; color: white; padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
         .menu-list-btn:hover { background: #333; }
         
         .social-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
         .social-btn { background: #222; border: 2px solid #555; color: #fff; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; text-decoration: none; font-weight: bold; font-size: 20px; transition: all 0.2s;}
         .social-btn:hover { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 10px #00ffff; }
+
+        /* SHOP CSS */
+        .shop-grid { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
+        .shop-item { background: #111; border: 1px solid #444; border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center;}
+        .shop-item-info { display: flex; flex-direction: column; }
+        .shop-item-name { font-weight: bold; color: #fff; font-size: 16px; }
+        .shop-item-desc { color: #aaa; font-size: 11px; margin-top: 3px; font-style: italic; }
+        .shop-btn { background: transparent; border: 2px solid #4caf50; color: #4caf50; padding: 6px 12px; font-weight: bold; border-radius: 3px; cursor: pointer; text-transform: uppercase; font-size: 12px;}
+        .shop-btn:hover { background: #4caf50; color: #000; }
+        .shop-btn-equipped { background: #444; border-color: #444; color: #aaa; cursor: default; }
+        .shop-btn-equipped:hover { background: #444; color: #aaa; }
+        .shop-btn-equip { border-color: #00ffff; color: #00ffff; }
+        .shop-btn-equip:hover { background: #00ffff; color: #000; }
     </style>
 </head>
 <body>
 
     <h1 class="arcade-title">WordCade</h1>
+    <div id="player-title-display"></div>
     
     <nav class="arcade-menu">
         <button onclick="window.showMainMenu()">Menu</button>
@@ -240,7 +271,6 @@
         </div>
     </div>
 
-    <!-- NEW: Master Main Menu Modal -->
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
@@ -248,13 +278,12 @@
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
                 <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
-                <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="alert('Item Shop coming soon!')">Item Shop</button>
+                <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
                 <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="alert('Challenges coming soon!')">Challenges</button>
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
                 <button class="menu-list-btn" style="color: #777; border-color: #777; margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
             </div>
 
-            <!-- Social Links -->
             <div class="social-buttons">
                 <a href="#" class="social-btn" title="Join Discord">D</a>
                 <a href="#" class="social-btn" title="Follow on X">X</a>
@@ -262,7 +291,30 @@
         </div>
     </div>
 
-    <!-- MOVED: Profile & Stats sub-menu -->
+    <!-- NEW: Item Shop Modal -->
+    <div id="shop-modal" class="modal-overlay">
+        <div class="modal-box" style="min-width: 340px; border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
+            <h2 class="modal-title" style="color: #ff9800;">Item Shop</h2>
+            
+            <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">
+                Career Bank: <span id="shop-bank-display" style="color: #ff00ff;">0</span> pts
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-shop-skins" onclick="window.renderShop('skins')">Board Skins</button>
+                <button class="tab-btn" id="tab-shop-titles" onclick="window.renderShop('titles')">Titles</button>
+                <button class="tab-btn" id="tab-shop-banners" onclick="window.renderShop('banners')">Banners</button>
+                <button class="tab-btn" id="tab-shop-effects" onclick="window.renderShop('effects')">Effects</button>
+            </div>
+
+            <div id="shop-list" class="shop-grid"></div>
+
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="document.getElementById('shop-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button>
+            </div>
+        </div>
+    </div>
+
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Profile</h2>
@@ -322,7 +374,6 @@
     <script src="words.js"></script>
 
     <script type="module">
-        // NEW: Imported signOut from firebase-auth
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
@@ -344,6 +395,30 @@
         let currentUser = null;
         let userProfileData = null;
 
+        // NEW: Shop Master Data
+        const SHOP_ITEMS = {
+            titles: [
+                { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
+                { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 500, display: "Rookie" },
+                { id: "title_mvp", name: "MVP", desc: "The most valuable player.", cost: 2500, display: "MVP" },
+                { id: "title_cardboard", name: "Cardboard Collector", desc: "Sleeve it up.", cost: 5000, display: "Cardboard Collector" }
+            ],
+            skins: [
+                { id: "skin_default", name: "Neon Arcade", desc: "The classic WordCade aesthetic.", cost: 0, themeClass: "" },
+                { id: "skin_8bit", name: "8-Bit Retro", desc: "Blocky borders and pixel fonts.", cost: 5000, themeClass: "theme-8bit" },
+                { id: "skin_camo", name: "Erangel Camo", desc: "Tactical colors for dropping in.", cost: 10000, themeClass: "theme-camo" }
+            ],
+            banners: [
+                { id: "banner_default", name: "Basic Slate", desc: "Standard Leaderboard Background", cost: 0 },
+                { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 5000 },
+                { id: "banner_matrix", name: "The Matrix", desc: "Digital rain effect.", cost: 15000 }
+            ],
+            effects: [
+                { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
+                { id: "effect_holo", name: "Silver Refractor", desc: "A sweeping, holographic glare over your name.", cost: 25000 }
+            ]
+        };
+
         const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
         onSnapshot(liveFeedQuery, (snapshot) => {
             let html = "";
@@ -361,7 +436,6 @@
                 currentUser = user;
                 let isGuest = user.isAnonymous;
                 
-                // Dynamically update the Auth Button text based on login state
                 document.getElementById("auth-action-btn").innerText = isGuest ? "Sign Up / Log In" : "Sign Out";
                 
                 const userRef = doc(db, "users", user.uid);
@@ -379,13 +453,41 @@
 
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, totalWordsGuessed: 0,
-                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0
+                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0,
+                        inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
+                        equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" }
                     };
                     await setDoc(userRef, userProfileData);
-                } else { userProfileData = docSnap.data(); }
+                } else { 
+                    userProfileData = docSnap.data(); 
+                    
+                    // Legacy migration: If old user doesn't have inventory, add it
+                    if (!userProfileData.inventory) {
+                        userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"];
+                        userProfileData.equipped = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
+                        await updateDoc(userRef, { inventory: userProfileData.inventory, equipped: userProfileData.equipped });
+                    }
+                }
+                
+                applyEquippedCosmetics();
 
             } else { signInAnonymously(auth); }
         });
+
+        // NEW: Apply local cosmetics on load
+        function applyEquippedCosmetics() {
+            if (!userProfileData || !userProfileData.equipped) return;
+            
+            // Apply Title
+            const eqTitleId = userProfileData.equipped.title;
+            const titleObj = SHOP_ITEMS.titles.find(t => t.id === eqTitleId);
+            document.getElementById("player-title-display").innerText = titleObj && titleObj.display ? titleObj.display : "";
+
+            // Apply Skin
+            const eqSkinId = userProfileData.equipped.skin;
+            const skinObj = SHOP_ITEMS.skins.find(s => s.id === eqSkinId);
+            document.body.className = skinObj && skinObj.themeClass ? skinObj.themeClass : "";
+        }
 
         window.saveUsername = async function() {
             let newName = document.getElementById("username-input").value.trim().toUpperCase();
@@ -414,14 +516,12 @@
 
         window.handleAuthAction = async function() {
             if (userProfileData && !userProfileData.isGuest) {
-                // If they are logged in, this button signs them out
                 let confirmOut = confirm("Are you sure you want to sign out?");
                 if (confirmOut) {
                     await signOut(auth);
                     window.location.reload();
                 }
             } else {
-                // If they are a guest, this button links Google Auth
                 try {
                     await signInWithPopup(auth, new GoogleAuthProvider());
                     alert("Account linked successfully!");
@@ -431,7 +531,6 @@
             }
         }
 
-        // --- NEW MAIN MENU LOGIC ---
         window.showMainMenu = function() {
             document.activeElement.blur();
             document.getElementById('main-menu-modal').style.display = 'flex';
@@ -486,6 +585,105 @@
             document.getElementById("profile-modal").style.display = "flex";
         }
 
+        // --- NEW: SHOP LOGIC ---
+        window.openShopMenu = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            if(!currentUser || !userProfileData) return;
+            
+            // Refresh bank visual
+            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+            if(docSnap.exists()) {
+                userProfileData.careerBank = docSnap.data().careerBank || 0;
+                document.getElementById("shop-bank-display").innerText = userProfileData.careerBank.toLocaleString();
+            }
+            
+            window.renderShop('skins');
+            document.getElementById("shop-modal").style.display = "flex";
+        }
+
+        window.renderShop = function(category) {
+            document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById(`tab-shop-${category}`).classList.add("active");
+
+            const listDiv = document.getElementById("shop-list");
+            listDiv.innerHTML = "";
+            
+            const items = SHOP_ITEMS[category];
+            let html = "";
+            
+            items.forEach(item => {
+                let isOwned = userProfileData.inventory.includes(item.id);
+                // For legacy mapping, category maps to equipped object keys (e.g. 'skins' -> 'skin')
+                let eqKey = category.slice(0, -1); 
+                if (category === 'effects') eqKey = 'effect'; // Fix grammar
+                
+                let isEquipped = userProfileData.equipped[eqKey] === item.id;
+                
+                let btnHtml = "";
+                if (isEquipped) {
+                    btnHtml = `<button class="shop-btn shop-btn-equipped">Equipped</button>`;
+                } else if (isOwned) {
+                    btnHtml = `<button class="shop-btn shop-btn-equip" onclick="window.equipItem('${item.id}', '${eqKey}')">Equip</button>`;
+                } else {
+                    let canAfford = userProfileData.careerBank >= item.cost;
+                    let color = canAfford ? "#4caf50" : "#ff3333";
+                    btnHtml = `<button class="shop-btn" style="border-color:${color}; color:${color};" onclick="window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
+                }
+
+                html += `<div class="shop-item">
+                            <div class="shop-item-info">
+                                <div class="shop-item-name">${item.name}</div>
+                                <div class="shop-item-desc">${item.desc}</div>
+                            </div>
+                            ${btnHtml}
+                         </div>`;
+            });
+            listDiv.innerHTML = html;
+        }
+
+        window.buyItem = async function(id, cost, category) {
+            if (userProfileData.careerBank < cost) {
+                alert("Not enough points in your Career Bank!");
+                return;
+            }
+            
+            let confirmBuy = confirm(`Purchase for ${cost.toLocaleString()} pts?`);
+            if (!confirmBuy) return;
+
+            try {
+                // Deduct cost and add to inventory
+                userProfileData.careerBank -= cost;
+                userProfileData.inventory.push(id);
+                
+                await updateDoc(doc(db, "users", currentUser.uid), { 
+                    careerBank: increment(-cost),
+                    inventory: userProfileData.inventory
+                });
+                
+                document.getElementById("shop-bank-display").innerText = userProfileData.careerBank.toLocaleString();
+                window.renderShop(category);
+                
+            } catch (e) { alert("Purchase failed."); console.error(e); }
+        }
+
+        window.equipItem = async function(id, equipCategoryKey) {
+            try {
+                userProfileData.equipped[equipCategoryKey] = id;
+                await updateDoc(doc(db, "users", currentUser.uid), { 
+                    equipped: userProfileData.equipped
+                });
+                
+                applyEquippedCosmetics();
+                
+                // Hacky map to get back to tab category
+                let renderCat = equipCategoryKey + "s";
+                if (equipCategoryKey === "effect") renderCat = "effects";
+                window.renderShop(renderCat);
+                
+            } catch (e) { alert("Equip failed."); console.error(e); }
+        }
+
+
         let currentLbTime = 'all'; 
 
         window.showLeaderboard = function() {
@@ -494,7 +692,7 @@
 
         window.setLbTime = function(time) {
             currentLbTime = time;
-            document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active"));
             document.getElementById("tab-" + time).classList.add("active");
             window.loadLeaderboardData();
         }
@@ -636,7 +834,6 @@
             scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
         }
 
-        // NEW: Danger Row function evaluates if the final guess row needs to glow red
         function checkDangerRow() {
             document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile'));
             if (continues <= 0 && currentRow === maxGuesses - 1) {
