@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WordCade</title>
+    <title>UpWord</title>
     <style>
         * { touch-action: manipulation; box-sizing: border-box; }
 
@@ -200,7 +200,7 @@
 </head>
 <body>
 
-    <h1 class="arcade-title">WordCade</h1>
+    <h1 class="arcade-title">UpWord</h1>
     
     <nav class="arcade-menu">
         <button onclick="window.showMainMenu()">Menu</button>
@@ -445,7 +445,7 @@
                 { id: "title_cardboard", name: "Cardboard Collector", desc: "Sleeve it up.", cost: 5000, display: "Cardboard Collector" }
             ],
             skins: [
-                { id: "skin_default", name: "Neon Arcade", desc: "The classic WordCade aesthetic.", cost: 0, themeClass: "" },
+                { id: "skin_default", name: "Neon Arcade", desc: "The classic UpWord aesthetic.", cost: 0, themeClass: "" },
                 { id: "skin_8bit", name: "8-Bit Retro", desc: "Blocky borders and pixel fonts.", cost: 5000, themeClass: "theme-8bit" },
                 { id: "skin_camo", name: "Erangel Camo", desc: "Tactical colors for dropping in.", cost: 10000, themeClass: "theme-camo" },
                 { id: "skin_crt", name: "Retro Cabinet", desc: "Glowing scanlines from a tube TV.", cost: 15000, themeClass: "theme-crt" }
@@ -901,7 +901,6 @@
                     }
                 }
                 
-                // NEW: Unlock Daily Top 10 Challenge if applicable
                 if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) {
                     let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1;
                     if (myRank > 0 && myRank <= 10) {
@@ -1078,7 +1077,7 @@
         }
 
         window.shareStats = function() {
-            let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+            let shareText = `🕹️ UpWord\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
             navigator.clipboard.writeText(shareText).then(() => {
                 let shareBtn = document.getElementById("btn-share"); shareBtn.innerText = "COPIED!";
                 setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000);
@@ -1118,7 +1117,6 @@
         window.handleInput = function(key) {
             if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
 
-            // Start timer on first interaction if in timed mode
             if (isTimedMode && !timerStarted) {
                 timerStarted = true;
                 startTimer();
