@@ -63,7 +63,6 @@
         .legend-item { display: flex; align-items: center; gap: 6px; }
         .legend-box { width: 14px; height: 14px; border-radius: 3px; transition: background-color 0.3s, box-shadow 0.3s;}
         
-        /* Updated dynamically by JS now */
         #legend-correct { background-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
         #legend-present { background-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
 
@@ -213,7 +212,7 @@
     <div id="score-board">
         <div class="score-text">SCORE: <span id="score">0</span></div>
         <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
-        <div class="timer-text" id="timer-display">⏱️ <span id="timer-val">60</span></div>
+        <div class="timer-text" id="timer-display">⏱️ <span id="timer-val">90</span></div>
     </div>
     
     <div id="message"></div>
@@ -467,13 +466,15 @@
         const CHALLENGES = {
             daily: [
                 { id: "d_warmup", name: "Batting Practice", desc: "Play 5 words today.", req: 5, field: "played", reward: 1000 },
-                { id: "d_homerun", name: "Home Run", desc: "Guess a word on the 1st try today.", req: 1, field: "guess1", reward: 2500 },
-                { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 }
+                { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 },
+                { id: "d_clutch", name: "Clutch Hit", desc: "Guess a word on the 5th try today.", req: 1, field: "guess5", reward: 2500 }
             ],
             career: [
+                { id: "c_homerun", name: "First Pitch Home Run", desc: "Guess a word on the 1st try.", req: 1, field: "guess1", reward: 10000 },
                 { id: "c_rookie", name: "Rookie Card", desc: "Guess 50 total words correctly.", req: 50, field: "totalWordsGuessed", reward: 5000 },
                 { id: "c_gemmint", name: "Gem Mint 10", desc: "Guess 500 total words correctly.", req: 500, field: "totalWordsGuessed", reward: 25000 },
-                { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 }
+                { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
+                { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 }
             ]
         };
 
@@ -517,17 +518,16 @@
 
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, wallet: 0, handleChanges: 0, totalWordsGuessed: 0,
-                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0,
+                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0,
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
                         equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
-                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] }
+                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }
                     };
                     await setDoc(userRef, userProfileData);
                 } else { 
                     userProfileData = docSnap.data(); 
                     let needsUpdate = false;
                     
-                    // Wallet Migration (Splits all-time stats from spendable)
                     if (userProfileData.wallet === undefined) {
                         let spent = 0;
                         if (userProfileData.inventory) {
@@ -543,6 +543,7 @@
                         needsUpdate = true;
                     }
                     if (userProfileData.handleChanges === undefined) { userProfileData.handleChanges = 0; needsUpdate = true;}
+                    if (userProfileData.achievedTop10Daily === undefined) { userProfileData.achievedTop10Daily = 0; needsUpdate = true;}
                     
                     if (!userProfileData.inventory) {
                         userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"];
@@ -551,14 +552,14 @@
                     }
                     if (!userProfileData.claimedCareer) { userProfileData.claimedCareer = []; needsUpdate = true; }
                     if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) {
-                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] };
+                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] };
                         needsUpdate = true;
                     }
 
                     if (needsUpdate) {
                         await updateDoc(userRef, { 
                             inventory: userProfileData.inventory, equipped: userProfileData.equipped, wallet: userProfileData.wallet,
-                            careerBank: userProfileData.careerBank, handleChanges: userProfileData.handleChanges,
+                            careerBank: userProfileData.careerBank, handleChanges: userProfileData.handleChanges, achievedTop10Daily: userProfileData.achievedTop10Daily,
                             claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats
                         });
                     }
@@ -570,7 +571,6 @@
         function applyEquippedCosmetics() {
             if (!userProfileData || !userProfileData.equipped) return;
             
-            // Background Skin & Legend Colors
             const eqSkinId = userProfileData.equipped.skin;
             const skinObj = SHOP_ITEMS.skins.find(s => s.id === eqSkinId);
             document.body.className = skinObj && skinObj.themeClass ? skinObj.themeClass : "";
@@ -694,7 +694,7 @@
                 userProfileData = docSnap.data();
                 let todayStr = getTodayDateStr();
                 if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) {
-                    userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] };
+                    userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] };
                     await updateDoc(doc(db, "users", currentUser.uid), { dailyStats: userProfileData.dailyStats });
                 }
             }
@@ -757,7 +757,7 @@
         window.closeShop = function() {
             document.getElementById('shop-modal').style.display='none'; 
             document.getElementById('main-menu-modal').style.display='flex';
-            applyEquippedCosmetics(); // Reset UI to actual equipped
+            applyEquippedCosmetics(); 
         }
 
         window.updatePreviewMonitor = function(tempSkin, tempTitle, tempBanner, tempEffect) {
@@ -765,19 +765,16 @@
             let skin = tempSkin || eq.skin; let title = tempTitle || eq.title; 
             let banner = tempBanner || eq.banner; let effect = tempEffect || eq.effect;
 
-            // Apply Banner
             document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`;
-            // Apply Name Effect
             document.getElementById("preview-name-box").innerText = userProfileData.username;
             document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
-            // Apply Title
+            
             let tObj = SHOP_ITEMS.titles.find(t => t.id === title);
             document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : "";
-            // Apply Theme to Preview Tiles
+            
             let sObj = SHOP_ITEMS.skins.find(s => s.id === skin);
             let sClass = sObj && sObj.themeClass ? sObj.themeClass : "";
             
-            // Hardcode standard preview tile colors based on theme choice
             let cColor = '#00ffff', pColor = '#ff00ff';
             let tRadius = '0px', tBorder = '2px solid #3a3a3c', tColor = '#000';
             if(sClass === 'theme-8bit') { cColor = '#00cc00'; pColor = '#ccaa00'; tRadius = '0'; tBorder = '4px solid #fff'; tColor = '#fff';}
@@ -811,7 +808,6 @@
                     btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="event.stopPropagation(); window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
                 }
 
-                // Make entire row click to preview
                 html += `<div class="grid-item" onclick="window.previewItem('${item.id}', '${eqKey}')">
                             <div class="grid-item-info"><div class="grid-item-name">${item.name}</div><div class="grid-item-desc">${item.desc}</div></div>
                             ${btnHtml}
@@ -849,7 +845,6 @@
             } catch (e) { alert("Equip failed."); console.error(e); }
         }
 
-
         let currentLbTime = 'all'; 
 
         window.showLeaderboard = function() {
@@ -863,7 +858,6 @@
             window.loadLeaderboardData();
         }
 
-        // UPDATED: Leaderboard fetches live profile data for cosmetics
         window.loadLeaderboardData = async function() {
             const listDiv = document.getElementById("leaderboard-list");
             listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
@@ -896,7 +890,6 @@
 
                 if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
                 
-                // Fetch LIVE equipped data for players in the run lists to make banners retroactive
                 if (currentLbTime !== 'career') {
                     for (let entry of finalData) {
                         if (entry.uid) {
@@ -908,6 +901,15 @@
                     }
                 }
                 
+                // NEW: Unlock Daily Top 10 Challenge if applicable
+                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) {
+                    let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1;
+                    if (myRank > 0 && myRank <= 10) {
+                        userProfileData.achievedTop10Daily = 1;
+                        updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => console.error(e));
+                    }
+                }
+
                 finalData.forEach((entry, index) => {
                     let dateStr = "";
                     if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
@@ -930,17 +932,13 @@
             } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
-        // GAME LOGIC
         let isTimedMode = false;
         let maxGuesses = 5;
-        let startingContinues = 1; 
-        
-        let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = startingContinues; let wordsGuessed = 0; let isAnimating = false; 
+        let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
         let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
         
-        // Timer Logic
-        let gameTimer; let timeLeft = 60;
+        let gameTimer; let timeLeft = 90; let timerStarted = false;
 
         const boardDisplay = document.getElementById("board"); const scoreDisplay = document.getElementById("score");
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
@@ -958,14 +956,17 @@
             if (saved) {
                 try {
                     const state = JSON.parse(saved);
-                    score = state.score || 0; continues = state.continues !== undefined ? state.continues : 1;
-                    wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+                    score = state.score || 0; 
                     
                     if (state.isTimedMode !== undefined) {
                         isTimedMode = state.isTimedMode;
-                        document.getElementById("btn-mode").innerText = isTimedMode ? "Mode: Timed (60s)" : "Mode: Standard";
+                        document.getElementById("btn-mode").innerText = isTimedMode ? "Mode: Timed (90s)" : "Mode: Standard";
                         document.getElementById("timer-display").style.display = isTimedMode ? "block" : "none";
                     }
+                    
+                    continues = state.continues !== undefined ? state.continues : (isTimedMode ? 2 : 1);
+                    wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+                    
                     if (isTimedMode && state.timeLeft > 0) timeLeft = state.timeLeft;
                     return true;
                 } catch (e) { console.error("Save file corrupted"); return false; }
@@ -981,7 +982,7 @@
                 saveRunToCloud();
             }
             isTimedMode = !isTimedMode;
-            document.getElementById("btn-mode").innerText = isTimedMode ? "Mode: Timed (60s)" : "Mode: Standard";
+            document.getElementById("btn-mode").innerText = isTimedMode ? "Mode: Timed (90s)" : "Mode: Standard";
             document.getElementById("timer-display").style.display = isTimedMode ? "block" : "none";
             window.startNewRun();
         }
@@ -1034,14 +1035,15 @@
                 try {
                     let todayStr = getTodayDateStr();
                     if (userProfileData.dailyStats && userProfileData.dailyStats.date !== todayStr) {
-                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, claimed: [] };
+                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] };
                     }
 
                     let updates = {
                         careerBank: increment(score), wallet: increment(score), totalWordsGuessed: increment(wordsGuessed), wordsPlayed: increment(runStats.played),
                         guess1: increment(runStats.guess1), guess2: increment(runStats.guess2), guess3: increment(runStats.guess3),
                         guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails),
-                        "dailyStats.date": todayStr, "dailyStats.played": increment(runStats.played), "dailyStats.guessed": increment(wordsGuessed), "dailyStats.guess1": increment(runStats.guess1)
+                        "dailyStats.date": todayStr, "dailyStats.played": increment(runStats.played), "dailyStats.guessed": increment(wordsGuessed), 
+                        "dailyStats.guess1": increment(runStats.guess1), "dailyStats.guess5": increment(runStats.guess5)
                     };
 
                     await updateDoc(doc(db, "users", currentUser.uid), updates);
@@ -1056,8 +1058,6 @@
         window.triggerCashOut = function() {
             document.activeElement.blur(); if (isAnimating) return; if (score <= 0) { showMessage("NO POINTS TO CASH OUT!"); return; }
             clearInterval(gameTimer);
-            
-            // NEW: Reveal word if attempt was made
             if (currentRow > 0 || currentGuess.length > 0) {
                 isAnimating = true; showMessage(`CASHING OUT... WORD WAS ${targetWord}`);
                 setTimeout(showCashOutModal, 1500);
@@ -1087,7 +1087,7 @@
 
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
-            score = 0; continues = startingContinues; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+            score = 0; continues = isTimedMode ? 2 : 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
             clearLocalState(); updateScoreBoard(); startRound();
         }
 
@@ -1107,8 +1107,9 @@
 
         function startRound() {
             targetWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "APPLE"; 
-            currentGuess = ""; currentRow = 0; isAnimating = false; timeLeft = 60;
-            createBoard(); resetKeyboardColors(); checkDangerRow(); startTimer();
+            currentGuess = ""; currentRow = 0; isAnimating = false; timeLeft = 90; timerStarted = false;
+            clearInterval(gameTimer); updateTimerUI();
+            createBoard(); resetKeyboardColors(); checkDangerRow(); 
         }
 
         const keys = document.querySelectorAll(".key");
@@ -1116,6 +1117,12 @@
 
         window.handleInput = function(key) {
             if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
+
+            // Start timer on first interaction if in timed mode
+            if (isTimedMode && !timerStarted) {
+                timerStarted = true;
+                startTimer();
+            }
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { showMessage("Not in word list"); return; }
@@ -1181,7 +1188,7 @@
                     }
                 } else {
                     currentRow++; currentGuess = ""; isAnimating = false; 
-                    checkDangerRow(); startTimer();
+                    checkDangerRow(); startTimer(); timerStarted = true;
                 }
             }, 1500); 
         }
