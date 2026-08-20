@@ -299,17 +299,23 @@
             
             <div id="lobby-action-view">
                 <div class="modal-buttons">
-                    <button class="btn-cyan" onclick="window.hostMatch()">Host Match</button>
-                    <div style="margin: 10px 0; color: #aaa; font-style: italic;">- OR -</div>
-                    <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="ENTER 5-LETTER CODE">
-                    <button class="btn-dark" onclick="window.joinMatch()">Join Match</button>
+                    <button class="btn-cyan" onclick="window.findRandomMatch()">Find Random Match</button>
+                    
+                    <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold;">- OR PLAY WITH FRIEND -</div>
+                    
+                    <button class="btn-dark" style="border-color: #00ffff !important; color: #00ffff;" onclick="window.hostMatch()">Host Private Match</button>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
+                        <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinMatch()">Join</button>
+                    </div>
                 </div>
             </div>
 
             <div id="lobby-waiting-view" style="display: none;">
-                <div style="color: #fff; font-size: 18px; margin-bottom: 10px;">Your Room Code:</div>
+                <div id="waiting-status-text" style="color: #fff; font-size: 18px; margin-bottom: 10px;">Your Room Code:</div>
                 <div id="display-room-code" style="font-size: 40px; color: #ff9800; font-weight: bold; letter-spacing: 5px; margin-bottom: 20px;">AAAAA</div>
                 <div class="lb-loading">Waiting for challenger...</div>
+                <button class="btn-dark" style="margin-top: 15px; width: 100%; border-color: #ff3333 !important; color: #ff3333;" onclick="window.leaveVersusMatch()">Cancel Search</button>
             </div>
 
             <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Standard</button>
@@ -327,6 +333,7 @@
         </div>
     </div>
 
+    <!-- MAIN MENU MODAL -->
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
@@ -341,9 +348,7 @@
         </div>
     </div>
 
-    <!-- OTHER MODALS (Challenges, Shop, Profile, Leaderboard) OMITTED FOR BREVITY BUT ASSUMED PRESENT AS IN PREVIOUS CODE -->
-    <!-- I will include them so nothing breaks -->
-    
+    <!-- CHALLENGES MODAL -->
     <div id="challenges-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px; border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff;">
             <h2 class="modal-title" style="color: #ff00ff;">Challenges</h2>
@@ -358,6 +363,7 @@
         </div>
     </div>
 
+    <!-- SHOP MODAL -->
     <div id="shop-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px; border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
             <h2 class="modal-title" style="color: #ff9800;">Item Shop</h2>
@@ -387,6 +393,7 @@
         </div>
     </div>
 
+    <!-- PROFILE MODAL -->
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Profile</h2>
@@ -412,6 +419,7 @@
         </div>
     </div>
 
+    <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
@@ -584,11 +592,48 @@
             } else { signInAnonymously(auth); }
         });
 
-        // OMITTING BOILERPLATE UI FUNCTIONS (Shop, Profile, etc) TO SAVE SPACE - ASSUME THEY ARE IDENTICAL
-        // ...
-        // (All window.openProfileMenu, window.renderShop, etc. remain here from previous iteration)
-        window.saveUsername = async function() { /* ... */ }; window.handleAuthAction = async function() { /* ... */ };
-        window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; };
+        // ==========================================
+        // UI & MENU FUNCTIONS
+        // ==========================================
+        window.saveUsername = async function() {
+            let newName = document.getElementById("username-input").value.trim().toUpperCase();
+            if(newName.length < 3) { alert("Arcade Handle must be at least 3 characters long!"); return; }
+            if(currentUser) {
+                let cost = userProfileData.handleChanges > 0 ? 5000 : 0;
+                if (userProfileData.wallet < cost) { alert("You need 5,000 pts in your Wallet to change your handle!"); return; }
+                let confirmChange = confirm(cost > 0 ? `Update handle for 5,000 pts?` : `Update your handle for free?`);
+                if (!confirmChange) return;
+
+                try {
+                    const q = query(collection(db, "users"), where("username", "==", newName));
+                    const snapshot = await getDocs(q);
+                    let nameTaken = false;
+                    snapshot.forEach(doc => { if (doc.id !== currentUser.uid) { nameTaken = true; } });
+                    if (nameTaken) { alert("That Arcade Handle is already taken! Please choose another."); return; }
+
+                    userProfileData.wallet -= cost; userProfileData.handleChanges += 1; userProfileData.username = newName;
+                    await updateDoc(doc(db, "users", currentUser.uid), { username: newName, wallet: userProfileData.wallet, handleChanges: userProfileData.handleChanges });
+                    alert("Success! Your Arcade Handle is now: " + newName);
+                    document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';
+                } catch (e) { alert("Error saving username!"); console.error(e); }
+            }
+        };
+
+        window.handleAuthAction = async function() {
+            if (userProfileData && !userProfileData.isGuest) {
+                let confirmOut = confirm("Are you sure you want to sign out?");
+                if (confirmOut) { await signOut(auth); window.location.reload(); }
+            } else {
+                try {
+                    await signInWithPopup(auth, new GoogleAuthProvider());
+                    alert("Account linked successfully!");
+                    document.getElementById('main-menu-modal').style.display = 'none';
+                    setTimeout(() => { window.location.reload(); }, 500); 
+                } catch (error) { alert("Login Error: " + error.message); }
+            }
+        }
+
+        window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; }
         window.confirmNewGame = function() {
             if (isVersusMode) { alert("Leave the match first!"); return; }
             if (score > 0 || runStats.played > 0) {
@@ -597,20 +642,225 @@
                 document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun();
             } else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
         }
-        window.openProfileMenu = async function() { /* ... */ document.getElementById('profile-modal').style.display = "flex"; }
-        window.openChallengesMenu = async function() { /* ... */ document.getElementById("challenges-modal").style.display = "flex"; }
-        window.renderChallenges = function(type) { /* ... */ }
-        window.claimChallenge = async function(id, type, reward) { /* ... */ }
-        window.openShopMenu = async function() { /* ... */ document.getElementById("shop-modal").style.display = "flex"; }
-        window.closeShop = function() { document.getElementById('shop-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex'; }
-        window.updatePreviewMonitor = function(tempSkin, tempTitle, tempBanner, tempEffect) { /* ... */ }
-        window.renderShop = function(category) { /* ... */ }
-        window.previewItem = function(id, eqKey) { /* ... */ }
-        window.buyItem = async function(id, cost, category) { /* ... */ }
-        window.equipItem = async function(id, equipCategoryKey) { /* ... */ }
+        
+        window.openProfileMenu = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            if(!currentUser || !userProfileData) return;
+            document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
+            if (userProfileData.isGuest) {
+                document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`;
+                document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block";
+            } else {
+                document.getElementById("login-status-text").innerText = "Linked via Google";
+                document.getElementById("username-input").value = userProfileData.username;
+                document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none";
+            }
+            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+            if(docSnap.exists()) {
+                let data = docSnap.data(); document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
+                let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails;
+                let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+                document.getElementById("stat-played").innerText = played; document.getElementById("stat-win-rate").innerText = winRate + "%";
+                let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails];
+                const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
+                for(let i = 0; i < 6; i++) {
+                    let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "#ff3333" : "#00ffff"; 
+                    let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
+                    distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
+                }
+                document.getElementById("stat-distribution").innerHTML = distHtml;
+            }
+            document.getElementById("profile-modal").style.display = "flex";
+        }
+
+        window.openChallengesMenu = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            if(!currentUser || !userProfileData) return;
+            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+            if(docSnap.exists()) {
+                userProfileData = docSnap.data(); let todayStr = getTodayDateStr();
+                if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) {
+                    userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] };
+                    await updateDoc(doc(db, "users", currentUser.uid), { dailyStats: userProfileData.dailyStats });
+                }
+            }
+            window.renderChallenges('daily'); document.getElementById("challenges-modal").style.display = "flex";
+        }
+
+        window.renderChallenges = function(type) {
+            document.querySelectorAll("#challenges-modal .tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById(`tab-chal-${type}`).classList.add("active");
+            const listDiv = document.getElementById("challenges-list"); listDiv.innerHTML = "";
+            const challenges = CHALLENGES[type]; let html = "";
+            challenges.forEach(chal => {
+                let currentProgress = type === 'daily' ? (userProfileData.dailyStats[chal.field] || 0) : (userProfileData[chal.field] || 0);
+                let isClaimed = type === 'daily' ? userProfileData.dailyStats.claimed.includes(chal.id) : userProfileData.claimedCareer.includes(chal.id);
+                if (isClaimed) return; 
+                let isComplete = currentProgress >= chal.req; let pct = Math.min((currentProgress / chal.req) * 100, 100);
+                let btnHtml = isComplete ? `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}', ${chal.reward})">CLAIM<br>${chal.reward.toLocaleString()}</button>` : `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
+                html += `<div class="grid-item"><div class="grid-item-info"><div class="grid-item-name">${chal.name}</div><div class="grid-item-desc">${chal.desc}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${pct}%;"></div><div class="progress-text">${currentProgress} / ${chal.req}</div></div></div>${btnHtml}</div>`;
+            });
+            listDiv.innerHTML = html === "" ? `<div style="text-align: center; color: #4caf50; padding: 20px; font-weight: bold;">All ${type} challenges completed!</div>` : html;
+        }
+
+        window.claimChallenge = async function(id, type, reward) {
+            try {
+                let updatePayload = { wallet: increment(reward) };
+                if (type === 'daily') { userProfileData.dailyStats.claimed.push(id); updatePayload.dailyStats = userProfileData.dailyStats; } 
+                else { userProfileData.claimedCareer.push(id); updatePayload.claimedCareer = userProfileData.claimedCareer; }
+                await updateDoc(doc(db, "users", currentUser.uid), updatePayload);
+                userProfileData.wallet += reward; alert(`Challenge Completed! +${reward.toLocaleString()} pts added to your Wallet.`); window.renderChallenges(type);
+            } catch (e) { alert("Claim failed."); console.error(e); }
+        }
+
+        window.openShopMenu = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            if(!currentUser || !userProfileData) return;
+            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+            if(docSnap.exists()) { userProfileData.wallet = docSnap.data().wallet || 0; document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); }
+            window.updatePreviewMonitor(); window.renderShop('skins'); document.getElementById("shop-modal").style.display = "flex";
+        }
+
+        window.closeShop = function() { document.getElementById('shop-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex'; applyEquippedCosmetics(); }
+
+        window.updatePreviewMonitor = function(tempSkin, tempTitle, tempBanner, tempEffect) {
+            let eq = userProfileData.equipped || {}; let skin = tempSkin || eq.skin; let title = tempTitle || eq.title; let banner = tempBanner || eq.banner; let effect = tempEffect || eq.effect;
+            document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`;
+            document.getElementById("preview-name-box").innerText = userProfileData.username; document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
+            let tObj = SHOP_ITEMS.titles.find(t => t.id === title); document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : "";
+            let sObj = SHOP_ITEMS.skins.find(s => s.id === skin); let sClass = sObj && sObj.themeClass ? sObj.themeClass : "";
+            let cColor = '#00ffff', pColor = '#ff00ff'; let tRadius = '0px', tBorder = '2px solid #3a3a3c', tColor = '#000';
+            if(sClass === 'theme-8bit') { cColor = '#00cc00'; pColor = '#ccaa00'; tRadius = '0'; tBorder = '4px solid #fff'; tColor = '#fff';}
+            if(sClass === 'theme-camo') { cColor = '#8da84b'; pColor = '#b89c49'; tRadius = '0px'; tBorder = '2px solid #4a5c4a'; tColor = '#111';}
+            let previewHTML = `<div class="tile correct" style="width: 40px; height: 40px; font-size: 20px; background-color: ${cColor}; border: ${tBorder}; border-radius: ${tRadius}; color: ${tColor}; box-shadow: none;">W</div><div class="tile present" style="width: 40px; height: 40px; font-size: 20px; background-color: ${pColor}; border: ${tBorder}; border-radius: ${tRadius}; color: ${tColor}; box-shadow: none;">I</div><div class="tile absent" style="width: 40px; height: 40px; font-size: 20px; background-color: #1a1a1d; border: ${tBorder}; border-radius: ${tRadius}; color: #444; box-shadow: none;">N</div>`;
+            document.getElementById("preview-tiles-box").innerHTML = previewHTML;
+        }
+
+        window.renderShop = function(category) {
+            document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById(`tab-shop-${category}`).classList.add("active");
+            const listDiv = document.getElementById("shop-list"); listDiv.innerHTML = ""; const items = SHOP_ITEMS[category]; let html = "";
+            items.forEach(item => {
+                let isOwned = userProfileData.inventory.includes(item.id); let eqKey = category.slice(0, -1); if (category === 'effects') eqKey = 'effect'; 
+                let isEquipped = userProfileData.equipped[eqKey] === item.id; let btnHtml = "";
+                if (isEquipped) { btnHtml = `<button class="action-btn btn-equipped" onclick="event.stopPropagation()">Equipped</button>`; } 
+                else if (isOwned) { btnHtml = `<button class="action-btn btn-equip" onclick="event.stopPropagation(); window.equipItem('${item.id}', '${eqKey}')">Equip</button>`; } 
+                else {
+                    let canAfford = userProfileData.wallet >= item.cost; let color = canAfford ? "#4caf50" : "#ff3333";
+                    btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="event.stopPropagation(); window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
+                }
+                html += `<div class="grid-item" onclick="window.previewItem('${item.id}', '${eqKey}')"><div class="grid-item-info"><div class="grid-item-name">${item.name}</div><div class="grid-item-desc">${item.desc}</div></div>${btnHtml}</div>`;
+            });
+            listDiv.innerHTML = html;
+        }
+
+        window.previewItem = function(id, eqKey) {
+            let tempParams = { skin:null, title:null, banner:null, effect:null }; tempParams[eqKey] = id;
+            window.updatePreviewMonitor(tempParams.skin, tempParams.title, tempParams.banner, tempParams.effect);
+        }
+
+        window.buyItem = async function(id, cost, category) {
+            if (userProfileData.wallet < cost) { alert("Not enough points in your Wallet!"); return; }
+            let confirmBuy = confirm(`Purchase for ${cost.toLocaleString()} pts?`); if (!confirmBuy) return;
+            try {
+                userProfileData.wallet -= cost; userProfileData.inventory.push(id);
+                await updateDoc(doc(db, "users", currentUser.uid), { wallet: increment(-cost), inventory: userProfileData.inventory });
+                document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); window.renderShop(category);
+            } catch (e) { alert("Purchase failed."); console.error(e); }
+        }
+
+        window.equipItem = async function(id, equipCategoryKey) {
+            try {
+                userProfileData.equipped[equipCategoryKey] = id;
+                await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped });
+                applyEquippedCosmetics(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects";
+                window.renderShop(renderCat); window.previewItem(id, equipCategoryKey);
+            } catch (e) { alert("Equip failed."); console.error(e); }
+        }
+
+        function applyEquippedCosmetics() {
+            if (!userProfileData || !userProfileData.equipped) return;
+            const eqSkinId = userProfileData.equipped.skin; const skinObj = SHOP_ITEMS.skins.find(s => s.id === eqSkinId);
+            document.body.className = skinObj && skinObj.themeClass ? skinObj.themeClass : "";
+            let correctColor = '#00ffff', presentColor = '#ff00ff';
+            if (eqSkinId === 'skin_8bit') { correctColor = '#00cc00'; presentColor = '#ccaa00'; }
+            if (eqSkinId === 'skin_camo') { correctColor = '#8da84b'; presentColor = '#b89c49'; }
+            document.getElementById('legend-correct').style.backgroundColor = correctColor; document.getElementById('legend-correct').style.boxShadow = `0 0 8px ${correctColor}`;
+            document.getElementById('legend-present').style.backgroundColor = presentColor; document.getElementById('legend-present').style.boxShadow = `0 0 8px ${presentColor}`;
+        }
+
+        // ==========================================
+        // LEADERBOARD LOGIC
+        // ==========================================
+        let currentLbTime = 'all'; 
+
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
-        window.setLbTime = function(time) { /* ... */ }
-        window.loadLeaderboardData = async function() { /* ... */ }
+        window.setLbTime = function(time) {
+            currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active"));
+            document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData();
+        }
+
+        window.loadLeaderboardData = async function() {
+            const listDiv = document.getElementById("leaderboard-list"); listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>';
+            let html = ""; let rawData = []; let finalData = [];
+            
+            try {
+                if (currentLbTime === 'career') {
+                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50)));
+                    snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); });
+                    let uniquePlayers = new Set();
+                    for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
+                } else {
+                    let snapshot;
+                    if (currentLbTime === 'all') {
+                        snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50)));
+                    } else {
+                        const now = new Date(); let start = new Date();
+                        if (currentLbTime === 'daily') { start.setHours(0,0,0,0); }
+                        else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); }
+                        else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
+                        snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
+                    }
+
+                    snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
+                    if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
+                    
+                    let uniquePlayers = new Set();
+                    for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
+                }
+
+                if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
+                
+                if (currentLbTime !== 'career') {
+                    for (let entry of finalData) {
+                        if (entry.uid) {
+                            try {
+                                let uSnap = await getDoc(doc(db, "users", entry.uid));
+                                if (uSnap.exists()) entry.equipped = uSnap.data().equipped;
+                            } catch(e) { console.error("Error fetching live profile", e); }
+                        }
+                    }
+                }
+                
+                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) {
+                    let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1;
+                    if (myRank > 0 && myRank <= 10) {
+                        userProfileData.achievedTop10Daily = 1;
+                        updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => console.error(e));
+                    }
+                }
+
+                finalData.forEach((entry, index) => {
+                    let dateStr = "";
+                    if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
+                    let eq = entry.equipped || {}; let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
+                    let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); let titleStr = tObj && tObj.display ? tObj.display : "";
+                    
+                    html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${entry.name}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
+                });
+                listDiv.innerHTML = html;
+            } catch (error) { console.error("Leaderboard Error:", error); listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
+        }
 
         // ==========================================
         // GAME LOGIC (STANDARD & VERSUS)
@@ -632,12 +882,10 @@
         window.toggleMode = function() {
             document.activeElement.blur();
             if (isVersusMode) {
-                // Switching BACK to standard
                 let confirmSwitch = confirm("Leave Head-to-Head match?");
                 if (!confirmSwitch) return;
                 leaveVersusMatch();
             } else {
-                // Switching TO versus
                 if (score > 0 || runStats.played > 0) {
                     let confirmSwitch = confirm("Switching to Versus will cash out your current Standard run. Continue?");
                     if (!confirmSwitch) return;
@@ -649,8 +897,6 @@
                 document.getElementById("score-board").style.display = "none";
                 document.getElementById("btn-cash-out").style.display = "none";
                 document.getElementById("versus-track-container").style.display = "block";
-                
-                // Clear board and show lobby
                 boardDisplay.innerHTML = "";
                 document.getElementById("versus-lobby-modal").style.display = "flex";
             }
@@ -673,20 +919,55 @@
             return code;
         }
 
+        // --- NEW MATCHMAKING LOGIC ---
+        window.findRandomMatch = async function() {
+            if (!currentUser) return;
+            
+            document.getElementById("lobby-action-view").style.display = "none";
+            document.getElementById("lobby-waiting-view").style.display = "block";
+            document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:#aaa; font-weight:normal;'>Looking for public opponent</span>";
+            document.getElementById("display-room-code").style.display = "none";
+
+            try {
+                // Find an open public match (fetch recent waiting matches and filter locally to avoid complex index requirements)
+                const q = query(collection(db, "matches"), where("status", "==", "waiting"), limit(10));
+                const snapshot = await getDocs(q);
+                let foundMatch = null;
+                snapshot.forEach(doc => { if(doc.data().isPublic === true) foundMatch = doc; });
+
+                if (foundMatch) {
+                    // Match found! Join it.
+                    currentMatchId = foundMatch.id; isMatchHost = false;
+                    await updateDoc(doc(db, "matches", currentMatchId), { 
+                        guestUid: currentUser.uid, guestName: userProfileData.username, status: 'playing' 
+                    });
+                    listenToMatch();
+                } else {
+                    // No match found. Create a public lobby and wait.
+                    currentMatchId = generateRoomCode(); isMatchHost = true;
+                    await setDoc(doc(db, "matches", currentMatchId), {
+                        hostUid: currentUser.uid, hostName: userProfileData.username,
+                        guestUid: null, guestName: null, status: 'waiting', marker: 0, winner: null, isPublic: true
+                    });
+                    listenToMatch();
+                }
+            } catch(e) { console.error("Matchmaking error", e); window.cancelVersusLobby(); }
+        }
+
         window.hostMatch = async function() {
             if (!currentUser) return;
-            currentMatchId = generateRoomCode();
-            isMatchHost = true;
+            currentMatchId = generateRoomCode(); isMatchHost = true;
             
             await setDoc(doc(db, "matches", currentMatchId), {
                 hostUid: currentUser.uid, hostName: userProfileData.username,
-                guestUid: null, guestName: null, status: 'waiting', marker: 0, winner: null
+                guestUid: null, guestName: null, status: 'waiting', marker: 0, winner: null, isPublic: false
             });
 
             document.getElementById("lobby-action-view").style.display = "none";
-            document.getElementById("display-room-code").innerText = currentMatchId;
             document.getElementById("lobby-waiting-view").style.display = "block";
-
+            document.getElementById("waiting-status-text").innerHTML = "Your Room Code:";
+            document.getElementById("display-room-code").innerText = currentMatchId;
+            document.getElementById("display-room-code").style.display = "block";
             listenToMatch();
         }
 
@@ -703,9 +984,7 @@
                 await updateDoc(matchRef, { guestUid: currentUser.uid, guestName: userProfileData.username, status: 'playing' });
                 document.getElementById("versus-lobby-modal").style.display = "none";
                 listenToMatch();
-            } else {
-                alert("Match not found or already started.");
-            }
+            } else { alert("Match not found or already started."); }
         }
 
         function listenToMatch() {
@@ -720,24 +999,21 @@
                 if (data.status === 'playing') {
                     if (document.getElementById("versus-lobby-modal").style.display === "flex") {
                         document.getElementById("versus-lobby-modal").style.display = "none";
-                        startRound(); // Start generating words
+                        startRound();
                     }
 
-                    // Update Names
                     document.getElementById("vs-host-name").innerText = data.hostName;
                     document.getElementById("vs-guest-name").innerText = data.guestName;
 
-                    // Update UI Track (Marker goes from -5 to +5)
-                    // Index: 0 is Guest Win, 5 is Center, 10 is Host Win
                     let puckIndex = data.marker + 5;
                     document.querySelectorAll(".track-dot").forEach((dot, idx) => {
-                        dot.className = "track-dot"; // reset
+                        dot.className = "track-dot"; 
                         if (idx === 5) dot.classList.add("center");
                         if (idx === puckIndex) {
                             dot.classList.add("puck");
-                            if (puckIndex > 5) dot.style.boxShadow = "0 0 15px #00ffff"; // host winning
-                            else if (puckIndex < 5) dot.style.boxShadow = "0 0 15px #ff00ff"; // guest winning
-                            else dot.style.boxShadow = "0 0 15px #fff"; // neutral
+                            if (puckIndex > 5) dot.style.boxShadow = "0 0 15px #00ffff"; 
+                            else if (puckIndex < 5) dot.style.boxShadow = "0 0 15px #ff00ff"; 
+                            else dot.style.boxShadow = "0 0 15px #fff"; 
                         }
                     });
                 }
@@ -762,7 +1038,7 @@
         window.leaveVersusMatch = function() {
             if (matchUnsubscribe) matchUnsubscribe();
             if (currentMatchId && isMatchHost) {
-                // Cleanup match doc if host leaves
+                // Deletes the public lobby if you cancel the search, preventing dead lobbies.
                 deleteDoc(doc(db, "matches", currentMatchId)).catch(e => console.error(e));
             }
             currentMatchId = null;
@@ -788,8 +1064,7 @@
             if (saved) {
                 try {
                     const state = JSON.parse(saved);
-                    score = state.score || 0; 
-                    continues = state.continues !== undefined ? state.continues : 1;
+                    score = state.score || 0; continues = state.continues !== undefined ? state.continues : 1;
                     wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
                     return true;
                 } catch (e) { console.error("Save file corrupted"); return false; }
@@ -958,7 +1233,6 @@
                     
                     if (isVersusMode && currentMatchId) {
                         showMessage("PUSH!");
-                        // Pull live match data to check if someone already won while animating
                         let mSnap = await getDoc(doc(db, "matches", currentMatchId));
                         if(mSnap.exists() && mSnap.data().status === 'playing') {
                             let oldMarker = mSnap.data().marker;
@@ -980,7 +1254,6 @@
 
                 } else if (currentRow === maxGuesses - 1) { 
                     if (isVersusMode) {
-                        // In versus, failing just resets the board to try again. No penalty except lost time.
                         showMessage(`WORD WAS ${targetWord}.`);
                         setTimeout(startRound, 1500);
                     } else {
