@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UpWord</title>
+    <title>WordCade</title>
     <style>
         * { touch-action: manipulation; box-sizing: border-box; }
 
@@ -75,6 +75,7 @@
             text-transform: uppercase; transition: transform 0.25s linear, border-color 0.3s, background-color 0.3s; 
         }
         
+        .danger-row-static { border-color: #ff3333 !important; }
         .danger-tile { border-color: #ff3333 !important; animation: pulse-danger 1.5s infinite; }
         @keyframes pulse-danger { 0% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; } 50% { box-shadow: 0 0 20px #ff3333 inset, 0 0 15px #ff3333; } 100% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; } }
 
@@ -200,7 +201,7 @@
 </head>
 <body>
 
-    <h1 class="arcade-title">UpWord</h1>
+    <h1 class="arcade-title">WordCade</h1>
     
     <nav class="arcade-menu">
         <button onclick="window.showMainMenu()">Menu</button>
@@ -284,11 +285,9 @@
             </div>
 
             <div class="social-buttons">
-                <!-- SVG Discord Logo -->
                 <a href="#" class="social-btn" title="Join Discord">
                     <svg viewBox="0 0 127.14 96.36" width="22" height="22" fill="white"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.58,67.58,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.33,46,96.22,53,91.08,65.69,84.69,65.69Z"/></svg>
                 </a>
-                <!-- SVG X Logo -->
                 <a href="#" class="social-btn" title="Follow on X">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
                 </a>
@@ -296,7 +295,6 @@
         </div>
     </div>
 
-    <!-- CHALLENGES MODAL -->
     <div id="challenges-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px; border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff;">
             <h2 class="modal-title" style="color: #ff00ff;">Challenges</h2>
@@ -314,7 +312,6 @@
         </div>
     </div>
 
-    <!-- SHOP MODAL -->
     <div id="shop-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px; border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
             <h2 class="modal-title" style="color: #ff9800;">Item Shop</h2>
@@ -323,7 +320,6 @@
                 Wallet: <span id="shop-bank-display" style="color: #ff00ff;">0</span> pts
             </div>
 
-            <!-- Preview Monitor -->
             <div id="shop-preview-monitor">
                 <div class="preview-label">Preview</div>
                 <div id="preview-banner-box" class="lb-entry banner_default" style="margin-bottom: 15px; padding: 10px;">
@@ -354,7 +350,6 @@
         </div>
     </div>
 
-    <!-- PROFILE MODAL -->
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Profile</h2>
@@ -395,7 +390,6 @@
         </div>
     </div>
 
-    <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
@@ -445,7 +439,7 @@
                 { id: "title_cardboard", name: "Cardboard Collector", desc: "Sleeve it up.", cost: 5000, display: "Cardboard Collector" }
             ],
             skins: [
-                { id: "skin_default", name: "Neon Arcade", desc: "The classic UpWord aesthetic.", cost: 0, themeClass: "" },
+                { id: "skin_default", name: "Neon Arcade", desc: "The classic WordCade aesthetic.", cost: 0, themeClass: "" },
                 { id: "skin_8bit", name: "8-Bit Retro", desc: "Blocky borders and pixel fonts.", cost: 5000, themeClass: "theme-8bit" },
                 { id: "skin_camo", name: "Erangel Camo", desc: "Tactical colors for dropping in.", cost: 10000, themeClass: "theme-camo" },
                 { id: "skin_crt", name: "Retro Cabinet", desc: "Glowing scanlines from a tube TV.", cost: 15000, themeClass: "theme-crt" }
@@ -474,7 +468,8 @@
                 { id: "c_rookie", name: "Rookie Card", desc: "Guess 50 total words correctly.", req: 50, field: "totalWordsGuessed", reward: 5000 },
                 { id: "c_gemmint", name: "Gem Mint 10", desc: "Guess 500 total words correctly.", req: 500, field: "totalWordsGuessed", reward: 25000 },
                 { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
-                { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 }
+                { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
+                { id: "c_kobe", name: "Kobe", desc: "Guess correctly on the final attempt with no continues left.", req: 25, field: "kobeCount", reward: 24000 }
             ]
         };
 
@@ -518,7 +513,7 @@
 
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, wallet: 0, handleChanges: 0, totalWordsGuessed: 0,
-                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0,
+                        wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0, kobeCount: 0,
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
                         equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
                         claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }
@@ -544,6 +539,7 @@
                     }
                     if (userProfileData.handleChanges === undefined) { userProfileData.handleChanges = 0; needsUpdate = true;}
                     if (userProfileData.achievedTop10Daily === undefined) { userProfileData.achievedTop10Daily = 0; needsUpdate = true;}
+                    if (userProfileData.kobeCount === undefined) { userProfileData.kobeCount = 0; needsUpdate = true; }
                     
                     if (!userProfileData.inventory) {
                         userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"];
@@ -560,7 +556,7 @@
                         await updateDoc(userRef, { 
                             inventory: userProfileData.inventory, equipped: userProfileData.equipped, wallet: userProfileData.wallet,
                             careerBank: userProfileData.careerBank, handleChanges: userProfileData.handleChanges, achievedTop10Daily: userProfileData.achievedTop10Daily,
-                            claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats
+                            kobeCount: userProfileData.kobeCount, claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats
                         });
                     }
                 }
@@ -935,7 +931,7 @@
         let maxGuesses = 5;
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
-        let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+        let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
         
         let gameTimer; let timeLeft = 90; let timerStarted = false;
 
@@ -964,7 +960,7 @@
                     }
                     
                     continues = state.continues !== undefined ? state.continues : (isTimedMode ? 2 : 1);
-                    wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+                    wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
                     
                     if (isTimedMode && state.timeLeft > 0) timeLeft = state.timeLeft;
                     return true;
@@ -1017,9 +1013,18 @@
         }
 
         function checkDangerRow() {
-            document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile'));
-            if (continues <= 0 && currentRow === maxGuesses - 1) {
-                for (let j = 0; j < 5; j++) { let tile = document.getElementById(`tile-${currentRow}-${j}`); if (tile) tile.classList.add('danger-tile'); }
+            document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile', 'danger-row-static'));
+            if (continues <= 0) {
+                for (let j = 0; j < 5; j++) { 
+                    let tile = document.getElementById(`tile-${maxGuesses - 1}-${j}`); 
+                    if (tile) {
+                        if (currentRow === maxGuesses - 1) {
+                            tile.classList.add('danger-tile'); 
+                        } else {
+                            tile.classList.add('danger-row-static');
+                        }
+                    } 
+                }
             }
         }
 
@@ -1040,14 +1045,14 @@
                     let updates = {
                         careerBank: increment(score), wallet: increment(score), totalWordsGuessed: increment(wordsGuessed), wordsPlayed: increment(runStats.played),
                         guess1: increment(runStats.guess1), guess2: increment(runStats.guess2), guess3: increment(runStats.guess3),
-                        guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails),
+                        guess4: increment(runStats.guess4), guess5: increment(runStats.guess5), fails: increment(runStats.fails), kobeCount: increment(runStats.kobeCount || 0),
                         "dailyStats.date": todayStr, "dailyStats.played": increment(runStats.played), "dailyStats.guessed": increment(wordsGuessed), 
                         "dailyStats.guess1": increment(runStats.guess1), "dailyStats.guess5": increment(runStats.guess5)
                     };
 
                     await updateDoc(doc(db, "users", currentUser.uid), updates);
                     if (score > 0) {
-                        await addDoc(collection(db, "runs"), { uid: currentUser.uid, username: userProfileData.username, score: score, wordsGuessed: wordsGuessed, timestamp: serverTimestamp() });
+                        await addDoc(collection(db, "runs"), { uid: currentUser.uid, username: userProfileData.username, score: score, wordsGuessed: wordsGuessed, equipped: userProfileData.equipped, timestamp: serverTimestamp() });
                     }
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
                 } catch (e) { document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed."; document.getElementById("cloud-save-status").style.color = "#ff3333"; console.error(e); }
@@ -1077,7 +1082,7 @@
         }
 
         window.shareStats = function() {
-            let shareText = `🕹️ UpWord\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+            let shareText = `🕹️ WordCade\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
             navigator.clipboard.writeText(shareText).then(() => {
                 let shareBtn = document.getElementById("btn-share"); shareBtn.innerText = "COPIED!";
                 setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000);
@@ -1086,7 +1091,7 @@
 
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
-            score = 0; continues = isTimedMode ? 2 : 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0 };
+            score = 0; continues = isTimedMode ? 2 : 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
             clearLocalState(); updateScoreBoard(); startRound();
         }
 
@@ -1171,6 +1176,7 @@
             setTimeout(() => {
                 if (correctCount === 5) {
                     runStats.played++; runStats['guess' + (currentRow + 1)]++; 
+                    if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
                     let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
                     saveLocalState(); showMessage(`+${earned} POINTS!`); updateScoreBoard();
                     setTimeout(startRound, 1500); 
