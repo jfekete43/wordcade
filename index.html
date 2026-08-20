@@ -203,6 +203,10 @@
 
         #shop-preview-monitor { border: 2px solid #333; border-radius: 5px; background: #0a0a0a; margin-bottom: 15px; padding: 15px; text-align: left; position: relative;}
         .preview-label { position: absolute; top: 5px; right: 8px; font-size: 10px; color: #555; text-transform: uppercase; font-weight: bold;}
+        
+        /* New pulse animation for active searching */
+        .pulse-text { animation: pulse-opacity 1.5s infinite; }
+        @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -314,7 +318,7 @@
             <div id="lobby-waiting-view" style="display: none;">
                 <div id="waiting-status-text" style="color: #fff; font-size: 18px; margin-bottom: 10px;">Your Room Code:</div>
                 <div id="display-room-code" style="font-size: 40px; color: #ff9800; font-weight: bold; letter-spacing: 5px; margin-bottom: 20px;">AAAAA</div>
-                <div class="lb-loading">Waiting for challenger...</div>
+                <div class="lb-loading pulse-text" id="waiting-sub-text">Waiting for challenger...</div>
                 <button class="btn-dark" style="margin-top: 15px; width: 100%; border-color: #ff3333 !important; color: #ff3333;" onclick="window.leaveVersusMatch()">Cancel Search</button>
             </div>
 
@@ -393,16 +397,24 @@
         </div>
     </div>
 
-    <!-- PROFILE MODAL -->
+    <!-- PROFILE MODAL (FIXED) -->
     <div id="profile-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Profile</h2>
             <div class="modal-stats" style="text-align: center; margin-bottom: 10px;">
                 <div id="login-status-text" style="color: white; font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
+                
                 <div id="username-section" style="display: none;">
                     <input type="text" id="username-input" class="input-field" maxlength="12" placeholder="ENTER NAME">
                     <div id="handle-cost-text" style="font-size: 11px; color:#aaa; margin-bottom: 8px;">Cost: 0 pts</div>
                     <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer;">Update Handle</button>
+                </div>
+
+                <!-- ADDED BACK: Missing block that caused the error -->
+                <div id="auth-promo-section" style="display: none; margin-top: 10px;">
+                    <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
+                        Link a Google account from the Main Menu to set a custom Arcade Handle!
+                    </div>
                 </div>
             </div>
             <hr>
@@ -646,15 +658,20 @@
         window.openProfileMenu = async function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             if(!currentUser || !userProfileData) return;
+            
             document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
+            
             if (userProfileData.isGuest) {
                 document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`;
-                document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block";
+                document.getElementById("username-section").style.display = "none"; 
+                document.getElementById("auth-promo-section").style.display = "block";
             } else {
                 document.getElementById("login-status-text").innerText = "Linked via Google";
                 document.getElementById("username-input").value = userProfileData.username;
-                document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none";
+                document.getElementById("username-section").style.display = "block"; 
+                document.getElementById("auth-promo-section").style.display = "none";
             }
+            
             const docSnap = await getDoc(doc(db, "users", currentUser.uid));
             if(docSnap.exists()) {
                 let data = docSnap.data(); document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
@@ -919,7 +936,7 @@
             return code;
         }
 
-        // --- NEW MATCHMAKING LOGIC ---
+        // --- MATCHMAKING LOGIC ---
         window.findRandomMatch = async function() {
             if (!currentUser) return;
             
@@ -927,6 +944,7 @@
             document.getElementById("lobby-waiting-view").style.display = "block";
             document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:#aaa; font-weight:normal;'>Looking for public opponent</span>";
             document.getElementById("display-room-code").style.display = "none";
+            document.getElementById("waiting-sub-text").style.display = "block";
 
             try {
                 // Find an open public match (fetch recent waiting matches and filter locally to avoid complex index requirements)
@@ -951,7 +969,11 @@
                     });
                     listenToMatch();
                 }
-            } catch(e) { console.error("Matchmaking error", e); window.cancelVersusLobby(); }
+            } catch(e) { 
+                console.error("Matchmaking error", e); 
+                document.getElementById("waiting-status-text").innerHTML = "<span style='color:#ff3333;'>Error connecting to matchmaking.</span>";
+                document.getElementById("waiting-sub-text").style.display = "none";
+            }
         }
 
         window.hostMatch = async function() {
@@ -968,6 +990,7 @@
             document.getElementById("waiting-status-text").innerHTML = "Your Room Code:";
             document.getElementById("display-room-code").innerText = currentMatchId;
             document.getElementById("display-room-code").style.display = "block";
+            document.getElementById("waiting-sub-text").style.display = "block";
             listenToMatch();
         }
 
@@ -1038,7 +1061,6 @@
         window.leaveVersusMatch = function() {
             if (matchUnsubscribe) matchUnsubscribe();
             if (currentMatchId && isMatchHost) {
-                // Deletes the public lobby if you cancel the search, preventing dead lobbies.
                 deleteDoc(doc(db, "matches", currentMatchId)).catch(e => console.error(e));
             }
             currentMatchId = null;
