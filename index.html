@@ -765,10 +765,17 @@
         }
 
         window.cancelVersusLobby = function() {
+            // If they are actively in a lobby/searching, safely leave it and delete it first
+            if (currentMatchId) { 
+                window.leaveVersusMatch(); 
+                return; 
+            }
+            
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
             document.getElementById("btn-mode").innerText = "PLAY CLASH";
-            document.getElementById("btn-mode").style.color = "#ff9800"; document.getElementById("btn-mode").style.borderColor = "#ff9800";
+            document.getElementById("btn-mode").style.color = "#ff9800"; 
+            document.getElementById("btn-mode").style.borderColor = "#ff9800";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
@@ -793,10 +800,20 @@
             document.getElementById("waiting-sub-text").innerHTML = "Waiting for challenger...";
 
             try {
+                // 1. CLEANUP: Delete any ghost lobbies this user accidentally left behind previously
+                const staleQ = query(collection(db, "matches"), where("hostUid", "==", currentUser.uid), where("status", "==", "waiting"));
+                const staleSnap = await getDocs(staleQ);
+                staleSnap.forEach(d => { deleteDoc(doc(db, "matches", d.id)).catch(e=>{}); });
+
+                // 2. SEARCH: Find an open public match NOT hosted by this user
                 const q = query(collection(db, "matches"), where("status", "==", "waiting"), limit(10));
                 const snapshot = await getDocs(q);
                 let foundMatch = null;
-                snapshot.forEach(doc => { if(doc.data().isPublic === true) foundMatch = doc; });
+                snapshot.forEach(d => { 
+                    if(d.data().isPublic === true && d.data().hostUid !== currentUser.uid) {
+                        foundMatch = d; 
+                    } 
+                });
 
                 if (foundMatch) {
                     currentMatchId = foundMatch.id; isMatchHost = false;
@@ -821,7 +838,6 @@
                 document.getElementById("waiting-sub-text").innerHTML = `<span style='color:#ff3333; font-size:14px; font-style:normal;'>${e.message}</span>`;
             }
         }
-
         window.hostMatch = async function() {
             if (!currentUser) return;
             currentMatchId = generateRoomCode(); isMatchHost = true;
