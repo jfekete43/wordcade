@@ -938,43 +938,45 @@
 
         // --- MATCHMAKING LOGIC ---
         window.findRandomMatch = async function() {
-            if (!currentUser) return;
-            
-            document.getElementById("lobby-action-view").style.display = "none";
-            document.getElementById("lobby-waiting-view").style.display = "block";
-            document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:#aaa; font-weight:normal;'>Looking for public opponent</span>";
-            document.getElementById("display-room-code").style.display = "none";
-            document.getElementById("waiting-sub-text").style.display = "block";
+    if (!currentUser) return;
+    
+    document.getElementById("lobby-action-view").style.display = "none";
+    document.getElementById("lobby-waiting-view").style.display = "block";
+    document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:#aaa; font-weight:normal;'>Looking for public opponent</span>";
+    document.getElementById("display-room-code").style.display = "none";
+    document.getElementById("waiting-sub-text").style.display = "block";
+    document.getElementById("waiting-sub-text").innerHTML = "Waiting for challenger...";
 
-            try {
-                // Find an open public match (fetch recent waiting matches and filter locally to avoid complex index requirements)
-                const q = query(collection(db, "matches"), where("status", "==", "waiting"), limit(10));
-                const snapshot = await getDocs(q);
-                let foundMatch = null;
-                snapshot.forEach(doc => { if(doc.data().isPublic === true) foundMatch = doc; });
+    try {
+        // Find an open public match (fetch recent waiting matches and filter locally to avoid complex index requirements)
+        const q = query(collection(db, "matches"), where("status", "==", "waiting"), limit(10));
+        const snapshot = await getDocs(q);
+        let foundMatch = null;
+        snapshot.forEach(doc => { if(doc.data().isPublic === true) foundMatch = doc; });
 
-                if (foundMatch) {
-                    // Match found! Join it.
-                    currentMatchId = foundMatch.id; isMatchHost = false;
-                    await updateDoc(doc(db, "matches", currentMatchId), { 
-                        guestUid: currentUser.uid, guestName: userProfileData.username, status: 'playing' 
-                    });
-                    listenToMatch();
-                } else {
-                    // No match found. Create a public lobby and wait.
-                    currentMatchId = generateRoomCode(); isMatchHost = true;
-                    await setDoc(doc(db, "matches", currentMatchId), {
-                        hostUid: currentUser.uid, hostName: userProfileData.username,
-                        guestUid: null, guestName: null, status: 'waiting', marker: 0, winner: null, isPublic: true
-                    });
-                    listenToMatch();
-                }
-            } catch(e) { 
-                console.error("Matchmaking error", e); 
-                document.getElementById("waiting-status-text").innerHTML = "<span style='color:#ff3333;'>Error connecting to matchmaking.</span>";
-                document.getElementById("waiting-sub-text").style.display = "none";
-            }
+        if (foundMatch) {
+            // Match found! Join it.
+            currentMatchId = foundMatch.id; isMatchHost = false;
+            await updateDoc(doc(db, "matches", currentMatchId), { 
+                guestUid: currentUser.uid, guestName: userProfileData.username, status: 'playing' 
+            });
+            listenToMatch();
+        } else {
+            // No match found. Create a public lobby and wait.
+            currentMatchId = generateRoomCode(); isMatchHost = true;
+            await setDoc(doc(db, "matches", currentMatchId), {
+                hostUid: currentUser.uid, hostName: userProfileData.username,
+                guestUid: null, guestName: null, status: 'waiting', marker: 0, winner: null, isPublic: true
+            });
+            listenToMatch();
         }
+    } catch(e) { 
+        console.error("Matchmaking error", e); 
+        document.getElementById("waiting-status-text").innerHTML = "<span style='color:#ff3333;'>Firebase Error:</span>";
+        // This will print the exact Firebase error to your UI
+        document.getElementById("waiting-sub-text").innerHTML = `<span style='color:#ff3333; font-size:14px; font-style:normal;'>${e.message}</span>`;
+    }
+}
 
         window.hostMatch = async function() {
             if (!currentUser) return;
