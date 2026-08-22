@@ -1037,6 +1037,7 @@
                     
                     let amIWinner = (isMatchHost && data.winner === data.hostUid) || (!isMatchHost && data.winner === data.guestUid);
                     let myMMRChange = isMatchHost ? data.hostChange : data.guestChange;
+                    let isPublicMatch = data.isPublic === true;
                     let newMmr = Math.max(0, (userProfileData.mmr || 1000) + myMMRChange);
                     
                     document.getElementById("vs-end-title").innerText = amIWinner ? "YOU WIN!" : "YOU LOSE!";
@@ -1044,14 +1045,18 @@
                     
                     let resultText = amIWinner ? "You claimed the 2,500 pt prize!" : "Better luck next time.";
                     let rankObj = getRankDetails(newMmr);
-                    let mmrText = myMMRChange >= 0 ? `<span style="color:#4caf50;">+${myMMRChange} MMR</span>` : `<span style="color:#ff3333;">${myMMRChange} MMR</span>`;
+                    
+                    // Show + / - MMR for public matches, or "Unranked" for private matches
+                    let mmrText = isPublicMatch 
+                        ? (myMMRChange >= 0 ? `<span style="color:#4caf50;">+${myMMRChange} MMR</span>` : `<span style="color:#ff3333;">${myMMRChange} MMR</span>`)
+                        : `<span style="color:#aaa; font-style:italic;">Unranked Private Match</span>`;
                     
                     document.getElementById("vs-end-desc").innerHTML = `${resultText}<br><br><span style="font-size:16px;">Rank: <span class="${rankObj.class}" style="text-transform:uppercase; font-weight:bold;">${rankObj.name}</span></span><br>${mmrText}`;
                     
                     if (currentUser) {
                         let updatePayload = { 
-                            mmr: newMmr, 
-                            clashWins: increment(amIWinner ? 1 : 0), 
+                            mmr: newMmr, // Stays unchanged if private match (myMMRChange is 0)
+                            clashWins: increment(amIWinner ? 1 : 0), // Still tracks record!
                             clashLosses: increment(amIWinner ? 0 : 1) 
                         };
                         
@@ -1257,10 +1262,15 @@
                             let updatePayload = { marker: newMarker };
                             updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
                             
-                            // MMR Check Condition
+                            // MMR Check Condition (UPDATED for Private/Public Matches)
                             if (newMarker >= 5 || newMarker <= -5) { 
                                 let hostWon = newMarker >= 5;
-                                let hostChange = calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon);
+                                let isPublicMatch = mSnap.data().isPublic === true;
+                                
+                                // Only calculate MMR changes if it's a public matchmaking game
+                                let hostChange = isPublicMatch 
+                                    ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) 
+                                    : 0;
                                 
                                 updatePayload.status = 'finished'; 
                                 updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
