@@ -128,8 +128,8 @@
         #live-feed-container { width: 90%; max-width: 320px; background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
         .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-box { background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 90vw; max-height: 90vh; overflow-y: auto; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
+        .modal-box { background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
         .modal-title { color: #00ffff; font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
         .modal-stats { font-size: 20px; margin-bottom: 20px; line-height: 1.6; }
         .modal-stats span { color: #4caf50; font-weight: bold; font-size: 24px; }
@@ -140,8 +140,6 @@
         .btn-cyan:hover { background-color: #00cccc; }
         .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
         .btn-dark:hover { background-color: #555; }
-        .btn-google { background-color: white; color: black; border: 2px solid #4285F4 !important; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px;}
-        .btn-google:hover { background-color: #f1f1f1; }
 
         .input-field { padding: 10px; font-size: 18px; width: 100%; text-align: center; border-radius: 5px; border: 2px solid #ff00ff; background: #222; color: #fff; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;}
         .input-field:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
@@ -210,6 +208,13 @@
         
         .pulse-text { animation: pulse-opacity 1.5s infinite; }
         @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .rank-bronze { color: #cd7f32; }
+        .rank-silver { color: #c0c0c0; }
+        .rank-gold { color: #ffd700; }
+        .rank-platinum { color: #e5e4e2; }
+        .rank-sapphire { color: #0f52ba; }
+        .rank-ruby { color: #e0115f; text-shadow: 0 0 5px #e0115f; }
     </style>
 </head>
 <body>
@@ -324,7 +329,7 @@
         <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff;">
             <h2 class="modal-title" style="color: #00ffff;">Head-to-Head</h2>
             <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
-                Tug-of-War rules. No Continues. <br>Push the puck 5 spaces to win 2,500 pts.
+                Tug-of-War rules. No Continues. <br>Push the puck 5 spaces to win 2,500 pts and gain MMR.
             </div>
             
             <div id="lobby-action-view">
@@ -447,8 +452,14 @@
                     </div>
                 </div>
             </div>
-            <hr>
-            <div class="modal-stats" style="text-align: left;">
+            
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-prof-standard" onclick="document.getElementById('profile-standard').style.display='block'; document.getElementById('profile-clash').style.display='none'; this.classList.add('active'); document.getElementById('tab-prof-clash').classList.remove('active');">Standard</button>
+                <button class="tab-btn" id="tab-prof-clash" onclick="document.getElementById('profile-clash').style.display='block'; document.getElementById('profile-standard').style.display='none'; this.classList.add('active'); document.getElementById('tab-prof-standard').classList.remove('active');">Clash</button>
+            </div>
+
+            <!-- STANDARD STATS -->
+            <div id="profile-standard" class="modal-stats" style="text-align: left;">
                 <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts</div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 10px;">
                     <div style="text-align: center;">Words Played<br><span id="stat-played" style="color:white; font-size: 20px;">0</span></div>
@@ -457,6 +468,19 @@
                 <div style="font-size: 14px; margin-bottom: 10px; color: #00ffff; text-transform: uppercase; text-align: center;">Guess Distribution</div>
                 <div id="stat-distribution"></div>
             </div>
+
+            <!-- CLASH STATS -->
+            <div id="profile-clash" class="modal-stats" style="text-align: left; display: none;">
+                <div style="text-align: center; margin-bottom: 20px;">MMR: <br><span id="stat-mmr-score" style="color: #ff9800; font-size: 28px;">1000</span></div>
+                <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;" id="stat-rank-title">Bronze</div>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:white; font-size: 18px;">0 - 0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
+                    <div style="text-align: center;">Pucks Pushed<br><span id="stat-clash-pucks" style="color:white; font-size: 18px;">0</span></div>
+                </div>
+            </div>
+
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
     </div>
@@ -470,7 +494,7 @@
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
                 <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
                 <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
-                <button class="tab-btn" id="tab-career" onclick="window.setLbTime('career')">Career</button>
+                <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash MMR</button>
             </div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button></div>
@@ -544,6 +568,22 @@
         };
 
         function getTodayDateStr() { return new Date().toLocaleDateString(); }
+        
+        function getRankDetails(mmr) {
+            if (mmr < 1000) return { name: "Bronze", class: "rank-bronze" };
+            if (mmr < 1200) return { name: "Silver", class: "rank-silver" };
+            if (mmr < 1500) return { name: "Gold", class: "rank-gold" };
+            if (mmr < 1800) return { name: "Platinum", class: "rank-platinum" };
+            if (mmr < 2100) return { name: "Sapphire", class: "rank-sapphire" };
+            return { name: "Ruby", class: "rank-ruby" };
+        }
+
+        // Elo Rating Logic: change = K * (Actual - Expected)
+        function calculateEloChange(myMMR, opponentMMR, iWon) {
+            let expected = 1 / (1 + Math.pow(10, (opponentMMR - myMMR) / 400));
+            let change = Math.round(32 * ((iWon ? 1 : 0) - expected));
+            return change;
+        }
 
         const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
         onSnapshot(liveFeedQuery, (snapshot) => {
@@ -573,6 +613,7 @@
 
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, wallet: 0, handleChanges: 0, totalWordsGuessed: 0, wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0, kobeCount: 0,
+                        mmr: 1000, clashWins: 0, clashLosses: 0, clashPucks: 0,
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
                         equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
                         claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }
@@ -580,6 +621,8 @@
                     await setDoc(userRef, userProfileData);
                 } else { 
                     userProfileData = docSnap.data(); let needsUpdate = false;
+                    
+                    if (userProfileData.mmr === undefined) { userProfileData.mmr = 1000; userProfileData.clashWins = 0; userProfileData.clashLosses = 0; userProfileData.clashPucks = 0; needsUpdate = true; }
                     if (userProfileData.wallet === undefined) { let spent = 0; if (userProfileData.inventory) { userProfileData.inventory.forEach(itemId => { for(let cat in SHOP_ITEMS) { let item = SHOP_ITEMS[cat].find(i => i.id === itemId); if(item) spent += item.cost; } }); } userProfileData.wallet = userProfileData.careerBank || 0; userProfileData.careerBank = (userProfileData.careerBank || 0) + spent; needsUpdate = true; }
                     if (userProfileData.handleChanges === undefined) { userProfileData.handleChanges = 0; needsUpdate = true;}
                     if (userProfileData.achievedTop10Daily === undefined) { userProfileData.achievedTop10Daily = 0; needsUpdate = true;}
@@ -587,7 +630,15 @@
                     if (!userProfileData.inventory) { userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"]; userProfileData.equipped = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" }; needsUpdate = true; }
                     if (!userProfileData.claimedCareer) { userProfileData.claimedCareer = []; needsUpdate = true; }
                     if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) { userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }; needsUpdate = true; }
-                    if (needsUpdate) { await updateDoc(userRef, { inventory: userProfileData.inventory, equipped: userProfileData.equipped, wallet: userProfileData.wallet, careerBank: userProfileData.careerBank, handleChanges: userProfileData.handleChanges, achievedTop10Daily: userProfileData.achievedTop10Daily, kobeCount: userProfileData.kobeCount, claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats }); }
+                    
+                    if (needsUpdate) { 
+                        await updateDoc(userRef, { 
+                            inventory: userProfileData.inventory, equipped: userProfileData.equipped, wallet: userProfileData.wallet, 
+                            careerBank: userProfileData.careerBank, handleChanges: userProfileData.handleChanges, achievedTop10Daily: userProfileData.achievedTop10Daily, 
+                            kobeCount: userProfileData.kobeCount, claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats,
+                            mmr: userProfileData.mmr, clashWins: userProfileData.clashWins, clashLosses: userProfileData.clashLosses, clashPucks: userProfileData.clashPucks
+                        }); 
+                    }
                 }
                 applyEquippedCosmetics();
             } else { signInAnonymously(auth); }
@@ -629,9 +680,15 @@
             document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
             if (userProfileData.isGuest) { document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`; document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block"; } 
             else { document.getElementById("login-status-text").innerText = "Linked via Google"; document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none"; }
+            
             const docSnap = await getDoc(doc(db, "users", currentUser.uid));
             if(docSnap.exists()) {
-                let data = docSnap.data(); document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString(); let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails; let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+                let data = docSnap.data(); 
+                userProfileData = data; // Keep local sync fresh
+                
+                // standard
+                document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString(); 
+                let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails; let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
                 document.getElementById("stat-played").innerText = played; document.getElementById("stat-win-rate").innerText = winRate + "%";
                 let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails]; const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
                 for(let i = 0; i < 6; i++) {
@@ -639,7 +696,23 @@
                     distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
                 }
                 document.getElementById("stat-distribution").innerHTML = distHtml;
+
+                // clash
+                let cWins = data.clashWins || 0; let cLosses = data.clashLosses || 0; let cTotal = cWins + cLosses;
+                let cWinRate = cTotal > 0 ? Math.round((cWins / cTotal) * 100) : 0;
+                let currentMMR = data.mmr || 1000;
+                let rankObj = getRankDetails(currentMMR);
+                
+                document.getElementById("stat-mmr-score").innerText = currentMMR;
+                document.getElementById("stat-rank-title").innerText = rankObj.name;
+                document.getElementById("stat-rank-title").className = rankObj.class;
+                document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses}`;
+                document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
+                document.getElementById("stat-clash-pucks").innerText = data.clashPucks || 0;
             }
+            
+            // default to standard tab
+            document.getElementById('tab-prof-standard').click();
             document.getElementById("profile-modal").style.display = "flex";
         }
 
@@ -706,78 +779,56 @@
 
         // LEADERBOARD LOGIC
         let currentLbTime = 'all'; 
-        window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
+        window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
         window.loadLeaderboardData = async function() {
-            // Close the main menu if it's open since we moved the button
-            document.getElementById('main-menu-modal').style.display = 'none';
-            
-            const listDiv = document.getElementById("leaderboard-list"); 
-            listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; 
-            let html = ""; let rawData = []; let finalData = [];
-            
+            const listDiv = document.getElementById("leaderboard-list"); listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; let html = ""; let rawData = []; let finalData = [];
             try {
                 if (currentLbTime === 'career') { 
                     const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50))); 
                     snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); }); 
-                    let uniquePlayers = new Set(); 
-                    for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } } 
-                } else {
-                    let snapshot; 
-                    if (currentLbTime === 'all') { 
-                        snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50))); 
-                    } else { 
-                        const now = new Date(); let start = new Date(); 
-                        if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } 
-                        else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); } 
-                        else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } 
-                        snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); 
-                    }
-                    
-                    snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); 
-                    if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
-                    
-                    let uniquePlayers = new Set(); 
-                    for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
+                    let uniquePlayers = new Set(); for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } } 
+                } 
+                else if (currentLbTime === 'clash') {
+                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(50))); 
+                    snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); }); 
+                    let uniquePlayers = new Set(); for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
+                }
+                else {
+                    let snapshot; if (currentLbTime === 'all') { snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50))); } else { const now = new Date(); let start = new Date(); if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); } else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); }
+                    snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
+                    let uniquePlayers = new Set(); for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
                 }
                 
                 if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
                 
-                // Fetch LIVE profiles to get updated names and cosmetics
-                if (currentLbTime !== 'career') { 
+                if (currentLbTime !== 'career' && currentLbTime !== 'clash') { 
                     for (let entry of finalData) { 
                         if (entry.uid) { 
                             try { 
                                 let uSnap = await getDoc(doc(db, "users", entry.uid)); 
-                                if (uSnap.exists()) {
-                                    entry.equipped = uSnap.data().equipped;
-                                    entry.name = uSnap.data().username; // <--- Syncs old runs with the new handle
-                                } 
+                                if (uSnap.exists()) { entry.equipped = uSnap.data().equipped; entry.name = uSnap.data().username; } 
                             } catch(e) { } 
                         } 
                     } 
                 }
                 
-                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) { 
-                    let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1; 
-                    if (myRank > 0 && myRank <= 10) { 
-                        userProfileData.achievedTop10Daily = 1; 
-                        updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => {}); 
-                    } 
-                }
+                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) { let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1; if (myRank > 0 && myRank <= 10) { userProfileData.achievedTop10Daily = 1; updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => {}); } }
                 
                 finalData.forEach((entry, index) => {
                     let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
                     let eq = entry.equipped || {}; let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
-                    let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); let titleStr = tObj && tObj.display ? tObj.display : "";
+                    let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
+                    
+                    let titleStr = tObj && tObj.display ? tObj.display : "";
+                    if (currentLbTime === 'clash') {
+                        let rankObj = getRankDetails(entry.score);
+                        titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
+                    }
                     
                     html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${entry.name}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
-                }); 
-                
-                listDiv.innerHTML = html;
-            } catch (error) { 
-                listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; 
-            }
+                }); listDiv.innerHTML = html;
+            } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
         // ==========================================
@@ -787,7 +838,7 @@
         let currentMatchId = null;
         let matchUnsubscribe = null;
         let isMatchHost = false;
-        let myMiniBoard = []; // Tracks current color grid to send to opponent
+        let myMiniBoard = []; 
 
         let maxGuesses = 5;
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
@@ -822,17 +873,11 @@
         }
 
         window.cancelVersusLobby = function() {
-            // If they are actively in a lobby/searching, safely leave it and delete it first
-            if (currentMatchId) { 
-                window.leaveVersusMatch(); 
-                return; 
-            }
-            
+            if (currentMatchId) { window.leaveVersusMatch(); return; }
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
             document.getElementById("btn-mode").innerText = "PLAY CLASH";
-            document.getElementById("btn-mode").style.color = "#ff9800"; 
-            document.getElementById("btn-mode").style.borderColor = "#ff9800";
+            document.getElementById("btn-mode").style.color = "#ff9800"; document.getElementById("btn-mode").style.borderColor = "#ff9800";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
@@ -845,9 +890,9 @@
             return code;
         }
 
-        // --- MATCHMAKING LOGIC ---
         window.findRandomMatch = async function() {
             if (!currentUser) return;
+            window.matchFinishedProcessed = false;
             
             document.getElementById("lobby-action-view").style.display = "none";
             document.getElementById("lobby-waiting-view").style.display = "block";
@@ -857,34 +902,28 @@
             document.getElementById("waiting-sub-text").innerHTML = "Waiting for challenger...";
 
             try {
-                // 1. CLEANUP: Delete any ghost lobbies this user accidentally left behind previously
                 const staleQ = query(collection(db, "matches"), where("hostUid", "==", currentUser.uid), where("status", "==", "waiting"));
                 const staleSnap = await getDocs(staleQ);
                 staleSnap.forEach(d => { deleteDoc(doc(db, "matches", d.id)).catch(e=>{}); });
 
-                // 2. SEARCH: Find an open public match NOT hosted by this user
                 const q = query(collection(db, "matches"), where("status", "==", "waiting"), limit(10));
                 const snapshot = await getDocs(q);
                 let foundMatch = null;
-                snapshot.forEach(d => { 
-                    if(d.data().isPublic === true && d.data().hostUid !== currentUser.uid) {
-                        foundMatch = d; 
-                    } 
-                });
+                snapshot.forEach(d => { if(d.data().isPublic === true && d.data().hostUid !== currentUser.uid) { foundMatch = d; } });
 
                 if (foundMatch) {
                     currentMatchId = foundMatch.id; isMatchHost = false;
                     await updateDoc(doc(db, "matches", currentMatchId), { 
                         guestUid: currentUser.uid, guestName: userProfileData.username, status: 'playing',
-                        guestEquipped: userProfileData.equipped, guestBoard: []
+                        guestEquipped: userProfileData.equipped, guestBoard: [], guestMMR: userProfileData.mmr || 1000
                     });
                     listenToMatch();
                 } else {
                     currentMatchId = generateRoomCode(); isMatchHost = true;
                     await setDoc(doc(db, "matches", currentMatchId), {
                         hostUid: currentUser.uid, hostName: userProfileData.username,
-                        hostEquipped: userProfileData.equipped, hostBoard: [],
-                        guestUid: null, guestName: null, guestEquipped: null, guestBoard: [],
+                        hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
+                        guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
                         status: 'waiting', marker: 0, winner: null, isPublic: true
                     });
                     listenToMatch();
@@ -895,13 +934,15 @@
                 document.getElementById("waiting-sub-text").innerHTML = `<span style='color:#ff3333; font-size:14px; font-style:normal;'>${e.message}</span>`;
             }
         }
+
         window.hostMatch = async function() {
             if (!currentUser) return;
+            window.matchFinishedProcessed = false;
             currentMatchId = generateRoomCode(); isMatchHost = true;
             
             await setDoc(doc(db, "matches", currentMatchId), {
-                hostUid: currentUser.uid, hostName: userProfileData.username, hostEquipped: userProfileData.equipped, hostBoard: [],
-                guestUid: null, guestName: null, guestEquipped: null, guestBoard: [],
+                hostUid: currentUser.uid, hostName: userProfileData.username, hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
+                guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
                 status: 'waiting', marker: 0, winner: null, isPublic: false
             });
 
@@ -916,6 +957,7 @@
 
         window.joinMatch = async function() {
             if (!currentUser) return;
+            window.matchFinishedProcessed = false;
             let code = document.getElementById("join-code-input").value.trim().toUpperCase();
             if (code.length !== 5) { alert("Invalid code."); return; }
 
@@ -926,24 +968,22 @@
                 currentMatchId = code; isMatchHost = false;
                 await updateDoc(matchRef, { 
                     guestUid: currentUser.uid, guestName: userProfileData.username, 
-                    guestEquipped: userProfileData.equipped, guestBoard: [], status: 'playing' 
+                    guestEquipped: userProfileData.equipped, guestBoard: [], guestMMR: userProfileData.mmr || 1000, status: 'playing' 
                 });
                 document.getElementById("versus-lobby-modal").style.display = "none";
                 listenToMatch();
             } else { alert("Match not found or already started."); }
         }
 
-        function renderMiniBoard(elementId, boardData, isHost) {
-            const boardEl = document.getElementById(elementId);
-            let html = "";
+        function renderMiniBoard(elementId, boardData) {
+            const boardEl = document.getElementById(elementId); let html = "";
             for(let i=0; i<5; i++) {
                 html += `<div style="display:grid; grid-template-columns: repeat(5, 10px); grid-gap: 2px;">`;
                 for(let j=0; j<5; j++) {
                     let colorClass = "mini-0";
                     if (boardData && boardData[i] && boardData[i][j] !== undefined) {
                         let val = boardData[i][j];
-                        if (val === 2) colorClass = "mini-2";
-                        else if (val === 1) colorClass = "mini-1";
+                        if (val === 2) colorClass = "mini-2"; else if (val === 1) colorClass = "mini-1";
                     }
                     html += `<div class="${colorClass}" style="width:10px; height:10px; border:1px solid #333; border-radius:1px;"></div>`;
                 }
@@ -958,8 +998,7 @@
             let eq = equipped || { banner: 'banner_default', effect: 'effect_none', title: 'title_none' };
             document.getElementById(`${prefix}-banner`).className = `lb-entry ${eq.banner || 'banner_default'}`;
             document.getElementById(`${prefix}-name`).className = `lb-name ${eq.effect || 'effect_none'}`;
-            let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
-            document.getElementById(`${prefix}-title`).innerText = tObj && tObj.display ? tObj.display : "";
+            let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); document.getElementById(`${prefix}-title`).innerText = tObj && tObj.display ? tObj.display : "";
         }
 
         function listenToMatch() {
@@ -975,15 +1014,11 @@
                         startRound();
                     }
 
-                    // Render Banners
                     setPlayerBanner(true, data.hostName, data.hostEquipped);
                     setPlayerBanner(false, data.guestName, data.guestEquipped);
+                    renderMiniBoard("host-mini-board", data.hostBoard);
+                    renderMiniBoard("guest-mini-board", data.guestBoard);
 
-                    // Render Mini Boards
-                    renderMiniBoard("host-mini-board", data.hostBoard, true);
-                    renderMiniBoard("guest-mini-board", data.guestBoard, false);
-
-                    // Render Marker
                     let puckIndex = data.marker + 5;
                     document.querySelectorAll(".track-dot").forEach((dot, idx) => {
                         dot.className = "track-dot"; 
@@ -997,16 +1032,41 @@
                     });
                 }
 
-                if (data.status === 'finished') {
+                if (data.status === 'finished' && !window.matchFinishedProcessed) {
+                    window.matchFinishedProcessed = true; // Ensure MMR logic only applies once per client
+                    
                     let amIWinner = (isMatchHost && data.winner === data.hostUid) || (!isMatchHost && data.winner === data.guestUid);
+                    let myMMRChange = isMatchHost ? data.hostChange : data.guestChange;
+                    let newMmr = Math.max(0, (userProfileData.mmr || 1000) + myMMRChange);
+                    
                     document.getElementById("vs-end-title").innerText = amIWinner ? "YOU WIN!" : "YOU LOSE!";
                     document.getElementById("vs-end-title").style.color = amIWinner ? "#4caf50" : "#ff3333";
                     
-                    if (amIWinner) {
-                        document.getElementById("vs-end-desc").innerText = "You claimed the 2,500 pt prize!";
-                        if (currentUser) updateDoc(doc(db, "users", currentUser.uid), { wallet: increment(2500), careerBank: increment(2500) });
-                    } else {
-                        document.getElementById("vs-end-desc").innerText = "Better luck next time.";
+                    let resultText = amIWinner ? "You claimed the 2,500 pt prize!" : "Better luck next time.";
+                    let rankObj = getRankDetails(newMmr);
+                    let mmrText = myMMRChange >= 0 ? `<span style="color:#4caf50;">+${myMMRChange} MMR</span>` : `<span style="color:#ff3333;">${myMMRChange} MMR</span>`;
+                    
+                    document.getElementById("vs-end-desc").innerHTML = `${resultText}<br><br><span style="font-size:16px;">Rank: <span class="${rankObj.class}" style="text-transform:uppercase; font-weight:bold;">${rankObj.name}</span></span><br>${mmrText}`;
+                    
+                    if (currentUser) {
+                        let updatePayload = { 
+                            mmr: newMmr, 
+                            clashWins: increment(amIWinner ? 1 : 0), 
+                            clashLosses: increment(amIWinner ? 0 : 1) 
+                        };
+                        
+                        if (amIWinner) {
+                            updatePayload.wallet = increment(2500);
+                            updatePayload.careerBank = increment(2500);
+                            userProfileData.wallet += 2500;
+                            userProfileData.careerBank += 2500;
+                        }
+                        
+                        userProfileData.mmr = newMmr;
+                        userProfileData.clashWins = (userProfileData.clashWins || 0) + (amIWinner ? 1 : 0);
+                        userProfileData.clashLosses = (userProfileData.clashLosses || 0) + (amIWinner ? 0 : 1);
+                        
+                        updateDoc(doc(db, "users", currentUser.uid), updatePayload).catch(e => console.error("MMR Update failed", e));
                     }
                     
                     document.getElementById("versus-end-modal").style.display = "flex";
@@ -1175,12 +1235,15 @@
                 }, i * 300); 
             }
 
-            // Sync Mini-Board Logic
             if (isVersusMode && currentMatchId) {
                 let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0);
                 myMiniBoard.push(colorCodes);
                 let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
                 updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error(e));
+                
+                // Track personal puck push locally
+                userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
+                updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
             }
 
             setTimeout(async () => {
@@ -1193,8 +1256,18 @@
                             let oldMarker = mSnap.data().marker; let newMarker = oldMarker + (isMatchHost ? 1 : -1);
                             let updatePayload = { marker: newMarker };
                             updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
-                            if (newMarker >= 5) { updatePayload.status = 'finished'; updatePayload.winner = mSnap.data().hostUid; }
-                            if (newMarker <= -5) { updatePayload.status = 'finished'; updatePayload.winner = mSnap.data().guestUid; }
+                            
+                            // MMR Check Condition
+                            if (newMarker >= 5 || newMarker <= -5) { 
+                                let hostWon = newMarker >= 5;
+                                let hostChange = calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon);
+                                
+                                updatePayload.status = 'finished'; 
+                                updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
+                                updatePayload.hostChange = hostChange;
+                                updatePayload.guestChange = -hostChange;
+                            }
+                            
                             await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
                         }
                         setTimeout(startRound, 1000);
