@@ -336,7 +336,10 @@
                 <div class="modal-buttons">
                     <button class="btn-cyan" onclick="window.findRandomMatch()">Find Random Match</button>
                     
-                    <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold;">- OR PLAY WITH FRIEND -</div>
+                    <!-- NEW LIVE COUNTER DIV HERE -->
+                    <div id="active-searchers-text" style="color: #00ffff; font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+                    
+                    <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
                     
                     <button class="btn-dark" style="border-color: #00ffff !important; color: #00ffff;" onclick="window.hostMatch()">Host Private Match</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
@@ -845,6 +848,35 @@
         let isMatchHost = false;
         let myMiniBoard = []; 
 
+        // --- NEW: LOBBY COUNTER LOGIC ---
+        let lobbyCountUnsubscribe = null;
+
+        function listenToLobbyCount() {
+            if (lobbyCountUnsubscribe) lobbyCountUnsubscribe();
+            const q = query(collection(db, "matches"), where("status", "==", "waiting"), where("isPublic", "==", true));
+            lobbyCountUnsubscribe = onSnapshot(q, (snapshot) => {
+                let count = snapshot.size;
+                const el = document.getElementById("active-searchers-text");
+                if (el) {
+                    if (count === 0) {
+                        el.innerText = "No players currently searching.";
+                        el.style.color = "#aaa";
+                    } else {
+                        el.innerText = `${count} player(s) in queue...`;
+                        el.style.color = "#00ffff";
+                    }
+                }
+            });
+        }
+
+        function stopLobbyCount() {
+            if (lobbyCountUnsubscribe) {
+                lobbyCountUnsubscribe();
+                lobbyCountUnsubscribe = null;
+            }
+        }
+        // --------------------------------
+
         let maxGuesses = 5;
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
@@ -874,11 +906,16 @@
                 document.getElementById("versus-track-container").style.display = "block";
                 boardDisplay.innerHTML = "";
                 document.getElementById("versus-lobby-modal").style.display = "flex";
+                
+                listenToLobbyCount(); // <-- START THE LISTENER HERE
             }
         }
 
         window.cancelVersusLobby = function() {
             if (currentMatchId) { window.leaveVersusMatch(); return; }
+            
+            stopLobbyCount(); // <-- STOP THE LISTENER HERE
+            
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
             document.getElementById("btn-mode").innerText = "PLAY CLASH";
