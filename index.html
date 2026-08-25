@@ -592,7 +592,12 @@
                 let data = doc.data();
                 let eq = data.equipped || { banner: 'banner_default', effect: 'effect_none' };
                 let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
-                html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${data.username}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${data.score.toLocaleString()}</span> pts</div>`;
+                
+                if (data.isWipeout && data.lostScore > 0) {
+                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${data.username}</span> wiped out & lost <span style="color:#ff3333; font-weight:bold;">${data.lostScore.toLocaleString()}</span> pts</div>`;
+                } else if (data.score > 0) {
+                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${data.username}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${data.score.toLocaleString()}</span> pts</div>`;
+                }
             });
             document.getElementById("live-feed-list").innerHTML = html || "No recent activity.";
         });
@@ -1130,9 +1135,9 @@
 
         window.dismissWarning = function() { document.getElementById("warning-modal").style.display = "none"; saveLocalState(); startRound(); }
 
-        async function saveRunToCloud() {
+        async function saveRunToCloud(isWipeout = false, lostScore = 0) {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
-            if (currentUser && (score > 0 || runStats.played > 0) && !isVersusMode) {
+            if (currentUser && (score > 0 || isWipeout || runStats.played > 0) && !isVersusMode) {
                 try {
                     let todayStr = getTodayDateStr();
                     if (userProfileData.dailyStats && userProfileData.dailyStats.date !== todayStr) { userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }; }
@@ -1144,7 +1149,19 @@
                         "dailyStats.guess1": increment(runStats.guess1), "dailyStats.guess5": increment(runStats.guess5)
                     };
                     await updateDoc(doc(db, "users", currentUser.uid), updates);
-                    if (score > 0) { await addDoc(collection(db, "runs"), { uid: currentUser.uid, username: userProfileData.username, score: score, wordsGuessed: wordsGuessed, equipped: userProfileData.equipped, timestamp: serverTimestamp() }); }
+                    
+                    if (score > 0 || (isWipeout && lostScore > 0)) { 
+                        await addDoc(collection(db, "runs"), { 
+                            uid: currentUser.uid, 
+                            username: userProfileData.username, 
+                            score: score, 
+                            isWipeout: isWipeout,
+                            lostScore: lostScore,
+                            wordsGuessed: wordsGuessed, 
+                            equipped: userProfileData.equipped, 
+                            timestamp: serverTimestamp() 
+                        }); 
+                    }
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
                 } catch (e) { document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed."; document.getElementById("cloud-save-status").style.color = "#ff3333"; console.error(e); }
             } else { document.getElementById("cloud-save-status").innerText = "No stats to save."; }
@@ -1162,10 +1179,12 @@
             modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(); 
         }
 
-        function triggerGameOver() {
+        function triggerGameOver(lostScore = 0) {
             document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "#ff3333"; 
-            document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
-            modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(); 
+            // Update the modal to show them exactly what they lost!
+            document.getElementById("modal-score").innerText = `0 (Lost ${lostScore.toLocaleString()})`; 
+            document.getElementById("modal-words").innerText = wordsGuessed;
+            modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(true, lostScore); 
         }
 
         window.shareStats = function() {
@@ -1302,8 +1321,10 @@
                         // Standard Mode Failure
                         continues--; runStats.played++; runStats.fails++; 
                         if (continues < 0) {
-                            showMessage(`WORD WAS ${targetWord}.`); score = 0; updateScoreBoard();
-                            setTimeout(triggerGameOver, 1500); 
+                            showMessage(`WORD WAS ${targetWord}.`); 
+                            let finalLostScore = score; // Capture the pot!
+                            score = 0; updateScoreBoard();
+                            setTimeout(() => triggerGameOver(finalLostScore), 1500); 
                         } else {
                             showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
                             document.getElementById("warning-continues-text").innerText = `${continues} Continues`;
