@@ -171,6 +171,24 @@
         .effect_holo { background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite;}
         @keyframes shine { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
 
+        /* NEW BANNERS */
+        .banner_diamond { background: linear-gradient(180deg, #1e3b1e 0%, #2b572b 100%); border-left: 3px solid #fff; border-radius: 3px; }
+        .banner_8bit { background: linear-gradient(180deg, #ff9900 0%, #ff0055 100%); border-left: 3px solid #ffcc00; border-radius: 3px; }
+        .banner_foil { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px); border-left: 3px solid #ddd; border-radius: 3px; }
+        .banner_scanline { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 1px, transparent 1px, transparent 3px); border-left: 3px solid #aaa; border-radius: 3px; }
+        .banner_galactic { background: radial-gradient(circle, #2b1055 0%, #000 100%); border-left: 3px solid #ff00ff; border-radius: 3px; }
+        .banner_carbon { background: repeating-linear-gradient(45deg, #111 0, #111 2px, #222 2px, #222 4px); border-left: 3px solid #555; border-radius: 3px; }
+        .banner_champ { background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.3) 100%); border-left: 3px solid #ffd700; border-radius: 3px; }
+
+        /* NEW EFFECTS */
+        .effect_pulse { color: #00ffff; animation: text-pulse 2s infinite; }
+        @keyframes text-pulse { 0% { text-shadow: 0 0 5px #00ffff; } 50% { text-shadow: 0 0 15px #00ffff; } 100% { text-shadow: 0 0 5px #00ffff; } }
+        
+        .effect_glitch { color: #fff; text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
+        .effect_electric { color: #fff; text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 20px #0ff; }
+        .effect_fire { color: #ff4500; text-shadow: 0 0 5px #ffa500, 0 -2px 5px #ff0000; font-weight: 900; }
+        .effect_goldprism { background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fff 50%, #ffd700 75%, #b8860b 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.5s linear infinite; font-weight: 900;}
+
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: #333; height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
@@ -536,40 +554,66 @@
                 { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
                 { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 500, display: "Rookie" },
                 { id: "title_mvp", name: "MVP", desc: "The most valuable player.", cost: 2500, display: "MVP" },
-                { id: "title_cardboard", name: "Cardboard Collector", desc: "Sleeve it up.", cost: 5000, display: "Cardboard Collector" }
+                { id: "title_cardboard", name: "Cardboard Collector", desc: "Sleeve it up.", cost: 5000, display: "Cardboard Collector" },
+                { id: "title_speedrunner", name: "Speedrunner", desc: "Gotta go fast.", cost: 3000, display: "Speedrunner" },
+                { id: "title_dugout", name: "Dugout Boss", desc: "Calling the shots.", cost: 4000, display: "Dugout Boss" },
+                { id: "title_closer", name: "The Closer", desc: "Ice in the veins.", cost: 6000, display: "The Closer" },
+                { id: "title_wizard", name: "Word Wizard", desc: "A magical vocabulary.", cost: 7500, display: "Word Wizard" },
+                { id: "title_junkwax", name: "Junk Wax Era", desc: "Overprinted but loved.", cost: 8000, display: "Junk Wax Era" },
+                { id: "title_pinchhitter", name: "Pinch Hitter", desc: "Off the bench, over the fence.", cost: 8500, display: "Pinch Hitter" },
+                { id: "title_lexicographer", name: "Lexicographer", desc: "You write the dictionary.", cost: 10000, display: "Lexicographer" },
+                { id: "title_finalboss", name: "Final Boss", desc: "The ultimate challenge.", cost: 15000, display: "Final Boss" },
+                { id: "title_goat", name: "G.O.A.T.", desc: "Greatest of all time.", cost: 25000, display: "G.O.A.T." },
+                { id: "title_glitch", name: "MissingNo", desc: "Anomalous entity.", cost: 50000, display: "MissingNo" }
             ],
             skins: [
-                { id: "skin_default", name: "Neon Arcade", desc: "The classic Lexathon aesthetic.", cost: 0, themeClass: "" },
-                { id: "skin_8bit", name: "8-Bit Retro", desc: "Blocky borders and pixel fonts.", cost: 5000, themeClass: "theme-8bit" },
-                { id: "skin_camo", name: "Erangel Camo", desc: "Tactical colors for dropping in.", cost: 10000, themeClass: "theme-camo" },
-                { id: "skin_crt", name: "Retro Cabinet", desc: "Glowing scanlines from a tube TV.", cost: 15000, themeClass: "theme-crt" }
+                { id: "skin_default", name: "Neon Arcade", desc: "The classic Lexathon aesthetic.", cost: 0, themeClass: "" }
             ],
             banners: [
                 { id: "banner_default", name: "Basic Slate", desc: "Standard Leaderboard Background", cost: 0 },
-                { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 5000 },
-                { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 5000 },
+                { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 2500 },
+                { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 2500 },
+                { id: "banner_diamond", name: "Diamond Turf", desc: "Freshly cut outfield grass.", cost: 5000 },
+                { id: "banner_8bit", name: "8-Bit Sunset", desc: "Retro gradient horizon.", cost: 7500 },
+                { id: "banner_foil", name: "Foil Parallel", desc: "Shiny metallic background.", cost: 10000 },
+                { id: "banner_scanline", name: "CRT Scanlines", desc: "Old school tube TV vibes.", cost: 12500 },
                 { id: "banner_matrix", name: "The Matrix", desc: "Digital rain effect.", cost: 15000 },
-                { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 15000 }
+                { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 15000 },
+                { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 20000 },
+                { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 20000 },
+                { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 }
             ],
             effects: [
                 { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
-                { id: "effect_holo", name: "Silver Refractor", desc: "Holographic glare over your name.", cost: 25000 }
+                { id: "effect_pulse", name: "Neon Pulse", desc: "A gentle glowing rhythm.", cost: 5000 },
+                { id: "effect_glitch", name: "Arcade Glitch", desc: "Corrupted system text.", cost: 10000 },
+                { id: "effect_electric", name: "High Voltage", desc: "Shocking blue aura.", cost: 15000 },
+                { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 20000 },
+                { id: "effect_holo", name: "Silver Refractor", desc: "Holographic glare over your name.", cost: 25000 },
+                { id: "effect_goldprism", name: "Gold Prism", desc: "Top tier collector status.", cost: 50000 }
             ]
         };
 
         const CHALLENGES = {
             daily: [
                 { id: "d_warmup", name: "Batting Practice", desc: "Play 5 words today.", req: 5, field: "played", reward: 1000 },
+                { id: "d_doubleplay", name: "Double Play", desc: "Guess 2 words on your 2nd try today.", req: 2, field: "guess2", reward: 2500 },
                 { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 },
-                { id: "d_clutch", name: "Clutch Hit", desc: "Guess a word on the 5th try today.", req: 1, field: "guess5", reward: 2500 }
+                { id: "d_sweat", name: "Down to the Wire", desc: "Guess 3 words on your 4th try today.", req: 3, field: "guess4", reward: 3000 },
+                { id: "d_clutch", name: "Clutch Hit", desc: "Guess a word on the 5th try today.", req: 1, field: "guess5", reward: 2500 },
+                { id: "d_marathon", name: "Daily Marathon", desc: "Play 30 total words today.", req: 30, field: "played", reward: 7500 }
             ],
             career: [
                 { id: "c_homerun", name: "First Pitch Home Run", desc: "Guess a word on the 1st try.", req: 1, field: "guess1", reward: 10000 },
+                { id: "c_silverslugger", name: "Silver Slugger", desc: "Guess 50 words on the 2nd try.", req: 50, field: "guess2", reward: 15000 },
                 { id: "c_rookie", name: "Rookie Card", desc: "Guess 50 total words correctly.", req: 50, field: "totalWordsGuessed", reward: 5000 },
                 { id: "c_gemmint", name: "Gem Mint 10", desc: "Guess 500 total words correctly.", req: 500, field: "totalWordsGuessed", reward: 25000 },
+                { id: "c_hof", name: "Hall of Famer", desc: "Guess 2,500 total words correctly.", req: 2500, field: "totalWordsGuessed", reward: 100000 },
                 { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
+                { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
                 { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
-                { id: "c_kobe", name: "Kobe", desc: "Guess correctly on the final attempt with no continues left.", req: 25, field: "kobeCount", reward: 24000 }
+                { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
+                { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Kobe moments with no continues.", req: 50, field: "kobeCount", reward: 75000 }
             ]
         };
 
