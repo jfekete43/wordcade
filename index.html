@@ -901,7 +901,7 @@
             if (isVersusMode) {
                 let confirmSwitch = confirm("Leave Head-to-Head match?");
                 if (!confirmSwitch) return;
-                leaveVersusMatch();
+                window.leaveVersusMatch(); // Fixed prefix
             } else {
                 if (score > 0 || runStats.played > 0) {
                     let confirmSwitch = confirm("Switching to Clash will cash out your current Standard run. Continue?");
@@ -917,14 +917,14 @@
                 boardDisplay.innerHTML = "";
                 document.getElementById("versus-lobby-modal").style.display = "flex";
                 
-                listenToLobbyCount(); // <-- START THE LISTENER HERE
+                listenToLobbyCount(); 
             }
         }
 
         window.cancelVersusLobby = function() {
             if (currentMatchId) { window.leaveVersusMatch(); return; }
             
-            stopLobbyCount(); // <-- STOP THE LISTENER HERE
+            stopLobbyCount(); 
             
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
@@ -934,12 +934,6 @@
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
             window.startNewRun();
-        }
-
-        function generateRoomCode() {
-            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; let code = "";
-            for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-            return code;
         }
 
         function generateRoomCode() {
@@ -1087,7 +1081,7 @@
             if (matchUnsubscribe) matchUnsubscribe();
             
             matchUnsubscribe = onSnapshot(doc(db, "matches", currentMatchId), (docSnap) => {
-                if (!docSnap.exists()) { showMessage("MATCH CLOSED."); leaveVersusMatch(); return; }
+                if (!docSnap.exists()) { showMessage("MATCH CLOSED."); window.leaveVersusMatch(); return; } // Fixed prefix
                 let data = docSnap.data();
 
                 if (data.status === 'playing') {
@@ -1196,7 +1190,7 @@
             document.getElementById("lobby-action-view").style.display = "block";
             document.getElementById("lobby-waiting-view").style.display = "none";
             document.getElementById("join-code-input").value = "";
-            cancelVersusLobby(); 
+            window.cancelVersusLobby(); // Fixed prefix
         }
 
         // --- STANDARD LOCAL STATE ---
