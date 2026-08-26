@@ -1256,14 +1256,8 @@
         keys.forEach(key => { key.addEventListener("click", () => { window.handleInput(key.getAttribute("data-key")); key.blur(); }); });
 
         window.handleInput = function(key) {
-            if (isAnimating) return;
-            
-            // Bulletproof Modal Check: Ensures you can type even if HTML gets weird
-            let isModalOpen = false;
-            document.querySelectorAll('.modal-overlay').forEach(m => { 
-                if(window.getComputedStyle(m).display !== 'none') isModalOpen = true; 
-            });
-            if (isModalOpen) return;
+            // Only lock keyboard if animating or a modal explicitly has inline style 'flex' or 'block'
+            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"], .modal-overlay[style*="display: block"]').length > 0) return;
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { showMessage("Not in word list"); return; }
@@ -1277,11 +1271,11 @@
         }
 
         async function checkGuess() {
-            if (isAnimating) return;
+            if (isAnimating) return; // Prevent double firing
             isAnimating = true; 
             
-            // 🚨 FAIL-SAFE: If the internet drops or code crashes, forcefully unlock after 5 seconds
-            let failSafeUnlock = setTimeout(() => { isAnimating = false; }, 5000);
+            // FAILSAFE: Automatically unlock keyboard after 6 seconds no matter what happens
+            let failSafe = setTimeout(() => { isAnimating = false; }, 6000);
 
             try {
                 let guessArr = currentGuess.split(""); let targetArr = targetWord.split("");
@@ -1297,7 +1291,7 @@
                 for (let i = 0; i < 5; i++) {
                     setTimeout(() => {
                         let tile = document.getElementById("tile-" + currentRow + "-" + i);
-                        if (tile) { // Crash prevention if element is missing
+                        if (tile) {
                             tile.style.transform = "rotateX(90deg)"; 
                             setTimeout(() => {
                                 tile.classList.add(tileColors[i]); tile.style.transform = "rotateX(0deg)"; 
@@ -1312,60 +1306,51 @@
                     }, i * 300); 
                 }
 
-                // Instantly sync the mini-board colors to the opponent
+                // Push mini-board update immediately to opponent
                 if (isVersusMode && currentMatchId) {
                     try {
                         let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0);
                         myMiniBoard.push(colorCodes);
                         let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
-                        updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error(e));
-                    } catch(e) { console.error("Miniboard sync error", e); }
+                        updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => {});
+                    } catch(e) {}
                 }
 
+                // Wait for tile flip animations to finish before processing results
                 setTimeout(async () => {
-                    clearTimeout(failSafeUnlock); // Success! Clear the fail-safe
+                    clearTimeout(failSafe); // Success! Clear the failsafe lock since we made it to the end
 
                     try {
                         if (correctCount === 5) {
                             
                             if (isVersusMode && currentMatchId) {
                                 showMessage("PUSH!");
-                                
-                                try {
-                                    if(userProfileData) {
-                                        userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
-                                        updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
-                                    }
-
-                                    let mSnap = await getDoc(doc(db, "matches", currentMatchId));
-                                    if(mSnap.exists() && mSnap.data().status === 'playing') {
-                                        let oldMarker = mSnap.data().marker; 
-                                        let newMarker = oldMarker + (isMatchHost ? 1 : -1);
-                                        let updatePayload = { marker: newMarker };
-                                        updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
-                                        
-                                        if (newMarker >= 5 || newMarker <= -5) { 
-                                            let hostWon = newMarker >= 5;
-                                            let isPublicMatch = mSnap.data().isPublic === true;
-                                            
-                                            let hostChange = isPublicMatch 
-                                                ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) 
-                                                : 0;
-                                            
-                                            updatePayload.status = 'finished'; 
-                                            updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
-                                            updatePayload.hostChange = hostChange;
-                                            updatePayload.guestChange = -hostChange;
-                                        }
-                                        
-                                        await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
-                                    }
-                                } catch (err) {
-                                    console.error("Match logic error caught", err);
-                                } finally {
-                                    setTimeout(startRound, 1000);
+                                if (userProfileData) {
+                                    userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
+                                    updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
                                 }
 
+                                let mSnap = await getDoc(doc(db, "matches", currentMatchId));
+                                if(mSnap.exists() && mSnap.data().status === 'playing') {
+                                    let oldMarker = mSnap.data().marker; 
+                                    let newMarker = oldMarker + (isMatchHost ? 1 : -1);
+                                    let updatePayload = { marker: newMarker };
+                                    updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
+                                    
+                                    if (newMarker >= 5 || newMarker <= -5) { 
+                                        let hostWon = newMarker >= 5;
+                                        let isPublicMatch = mSnap.data().isPublic === true;
+                                        let hostChange = isPublicMatch ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) : 0;
+                                        
+                                        updatePayload.status = 'finished'; 
+                                        updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
+                                        updatePayload.hostChange = hostChange;
+                                        updatePayload.guestChange = -hostChange;
+                                    }
+                                    
+                                    await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
+                                }
+                                setTimeout(startRound, 1000);
                             } else {
                                 runStats.played++; runStats['guess' + (currentRow + 1)]++; 
                                 if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
@@ -1373,7 +1358,6 @@
                                 saveLocalState(); showMessage(`+${earned} POINTS!`); updateScoreBoard();
                                 setTimeout(startRound, 1500); 
                             }
-
                         } else if (currentRow === maxGuesses - 1) { 
                             if (isVersusMode) {
                                 showMessage(`WORD WAS ${targetWord}.`);
@@ -1398,14 +1382,14 @@
                         } else {
                             currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();
                         }
-                    } catch (innerErr) {
-                        console.error("Evaluation logic crashed", innerErr);
+                    } catch (e) {
+                        console.error("End guess error", e);
                         isAnimating = false; // Emergency unlock
                     }
                 }, 1500); 
 
-            } catch (outerErr) {
-                console.error("checkGuess setup crashed", outerErr);
+            } catch (e) {
+                console.error("checkGuess error", e);
                 isAnimating = false; // Emergency unlock
             }
         }
