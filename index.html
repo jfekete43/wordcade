@@ -1296,47 +1296,58 @@
                 }, i * 300); 
             }
 
+            // Instantly sync the mini-board colors to the opponent
             if (isVersusMode && currentMatchId) {
                 let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0);
                 myMiniBoard.push(colorCodes);
                 let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
                 updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error(e));
-                
-                // Track personal puck push locally
-                userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
-                updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
             }
 
+            // Wait for tile animations to finish before evaluating the board
             setTimeout(async () => {
                 if (correctCount === 5) {
                     
                     if (isVersusMode && currentMatchId) {
                         showMessage("PUSH!");
-                        let mSnap = await getDoc(doc(db, "matches", currentMatchId));
-                        if(mSnap.exists() && mSnap.data().status === 'playing') {
-                            let oldMarker = mSnap.data().marker; let newMarker = oldMarker + (isMatchHost ? 1 : -1);
-                            let updatePayload = { marker: newMarker };
-                            updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
-                            
-                            // MMR Check Condition (UPDATED for Private/Public Matches)
-                            if (newMarker >= 5 || newMarker <= -5) { 
-                                let hostWon = newMarker >= 5;
-                                let isPublicMatch = mSnap.data().isPublic === true;
+                        
+                        try {
+                            // Track personal puck push locally (Moved to only happen on a WIN)
+                            userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
+                            updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
+
+                            let mSnap = await getDoc(doc(db, "matches", currentMatchId));
+                            if(mSnap.exists() && mSnap.data().status === 'playing') {
+                                let oldMarker = mSnap.data().marker; 
+                                let newMarker = oldMarker + (isMatchHost ? 1 : -1);
+                                let updatePayload = { marker: newMarker };
+                                updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
                                 
-                                // Only calculate MMR changes if it's a public matchmaking game
-                                let hostChange = isPublicMatch 
-                                    ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) 
-                                    : 0;
+                                // MMR Check Condition
+                                if (newMarker >= 5 || newMarker <= -5) { 
+                                    let hostWon = newMarker >= 5;
+                                    let isPublicMatch = mSnap.data().isPublic === true;
+                                    
+                                    // Only calculate MMR changes if it's a public matchmaking game
+                                    let hostChange = isPublicMatch 
+                                        ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) 
+                                        : 0;
+                                    
+                                    updatePayload.status = 'finished'; 
+                                    updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
+                                    updatePayload.hostChange = hostChange;
+                                    updatePayload.guestChange = -hostChange;
+                                }
                                 
-                                updatePayload.status = 'finished'; 
-                                updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
-                                updatePayload.hostChange = hostChange;
-                                updatePayload.guestChange = -hostChange;
+                                await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
                             }
-                            
-                            await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
+                        } catch (err) {
+                            console.error("Match logic error caught - unlocking keyboard", err);
+                        } finally {
+                            // FINALLY guarantees the keyboard unlocks and the next round starts no matter what
+                            setTimeout(startRound, 1000);
                         }
-                        setTimeout(startRound, 1000);
+
                     } else {
                         // Standard Mode Success
                         runStats.played++; runStats['guess' + (currentRow + 1)]++; 
@@ -1359,7 +1370,7 @@
                         continues--; runStats.played++; runStats.fails++; 
                         if (continues < 0) {
                             showMessage(`WORD WAS ${targetWord}.`); 
-                            let finalLostScore = score; // Capture the pot!
+                            let finalLostScore = score;
                             score = 0; updateScoreBoard();
                             setTimeout(() => triggerGameOver(finalLostScore), 1500); 
                         } else {
