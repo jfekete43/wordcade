@@ -1256,18 +1256,33 @@
         keys.forEach(key => { key.addEventListener("click", () => { window.handleInput(key.getAttribute("data-key")); key.blur(); }); });
 
         window.handleInput = function(key) {
-            // Only lock keyboard if animating or a modal explicitly has inline style 'flex' or 'block'
-            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"], .modal-overlay[style*="display: block"]').length > 0) return;
+            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { showMessage("Not in word list"); return; }
                 checkGuess();
             } else if (key === "BACKSPACE" || key === "⌫") {
                 currentGuess = currentGuess.slice(0, -1);
+                updateCurrentRowDisplay();
             } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) { 
                 currentGuess += key; 
+                updateCurrentRowDisplay();
             }
-            updateBoard();
+        }
+
+        function updateCurrentRowDisplay() {
+            for (let j = 0; j < 5; j++) {
+                let tile = document.getElementById("tile-" + currentRow + "-" + j);
+                if (tile) {
+                    tile.innerText = currentGuess[j] || "";
+                    if (currentGuess[j]) {
+                        tile.style.borderColor = "#565758";
+                    } else {
+                        tile.style.borderColor = "#3a3a3c";
+                    }
+                }
+            }
+            checkDangerRow();
         }
 
         async function checkGuess() {
