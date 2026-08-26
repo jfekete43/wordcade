@@ -260,11 +260,15 @@
             </div>
         </div>
 
-        <div id="versus-track">
-            <div class="track-dot" id="dot-0"></div><div class="track-dot" id="dot-1"></div><div class="track-dot" id="dot-2"></div>
-            <div class="track-dot" id="dot-3"></div><div class="track-dot" id="dot-4"></div><div class="track-dot" id="dot-5"></div>
-            <div class="track-dot" id="dot-6"></div><div class="track-dot" id="dot-7"></div><div class="track-dot" id="dot-8"></div>
-            <div class="track-dot" id="dot-9"></div><div class="track-dot" id="dot-10"></div>
+        <div id="versus-track" style="display: flex; justify-content: center; align-items: center; padding-top: 10px; border-top: 1px solid #444; margin-top: 15px;">
+            <div style="text-align: center;">
+                <div style="font-size: 10px; color: #aaa; text-transform: uppercase; font-weight: bold; letter-spacing: 2px;">Time Remaining</div>
+                <div id="clash-timer-display" style="font-size: 32px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800;">5:00</div>
+            </div>
+            
+            <!-- Floating Scores -->
+            <div id="vs-guest-score" style="position: absolute; left: 15px; bottom: 15px; font-size: 24px; font-weight: bold; color: #fff;">0</div>
+            <div id="vs-host-score" style="position: absolute; right: 15px; bottom: 15px; font-size: 24px; font-weight: bold; color: #fff;">0</div>
         </div>
     </div>
 
@@ -932,6 +936,19 @@
             return code;
         }
 
+        function generateRoomCode() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; let code = "";
+            for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+            return code;
+        }
+
+        // NEW: Generates 50 shared words for the match
+        function generateClashWords() {
+            let arr = [];
+            for(let i=0; i<50; i++) arr.push(window.targetWords[Math.floor(Math.random() * window.targetWords.length)]);
+            return arr;
+        }
+
         window.findRandomMatch = async function() {
             if (!currentUser) return;
             window.matchFinishedProcessed = false;
@@ -966,7 +983,9 @@
                         hostUid: currentUser.uid, hostName: userProfileData.username,
                         hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
                         guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
-                        status: 'waiting', marker: 0, winner: null, isPublic: true
+                        status: 'waiting', isPublic: true,
+                        // NEW SCORE ATTACK RULES
+                        hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null
                     });
                     listenToMatch();
                 }
@@ -985,7 +1004,9 @@
             await setDoc(doc(db, "matches", currentMatchId), {
                 hostUid: currentUser.uid, hostName: userProfileData.username, hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
                 guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
-                status: 'waiting', marker: 0, winner: null, isPublic: false
+                status: 'waiting', isPublic: false,
+                // NEW SCORE ATTACK RULES
+                hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null
             });
 
             document.getElementById("lobby-action-view").style.display = "none";
@@ -996,7 +1017,6 @@
             document.getElementById("waiting-sub-text").style.display = "block";
             listenToMatch();
         }
-
         window.joinMatch = async function() {
             if (!currentUser) return;
             window.matchFinishedProcessed = false;
@@ -1255,6 +1275,22 @@
         const keys = document.querySelectorAll(".key");
         keys.forEach(key => { key.addEventListener("click", () => { window.handleInput(key.getAttribute("data-key")); key.blur(); }); });
 
+        // Physical Keyboard Support
+        document.addEventListener("keydown", (e) => {
+            // Ignore if typing in a text box (like the Join Code or Username input)
+            if (document.activeElement.tagName === "INPUT") return;
+            
+            let key = e.key.toUpperCase();
+            if (e.key === "Backspace") key = "BACKSPACE";
+            
+            if (key === "ENTER" || key === "BACKSPACE" || (/^[A-Z]$/.test(key) && key.length === 1)) {
+                // Ignore shortcuts like Ctrl+R
+                if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+                    window.handleInput(key);
+                }
+            }
+        });
+        
         window.handleInput = function(key) {
             if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
 
