@@ -1044,9 +1044,9 @@
                     let colorClass = "mini-0";
                     if (boardData && boardData[i] && boardData[i][j] !== undefined) {
                         let val = boardData[i][j];
-                        if (val === 2) colorClass = "mini-2"; else if (val === 1) colorClass = "mini-1";
+                        // Using == instead of === so it matches strings from Firebase
+                        if (val == 2) colorClass = "mini-2"; else if (val == 1) colorClass = "mini-1";
                     }
-                    // FIXED: Removed inline border-color so your CSS classes can actually color it!
                     html += `<div class="${colorClass}" style="width:10px; height:10px; border-width:1px; border-style:solid; border-radius:1px;"></div>`;
                 }
                 html += `</div>`;
@@ -1418,11 +1418,12 @@
 
                 if (isVersusMode && currentMatchId) {
                     try {
-                        let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0);
+                        // FIX: Join the array into a string so Firebase doesn't block it!
+                        let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0).join("");
                         myMiniBoard.push(colorCodes);
                         let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
-                        updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => {});
-                    } catch(e) {}
+                        updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error("Mini-board sync error:", e));
+                    } catch(e) { console.error(e); }
                 }
 
                 // FASTER RESULT RESOLUTION (Wait 1000ms instead of 1500ms)
