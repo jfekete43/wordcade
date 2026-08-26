@@ -1256,133 +1256,158 @@
         keys.forEach(key => { key.addEventListener("click", () => { window.handleInput(key.getAttribute("data-key")); key.blur(); }); });
 
         window.handleInput = function(key) {
-            if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
+            if (isAnimating) return;
+            
+            // Bulletproof Modal Check: Ensures you can type even if HTML gets weird
+            let isModalOpen = false;
+            document.querySelectorAll('.modal-overlay').forEach(m => { 
+                if(window.getComputedStyle(m).display !== 'none') isModalOpen = true; 
+            });
+            if (isModalOpen) return;
+
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { showMessage("Not in word list"); return; }
                 checkGuess();
-            } else if (key === "BACKSPACE" || key === "⌫") { currentGuess = currentGuess.slice(0, -1); } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) { currentGuess += key; }
+            } else if (key === "BACKSPACE" || key === "⌫") {
+                currentGuess = currentGuess.slice(0, -1);
+            } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) { 
+                currentGuess += key; 
+            }
             updateBoard();
         }
 
-        document.addEventListener("keyup", (e) => { window.handleInput(e.key.toUpperCase()); });
-
-        function updateBoard() { for (let i = 0; i < 5; i++) { let tile = document.getElementById("tile-" + currentRow + "-" + i); if (tile) { tile.innerText = currentGuess[i] || ""; } } }
-
         async function checkGuess() {
+            if (isAnimating) return;
             isAnimating = true; 
-            let guessArr = currentGuess.split(""); let targetArr = targetWord.split("");
-            let correctCount = 0; let tileColors = ["absent", "absent", "absent", "absent", "absent"];
+            
+            // 🚨 FAIL-SAFE: If the internet drops or code crashes, forcefully unlock after 5 seconds
+            let failSafeUnlock = setTimeout(() => { isAnimating = false; }, 5000);
 
-            for (let i = 0; i < 5; i++) { if (guessArr[i] === targetArr[i]) { tileColors[i] = "correct"; targetArr[i] = null; correctCount++; } }
-            for (let i = 0; i < 5; i++) {
-                if (tileColors[i] === "correct") continue; 
-                let targetIndex = targetArr.indexOf(guessArr[i]);
-                if (targetIndex !== -1) { tileColors[i] = "present"; targetArr[targetIndex] = null; }
-            }
+            try {
+                let guessArr = currentGuess.split(""); let targetArr = targetWord.split("");
+                let correctCount = 0; let tileColors = ["absent", "absent", "absent", "absent", "absent"];
 
-            for (let i = 0; i < 5; i++) {
-                setTimeout(() => {
-                    let tile = document.getElementById("tile-" + currentRow + "-" + i);
-                    tile.style.transform = "rotateX(90deg)"; 
-                    setTimeout(() => {
-                        tile.classList.add(tileColors[i]); tile.style.transform = "rotateX(0deg)"; 
-                        let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
-                        if (keyBtn) {
-                            if (tileColors[i] === "correct") { keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct"); } 
-                            else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); } 
-                            else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
-                        }
-                    }, 250); 
-                }, i * 300); 
-            }
-
-            // Instantly sync the mini-board colors to the opponent
-            if (isVersusMode && currentMatchId) {
-                let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0);
-                myMiniBoard.push(colorCodes);
-                let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
-                updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error(e));
-            }
-
-            // Wait for tile animations to finish before evaluating the board
-            setTimeout(async () => {
-                if (correctCount === 5) {
-                    
-                    if (isVersusMode && currentMatchId) {
-                        showMessage("PUSH!");
-                        
-                        try {
-                            // Track personal puck push locally (Moved to only happen on a WIN)
-                            userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
-                            updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
-
-                            let mSnap = await getDoc(doc(db, "matches", currentMatchId));
-                            if(mSnap.exists() && mSnap.data().status === 'playing') {
-                                let oldMarker = mSnap.data().marker; 
-                                let newMarker = oldMarker + (isMatchHost ? 1 : -1);
-                                let updatePayload = { marker: newMarker };
-                                updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
-                                
-                                // MMR Check Condition
-                                if (newMarker >= 5 || newMarker <= -5) { 
-                                    let hostWon = newMarker >= 5;
-                                    let isPublicMatch = mSnap.data().isPublic === true;
-                                    
-                                    // Only calculate MMR changes if it's a public matchmaking game
-                                    let hostChange = isPublicMatch 
-                                        ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) 
-                                        : 0;
-                                    
-                                    updatePayload.status = 'finished'; 
-                                    updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
-                                    updatePayload.hostChange = hostChange;
-                                    updatePayload.guestChange = -hostChange;
-                                }
-                                
-                                await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
-                            }
-                        } catch (err) {
-                            console.error("Match logic error caught - unlocking keyboard", err);
-                        } finally {
-                            // FINALLY guarantees the keyboard unlocks and the next round starts no matter what
-                            setTimeout(startRound, 1000);
-                        }
-
-                    } else {
-                        // Standard Mode Success
-                        runStats.played++; runStats['guess' + (currentRow + 1)]++; 
-                        if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
-                        let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
-                        saveLocalState(); showMessage(`+${earned} POINTS!`); updateScoreBoard();
-                        setTimeout(startRound, 1500); 
-                    }
-
-                } else if (currentRow === maxGuesses - 1) { 
-                    if (isVersusMode) {
-                        showMessage(`WORD WAS ${targetWord}.`);
-                        if(currentMatchId) {
-                            let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
-                            updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e=>console.error(e));
-                        }
-                        setTimeout(startRound, 1500);
-                    } else {
-                        // Standard Mode Failure
-                        continues--; runStats.played++; runStats.fails++; 
-                        if (continues < 0) {
-                            showMessage(`WORD WAS ${targetWord}.`); 
-                            let finalLostScore = score;
-                            score = 0; updateScoreBoard();
-                            setTimeout(() => triggerGameOver(finalLostScore), 1500); 
-                        } else {
-                            showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
-                            document.getElementById("warning-continues-text").innerText = `${continues} Continues`;
-                            setTimeout(() => { document.getElementById("warning-modal").style.display = "flex"; }, 1500); 
-                        }
-                    }
-                } else {
-                    currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();
+                for (let i = 0; i < 5; i++) { if (guessArr[i] === targetArr[i]) { tileColors[i] = "correct"; targetArr[i] = null; correctCount++; } }
+                for (let i = 0; i < 5; i++) {
+                    if (tileColors[i] === "correct") continue; 
+                    let targetIndex = targetArr.indexOf(guessArr[i]);
+                    if (targetIndex !== -1) { tileColors[i] = "present"; targetArr[targetIndex] = null; }
                 }
-            }, 1500); 
+
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        let tile = document.getElementById("tile-" + currentRow + "-" + i);
+                        if (tile) { // Crash prevention if element is missing
+                            tile.style.transform = "rotateX(90deg)"; 
+                            setTimeout(() => {
+                                tile.classList.add(tileColors[i]); tile.style.transform = "rotateX(0deg)"; 
+                                let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
+                                if (keyBtn) {
+                                    if (tileColors[i] === "correct") { keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct"); } 
+                                    else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); } 
+                                    else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
+                                }
+                            }, 250); 
+                        }
+                    }, i * 300); 
+                }
+
+                // Instantly sync the mini-board colors to the opponent
+                if (isVersusMode && currentMatchId) {
+                    try {
+                        let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0);
+                        myMiniBoard.push(colorCodes);
+                        let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
+                        updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error(e));
+                    } catch(e) { console.error("Miniboard sync error", e); }
+                }
+
+                setTimeout(async () => {
+                    clearTimeout(failSafeUnlock); // Success! Clear the fail-safe
+
+                    try {
+                        if (correctCount === 5) {
+                            
+                            if (isVersusMode && currentMatchId) {
+                                showMessage("PUSH!");
+                                
+                                try {
+                                    if(userProfileData) {
+                                        userProfileData.clashPucks = (userProfileData.clashPucks || 0) + 1;
+                                        updateDoc(doc(db, "users", currentUser.uid), { clashPucks: increment(1) }).catch(e=>{});
+                                    }
+
+                                    let mSnap = await getDoc(doc(db, "matches", currentMatchId));
+                                    if(mSnap.exists() && mSnap.data().status === 'playing') {
+                                        let oldMarker = mSnap.data().marker; 
+                                        let newMarker = oldMarker + (isMatchHost ? 1 : -1);
+                                        let updatePayload = { marker: newMarker };
+                                        updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board on success
+                                        
+                                        if (newMarker >= 5 || newMarker <= -5) { 
+                                            let hostWon = newMarker >= 5;
+                                            let isPublicMatch = mSnap.data().isPublic === true;
+                                            
+                                            let hostChange = isPublicMatch 
+                                                ? calculateEloChange(mSnap.data().hostMMR || 1000, mSnap.data().guestMMR || 1000, hostWon) 
+                                                : 0;
+                                            
+                                            updatePayload.status = 'finished'; 
+                                            updatePayload.winner = hostWon ? mSnap.data().hostUid : mSnap.data().guestUid; 
+                                            updatePayload.hostChange = hostChange;
+                                            updatePayload.guestChange = -hostChange;
+                                        }
+                                        
+                                        await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
+                                    }
+                                } catch (err) {
+                                    console.error("Match logic error caught", err);
+                                } finally {
+                                    setTimeout(startRound, 1000);
+                                }
+
+                            } else {
+                                runStats.played++; runStats['guess' + (currentRow + 1)]++; 
+                                if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
+                                let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
+                                saveLocalState(); showMessage(`+${earned} POINTS!`); updateScoreBoard();
+                                setTimeout(startRound, 1500); 
+                            }
+
+                        } else if (currentRow === maxGuesses - 1) { 
+                            if (isVersusMode) {
+                                showMessage(`WORD WAS ${targetWord}.`);
+                                if(currentMatchId) {
+                                    let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
+                                    updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e=>console.error(e));
+                                }
+                                setTimeout(startRound, 1500);
+                            } else {
+                                continues--; runStats.played++; runStats.fails++; 
+                                if (continues < 0) {
+                                    showMessage(`WORD WAS ${targetWord}.`); 
+                                    let finalLostScore = score;
+                                    score = 0; updateScoreBoard();
+                                    setTimeout(() => triggerGameOver(finalLostScore), 1500); 
+                                } else {
+                                    showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
+                                    document.getElementById("warning-continues-text").innerText = `${continues} Continues`;
+                                    setTimeout(() => { document.getElementById("warning-modal").style.display = "flex"; }, 1500); 
+                                }
+                            }
+                        } else {
+                            currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();
+                        }
+                    } catch (innerErr) {
+                        console.error("Evaluation logic crashed", innerErr);
+                        isAnimating = false; // Emergency unlock
+                    }
+                }, 1500); 
+
+            } catch (outerErr) {
+                console.error("checkGuess setup crashed", outerErr);
+                isAnimating = false; // Emergency unlock
+            }
         }
 
         function showMessage(msg) { messageDisplay.innerText = msg; setTimeout(() => { messageDisplay.innerText = ""; }, 2000); }
