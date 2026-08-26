@@ -1468,13 +1468,19 @@
                             }
                         } else if (currentRow === maxGuesses - 1) { 
                             if (isVersusMode) {
-                                showMessage(`WORD WAS ${targetWord}.`);
+                                // NEW CLASH PENALTY LOGIC
+                                let penalty = 50;
+                                clashMyScore = Math.max(0, clashMyScore - penalty);
+                                showMessage(`WORD WAS ${targetWord}. -${penalty}!`);
+                                
                                 if(currentMatchId) {
-                                    let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
+                                    let updatePayload = {}; 
+                                    updatePayload[isMatchHost ? "hostScore" : "guestScore"] = clashMyScore;
+                                    updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
                                     updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e=>console.error(e));
                                 }
                                 clashWordIndex++; 
-                                setTimeout(startRound, 1200);
+                                setTimeout(startRound, 1500); // slightly longer to read the penalty
                             } else {
                                 continues--; runStats.played++; runStats.fails++; 
                                 if (continues < 0) {
