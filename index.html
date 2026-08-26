@@ -61,7 +61,6 @@
         }
         .vs-profile-area { width: 48%; }
         #versus-track { display: flex; justify-content: space-between; align-items: center; position: relative; margin-top: 15px;}
-        #versus-track::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: #444; z-index: 1; transform: translateY(-50%); }
         .track-dot { width: 14px; height: 14px; background: #222; border: 2px solid #555; border-radius: 50%; position: relative; z-index: 2; transition: all 0.3s; }
         .track-dot.puck { background: #fff; border-color: #fff; box-shadow: 0 0 15px #fff; transform: scale(1.3); }
 
@@ -87,7 +86,7 @@
         .tile { 
             border: 2px solid #3a3a3c; font-size: 30px; font-weight: bold; 
             display: flex; justify-content: center; align-items: center; 
-            text-transform: uppercase; transition: transform 0.25s linear, border-color 0.3s, background-color 0.3s; 
+            text-transform: uppercase; transition: transform 0.15s linear, border-color 0.3s, background-color 0.3s; 
         }
         
         .danger-row-static { border-color: #ff3333 !important; }
@@ -263,7 +262,7 @@
         <div id="versus-track" style="display: flex; justify-content: center; align-items: center; padding-top: 10px; border-top: 1px solid #444; margin-top: 15px;">
             <div style="text-align: center;">
                 <div style="font-size: 10px; color: #aaa; text-transform: uppercase; font-weight: bold; letter-spacing: 2px;">Time Remaining</div>
-                <div id="clash-timer-display" style="font-size: 32px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800;">5:00</div>
+                <div id="clash-timer-display" style="font-size: 32px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800;">7:00</div>
             </div>
             
             <!-- Floating Scores -->
@@ -501,7 +500,7 @@
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
                 <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
                 <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
-                <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash MMR</button>
+                <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
             </div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button></div>
@@ -1047,11 +1046,24 @@
                         let val = boardData[i][j];
                         if (val === 2) colorClass = "mini-2"; else if (val === 1) colorClass = "mini-1";
                     }
-                    html += `<div class="${colorClass}" style="width:10px; height:10px; border:1px solid #333; border-radius:1px;"></div>`;
+                    // FIXED: Removed inline border-color so your CSS classes can actually color it!
+                    html += `<div class="${colorClass}" style="width:10px; height:10px; border-width:1px; border-style:solid; border-radius:1px;"></div>`;
                 }
                 html += `</div>`;
             }
             boardEl.innerHTML = html;
+        }
+
+        // NEW: Animate the score running up!
+        function animateScore(start, end) {
+            if (isVersusMode) return;
+            let current = start;
+            let increment = Math.ceil((end - start) / 20); // Break it into 20 quick steps
+            let timer = setInterval(() => {
+                current += increment;
+                if (current >= end) { current = end; clearInterval(timer); }
+                scoreDisplay.innerText = current.toLocaleString();
+            }, 30);
         }
 
         function setPlayerBanner(isHost, name, equipped) {
@@ -1094,7 +1106,7 @@
                         
                         // Guest joining triggers the timer start! 5 minutes (300,000 ms)
                         if (!data.endTime && isMatchHost) {
-                            updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 300000 });
+                            updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 420000 });
                         }
                         startRound();
                     }
@@ -1129,9 +1141,9 @@
                     document.getElementById("vs-guest-score").innerText = (data.guestScore || 0).toLocaleString();
                     
                     // 3. TARGET SCORE REACHED! (First to 2500)
-                    if (data.hostScore >= 2500 || data.guestScore >= 2500) {
+                    if (data.hostScore >= 1000 || data.guestScore >= 1000) {
                         if (isMatchHost && data.status === 'playing') {
-                            let hostWon = data.hostScore >= 2500;
+                            let hostWon = data.hostScore >= 1000;
                             finishMatch(hostWon, data);
                         }
                     }
@@ -1150,8 +1162,8 @@
                     document.getElementById("vs-end-title").style.color = amIWinner ? "#4caf50" : "#ff3333";
                     
                     // Determine how the game ended
-                    let resultText = amIWinner ? "First to 2,500 pts!" : "Opponent reached 2,500 pts first.";
-                    if ((data.hostScore || 0) < 2500 && (data.guestScore || 0) < 2500) {
+                    let resultText = amIWinner ? "First to 1,000 pts!" : "Opponent reached 1,000 pts first.";
+                    if ((data.hostScore || 0) < 1000 && (data.guestScore || 0) < 1000) {
                         resultText = amIWinner ? "Time's up! You had the high score." : "Time's up! Opponent outscored you.";
                     }
                     
@@ -1169,8 +1181,8 @@
                             clashLosses: increment(amIWinner ? 0 : 1) 
                         };
                         if (amIWinner) {
-                            updatePayload.wallet = increment(2500); updatePayload.careerBank = increment(2500);
-                            userProfileData.wallet += 2500; userProfileData.careerBank += 2500;
+                            updatePayload.wallet = increment(1000); updatePayload.careerBank = increment(1000);
+                            userProfileData.wallet += 1000; userProfileData.careerBank += 1000;
                         }
                         userProfileData.mmr = newMmr;
                         userProfileData.clashWins = (userProfileData.clashWins || 0) + (amIWinner ? 1 : 0);
@@ -1218,7 +1230,7 @@
 
         function updateScoreBoard() {
             if (isVersusMode) return;
-            scoreDisplay.innerText = score; continuesDisplay.innerText = continues;
+            scoreDisplay.innerText = score.toLocaleString(); continuesDisplay.innerText = continues;
         }
 
         function checkDangerRow() {
@@ -1385,6 +1397,7 @@
                     if (targetIndex !== -1) { tileColors[i] = "present"; targetArr[targetIndex] = null; }
                 }
 
+                // FASTER FLIP ANIMATION
                 for (let i = 0; i < 5; i++) {
                     setTimeout(() => {
                         let tile = document.getElementById("tile-" + currentRow + "-" + i);
@@ -1398,9 +1411,9 @@
                                     else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); } 
                                     else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
                                 }
-                            }, 250); 
+                            }, 150); // Cut from 250
                         }
-                    }, i * 300); 
+                    }, i * 150); // Cut from 300
                 }
 
                 if (isVersusMode && currentMatchId) {
@@ -1412,6 +1425,7 @@
                     } catch(e) {}
                 }
 
+                // FASTER RESULT RESOLUTION (Wait 1000ms instead of 1500ms)
                 setTimeout(async () => {
                     clearTimeout(failSafe); 
 
@@ -1419,7 +1433,6 @@
                         if (correctCount === 5) {
                             
                             if (isVersusMode && currentMatchId) {
-                                // NEW CLASH SCORING LOGIC!
                                 let earned = scorePoints[currentRow]; 
                                 clashMyScore += earned;
                                 showMessage(`+${earned}!`);
@@ -1429,22 +1442,29 @@
                                     if(mSnap.exists() && mSnap.data().status === 'playing') {
                                         let updatePayload = {};
                                         updatePayload[isMatchHost ? "hostScore" : "guestScore"] = clashMyScore;
-                                        updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; // Wipe board
+                                        updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; 
                                         await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
                                     }
                                 } catch (err) {
                                     console.error("Match logic error caught", err);
                                 } finally {
-                                    clashWordIndex++; // Move to next shared word
+                                    clashWordIndex++; 
                                     setTimeout(startRound, 1000);
                                 }
 
                             } else {
                                 runStats.played++; runStats['guess' + (currentRow + 1)]++; 
                                 if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
+                                
+                                let oldScore = score;
                                 let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
-                                saveLocalState(); showMessage(`+${earned} POINTS!`); updateScoreBoard();
-                                setTimeout(startRound, 1500); 
+                                saveLocalState(); showMessage(`+${earned} POINTS!`); 
+                                
+                                // NEW: Animate the score up!
+                                continuesDisplay.innerText = continues;
+                                animateScore(oldScore, score);
+                                
+                                setTimeout(startRound, 1200); 
                             }
                         } else if (currentRow === maxGuesses - 1) { 
                             if (isVersusMode) {
@@ -1453,19 +1473,19 @@
                                     let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
                                     updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e=>console.error(e));
                                 }
-                                clashWordIndex++; // Even if you fail, you move to the next word!
-                                setTimeout(startRound, 1500);
+                                clashWordIndex++; 
+                                setTimeout(startRound, 1200);
                             } else {
                                 continues--; runStats.played++; runStats.fails++; 
                                 if (continues < 0) {
                                     showMessage(`WORD WAS ${targetWord}.`); 
                                     let finalLostScore = score;
                                     score = 0; updateScoreBoard();
-                                    setTimeout(() => triggerGameOver(finalLostScore), 1500); 
+                                    setTimeout(() => triggerGameOver(finalLostScore), 1200); 
                                 } else {
                                     showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
                                     document.getElementById("warning-continues-text").innerText = `${continues} Continues`;
-                                    setTimeout(() => { document.getElementById("warning-modal").style.display = "flex"; }, 1500); 
+                                    setTimeout(() => { document.getElementById("warning-modal").style.display = "flex"; }, 1200); 
                                 }
                             }
                         } else {
@@ -1475,7 +1495,7 @@
                         console.error("End guess error", e);
                         isAnimating = false; 
                     }
-                }, 1500); 
+                }, 1000); // Cut from 1500
 
             } catch (e) {
                 console.error("checkGuess error", e);
