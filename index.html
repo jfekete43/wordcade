@@ -128,7 +128,8 @@
         .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
-        .modal-box { background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+        .modal-box { background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
+        .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 45vh; overflow-y: auto; padding-right: 5px; text-align: left; overscroll-behavior: contain; }
         .modal-title { color: #00ffff; font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
         .modal-stats { font-size: 20px; margin-bottom: 20px; line-height: 1.6; }
         .modal-stats span { color: #4caf50; font-weight: bold; font-size: 24px; }
@@ -293,7 +294,7 @@
 
             <!-- TIMER -->
             <div style="position: absolute; left: 50%; top: -10px; transform: translateX(-50%); text-align: center;">
-                <div id="clash-timer-display" style="font-size: 20px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800;">7:00</div>
+                <div id="clash-timer-display" style="font-size: 20px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800; background: #1a1a1d; padding: 0 10px; border-radius: 5px;">7:00</div>
             </div>
             
             <!-- SCORES -->
@@ -372,9 +373,9 @@
     <div id="versus-lobby-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff;">
             <h2 class="modal-title" style="color: #00ffff;">Head-to-Head</h2>
-            <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
-                Tug-of-War rules. No Continues. <br>Push the puck 5 spaces to win 2,500 pts and gain MMR.
-            </div>
+                <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
+                    Score Attack rules. No Continues. <br>First to 1,000 points or highest score when time expires wins!
+                </div>
             
             <div id="lobby-action-view">
                 <div class="modal-buttons">
@@ -440,6 +441,12 @@
                 <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
                 <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="window.openChallengesMenu()">Challenges</button>
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
+
+                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
+                    <button class="btn-dark" style="border-color: #fff !important; font-size: 12px;" onclick="window.open('https://twitter.com', '_blank')">𝕏</button>
+                    <button class="btn-dark" style="border-color: #5865F2 !important; color: #5865F2; font-size: 12px;" onclick="window.open('https://discord.com', '_blank')">Discord</button>
+                    <button class="btn-dark" style="border-color: #f96854 !important; color: #f96854; font-size: 12px;" onclick="window.open('https://patreon.com', '_blank')">Patreon</button>
+                </div>
                 
                 <div style="margin-top: 15px; font-size: 10px; color: #555; text-transform: uppercase; display: flex; justify-content: center; gap: 10px;">
                     <a href="privacy.html" style="color: #777; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#00ffff'" onmouseout="this.style.color='#777'">Privacy Policy</a> | 
@@ -486,8 +493,7 @@
                 </div>
             </div>
             <div class="tabs">
-                <button class="tab-btn active" id="tab-shop-skins" onclick="window.renderShop('skins')">Board Skins</button>
-                <button class="tab-btn" id="tab-shop-titles" onclick="window.renderShop('titles')">Titles</button>
+                <button class="tab-btn active" id="tab-shop-titles" onclick="window.renderShop('titles')">Titles</button>
                 <button class="tab-btn" id="tab-shop-banners" onclick="window.renderShop('banners')">Banners</button>
                 <button class="tab-btn" id="tab-shop-effects" onclick="window.renderShop('effects')">Effects</button>
             </div>
@@ -537,9 +543,8 @@
                 <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;" id="stat-rank-title">Bronze</div>
                 
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:white; font-size: 18px;">0 - 0</span></div>
+                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:white; font-size: 18px;">0 - 0 - 0</span></div>
                     <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
-                    <div style="text-align: center;">Pucks Pushed<br><span id="stat-clash-pucks" style="color:white; font-size: 18px;">0</span></div>
                 </div>
             </div>
 
@@ -554,7 +559,6 @@
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
-                <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
                 <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
             </div>
@@ -588,74 +592,75 @@
         let userProfileData = null;
 
         const SHOP_ITEMS = {
-            titles: [
-                { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
-                { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 500, display: "Rookie" },
-                { id: "title_mvp", name: "MVP", desc: "The most valuable player.", cost: 2500, display: "MVP" },
-                { id: "title_cardboard", name: "Cardboard Collector", desc: "Sleeve it up.", cost: 5000, display: "Cardboard Collector" },
-                { id: "title_speedrunner", name: "Speedrunner", desc: "Gotta go fast.", cost: 3000, display: "Speedrunner" },
-                { id: "title_dugout", name: "Dugout Boss", desc: "Calling the shots.", cost: 4000, display: "Dugout Boss" },
-                { id: "title_closer", name: "The Closer", desc: "Ice in the veins.", cost: 6000, display: "The Closer" },
-                { id: "title_wizard", name: "Word Wizard", desc: "A magical vocabulary.", cost: 7500, display: "Word Wizard" },
-                { id: "title_junkwax", name: "Junk Wax Era", desc: "Overprinted but loved.", cost: 8000, display: "Junk Wax Era" },
-                { id: "title_pinchhitter", name: "Pinch Hitter", desc: "Off the bench, over the fence.", cost: 8500, display: "Pinch Hitter" },
-                { id: "title_lexicographer", name: "Lexicographer", desc: "You write the dictionary.", cost: 10000, display: "Lexicographer" },
-                { id: "title_finalboss", name: "Final Boss", desc: "The ultimate challenge.", cost: 15000, display: "Final Boss" },
-                { id: "title_goat", name: "G.O.A.T.", desc: "Greatest of all time.", cost: 25000, display: "G.O.A.T." },
-                { id: "title_glitch", name: "MissingNo", desc: "Anomalous entity.", cost: 50000, display: "MissingNo" }
-            ],
-            skins: [
-                { id: "skin_default", name: "Neon Arcade", desc: "The classic Lexathon aesthetic.", cost: 0, themeClass: "" }
-            ],
-            banners: [
-                { id: "banner_default", name: "Basic Slate", desc: "Standard Leaderboard Background", cost: 0 },
-                { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 2500 },
-                { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 2500 },
-                { id: "banner_diamond", name: "Diamond Turf", desc: "Freshly cut outfield grass.", cost: 5000 },
-                { id: "banner_8bit", name: "8-Bit Sunset", desc: "Retro gradient horizon.", cost: 7500 },
-                { id: "banner_foil", name: "Foil Parallel", desc: "Shiny metallic background.", cost: 10000 },
-                { id: "banner_scanline", name: "CRT Scanlines", desc: "Old school tube TV vibes.", cost: 12500 },
-                { id: "banner_matrix", name: "The Matrix", desc: "Digital rain effect.", cost: 15000 },
-                { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 15000 },
-                { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 20000 },
-                { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 20000 },
-                { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 }
-            ],
-            effects: [
-                { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
-                { id: "effect_pulse", name: "Neon Pulse", desc: "A gentle glowing rhythm.", cost: 5000 },
-                { id: "effect_glitch", name: "Arcade Glitch", desc: "Corrupted system text.", cost: 10000 },
-                { id: "effect_electric", name: "High Voltage", desc: "Shocking blue aura.", cost: 15000 },
-                { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 20000 },
-                { id: "effect_holo", name: "Silver Refractor", desc: "Holographic glare over your name.", cost: 25000 },
-                { id: "effect_goldprism", name: "Gold Prism", desc: "Top tier collector status.", cost: 50000 }
-            ]
-        };
+                titles: [
+                    { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
+                    { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 500, display: "Rookie" },
+                    { id: "title_hacker", name: "Cyber Hacker", desc: "Infiltrating the mainframe.", cost: 2500, display: "Cyber Hacker" },
+                    { id: "title_speedrunner", name: "Speedrunner", desc: "Gotta go fast.", cost: 3000, display: "Speedrunner" },
+                    { id: "title_grid", name: "Grid Runner", desc: "Navigating the neon.", cost: 4000, display: "Grid Runner" },
+                    { id: "title_pixel", name: "Pixel Pioneer", desc: "8-bit legendary status.", cost: 5000, display: "Pixel Pioneer" },
+                    { id: "title_synth", name: "Synthwave Surfer", desc: "Riding the retro waves.", cost: 6000, display: "Synthwave Surfer" },
+                    { id: "title_wizard", name: "Word Wizard", desc: "A magical vocabulary.", cost: 7500, display: "Word Wizard" },
+                    { id: "title_overclocked", name: "Overclocked", desc: "Running at max capacity.", cost: 8000, display: "Overclocked" },
+                    { id: "title_glitch", name: "Glitch Hunter", desc: "Finding the bugs.", cost: 8500, display: "Glitch Hunter" },
+                    { id: "title_lex", name: "Lexicographer", desc: "You write the dictionary.", cost: 10000, display: "Lexicographer" },
+                    { id: "title_algorithm", name: "The Algorithm", desc: "Machine precision.", cost: 12500, display: "The Algorithm" },
+                    { id: "title_finalboss", name: "Final Boss", desc: "The ultimate challenge.", cost: 15000, display: "Final Boss" },
+                    { id: "title_sentient", name: "Sentient", desc: "The AI has awoken.", cost: 25000, display: "Sentient" },
+                    { id: "title_missingno", name: "MissingNo", desc: "Anomalous entity.", cost: 50000, display: "MissingNo" }
+                ],
+                banners: [
+                    { id: "banner_default", name: "Basic Slate", desc: "Standard Background", cost: 0 },
+                    { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 2500 },
+                    { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 2500 },
+                    { id: "banner_8bit", name: "8-Bit Sunset", desc: "Retro horizon.", cost: 5000 },
+                    { id: "banner_scanline", name: "CRT Scanlines", desc: "Old school tube TV vibes.", cost: 7500 },
+                    { id: "banner_grid", name: "Cyber Grid", desc: "Digital landscape.", cost: 10000 },
+                    { id: "banner_matrix", name: "The Matrix", desc: "Digital rain effect.", cost: 12500 },
+                    { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 15000 },
+                    { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 17500 },
+                    { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 20000 },
+                    { id: "banner_void", name: "Void Walker", desc: "Staring into the abyss.", cost: 22500 },
+                    { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 }
+                ],
+                effects: [
+                    { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
+                    { id: "effect_pulse", name: "Neon Pulse", desc: "A gentle glowing rhythm.", cost: 5000 },
+                    { id: "effect_glitch", name: "Arcade Glitch", desc: "Corrupted system text.", cost: 10000 },
+                    { id: "effect_electric", name: "High Voltage", desc: "Shocking blue aura.", cost: 12500 },
+                    { id: "effect_hologram", name: "Hologram", desc: "Flickering projection.", cost: 15000 },
+                    { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 20000 },
+                    { id: "effect_void", name: "Void Black", desc: "Absorbs all light.", cost: 22500 },
+                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 50000 }
+                ]
+            };
 
-        const CHALLENGES = {
-            daily: [
-                { id: "d_warmup", name: "Batting Practice", desc: "Play 5 words today.", req: 5, field: "played", reward: 1000 },
-                { id: "d_doubleplay", name: "Double Play", desc: "Guess 2 words on your 2nd try today.", req: 2, field: "guess2", reward: 2500 },
-                { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 },
-                { id: "d_sweat", name: "Down to the Wire", desc: "Guess 3 words on your 4th try today.", req: 3, field: "guess4", reward: 3000 },
-                { id: "d_clutch", name: "Clutch Hit", desc: "Guess a word on the 5th try today.", req: 1, field: "guess5", reward: 2500 },
-                { id: "d_marathon", name: "Daily Marathon", desc: "Play 30 total words today.", req: 30, field: "played", reward: 7500 }
-            ],
-            career: [
-                { id: "c_homerun", name: "First Pitch Home Run", desc: "Guess a word on the 1st try.", req: 1, field: "guess1", reward: 10000 },
-                { id: "c_silverslugger", name: "Silver Slugger", desc: "Guess 50 words on the 2nd try.", req: 50, field: "guess2", reward: 15000 },
-                { id: "c_rookie", name: "Rookie Card", desc: "Guess 50 total words correctly.", req: 50, field: "totalWordsGuessed", reward: 5000 },
-                { id: "c_gemmint", name: "Gem Mint 10", desc: "Guess 500 total words correctly.", req: 500, field: "totalWordsGuessed", reward: 25000 },
-                { id: "c_hof", name: "Hall of Famer", desc: "Guess 2,500 total words correctly.", req: 2500, field: "totalWordsGuessed", reward: 100000 },
-                { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
-                { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
-                { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
-                { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
-                { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Kobe moments with no continues.", req: 50, field: "kobeCount", reward: 75000 }
-            ]
-        };
+            // Contains a larger pool for daily shuffling
+            const CHALLENGES = {
+                daily_pool: [
+                    { id: "d_warmup", name: "Warm Up", desc: "Play 5 words today.", req: 5, field: "played", reward: 1000 },
+                    { id: "d_doubletap", name: "Double Tap", desc: "Guess 2 words on your 2nd try today.", req: 2, field: "guess2", reward: 2500 },
+                    { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 },
+                    { id: "d_sweat", name: "Down to the Wire", desc: "Guess 3 words on your 4th try today.", req: 3, field: "guess4", reward: 3000 },
+                    { id: "d_clutch", name: "Clutch Hit", desc: "Guess a word on the 5th try today.", req: 1, field: "guess5", reward: 2500 },
+                    { id: "d_marathon", name: "Daily Marathon", desc: "Play 30 total words today.", req: 30, field: "played", reward: 7500 },
+                    { id: "d_flawless", name: "Flawless", desc: "Guess a word on the 1st try today.", req: 1, field: "guess1", reward: 5000 }
+                ],
+                career: [
+                    { id: "c_homerun", name: "First Try Magic", desc: "Guess a word on the 1st try.", req: 1, field: "guess1", reward: 10000 },
+                    { id: "c_silverslugger", name: "Second Guess Specialist", desc: "Guess 50 words on the 2nd try.", req: 50, field: "guess2", reward: 15000 },
+                    { id: "c_rookie", name: "Rookie Milestone", desc: "Guess 50 total words correctly.", req: 50, field: "totalWordsGuessed", reward: 5000 },
+                    { id: "c_gemmint", name: "Veteran Milestone", desc: "Guess 500 total words correctly.", req: 500, field: "totalWordsGuessed", reward: 25000 },
+                    { id: "c_hof", name: "Legendary Milestone", desc: "Guess 2,500 total words correctly.", req: 2500, field: "totalWordsGuessed", reward: 100000 },
+                    { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
+                    { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
+                    { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
+                    { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
+                    { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 }
+                ]
+            };
 
-        function getTodayDateStr() { return new Date().toLocaleDateString(); }
+          function getTodayDateStr() { return new Date().toLocaleDateString(); }
         
         function getRankDetails(mmr) {
             if (mmr < 1000) return { name: "Bronze", class: "rank-bronze" };
@@ -704,32 +709,44 @@
                         defaultUsername = "Guest_" + (randWord.charAt(0).toUpperCase() + randWord.slice(1).toLowerCase());
                     } else { defaultUsername = user.displayName.split(" ")[0].toUpperCase(); }
 
+                    // NEW: Randomly select 3 daily challenges for a brand new user
+                    let shuffled = [...CHALLENGES.daily_pool].sort(() => 0.5 - Math.random());
+                    let dailyIds = shuffled.slice(0, 3).map(c => c.id);
+
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, wallet: 0, handleChanges: 0, totalWordsGuessed: 0, wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0, kobeCount: 0,
-                        mmr: 1000, clashWins: 0, clashLosses: 0, clashPucks: 0,
+                        mmr: 1000, clashWins: 0, clashLosses: 0, clashTies: 0, clashPucks: 0, // clashTies added here
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
                         equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
-                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }
+                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [], activeIds: dailyIds } // activeIds added here
                     };
                     await setDoc(userRef, userProfileData);
                 } else { 
                     userProfileData = docSnap.data(); let needsUpdate = false;
                     
                     if (userProfileData.mmr === undefined) { userProfileData.mmr = 1000; userProfileData.clashWins = 0; userProfileData.clashLosses = 0; userProfileData.clashPucks = 0; needsUpdate = true; }
+                    if (userProfileData.clashTies === undefined) { userProfileData.clashTies = 0; needsUpdate = true; } // NEW: Check for legacy users missing clashTies
                     if (userProfileData.wallet === undefined) { let spent = 0; if (userProfileData.inventory) { userProfileData.inventory.forEach(itemId => { for(let cat in SHOP_ITEMS) { let item = SHOP_ITEMS[cat].find(i => i.id === itemId); if(item) spent += item.cost; } }); } userProfileData.wallet = userProfileData.careerBank || 0; userProfileData.careerBank = (userProfileData.careerBank || 0) + spent; needsUpdate = true; }
                     if (userProfileData.handleChanges === undefined) { userProfileData.handleChanges = 0; needsUpdate = true;}
                     if (userProfileData.achievedTop10Daily === undefined) { userProfileData.achievedTop10Daily = 0; needsUpdate = true;}
                     if (userProfileData.kobeCount === undefined) { userProfileData.kobeCount = 0; needsUpdate = true; }
                     if (!userProfileData.inventory) { userProfileData.inventory = ["title_none", "skin_default", "banner_default", "effect_none"]; userProfileData.equipped = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" }; needsUpdate = true; }
                     if (!userProfileData.claimedCareer) { userProfileData.claimedCareer = []; needsUpdate = true; }
-                    if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr) { userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [] }; needsUpdate = true; }
+                    
+                    // NEW: Reset daily challenges for existing users if it's a new day or if they don't have the activeIds array yet
+                    if (!userProfileData.dailyStats || userProfileData.dailyStats.date !== todayStr || !userProfileData.dailyStats.activeIds) { 
+                        let shuffled = [...CHALLENGES.daily_pool].sort(() => 0.5 - Math.random());
+                        let dailyIds = shuffled.slice(0, 3).map(c => c.id);
+                        userProfileData.dailyStats = { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [], activeIds: dailyIds }; 
+                        needsUpdate = true; 
+                    }
                     
                     if (needsUpdate) { 
                         await updateDoc(userRef, { 
                             inventory: userProfileData.inventory, equipped: userProfileData.equipped, wallet: userProfileData.wallet, 
                             careerBank: userProfileData.careerBank, handleChanges: userProfileData.handleChanges, achievedTop10Daily: userProfileData.achievedTop10Daily, 
                             kobeCount: userProfileData.kobeCount, claimedCareer: userProfileData.claimedCareer, dailyStats: userProfileData.dailyStats,
-                            mmr: userProfileData.mmr, clashWins: userProfileData.clashWins, clashLosses: userProfileData.clashLosses, clashPucks: userProfileData.clashPucks
+                            mmr: userProfileData.mmr, clashWins: userProfileData.clashWins, clashLosses: userProfileData.clashLosses, clashTies: userProfileData.clashTies, clashPucks: userProfileData.clashPucks // clashTies added here
                         }); 
                     }
                 }
@@ -807,52 +824,54 @@
         }
         
         window.openProfileMenu = async function() {
-            document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
-            document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
-            if (userProfileData.isGuest) { document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`; document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block"; } 
-            else { document.getElementById("login-status-text").innerText = "Linked via Google"; document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none"; }
-            
-            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
-            if(docSnap.exists()) {
-                let data = docSnap.data(); 
-                userProfileData = data; // Keep local sync fresh
-                
-                // standard
+                document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
+                document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
+                if (userProfileData.isGuest) { document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`; document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block"; } 
+                else { document.getElementById("login-status-text").innerText = "Linked via Google"; document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none"; }
+    
+                const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+                if(docSnap.exists()) {
+                    let data = docSnap.data(); 
+                    userProfileData = data; // Keep local sync fresh
+        
+                    // standard
                     document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString(); 
                     let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails; let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
-                    
+        
                     // NEW: Average Score Math
                     let totalScore = data.careerBank || 0;
                     let avgScore = played > 0 ? Math.round(totalScore / played) : 0;
-                    
+        
                     document.getElementById("stat-played").innerText = played; 
-                    document.getElementById("stat-win-rate").innerText = winRate + "%";
+                   document.getElementById("stat-win-rate").innerText = winRate + "%";
                     document.getElementById("stat-avg-score").innerText = avgScore.toLocaleString();
-                let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails]; const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
-                for(let i = 0; i < 6; i++) {
-                    let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "#ff3333" : "#00ffff"; let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
-                    distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
-                }
-                document.getElementById("stat-distribution").innerHTML = distHtml;
+                    let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails]; const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
+                    for(let i = 0; i < 6; i++) {
+                        let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "#ff3333" : "#00ffff"; let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
+                        distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
+                    }
+                    document.getElementById("stat-distribution").innerHTML = distHtml;
 
-                // clash
-                let cWins = data.clashWins || 0; let cLosses = data.clashLosses || 0; let cTotal = cWins + cLosses;
-                let cWinRate = cTotal > 0 ? Math.round((cWins / cTotal) * 100) : 0;
-                let currentMMR = data.mmr || 1000;
-                let rankObj = getRankDetails(currentMMR);
-                
-                document.getElementById("stat-mmr-score").innerText = currentMMR;
-                document.getElementById("stat-rank-title").innerText = rankObj.name;
-                document.getElementById("stat-rank-title").className = rankObj.class;
-                document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses}`;
-                document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
-                document.getElementById("stat-clash-pucks").innerText = data.clashPucks || 0;
+                    // clash (UPDATED FOR TIES & NO PUCKS)
+                    let cWins = data.clashWins || 0; 
+                    let cLosses = data.clashLosses || 0; 
+                    let cTies = data.clashTies || 0; 
+                    let cTotal = cWins + cLosses + cTies;
+                    let cWinRate = cTotal > 0 ? Math.round((cWins / cTotal) * 100) : 0;
+                    let currentMMR = data.mmr || 1000;
+                    let rankObj = getRankDetails(currentMMR);
+        
+                    document.getElementById("stat-mmr-score").innerText = currentMMR;
+                    document.getElementById("stat-rank-title").innerText = rankObj.name;
+                    document.getElementById("stat-rank-title").className = rankObj.class;
+                    document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses} - ${cTies}`;
+                    document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
+                }
+    
+                // default to standard tab
+                document.getElementById('tab-prof-standard').click();
+                document.getElementById("profile-modal").style.display = "flex";
             }
-            
-            // default to standard tab
-            document.getElementById('tab-prof-standard').click();
-            document.getElementById("profile-modal").style.display = "flex";
-        }
 
         window.openChallengesMenu = async function() {
             document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
@@ -862,18 +881,23 @@
         }
 
         window.renderChallenges = function(type) {
-            document.querySelectorAll("#challenges-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-chal-${type}`).classList.add("active");
-            const listDiv = document.getElementById("challenges-list"); listDiv.innerHTML = ""; const challenges = CHALLENGES[type]; let html = "";
-            challenges.forEach(chal => {
-                let currentProgress = type === 'daily' ? (userProfileData.dailyStats[chal.field] || 0) : (userProfileData[chal.field] || 0);
-                let isClaimed = type === 'daily' ? userProfileData.dailyStats.claimed.includes(chal.id) : userProfileData.claimedCareer.includes(chal.id);
-                if (isClaimed) return; 
-                let isComplete = currentProgress >= chal.req; let pct = Math.min((currentProgress / chal.req) * 100, 100);
-                let btnHtml = isComplete ? `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}', ${chal.reward})">CLAIM<br>${chal.reward.toLocaleString()}</button>` : `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
-                html += `<div class="grid-item"><div class="grid-item-info"><div class="grid-item-name">${chal.name}</div><div class="grid-item-desc">${chal.desc}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${pct}%;"></div><div class="progress-text">${currentProgress} / ${chal.req}</div></div></div>${btnHtml}</div>`;
-            });
-            listDiv.innerHTML = html === "" ? `<div style="text-align: center; color: #4caf50; padding: 20px; font-weight: bold;">All ${type} challenges completed!</div>` : html;
-        }
+                document.querySelectorAll("#challenges-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-chal-${type}`).classList.add("active");
+                const listDiv = document.getElementById("challenges-list"); listDiv.innerHTML = ""; 
+    
+                // NEW: Pulls from the shuffled activeIds for daily, or the standard array for career
+                const challenges = type === 'daily' ? CHALLENGES.daily_pool.filter(c => userProfileData.dailyStats.activeIds.includes(c.id)) : CHALLENGES.career; 
+    
+                let html = "";
+                challenges.forEach(chal => {
+                    let currentProgress = type === 'daily' ? (userProfileData.dailyStats[chal.field] || 0) : (userProfileData[chal.field] || 0);
+                    let isClaimed = type === 'daily' ? userProfileData.dailyStats.claimed.includes(chal.id) : userProfileData.claimedCareer.includes(chal.id);
+                    if (isClaimed) return; 
+                    let isComplete = currentProgress >= chal.req; let pct = Math.min((currentProgress / chal.req) * 100, 100);
+                    let btnHtml = isComplete ? `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}', ${chal.reward})">CLAIM<br>${chal.reward.toLocaleString()}</button>` : `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
+                    html += `<div class="grid-item"><div class="grid-item-info"><div class="grid-item-name">${chal.name}</div><div class="grid-item-desc">${chal.desc}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${pct}%;"></div><div class="progress-text">${currentProgress} / ${chal.req}</div></div></div>${btnHtml}</div>`;
+                });
+                listDiv.innerHTML = html === "" ? `<div style="text-align: center; color: #4caf50; padding: 20px; font-weight: bold;">All ${type} challenges completed!</div>` : html;
+            }
 
         window.claimChallenge = async function(id, type, reward) {
             try { let updatePayload = { wallet: increment(reward) }; if (type === 'daily') { userProfileData.dailyStats.claimed.push(id); updatePayload.dailyStats = userProfileData.dailyStats; } else { userProfileData.claimedCareer.push(id); updatePayload.claimedCareer = userProfileData.claimedCareer; } await updateDoc(doc(db, "users", currentUser.uid), updatePayload); userProfileData.wallet += reward; alert(`Challenge Completed! +${reward.toLocaleString()} pts added to your Wallet.`); window.renderChallenges(type); } catch (e) { alert("Claim failed."); console.error(e); }
@@ -921,80 +945,73 @@
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
         
         window.loadLeaderboardData = async function() {
-            const listDiv = document.getElementById("leaderboard-list"); 
-            listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; 
-            let html = ""; let rawData = []; let finalData = [];
-            try {
-                if (currentLbTime === 'career') { 
-                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50))); 
-                    snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); }); 
-                } 
-                else if (currentLbTime === 'clash') {
-                    const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(50))); 
-                    snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); }); 
-                }
-                else {
-                    let snapshot; 
-                    if (currentLbTime === 'all') { 
-                        snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50))); 
-                    } else { 
-                        const now = new Date(); let start = new Date(); 
-                        if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } 
-                        else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); } 
-                        else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } 
-                        snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); 
-                    }
-                    snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); 
-                    if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
-                }
-                
-                // NEW ROBUST DE-DUPLICATION (By UID instead of Name to prevent glitches)
-                let seenUids = new Set(); 
-                for (let item of rawData) { 
-                    if (item.uid && !seenUids.has(item.uid)) { 
-                        seenUids.add(item.uid); 
-                        finalData.push(item); 
-                        if(finalData.length === 25) break; 
-                    } 
-                }
-                
-                if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
-                
-                if (currentLbTime !== 'career' && currentLbTime !== 'clash') { 
-                    for (let entry of finalData) { 
-                        if (entry.uid) { 
-                            try { 
-                                let uSnap = await getDoc(doc(db, "users", entry.uid)); 
-                                if (uSnap.exists()) { entry.equipped = uSnap.data().equipped; entry.name = uSnap.data().username; } 
-                            } catch(e) { } 
+                    const listDiv = document.getElementById("leaderboard-list"); 
+                    listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; 
+                    let html = ""; let rawData = []; let finalData = [];
+                    try {
+                        if (currentLbTime === 'career') { 
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(100))); 
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); }); 
                         } 
-                    } 
+                        else if (currentLbTime === 'clash') {
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(100))); 
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); }); 
+                        }
+                        else {
+                            let snapshot; 
+                            if (currentLbTime === 'all') { 
+                                snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(100))); 
+                            } else { 
+                                const now = new Date(); let start = new Date(); 
+                                if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } 
+                                else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } 
+                                snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); 
+                            }
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); 
+                            if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
+                        }
+        
+                        // NEW DEDUPLICATION (By Name to prevent "Soda" duplicates)
+                        let seenNames = new Set(); 
+                        for (let item of rawData) {
+                            let upperName = item.name ? item.name.toUpperCase() : "GUEST";
+                            if (!seenNames.has(upperName)) { 
+                                seenNames.add(upperName); 
+                                finalData.push(item); 
+                                let maxLimit = (currentLbTime === 'career' || currentLbTime === 'clash' || currentLbTime === 'all') ? 100 : 25;
+                                if(finalData.length === maxLimit) break; 
+                            } 
+                        }
+        
+                        if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
+        
+                        if (currentLbTime !== 'career' && currentLbTime !== 'clash') { 
+                            for (let entry of finalData) { 
+                                if (entry.uid) { 
+                                    try { 
+                                        let uSnap = await getDoc(doc(db, "users", entry.uid)); 
+                                        if (uSnap.exists()) { entry.equipped = uSnap.data().equipped; entry.name = uSnap.data().username; } 
+                                    } catch(e) { } 
+                                } 
+                            } 
+                        }
+        
+                        finalData.forEach((entry, index) => {
+                            let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
+                            let eq = entry.equipped || {}; let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
+                            let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
+            
+                            let titleStr = tObj && tObj.display ? tObj.display : "";
+                            if (currentLbTime === 'clash') {
+                                let rankObj = getRankDetails(entry.score);
+                                titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
+                            }
+            
+                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${entry.name}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
+                        }); 
+                        listDiv.innerHTML = html;
+                    } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
                 }
-                
-                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) { 
-                    let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1; 
-                    if (myRank > 0 && myRank <= 10) { 
-                        userProfileData.achievedTop10Daily = 1; 
-                        updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => {}); 
-                    } 
-                }
-                
-                finalData.forEach((entry, index) => {
-                    let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
-                    let eq = entry.equipped || {}; let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
-                    let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
-                    
-                    let titleStr = tObj && tObj.display ? tObj.display : "";
-                    if (currentLbTime === 'clash') {
-                        let rankObj = getRankDetails(entry.score);
-                        titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
-                    }
-                    
-                    html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${entry.name}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
-                }); 
-                listDiv.innerHTML = html;
-            } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
-        }
 
         // ==========================================
         // GAME LOGIC (STANDARD & VERSUS)
@@ -1082,6 +1099,7 @@
                 
                 listenToLobbyCount(); 
             }
+            document.getElementById("live-feed-container").style.display = "none";
         }
 
         window.cancelVersusLobby = function() {
@@ -1098,6 +1116,7 @@
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("clash-chat-container").style.display = "none"; // HIDE CHAT
             window.startNewRun();
+            document.getElementById("live-feed-container").style.display = "block";
         }
         window.sendChatMessage = async function() {
             let input = document.getElementById("chat-input");
