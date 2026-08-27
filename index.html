@@ -1113,10 +1113,13 @@
             return code;
         }
 
-        // NEW: Generates 50 shared words for the match
+        // NEW: Generates 50 shared words for the match (with fallback safety)
         function generateClashWords() {
             let arr = [];
-            for(let i=0; i<50; i++) arr.push(window.targetWords[Math.floor(Math.random() * window.targetWords.length)]);
+            let sourceWords = (window.targetWords && window.targetWords.length > 0) ? window.targetWords : ["APPLE", "BEACH", "CHAIR", "DRIVE", "EARLY", "FRESH", "GRAPE", "HOUSE", "IMAGE", "JUICE"];
+            for(let i=0; i<50; i++) {
+                arr.push(sourceWords[Math.floor(Math.random() * sourceWords.length)]);
+            }
             return arr;
         }
 
