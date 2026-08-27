@@ -1155,9 +1155,9 @@
                         hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
                         guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
                         status: 'waiting', isPublic: true,
-                        // NEW SCORE ATTACK RULES
+                        // NEW SCORE ATTACK & CHAT INITIALIZERS
                         hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
-                        hostWordIndex: 1, guestWordIndex: 1, chat: [] // NEW INITIALIZERS
+                        hostWordIndex: 1, guestWordIndex: 1, chat: [] 
                     });
                     listenToMatch();
                 }
@@ -1177,9 +1177,9 @@
                 hostUid: currentUser.uid, hostName: userProfileData.username, hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
                 guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
                 status: 'waiting', isPublic: false,
-                // NEW SCORE ATTACK RULES
-                        hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
-                        hostWordIndex: 1, guestWordIndex: 1, chat: [] // NEW INITIALIZERS
+                // NEW SCORE ATTACK & CHAT INITIALIZERS
+                hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                hostWordIndex: 1, guestWordIndex: 1, chat: [] 
             });
 
             document.getElementById("lobby-action-view").style.display = "none";
