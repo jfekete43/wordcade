@@ -283,15 +283,22 @@
             </div>
         </div>
 
-        <div id="versus-track" style="display: flex; justify-content: center; align-items: center; padding-top: 10px; border-top: 1px solid #444; margin-top: 15px;">
-            <div style="text-align: center;">
-                <div style="font-size: 10px; color: #aaa; text-transform: uppercase; font-weight: bold; letter-spacing: 2px;">Time Remaining</div>
-                <div id="clash-timer-display" style="font-size: 32px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800;">7:00</div>
+        <div id="versus-track" style="position: relative; padding-top: 15px; margin-top: 15px; border-top: 1px solid #444; height: 60px;">
+            <!-- THE TUG-OF-WAR BAR -->
+            <div style="position: absolute; top: 50%; left: 15%; right: 15%; height: 12px; background: #222; border: 2px solid #555; border-radius: 6px; overflow: hidden; transform: translateY(-50%);">
+                <div id="tug-fill" style="width: 50%; height: 100%; background: linear-gradient(90deg, #ff00ff, #00ffff); transition: width 0.5s ease-out;"></div>
+                <!-- Center Line Marker -->
+                <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: #fff; transform: translateX(-50%); opacity: 0.5;"></div>
+            </div>
+
+            <!-- TIMER -->
+            <div style="position: absolute; left: 50%; top: -10px; transform: translateX(-50%); text-align: center;">
+                <div id="clash-timer-display" style="font-size: 20px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800;">7:00</div>
             </div>
             
-            <!-- Floating Scores -->
-            <div id="vs-guest-score" style="position: absolute; left: 15px; bottom: 15px; font-size: 24px; font-weight: bold; color: #fff;">0</div>
-            <div id="vs-host-score" style="position: absolute; right: 15px; bottom: 15px; font-size: 24px; font-weight: bold; color: #fff;">0</div>
+            <!-- SCORES -->
+            <div id="vs-guest-score" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: #ff00ff;">0</div>
+            <div id="vs-host-score" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: #00ffff;">0</div>
         </div>
     </div>
 
@@ -1312,11 +1319,25 @@
                     renderMiniBoard("host-mini-board", data.hostBoard);
                     renderMiniBoard("guest-mini-board", data.guestBoard);
                     
-                    // Update Scores & Word Count!
-                    document.getElementById("vs-host-score").innerText = (data.hostScore || 0).toLocaleString();
-                    document.getElementById("vs-guest-score").innerText = (data.guestScore || 0).toLocaleString();
+                    // SCORES & DIFFERENTIAL MATH
+                    let hScore = Number(data.hostScore || 0);
+                    let gScore = Number(data.guestScore || 0);
+                    
+                    document.getElementById("vs-host-score").innerText = hScore.toLocaleString();
+                    document.getElementById("vs-guest-score").innerText = gScore.toLocaleString();
                     document.getElementById("vs-host-word-count").innerText = `Word: ${data.hostWordIndex || 1}`;
                     document.getElementById("vs-guest-word-count").innerText = `Word: ${data.guestWordIndex || 1}`;
+                    
+                    // The magic tug-of-war calculation!
+                    let scoreDiff = hScore - gScore;
+                    let winTarget = 1000;
+                    
+                    // 50% is dead center. Host pushes it up to 100%, Guest pulls it down to 0%
+                    let fillPct = 50 + ((scoreDiff / winTarget) * 50);
+                    fillPct = Math.max(0, Math.min(100, fillPct)); // Keep it in bounds
+                    
+                    let tugFill = document.getElementById("tug-fill");
+                    if (tugFill) tugFill.style.width = fillPct + "%";
                     
                     // Render Live Chat
                     if (data.chat && data.chat.length > 0) {
@@ -1324,14 +1345,13 @@
                         let chatHtml = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
                         data.chat.forEach(msg => { chatHtml += `<div>${msg}</div>`; });
                         chatBox.innerHTML = chatHtml;
-                        chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+                        chatBox.scrollTop = chatBox.scrollHeight; 
                     }
 
-                    // 3. TARGET SCORE REACHED! (First to 1000)
-                    if (data.hostScore >= 1000 || data.guestScore >= 1000) {
+                    // TUG-OF-WAR TARGET SCORE REACHED! (1,000 Point Lead)
+                    if (Math.abs(scoreDiff) >= winTarget) {
                         if (isMatchHost && data.status === 'playing') {
-                            let hScore = Number(data.hostScore || 0);
-                            let winnerUid = hScore >= 1000 ? data.hostUid : data.guestUid;
+                            let winnerUid = scoreDiff >= winTarget ? data.hostUid : data.guestUid;
                             finishMatch(winnerUid, false, data);
                         }
                     }
