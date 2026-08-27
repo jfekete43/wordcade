@@ -386,11 +386,15 @@
                 </div>
             </div>
 
-            <div id="lobby-waiting-view" style="display: none;">
-                <div id="waiting-status-text" style="color: #fff; font-size: 18px; margin-bottom: 10px;">Your Room Code:</div>
-                <div id="display-room-code" style="font-size: 40px; color: #ff9800; font-weight: bold; letter-spacing: 5px; margin-bottom: 20px;">AAAAA</div>
-                <div class="lb-loading pulse-text" id="waiting-sub-text">Waiting for challenger...</div>
-                <button class="btn-dark" style="margin-top: 15px; width: 100%; border-color: #ff3333 !important; color: #ff3333;" onclick="window.leaveVersusMatch()">Cancel Search</button>
+            <div id="lobby-waiting-view" style="display: none; width: 100%; text-align: center;">
+                <h2 class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
+                <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">
+                    First player to 1,000 points wins! <br>
+                    If time expires, the highest score takes the victory.<br>
+                    <i style="color: #ff3333;">Failing a word deducts 50 points!</i>
+                </p>
+                <div style="margin-bottom: 20px; font-size: 24px; color: #fff;" id="lobby-timer">0:00</div>
+                <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
 
             <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Standard</button>
@@ -501,9 +505,10 @@
             <!-- STANDARD STATS -->
             <div id="profile-standard" class="modal-stats" style="text-align: left;">
                 <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts</div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 10px;">
-                    <div style="text-align: center;">Words Played<br><span id="stat-played" style="color:white; font-size: 20px;">0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:white; font-size: 20px;">0%</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 5px;">
+                    <div style="text-align: center;">Played<br><span id="stat-played" style="color:white; font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:white; font-size: 18px;">0%</span></div>
+                    <div style="text-align: center;">Avg Score<br><span id="stat-avg-score" style="color:white; font-size: 18px;">0</span></div>
                 </div>
                 <div style="font-size: 14px; margin-bottom: 10px; color: #00ffff; text-transform: uppercase; text-align: center;">Guess Distribution</div>
                 <div id="stat-distribution"></div>
@@ -717,20 +722,58 @@
 
         // UI & MENU FUNCTIONS
         window.saveUsername = async function() {
-            let newName = document.getElementById("username-input").value.trim().toUpperCase();
-            if(newName.length < 3) { alert("Arcade Handle must be at least 3 characters long!"); return; }
+            let rawName = document.getElementById("username-input").value.trim().toUpperCase();
+            let newName = sanitizeUsername(rawName); // Clean the input before doing anything else!
+
+            if(newName.length < 3) { 
+                alert("Arcade Handle must be at least 3 valid characters long (special characters are removed)!"); 
+                return; 
+            }
+
             if(currentUser) {
                 let cost = userProfileData.handleChanges > 0 ? 5000 : 0;
-                if (userProfileData.wallet < cost) { alert("You need 5,000 pts in your Wallet to change your handle!"); return; }
+                if (userProfileData.wallet < cost) { 
+                    alert("You need 5,000 pts in your Wallet to change your handle!"); 
+                    return; 
+                }
+                
                 let confirmChange = confirm(cost > 0 ? `Update handle for 5,000 pts?` : `Update your handle for free?`);
                 if (!confirmChange) return;
+                
                 try {
-                    const q = query(collection(db, "users"), where("username", "==", newName)); const snapshot = await getDocs(q); let nameTaken = false; snapshot.forEach(doc => { if (doc.id !== currentUser.uid) { nameTaken = true; } });
-                    if (nameTaken) { alert("That Arcade Handle is already taken! Please choose another."); return; }
-                    userProfileData.wallet -= cost; userProfileData.handleChanges += 1; userProfileData.username = newName;
-                    await updateDoc(doc(db, "users", currentUser.uid), { username: newName, wallet: userProfileData.wallet, handleChanges: userProfileData.handleChanges });
-                    alert("Success! Your Arcade Handle is now: " + newName); document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';
-                } catch (e) { alert("Error saving username!"); console.error(e); }
+                    const q = query(collection(db, "users"), where("username", "==", newName)); 
+                    const snapshot = await getDocs(q); 
+                    let nameTaken = false; 
+                    
+                    snapshot.forEach(doc => { 
+                        if (doc.id !== currentUser.uid) { nameTaken = true; } 
+                    });
+                    
+                    if (nameTaken) { 
+                        alert("That Arcade Handle is already taken! Please choose another."); 
+                        return; 
+                    }
+                    
+                    userProfileData.wallet -= cost; 
+                    userProfileData.handleChanges += 1; 
+                    userProfileData.username = newName;
+                    
+                    await updateDoc(doc(db, "users", currentUser.uid), { 
+                        username: newName, 
+                        wallet: userProfileData.wallet, 
+                        handleChanges: userProfileData.handleChanges 
+                    });
+                    
+                    // Update the input field visually so the user sees the sanitized version
+                    document.getElementById("username-input").value = newName;
+                    
+                    alert("Success! Your Arcade Handle is now: " + newName); 
+                    document.getElementById('profile-modal').style.display='none'; 
+                    document.getElementById('main-menu-modal').style.display='flex';
+                } catch (e) { 
+                    alert("Error saving username!"); 
+                    console.error(e); 
+                }
             }
         };
 
@@ -758,9 +801,16 @@
                 userProfileData = data; // Keep local sync fresh
                 
                 // standard
-                document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString(); 
-                let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails; let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
-                document.getElementById("stat-played").innerText = played; document.getElementById("stat-win-rate").innerText = winRate + "%";
+                    document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString(); 
+                    let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails; let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
+                    
+                    // NEW: Average Score Math
+                    let totalScore = data.careerBank || 0;
+                    let avgScore = played > 0 ? Math.round(totalScore / played) : 0;
+                    
+                    document.getElementById("stat-played").innerText = played; 
+                    document.getElementById("stat-win-rate").innerText = winRate + "%";
+                    document.getElementById("stat-avg-score").innerText = avgScore.toLocaleString();
                 let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails]; const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
                 for(let i = 0; i < 6; i++) {
                     let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "#ff3333" : "#00ffff"; let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
@@ -852,23 +902,43 @@
         let currentLbTime = 'all'; 
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
+        
         window.loadLeaderboardData = async function() {
-            const listDiv = document.getElementById("leaderboard-list"); listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; let html = ""; let rawData = []; let finalData = [];
+            const listDiv = document.getElementById("leaderboard-list"); 
+            listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; 
+            let html = ""; let rawData = []; let finalData = [];
             try {
                 if (currentLbTime === 'career') { 
                     const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(50))); 
                     snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); }); 
-                    let uniquePlayers = new Set(); for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } } 
                 } 
                 else if (currentLbTime === 'clash') {
                     const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(50))); 
                     snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); }); 
-                    let uniquePlayers = new Set(); for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
                 }
                 else {
-                    let snapshot; if (currentLbTime === 'all') { snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50))); } else { const now = new Date(); let start = new Date(); if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); } else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); }
-                    snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
-                    let uniquePlayers = new Set(); for (let item of rawData) { if (!uniquePlayers.has(item.name)) { uniquePlayers.add(item.name); finalData.push(item); if(finalData.length === 25) break; } }
+                    let snapshot; 
+                    if (currentLbTime === 'all') { 
+                        snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(50))); 
+                    } else { 
+                        const now = new Date(); let start = new Date(); 
+                        if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } 
+                        else if (currentLbTime === 'weekly') { start.setDate(now.getDate() - now.getDay()); start.setHours(0,0,0,0); } 
+                        else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } 
+                        snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); 
+                    }
+                    snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); 
+                    if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
+                }
+                
+                // NEW ROBUST DE-DUPLICATION (By UID instead of Name to prevent glitches)
+                let seenUids = new Set(); 
+                for (let item of rawData) { 
+                    if (item.uid && !seenUids.has(item.uid)) { 
+                        seenUids.add(item.uid); 
+                        finalData.push(item); 
+                        if(finalData.length === 25) break; 
+                    } 
                 }
                 
                 if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
@@ -884,7 +954,13 @@
                     } 
                 }
                 
-                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) { let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1; if (myRank > 0 && myRank <= 10) { userProfileData.achievedTop10Daily = 1; updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => {}); } }
+                if (currentLbTime === 'daily' && currentUser && userProfileData.achievedTop10Daily === 0) { 
+                    let myRank = finalData.findIndex(e => e.uid === currentUser.uid) + 1; 
+                    if (myRank > 0 && myRank <= 10) { 
+                        userProfileData.achievedTop10Daily = 1; 
+                        updateDoc(doc(db, "users", currentUser.uid), { achievedTop10Daily: 1 }).catch(e => {}); 
+                    } 
+                }
                 
                 finalData.forEach((entry, index) => {
                     let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
@@ -898,7 +974,8 @@
                     }
                     
                     html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${entry.name}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
-                }); listDiv.innerHTML = html;
+                }); 
+                listDiv.innerHTML = html;
             } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
         }
 
@@ -910,6 +987,15 @@
         let matchUnsubscribe = null;
         let isMatchHost = false;
         let myMiniBoard = []; 
+
+        // --- USERNAME SANITIZER ---
+        function sanitizeUsername(name) {
+            if (!name) return "Guest";
+            let safeName = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            safeName = safeName.replace(/[^a-zA-Z0-9_\s-]/g, ""); 
+            safeName = safeName.trim().substring(0, 12);
+            return safeName === "" ? "Guest" : safeName;
+        }
 
         // --- NEW: LOBBY COUNTER LOGIC ---
         let lobbyCountUnsubscribe = null;
