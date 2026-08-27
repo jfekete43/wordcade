@@ -262,6 +262,9 @@
                         <div id="vs-guest-title" class="lb-date" style="color: #ff9800; font-size: 10px;"></div>
                     </div>
                 </div>
+                <!-- NEW WORD COUNTER -->
+                <div id="vs-guest-word-count" style="font-size: 11px; color: #ff00ff; text-align: left; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
+                
                 <div id="guest-mini-board" style="display:grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: start;"></div>
             </div>
 
@@ -273,6 +276,9 @@
                         <div id="vs-host-title" class="lb-date" style="color: #ff9800; font-size: 10px;"></div>
                     </div>
                 </div>
+                <!-- NEW WORD COUNTER -->
+                <div id="vs-host-word-count" style="font-size: 11px; color: #00ffff; text-align: right; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
+                
                 <div id="host-mini-board" style="display:grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: end;"></div>
             </div>
         </div>
@@ -307,6 +313,16 @@
         </div>
         <div class="key-row">
             <button class="key wide" data-key="ENTER">ENTER</button><button class="key" data-key="Z">Z</button><button class="key" data-key="X">X</button><button class="key" data-key="C">C</button><button class="key" data-key="V">V</button><button class="key" data-key="B">B</button><button class="key" data-key="N">N</button><button class="key" data-key="M">M</button><button class="key wide" data-key="BACKSPACE">⌫</button>
+        </div>
+    </div>
+    <!-- CLASH CHAT BOX -->
+    <div id="clash-chat-container" style="display: none; width: 95%; max-width: 500px; background: #1a1a1d; border: 2px solid #555; border-radius: 5px; margin-bottom: 20px; z-index: 2; position: relative; padding: 10px;">
+        <div id="chat-messages" style="height: 100px; overflow-y: auto; font-size: 12px; margin-bottom: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 5px;">
+            <div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>
+        </div>
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="chat-input" class="input-field" maxlength="50" placeholder="Type message..." style="font-size: 12px; padding: 8px; margin: 0; text-transform: none; letter-spacing: normal;">
+            <button class="action-btn" style="border-color: #00ffff; color: #00ffff;" onclick="window.sendChatMessage()">Send</button>
         </div>
     </div>
 
@@ -530,7 +546,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
@@ -944,7 +960,7 @@
             if (isVersusMode) {
                 let confirmSwitch = confirm("Leave Head-to-Head match?");
                 if (!confirmSwitch) return;
-                window.leaveVersusMatch(); // Fixed prefix
+                window.leaveVersusMatch(); 
             } else {
                 if (score > 0 || runStats.played > 0) {
                     let confirmSwitch = confirm("Switching to Clash will cash out your current Standard run. Continue?");
@@ -957,6 +973,7 @@
                 document.getElementById("score-board").style.display = "none";
                 document.getElementById("btn-cash-out").style.display = "none";
                 document.getElementById("versus-track-container").style.display = "block";
+                document.getElementById("clash-chat-container").style.display = "block"; // SHOW CHAT
                 boardDisplay.innerHTML = "";
                 document.getElementById("versus-lobby-modal").style.display = "flex";
                 
@@ -976,8 +993,26 @@
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
+            document.getElementById("clash-chat-container").style.display = "none"; // HIDE CHAT
             window.startNewRun();
         }
+        window.sendChatMessage = async function() {
+            let input = document.getElementById("chat-input");
+            let text = input.value.trim();
+            if (!text || !currentMatchId) return;
+            input.value = "";
+            try {
+                let msg = `<span style="color:#00ffff; font-weight:bold;">${userProfileData.username}</span>: ${text}`;
+                await updateDoc(doc(db, "matches", currentMatchId), { chat: arrayUnion(msg) });
+            } catch(e) { console.error("Chat error", e); }
+        }
+
+        // Listen for "Enter" key in chat input
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("chat-input").addEventListener("keypress", function(e) {
+                if (e.key === "Enter") { window.sendChatMessage(); e.preventDefault(); }
+            });
+        });
 
         function generateRoomCode() {
             const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; let code = "";
@@ -1028,7 +1063,8 @@
                         guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
                         status: 'waiting', isPublic: true,
                         // NEW SCORE ATTACK RULES
-                        hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null
+                        hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                        hostWordIndex: 1, guestWordIndex: 1, chat: [] // NEW INITIALIZERS
                     });
                     listenToMatch();
                 }
@@ -1049,7 +1085,8 @@
                 guestUid: null, guestName: null, guestEquipped: null, guestBoard: [], guestMMR: 1000,
                 status: 'waiting', isPublic: false,
                 // NEW SCORE ATTACK RULES
-                hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null
+                        hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                        hostWordIndex: 1, guestWordIndex: 1, chat: [] // NEW INITIALIZERS
             });
 
             document.getElementById("lobby-action-view").style.display = "none";
@@ -1119,16 +1156,21 @@
             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); document.getElementById(`${prefix}-title`).innerText = tObj && tObj.display ? tObj.display : "";
         }
 
-        // Helper function so the Host can cleanly end the match
-        async function finishMatch(hostWon, data) {
+        // Helper function so the Host can cleanly end the match (WITH TIE SUPPORT)
+        async function finishMatch(winnerUid, isTie, data) {
             let isPublicMatch = data.isPublic === true;
-            let hostChange = isPublicMatch ? calculateEloChange(data.hostMMR || 1000, data.guestMMR || 1000, hostWon) : 0;
+            let hostWon = winnerUid === data.hostUid;
+            
+            let hostChange = 0;
+            if (isPublicMatch && !isTie) {
+                hostChange = calculateEloChange(data.hostMMR || 1000, data.guestMMR || 1000, hostWon);
+            }
             
             let updatePayload = {
                 status: 'finished', 
-                winner: hostWon ? data.hostUid : data.guestUid, 
+                winner: isTie ? null : winnerUid, 
                 hostChange: hostChange,
-                guestChange: -hostChange
+                guestChange: isTie ? 0 : -hostChange
             };
             await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
         }
@@ -1137,25 +1179,23 @@
             if (matchUnsubscribe) matchUnsubscribe();
             
             matchUnsubscribe = onSnapshot(doc(db, "matches", currentMatchId), (docSnap) => {
-                if (!docSnap.exists()) { showMessage("MATCH CLOSED."); window.leaveVersusMatch(); return; } // Fixed prefix
+                if (!docSnap.exists()) { 
+                    // FIX: If the modal is open, let them stay and read it! Don't vanish.
+                    if (document.getElementById("versus-end-modal").style.display === "flex") return; 
+                    showMessage("MATCH CLOSED."); window.leaveVersusMatch(); return; 
+                }
                 let data = docSnap.data();
 
                 if (data.status === 'playing') {
-                    // 1. Initialize match data locally when it starts
                     if (document.getElementById("versus-lobby-modal").style.display === "flex") {
                         document.getElementById("versus-lobby-modal").style.display = "none";
-                        clashWords = data.words || [];
-                        clashWordIndex = 0;
-                        clashMyScore = 0;
+                        clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0;
+                        document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
                         
-                        // Guest joining triggers the timer start! 5 minutes (300,000 ms)
-                        if (!data.endTime && isMatchHost) {
-                            updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 420000 });
-                        }
+                        if (!data.endTime && isMatchHost) { updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 420000 }); }
                         startRound();
                     }
 
-                    // 2. Start the Countdown Timer
                     if (data.endTime && !clashTimerInterval) {
                         clashTimerInterval = setInterval(async () => {
                             let remain = Math.max(0, data.endTime - Date.now());
@@ -1163,32 +1203,50 @@
                             let secs = Math.floor((remain % 60000) / 1000).toString().padStart(2, "0");
                             document.getElementById("clash-timer-display").innerText = `${mins}:${secs}`;
                             
-                            // TIME IS UP!
+                            // TIME IS UP! (FIXED SCORE LOGIC)
                             if (remain <= 0) {
                                 clearInterval(clashTimerInterval);
-                                // The Host is in charge of ending the game to prevent duplicate database writes
                                 if (isMatchHost && data.status === 'playing') {
-                                    let hostWon = data.hostScore >= data.guestScore; // Tie goes to host
-                                    finishMatch(hostWon, data);
+                                    let hScore = Number(data.hostScore || 0);
+                                    let gScore = Number(data.guestScore || 0);
+                                    let winnerUid = hScore > gScore ? data.hostUid : data.guestUid;
+                                    finishMatch(winnerUid, hScore === gScore, data); // Explicit Math
                                 }
                             }
                         }, 1000);
                     }
 
+                    // Update Ranks & Banners
                     setPlayerBanner(true, data.hostName, data.hostEquipped);
+                    document.getElementById('vs-host-title').innerText = getRankDetails(data.hostMMR || 1000).name;
+                    
                     setPlayerBanner(false, data.guestName, data.guestEquipped);
+                    document.getElementById('vs-guest-title').innerText = getRankDetails(data.guestMMR || 1000).name;
+                    
                     renderMiniBoard("host-mini-board", data.hostBoard);
                     renderMiniBoard("guest-mini-board", data.guestBoard);
                     
-                    // Update Floating Scores!
+                    // Update Scores & Word Count!
                     document.getElementById("vs-host-score").innerText = (data.hostScore || 0).toLocaleString();
                     document.getElementById("vs-guest-score").innerText = (data.guestScore || 0).toLocaleString();
+                    document.getElementById("vs-host-word-count").innerText = `Word: ${data.hostWordIndex || 1}`;
+                    document.getElementById("vs-guest-word-count").innerText = `Word: ${data.guestWordIndex || 1}`;
                     
-                    // 3. TARGET SCORE REACHED! (First to 2500)
+                    // Render Live Chat
+                    if (data.chat && data.chat.length > 0) {
+                        const chatBox = document.getElementById("chat-messages");
+                        let chatHtml = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
+                        data.chat.forEach(msg => { chatHtml += `<div>${msg}</div>`; });
+                        chatBox.innerHTML = chatHtml;
+                        chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+                    }
+
+                    // 3. TARGET SCORE REACHED! (First to 1000)
                     if (data.hostScore >= 1000 || data.guestScore >= 1000) {
                         if (isMatchHost && data.status === 'playing') {
-                            let hostWon = data.hostScore >= 1000;
-                            finishMatch(hostWon, data);
+                            let hScore = Number(data.hostScore || 0);
+                            let winnerUid = hScore >= 1000 ? data.hostUid : data.guestUid;
+                            finishMatch(winnerUid, false, data);
                         }
                     }
                 }
@@ -1197,18 +1255,27 @@
                     window.matchFinishedProcessed = true; 
                     if (clashTimerInterval) { clearInterval(clashTimerInterval); clashTimerInterval = null; }
                     
-                    let amIWinner = (isMatchHost && data.winner === data.hostUid) || (!isMatchHost && data.winner === data.guestUid);
+                    let isTie = data.winner === null;
+                    let amIWinner = (!isTie) && ((isMatchHost && data.winner === data.hostUid) || (!isMatchHost && data.winner === data.guestUid));
+                    
                     let myMMRChange = isMatchHost ? data.hostChange : data.guestChange;
                     let isPublicMatch = data.isPublic === true;
                     let newMmr = Math.max(0, (userProfileData.mmr || 1000) + myMMRChange);
                     
-                    document.getElementById("vs-end-title").innerText = amIWinner ? "YOU WIN!" : "YOU LOSE!";
-                    document.getElementById("vs-end-title").style.color = amIWinner ? "#4caf50" : "#ff3333";
+                    if (isTie) {
+                        document.getElementById("vs-end-title").innerText = "IT'S A TIE!";
+                        document.getElementById("vs-end-title").style.color = "#ff9800";
+                    } else {
+                        document.getElementById("vs-end-title").innerText = amIWinner ? "YOU WIN!" : "YOU LOSE!";
+                        document.getElementById("vs-end-title").style.color = amIWinner ? "#4caf50" : "#ff3333";
+                    }
                     
-                    // Determine how the game ended
-                    let resultText = amIWinner ? "First to 1,000 pts!" : "Opponent reached 1,000 pts first.";
-                    if ((data.hostScore || 0) < 1000 && (data.guestScore || 0) < 1000) {
-                        resultText = amIWinner ? "Time's up! You had the high score." : "Time's up! Opponent outscored you.";
+                    let resultText = "Time's up! Tie Game.";
+                    if (!isTie) {
+                        resultText = amIWinner ? "First to 1,000 pts!" : "Opponent reached 1,000 pts first.";
+                        if ((data.hostScore || 0) < 1000 && (data.guestScore || 0) < 1000) {
+                            resultText = amIWinner ? "Time's up! You had the high score." : "Time's up! Opponent outscored you.";
+                        }
                     }
                     
                     let rankObj = getRankDetails(newMmr);
@@ -1216,21 +1283,23 @@
                         ? (myMMRChange >= 0 ? `<span style="color:#4caf50;">+${myMMRChange} MMR</span>` : `<span style="color:#ff3333;">${myMMRChange} MMR</span>`)
                         : `<span style="color:#aaa; font-style:italic;">Unranked Private Match</span>`;
                     
+                    if (isTie && isPublicMatch) mmrText = `<span style="color:#aaa;">+0 MMR (Draw)</span>`;
+                    
                     document.getElementById("vs-end-desc").innerHTML = `${resultText}<br><br><span style="font-size:16px;">Rank: <span class="${rankObj.class}" style="text-transform:uppercase; font-weight:bold;">${rankObj.name}</span></span><br>${mmrText}`;
                     
                     if (currentUser) {
-                        let updatePayload = { 
-                            mmr: newMmr,
-                            clashWins: increment(amIWinner ? 1 : 0), 
-                            clashLosses: increment(amIWinner ? 0 : 1) 
-                        };
+                        let updatePayload = { mmr: newMmr };
+                        if (!isTie) {
+                            updatePayload.clashWins = increment(amIWinner ? 1 : 0);
+                            updatePayload.clashLosses = increment(amIWinner ? 0 : 1);
+                            userProfileData.clashWins = (userProfileData.clashWins || 0) + (amIWinner ? 1 : 0);
+                            userProfileData.clashLosses = (userProfileData.clashLosses || 0) + (amIWinner ? 0 : 1);
+                        }
                         if (amIWinner) {
                             updatePayload.wallet = increment(1000); updatePayload.careerBank = increment(1000);
                             userProfileData.wallet += 1000; userProfileData.careerBank += 1000;
                         }
                         userProfileData.mmr = newMmr;
-                        userProfileData.clashWins = (userProfileData.clashWins || 0) + (amIWinner ? 1 : 0);
-                        userProfileData.clashLosses = (userProfileData.clashLosses || 0) + (amIWinner ? 0 : 1);
                         updateDoc(doc(db, "users", currentUser.uid), updatePayload).catch(e => console.error(e));
                     }
                     document.getElementById("versus-end-modal").style.display = "flex";
@@ -1488,6 +1557,7 @@
                                         let updatePayload = {};
                                         updatePayload[isMatchHost ? "hostScore" : "guestScore"] = clashMyScore;
                                         updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; 
+                                        updatePayload[isMatchHost ? "hostWordIndex" : "guestWordIndex"] = clashWordIndex + 2; // +2 because 0-index and moving to next
                                         await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
                                     }
                                 } catch (err) {
@@ -1522,6 +1592,7 @@
                                     let updatePayload = {}; 
                                     updatePayload[isMatchHost ? "hostScore" : "guestScore"] = clashMyScore;
                                     updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
+                                    updatePayload[isMatchHost ? "hostWordIndex" : "guestWordIndex"] = clashWordIndex + 2;
                                     updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e=>console.error(e));
                                 }
                                 clashWordIndex++; 
