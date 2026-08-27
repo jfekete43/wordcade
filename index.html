@@ -394,13 +394,23 @@
             </div>
 
             <div id="lobby-waiting-view" style="display: none; width: 100%; text-align: center;">
-                <h2 class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
+                <!-- NEW: Correct IDs added so the JavaScript doesn't crash -->
+                <h2 id="waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
+                
+                <!-- NEW: Room code display block for when hosting private matches -->
+                <div id="display-room-code" style="font-size: 32px; color: #00ffff; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
+                
+                <!-- NEW: Sub-text block for connection status -->
+                <div id="waiting-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 20px; font-style: italic;"></div>
+                
                 <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">
                     First player to 1,000 points wins! <br>
                     If time expires, the highest score takes the victory.<br>
                     <i style="color: #ff3333;">Failing a word deducts 50 points!</i>
                 </p>
-                <div style="margin-bottom: 20px; font-size: 24px; color: #fff;" id="lobby-timer">0:00</div>
+                
+                <!-- REMOVED: The broken static 0:00 timer -->
+                
                 <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
 
