@@ -184,12 +184,15 @@
         /* NEW EFFECTS */
         .effect_pulse { color: #00ffff; animation: text-pulse 2s infinite; }
         @keyframes text-pulse { 0% { text-shadow: 0 0 5px #00ffff; } 50% { text-shadow: 0 0 15px #00ffff; } 100% { text-shadow: 0 0 5px #00ffff; } }
-        
         .effect_glitch { color: #fff; text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
         .effect_electric { color: #fff; text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 20px #0ff; }
         .effect_fire { color: #ff4500; text-shadow: 0 0 5px #ffa500, 0 -2px 5px #ff0000; font-weight: 900; }
-        .effect_goldprism { background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fff 50%, #ffd700 75%, #b8860b 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.5s linear infinite; font-weight: 900;}
-
+        .effect_hologram { background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; }
+        .effect_golden { background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fff 50%, #ffd700 75%, #b8860b 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.5s linear infinite; font-weight: 900; }
+        .effect_void { color: #111; text-shadow: 0 0 5px #444, 0 0 10px #000; font-weight: 900; letter-spacing: 2px; }
+        
+        /* New Banner Replacement */
+        .banner_neoncity { background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); border-left: 3px solid #ff00ff; border-radius: 3px; }
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: #333; height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
@@ -443,9 +446,15 @@
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
-                    <button class="btn-dark" style="border-color: #fff !important; font-size: 12px;" onclick="window.open('https://twitter.com', '_blank')">𝕏</button>
-                    <button class="btn-dark" style="border-color: #5865F2 !important; color: #5865F2; font-size: 12px;" onclick="window.open('https://discord.com', '_blank')">Discord</button>
-                    <button class="btn-dark" style="border-color: #f96854 !important; color: #f96854; font-size: 12px;" onclick="window.open('https://patreon.com', '_blank')">Patreon</button>
+                    <button class="btn-dark" style="border-color: #fff !important; padding: 8px 12px;" onclick="window.open('https://twitter.com', '_blank')">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.005 4.15H5.059z"/></svg>
+                    </button>
+                    <button class="btn-dark" style="border-color: #5865F2 !important; padding: 8px 12px;" onclick="window.open('https://discord.com', '_blank')">
+                        <svg viewBox="0 0 127.14 96.36" width="16" height="16" fill="#5865F2"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>
+                    </button>
+                    <button class="btn-dark" style="border-color: #f96854 !important; padding: 8px 12px;" onclick="window.open('https://patreon.com', '_blank')">
+                        <svg viewBox="0 0 512 512" width="16" height="16" fill="#f96854"><path d="M512 194.8c0 101.3-82.4 183.8-183.8 183.8-101.7 0-184.4-82.4-184.4-183.8 0-101.6 82.7-184.3 184.4-184.3C429.6 10.5 512 93.2 512 194.8zM0 501.5h90v-491H0v491z"/></svg>
+                    </button>
                 </div>
                 
                 <div style="margin-top: 15px; font-size: 10px; color: #555; text-transform: uppercase; display: flex; justify-content: center; gap: 10px;">
@@ -480,16 +489,11 @@
             <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">Wallet: <span id="shop-bank-display" style="color: #ff00ff;">0</span> pts</div>
             <div id="shop-preview-monitor">
                 <div class="preview-label">Preview</div>
-                <div id="preview-banner-box" class="lb-entry banner_default" style="margin-bottom: 15px; padding: 10px;">
+                <div id="preview-banner-box" class="lb-entry banner_default" style="margin-bottom: 0; padding: 10px;">
                     <div class="lb-name-col">
                         <div id="preview-name-box" class="lb-name effect_none" style="font-size: 20px;">HANDLE</div>
                         <div id="preview-title-box" class="lb-date" style="color: #ff9800;">TITLE</div>
                     </div>
-                </div>
-                <div class="row" style="justify-content: center;" id="preview-tiles-box">
-                    <div class="tile correct" style="width: 40px; height: 40px; font-size: 20px;">W</div>
-                    <div class="tile present" style="width: 40px; height: 40px; font-size: 20px;">I</div>
-                    <div class="tile absent" style="width: 40px; height: 40px; font-size: 20px;">N</div>
                 </div>
             </div>
             <div class="tabs">
@@ -572,7 +576,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
@@ -620,7 +624,7 @@
                     { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 15000 },
                     { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 17500 },
                     { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 20000 },
-                    { id: "banner_void", name: "Void Walker", desc: "Staring into the abyss.", cost: 22500 },
+                    { id: "banner_neoncity", name: "Neon City", desc: "Midnight skyline.", cost: 22500 },
                     { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 }
                 ],
                 effects: [
@@ -823,6 +827,17 @@
             else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
         }
         
+        let cachedRanks = { host: null, guest: null, lastMMR: { host: 0, guest: 0 } };
+        async function getPlayerRank(mmr, type) {
+            if (cachedRanks.lastMMR[type] === mmr && cachedRanks[type]) return cachedRanks[type];
+            try {
+                const rankSnap = await getCountFromServer(query(collection(db, "users"), where("mmr", ">", mmr)));
+                cachedRanks[type] = rankSnap.data().count + 1;
+                cachedRanks.lastMMR[type] = mmr;
+                return cachedRanks[type];
+            } catch(e) { return "?"; }
+        }
+        
         window.openProfileMenu = async function() {
                 document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
                 document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
@@ -852,21 +867,22 @@
                     }
                     document.getElementById("stat-distribution").innerHTML = distHtml;
 
-                    // clash (UPDATED FOR TIES & NO PUCKS)
-                    let cWins = data.clashWins || 0; 
-                    let cLosses = data.clashLosses || 0; 
-                    let cTies = data.clashTies || 0; 
-                    let cTotal = cWins + cLosses + cTies;
+                    // clash (UPDATED WITH GLOBAL RANK)
+                    let cWins = data.clashWins || 0; let cLosses = data.clashLosses || 0; let cTies = data.clashTies || 0; let cTotal = cWins + cLosses + cTies;
                     let cWinRate = cTotal > 0 ? Math.round((cWins / cTotal) * 100) : 0;
                     let currentMMR = data.mmr || 1000;
                     let rankObj = getRankDetails(currentMMR);
         
+                    document.getElementById("stat-rank-title").innerText = `${rankObj.name} (Loading Rank...)`;
+                    getPlayerRank(currentMMR, 'host').then(r => {
+                        document.getElementById("stat-rank-title").innerText = `${rankObj.name} (#${r})`;
+                    });
+
                     document.getElementById("stat-mmr-score").innerText = currentMMR;
-                    document.getElementById("stat-rank-title").innerText = rankObj.name;
                     document.getElementById("stat-rank-title").className = rankObj.class;
                     document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses} - ${cTies}`;
                     document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
-                }
+                            }
     
                 // default to standard tab
                 document.getElementById('tab-prof-standard').click();
@@ -906,16 +922,14 @@
        window.openShopMenu = async function() { document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return; const docSnap = await getDoc(doc(db, "users", currentUser.uid)); if(docSnap.exists()) { userProfileData.wallet = docSnap.data().wallet || 0; document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); } window.updatePreviewMonitor(); window.renderShop('titles'); document.getElementById("shop-modal").style.display = "flex"; }
         window.closeShop = function() { document.getElementById('shop-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex'; applyEquippedCosmetics(); }
 
-        window.updatePreviewMonitor = function(tempSkin, tempTitle, tempBanner, tempEffect) {
-    let eq = userProfileData.equipped || {}; let title = tempTitle || eq.title; let banner = tempBanner || eq.banner; let effect = tempEffect || eq.effect;
-    document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`; 
-    document.getElementById("preview-name-box").innerText = userProfileData.username; 
-    document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
-    let tObj = SHOP_ITEMS.titles.find(t => t.id === title); 
-    document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : ""; 
-    
-    document.getElementById("preview-tiles-box").innerHTML = `<div class="tile correct" style="width: 40px; height: 40px; font-size: 20px; background-color: #00ffff; border: 2px solid #3a3a3c; color: #000; box-shadow: none;">W</div><div class="tile present" style="width: 40px; height: 40px; font-size: 20px; background-color: #ff00ff; border: 2px solid #3a3a3c; color: #fff; box-shadow: none;">I</div><div class="tile absent" style="width: 40px; height: 40px; font-size: 20px; background-color: #1a1a1d; border: 2px solid #3a3a3c; color: #444; box-shadow: none;">N</div>`;
-}
+        window.updatePreviewMonitor = function(tempTitle, tempBanner, tempEffect) {
+            let eq = userProfileData.equipped || {}; let title = tempTitle || eq.title; let banner = tempBanner || eq.banner; let effect = tempEffect || eq.effect;
+            document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`; 
+            document.getElementById("preview-name-box").innerText = userProfileData.username; 
+            document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
+            let tObj = SHOP_ITEMS.titles.find(t => t.id === title); 
+            document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : ""; 
+        }
 
         window.renderShop = function(category) {
             document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-shop-${category}`).classList.add("active");
@@ -1346,12 +1360,16 @@
                         }, 1000);
                     }
 
-                    // Update Ranks & Banners
+                    // Update Ranks & Banners with Global Positioning
                     setPlayerBanner(true, data.hostName, data.hostEquipped);
-                    document.getElementById('vs-host-title').innerText = getRankDetails(data.hostMMR || 1000).name;
+                    getPlayerRank(data.hostMMR || 1000, 'host').then(r => {
+                        document.getElementById('vs-host-title').innerText = `${getRankDetails(data.hostMMR || 1000).name} (#${r})`;
+                    });
                     
                     setPlayerBanner(false, data.guestName, data.guestEquipped);
-                    document.getElementById('vs-guest-title').innerText = getRankDetails(data.guestMMR || 1000).name;
+                    getPlayerRank(data.guestMMR || 1000, 'guest').then(r => {
+                        document.getElementById('vs-guest-title').innerText = `${getRankDetails(data.guestMMR || 1000).name} (#${r})`;
+                    });
                     
                     renderMiniBoard("host-mini-board", data.hostBoard);
                     renderMiniBoard("guest-mini-board", data.guestBoard);
