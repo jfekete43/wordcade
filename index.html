@@ -903,17 +903,19 @@
             try { let updatePayload = { wallet: increment(reward) }; if (type === 'daily') { userProfileData.dailyStats.claimed.push(id); updatePayload.dailyStats = userProfileData.dailyStats; } else { userProfileData.claimedCareer.push(id); updatePayload.claimedCareer = userProfileData.claimedCareer; } await updateDoc(doc(db, "users", currentUser.uid), updatePayload); userProfileData.wallet += reward; alert(`Challenge Completed! +${reward.toLocaleString()} pts added to your Wallet.`); window.renderChallenges(type); } catch (e) { alert("Claim failed."); console.error(e); }
         }
 
-        window.openShopMenu = async function() { document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return; const docSnap = await getDoc(doc(db, "users", currentUser.uid)); if(docSnap.exists()) { userProfileData.wallet = docSnap.data().wallet || 0; document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); } window.updatePreviewMonitor(); window.renderShop('skins'); document.getElementById("shop-modal").style.display = "flex"; }
+       window.openShopMenu = async function() { document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return; const docSnap = await getDoc(doc(db, "users", currentUser.uid)); if(docSnap.exists()) { userProfileData.wallet = docSnap.data().wallet || 0; document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); } window.updatePreviewMonitor(); window.renderShop('titles'); document.getElementById("shop-modal").style.display = "flex"; }
         window.closeShop = function() { document.getElementById('shop-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex'; applyEquippedCosmetics(); }
 
         window.updatePreviewMonitor = function(tempSkin, tempTitle, tempBanner, tempEffect) {
-            let eq = userProfileData.equipped || {}; let skin = tempSkin || eq.skin; let title = tempTitle || eq.title; let banner = tempBanner || eq.banner; let effect = tempEffect || eq.effect;
-            document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`; document.getElementById("preview-name-box").innerText = userProfileData.username; document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
-            let tObj = SHOP_ITEMS.titles.find(t => t.id === title); document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : ""; let sObj = SHOP_ITEMS.skins.find(s => s.id === skin); let sClass = sObj && sObj.themeClass ? sObj.themeClass : "";
-            let cColor = '#00ffff', pColor = '#ff00ff'; let tRadius = '0px', tBorder = '2px solid #3a3a3c', tColor = '#000';
-            if(sClass === 'theme-8bit') { cColor = '#00cc00'; pColor = '#ccaa00'; tRadius = '0'; tBorder = '4px solid #fff'; tColor = '#fff';} if(sClass === 'theme-camo') { cColor = '#8da84b'; pColor = '#b89c49'; tRadius = '0px'; tBorder = '2px solid #4a5c4a'; tColor = '#111';}
-            document.getElementById("preview-tiles-box").innerHTML = `<div class="tile correct" style="width: 40px; height: 40px; font-size: 20px; background-color: ${cColor}; border: ${tBorder}; border-radius: ${tRadius}; color: ${tColor}; box-shadow: none;">W</div><div class="tile present" style="width: 40px; height: 40px; font-size: 20px; background-color: ${pColor}; border: ${tBorder}; border-radius: ${tRadius}; color: ${tColor}; box-shadow: none;">I</div><div class="tile absent" style="width: 40px; height: 40px; font-size: 20px; background-color: #1a1a1d; border: ${tBorder}; border-radius: ${tRadius}; color: #444; box-shadow: none;">N</div>`;
-        }
+    let eq = userProfileData.equipped || {}; let title = tempTitle || eq.title; let banner = tempBanner || eq.banner; let effect = tempEffect || eq.effect;
+    document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`; 
+    document.getElementById("preview-name-box").innerText = userProfileData.username; 
+    document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
+    let tObj = SHOP_ITEMS.titles.find(t => t.id === title); 
+    document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : ""; 
+    
+    document.getElementById("preview-tiles-box").innerHTML = `<div class="tile correct" style="width: 40px; height: 40px; font-size: 20px; background-color: #00ffff; border: 2px solid #3a3a3c; color: #000; box-shadow: none;">W</div><div class="tile present" style="width: 40px; height: 40px; font-size: 20px; background-color: #ff00ff; border: 2px solid #3a3a3c; color: #fff; box-shadow: none;">I</div><div class="tile absent" style="width: 40px; height: 40px; font-size: 20px; background-color: #1a1a1d; border: 2px solid #3a3a3c; color: #444; box-shadow: none;">N</div>`;
+}
 
         window.renderShop = function(category) {
             document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-shop-${category}`).classList.add("active");
@@ -934,10 +936,13 @@
         window.equipItem = async function(id, equipCategoryKey) { try { userProfileData.equipped[equipCategoryKey] = id; await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped }); applyEquippedCosmetics(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects"; window.renderShop(renderCat); window.previewItem(id, equipCategoryKey); } catch (e) { alert("Equip failed."); console.error(e); } }
 
         function applyEquippedCosmetics() {
-            if (!userProfileData || !userProfileData.equipped) return; const eqSkinId = userProfileData.equipped.skin; const skinObj = SHOP_ITEMS.skins.find(s => s.id === eqSkinId); document.body.className = skinObj && skinObj.themeClass ? skinObj.themeClass : "";
-            let correctColor = '#00ffff', presentColor = '#ff00ff'; if (eqSkinId === 'skin_8bit') { correctColor = '#00cc00'; presentColor = '#ccaa00'; } if (eqSkinId === 'skin_camo') { correctColor = '#8da84b'; presentColor = '#b89c49'; }
-            document.getElementById('legend-correct').style.backgroundColor = correctColor; document.getElementById('legend-correct').style.boxShadow = `0 0 8px ${correctColor}`; document.getElementById('legend-present').style.backgroundColor = presentColor; document.getElementById('legend-present').style.boxShadow = `0 0 8px ${presentColor}`;
-        }
+    if (!userProfileData || !userProfileData.equipped) return; 
+    document.body.className = "";
+    document.getElementById('legend-correct').style.backgroundColor = '#00ffff'; 
+    document.getElementById('legend-correct').style.boxShadow = `0 0 8px #00ffff`; 
+    document.getElementById('legend-present').style.backgroundColor = '#ff00ff'; 
+    document.getElementById('legend-present').style.boxShadow = `0 0 8px #ff00ff`;
+}
 
         // LEADERBOARD LOGIC
         let currentLbTime = 'all'; 
