@@ -945,7 +945,7 @@
             listDiv.innerHTML = html;
         }
 
-        window.previewItem = function(id, eqKey) { let tempParams = { skin:null, title:null, banner:null, effect:null }; tempParams[eqKey] = id; window.updatePreviewMonitor(tempParams.skin, tempParams.title, tempParams.banner, tempParams.effect); }
+        window.previewItem = function(id, eqKey) { let tempParams = { title:null, banner:null, effect:null }; tempParams[eqKey] = id; window.updatePreviewMonitor(tempParams.title, tempParams.banner, tempParams.effect); }
         window.buyItem = async function(id, cost, category) { if (userProfileData.wallet < cost) { alert("Not enough points in your Wallet!"); return; } let confirmBuy = confirm(`Purchase for ${cost.toLocaleString()} pts?`); if (!confirmBuy) return; try { userProfileData.wallet -= cost; userProfileData.inventory.push(id); await updateDoc(doc(db, "users", currentUser.uid), { wallet: increment(-cost), inventory: userProfileData.inventory }); document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); window.renderShop(category); } catch (e) { alert("Purchase failed."); console.error(e); } }
         window.equipItem = async function(id, equipCategoryKey) { try { userProfileData.equipped[equipCategoryKey] = id; await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped }); applyEquippedCosmetics(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects"; window.renderShop(renderCat); window.previewItem(id, equipCategoryKey); } catch (e) { alert("Equip failed."); console.error(e); } }
 
