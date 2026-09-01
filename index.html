@@ -415,22 +415,34 @@
             </div>
 
             <div id="lobby-waiting-view" style="display: none; width: 100%; text-align: center;">
-                <!-- NEW: Correct IDs added so the JavaScript doesn't crash -->
+                <!-- CORRECT IDS -->
                 <h2 id="waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
                 
-                <!-- NEW: Room code display block for when hosting private matches -->
+                <!-- ROOM CODE DISPLAY -->
                 <div id="display-room-code" style="font-size: 32px; color: #00ffff; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
                 
-                <!-- NEW: Sub-text block for connection status -->
+                <!-- SUB-TEXT BLOCK -->
                 <div id="waiting-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 20px; font-style: italic;"></div>
+                
+                <!-- ADSTERRA 320x50 BANNER -->
+                <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
+                    <script>
+                      atOptions = {
+                        'key' : '71a2e9dc9e3a21bad1179fba579b1f16',
+                        'format' : 'iframe',
+                        'height' : 50,
+                        'width' : 320,
+                        'params' : {}
+                      };
+                    </script>
+                    <script src="https://www.highrevenueformat.com/71a2e9dc9e3a21bad1179fba579b1f16/invoke.js"></script>
+                </div>
                 
                 <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">
                     First player to 1,000 points wins! <br>
                     If time expires, the highest score takes the victory.<br>
                     <i style="color: #ff3333;">Failing a word deducts 50 points!</i>
                 </p>
-                
-                <!-- REMOVED: The broken static 0:00 timer -->
                 
                 <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
@@ -444,6 +456,21 @@
         <div class="modal-box">
             <h2 class="modal-title" id="vs-end-title">You Win!</h2>
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
+            
+            <!-- ADSTERRA 320x50 BANNER -->
+            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
+                <script>
+                  atOptions = {
+                    'key' : '71a2e9dc9e3a21bad1179fba579b1f16',
+                    'format' : 'iframe',
+                    'height' : 50,
+                    'width' : 320,
+                    'params' : {}
+                  };
+                </script>
+                <script src="https://www.highrevenueformat.com/71a2e9dc9e3a21bad1179fba579b1f16/invoke.js"></script>
+            </div>
+
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
             </div>
@@ -592,6 +619,21 @@
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
+            
+            <!-- ADSTERRA 320x50 BANNER -->
+            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
+                <script>
+                  atOptions = {
+                    'key' : '71a2e9dc9e3a21bad1179fba579b1f16',
+                    'format' : 'iframe',
+                    'height' : 50,
+                    'width' : 320,
+                    'params' : {}
+                  };
+                </script>
+                <script src="https://www.highrevenueformat.com/71a2e9dc9e3a21bad1179fba579b1f16/invoke.js"></script>
+            </div>
+
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
