@@ -117,7 +117,17 @@
         body.reduce-motion .effect_holo,
         body.reduce-motion .effect_hologram,
         body.reduce-motion .effect_golden,
-        body.reduce-motion .banner_matrix::after { animation: none !important; }
+        body.reduce-motion .effect_chromatic,
+        body.reduce-motion .effect_prism,
+        body.reduce-motion .effect_supernova,
+        body.reduce-motion .effect_celestial,
+        body.reduce-motion .effect_haunted,
+        body.reduce-motion .banner_matrix::after,
+        body.reduce-motion .banner_prism,
+        body.reduce-motion .banner_flux,
+        body.reduce-motion .banner_solaris,
+        body.reduce-motion .banner_celestial,
+        body.reduce-motion .banner_frostbite { animation: none !important; }
 
         #keyboard { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 500px; margin-bottom: 20px; user-select: none; padding: 0 5px; position: relative; z-index: 2;}
         .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
@@ -213,9 +223,51 @@
         .effect_hologram { background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; }
         .effect_golden { background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fff 50%, #ffd700 75%, #b8860b 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.5s linear infinite; font-weight: 900; }
         .effect_void { color: #111; text-shadow: 0 0 5px #444, 0 0 10px #000; font-weight: 900; letter-spacing: 2px; }
-        
+
         /* New Banner Replacement */
         .banner_neoncity { background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); border-left: 3px solid #ff00ff; border-radius: 3px; }
+
+        /* PRESTIGE TIER — priced above the previous ceiling, for long-term
+           grinders with nothing left to buy. Kept dark/muted-toned like the
+           rest of the banner set (not pale/bright) so white .lb-name text
+           stays legible over them at every point in the animation. */
+        .banner_prism { background: linear-gradient(120deg, #8a0033, #8a4b00, #7a7a00, #006633, #004d66, #3d0080, #8a0033); background-size: 400% 400%; animation: prism-drift 6s ease infinite; border-left: 3px solid #fff; border-radius: 3px; }
+        @keyframes prism-drift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        .banner_flux { background: linear-gradient(115deg, #6a00ff 0%, transparent 60%), linear-gradient(245deg, #00e5ff 0%, transparent 60%), #0a0a1a; background-size: 200% 200%, 200% 200%, 100% 100%; animation: flux-a 4s ease-in-out infinite, flux-b 5.5s ease-in-out infinite; border-left: 3px solid #00e5ff; border-radius: 3px; }
+        @keyframes flux-a { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+        @keyframes flux-b { 0%, 100% { background-position: 100% 100%; } 50% { background-position: 0% 0%; } }
+
+        .banner_solaris { background: radial-gradient(circle at 75% 50%, #ffb347 0%, #ff6a00 30%, #b30000 60%, #2b0000 100%); background-size: 160% 160%; animation: solaris-pulse 3s ease-in-out infinite; border-left: 3px solid #ff6a00; border-radius: 3px; }
+        @keyframes solaris-pulse { 0%, 100% { background-position: 75% 50%; filter: brightness(1); } 50% { background-position: 65% 55%; filter: brightness(1.2); } }
+
+        .banner_celestial { background: radial-gradient(1px 1px at 15% 30%, #fff 100%, transparent), radial-gradient(1px 1px at 70% 60%, #fff 100%, transparent), radial-gradient(1px 1px at 40% 80%, #fff 100%, transparent), radial-gradient(1px 1px at 85% 20%, #fff 100%, transparent), radial-gradient(circle at 50% 50%, #241a4a 0%, #0a0715 100%); animation: celestial-twinkle 2.5s ease-in-out infinite; border-left: 3px solid #d4af37; border-radius: 3px; }
+        @keyframes celestial-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        .effect_chromatic { color: #fff; text-shadow: 2px 0 #ff0055, -2px 0 #00e5ff, 0 2px #7bff00; animation: chromatic-drift 2s ease-in-out infinite; font-weight: 900; }
+        @keyframes chromatic-drift { 0%, 100% { text-shadow: 2px 0 #ff0055, -2px 0 #00e5ff, 0 2px #7bff00; } 50% { text-shadow: -2px 0 #ff0055, 2px 0 #00e5ff, 0 -2px #7bff00; } }
+
+        .effect_prism { background: linear-gradient(90deg, #ff0055, #ff9900, #fff700, #00ff88, #00d4ff, #7b2fff, #ff0055); background-size: 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 3s linear infinite; font-weight: 900; }
+        @keyframes prism-text-shift { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
+
+        .effect_supernova { color: #fff8e1; text-shadow: 0 0 8px #ffcc00, 0 0 16px #ff6a00, 0 0 28px #ff0000; animation: supernova-pulse 1.8s ease-in-out infinite; font-weight: 900; }
+        @keyframes supernova-pulse { 0%, 100% { text-shadow: 0 0 8px #ffcc00, 0 0 16px #ff6a00, 0 0 28px #ff0000; } 50% { text-shadow: 0 0 14px #ffcc00, 0 0 30px #ff6a00, 0 0 50px #ff0000; } }
+
+        .effect_celestial { background: linear-gradient(90deg, #d4af37 0%, #fff8dc 20%, #d4af37 40%, #8a6d1f 60%, #fff8dc 80%, #d4af37 100%); background-size: 250% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2s linear infinite, celestial-sparkle 1.4s ease-in-out infinite; font-weight: 900; text-shadow: 0 0 10px rgba(255,248,220,0.5); }
+        @keyframes celestial-sparkle { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
+
+        /* SEASONAL — time-limited (see isWithinSeasonalWindow in the module
+           script and functions/index.js, which enforces the same window
+           server-side). Once bought, kept forever like anything else. */
+        .banner_frostbite { background: linear-gradient(135deg, #041c2c 0%, #0a3f57 45%, #1a6f8f 100%); background-size: 200% 200%; animation: frost-shimmer 4s ease-in-out infinite; border-left: 3px solid #6fd8ff; border-radius: 3px; }
+        @keyframes frost-shimmer { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+
+        .effect_haunted { color: #7bff6b; text-shadow: 0 0 6px #2fff00, 0 0 12px #0a5c00; animation: haunted-flicker 2.2s steps(1) infinite; font-weight: 900; }
+        @keyframes haunted-flicker { 0%, 19%, 21%, 100% { opacity: 1; } 20% { opacity: 0.4; } 60% { opacity: 0.85; } 61% { opacity: 1; } }
+
+        .seasonal-badge { display: inline-block; font-size: 10px; font-weight: bold; color: #ff9800; border: 1px solid #ff9800; border-radius: 3px; padding: 1px 5px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
+        .grid-item.locked { opacity: 0.5; cursor: default; }
+        .grid-item.locked:hover { background: #111; border-color: #444; }
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: #aaa; font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: #333; height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
@@ -847,7 +899,12 @@
                     { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 17500 },
                     { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 20000 },
                     { id: "banner_neoncity", name: "Neon City", desc: "Midnight skyline.", cost: 22500 },
-                    { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 }
+                    { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 },
+                    { id: "banner_prism", name: "Prism Drift", desc: "A slow-shifting spectrum sweep.", cost: 30000 },
+                    { id: "banner_flux", name: "Quantum Flux", desc: "Two currents, never still.", cost: 45000 },
+                    { id: "banner_solaris", name: "Solaris", desc: "A pulsing solar flare.", cost: 65000 },
+                    { id: "banner_frostbite", name: "Frostbite", desc: "Winter event exclusive — Dec 1 to Jan 5.", cost: 8000, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
+                    { id: "banner_celestial", name: "Celestial Throne", desc: "Amongst the stars. The pinnacle.", cost: 100000 }
                 ],
                 effects: [
                     { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
@@ -857,7 +914,12 @@
                     { id: "effect_hologram", name: "Hologram", desc: "Flickering projection.", cost: 15000 },
                     { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 20000 },
                     { id: "effect_void", name: "Void Black", desc: "Absorbs all light.", cost: 22500 },
-                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 50000 }
+                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 50000 },
+                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 8000, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+                    { id: "effect_chromatic", name: "Chromatic Drift", desc: "A restless RGB split.", cost: 40000 },
+                    { id: "effect_prism", name: "Prism Text", desc: "The full spectrum, cycling.", cost: 60000 },
+                    { id: "effect_supernova", name: "Supernova", desc: "Burning brighter than fire.", cost: 80000 },
+                    { id: "effect_celestial", name: "Celestial Crown", desc: "Gold amongst the stars. The pinnacle.", cost: 100000 }
                 ]
             };
 
@@ -891,6 +953,16 @@
           // when daily challenges/stats roll over. A locale-dependent date (the
           // old toLocaleDateString()) would drift between client and server.
           function getTodayDateStr() { return new Date().toISOString().slice(0, 10); }
+
+          // Recurring annual "MM-DD" window (UTC), wrap-safe for windows that
+          // cross the New Year (e.g. Dec 1 -> Jan 5). Must match the identical
+          // helper in functions/index.js, which is what actually enforces this
+          // at purchase time — this copy is display-only.
+          function isWithinSeasonalWindow(fromMD, toMD, now = new Date()) {
+              const pad = (n) => String(n).padStart(2, "0");
+              const cur = `${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+              return fromMD <= toMD ? (cur >= fromMD && cur <= toMD) : (cur >= fromMD || cur <= toMD);
+          }
         
         function getRankDetails(mmr) {
             if (mmr < 1000) return { name: "Bronze", class: "rank-bronze" };
@@ -1140,12 +1212,21 @@
             document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-shop-${category}`).classList.add("active");
             const listDiv = document.getElementById("shop-list"); listDiv.innerHTML = ""; const items = SHOP_ITEMS[category]; let html = "";
             items.forEach(item => {
-                let isOwned = userProfileData.inventory.includes(item.id); let eqKey = category.slice(0, -1); if (category === 'effects') eqKey = 'effect'; 
-                let isEquipped = userProfileData.equipped[eqKey] === item.id; let btnHtml = "";
-                if (isEquipped) { btnHtml = `<button class="action-btn btn-equipped" onclick="event.stopPropagation()">Equipped</button>`; } 
-                else if (isOwned) { btnHtml = `<button class="action-btn btn-equip" onclick="event.stopPropagation(); window.equipItem('${item.id}', '${eqKey}')">Equip</button>`; } 
-                else { let canAfford = userProfileData.wallet >= item.cost; let color = canAfford ? "#4caf50" : "#ff3333"; btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="event.stopPropagation(); window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`; }
-                html += `<div class="grid-item" onclick="window.previewItem('${item.id}', '${eqKey}')"><div class="grid-item-info"><div class="grid-item-name">${item.name}</div><div class="grid-item-desc">${item.desc}</div></div>${btnHtml}</div>`;
+                let isOwned = userProfileData.inventory.includes(item.id); let eqKey = category.slice(0, -1); if (category === 'effects') eqKey = 'effect';
+                let isEquipped = userProfileData.equipped[eqKey] === item.id; let btnHtml = ""; let badgeHtml = ""; let rowClass = "grid-item";
+                let inSeason = !item.seasonal || isWithinSeasonalWindow(item.seasonal.fromMonthDay, item.seasonal.toMonthDay);
+
+                if (isEquipped) { btnHtml = `<button class="action-btn btn-equipped" onclick="event.stopPropagation()">Equipped</button>`; }
+                else if (isOwned) { btnHtml = `<button class="action-btn btn-equip" onclick="event.stopPropagation(); window.equipItem('${item.id}', '${eqKey}')">Equip</button>`; }
+                else if (item.seasonal && !inSeason) {
+                    rowClass += " locked";
+                    btnHtml = `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;" onclick="event.stopPropagation()">🔒 Not Available</button>`;
+                } else {
+                    if (item.seasonal) badgeHtml = `<span class="seasonal-badge">Limited Time</span>`;
+                    let canAfford = userProfileData.wallet >= item.cost; let color = canAfford ? "#4caf50" : "#ff3333";
+                    btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="event.stopPropagation(); window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
+                }
+                html += `<div class="${rowClass}" onclick="window.previewItem('${item.id}', '${eqKey}')"><div class="grid-item-info"><div class="grid-item-name">${item.name}${badgeHtml}</div><div class="grid-item-desc">${item.desc}</div></div>${btnHtml}</div>`;
             });
             listDiv.innerHTML = html;
         }

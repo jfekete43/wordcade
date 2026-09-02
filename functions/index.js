@@ -56,6 +56,11 @@ const SHOP_ITEMS = {
     { id: "banner_carbon", cost: 20000 },
     { id: "banner_neoncity", cost: 22500 },
     { id: "banner_champ", cost: 25000 },
+    { id: "banner_prism", cost: 30000 },
+    { id: "banner_flux", cost: 45000 },
+    { id: "banner_solaris", cost: 65000 },
+    { id: "banner_frostbite", cost: 8000, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
+    { id: "banner_celestial", cost: 100000 },
   ],
   effects: [
     { id: "effect_none", cost: 0 },
@@ -66,8 +71,22 @@ const SHOP_ITEMS = {
     { id: "effect_fire", cost: 20000 },
     { id: "effect_void", cost: 22500 },
     { id: "effect_golden", cost: 50000 },
+    { id: "effect_haunted", cost: 8000, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+    { id: "effect_chromatic", cost: 40000 },
+    { id: "effect_prism", cost: 60000 },
+    { id: "effect_supernova", cost: 80000 },
+    { id: "effect_celestial", cost: 100000 },
   ],
 };
+
+// Recurring annual "MM-DD" window (UTC), wrap-safe for windows that cross
+// the New Year (e.g. Dec 1 -> Jan 5). Must match the identical helper in
+// index.html — this copy is the one that's actually enforced.
+function isWithinSeasonalWindow(fromMD, toMD, now = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const cur = `${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+  return fromMD <= toMD ? (cur >= fromMD && cur <= toMD) : (cur >= fromMD || cur <= toMD);
+}
 
 const CHALLENGES = {
   daily_pool: [
@@ -300,6 +319,13 @@ exports.purchaseItem = onCall(async (request) => {
   if (!items) throw new HttpsError("invalid-argument", "Unknown category.");
   const item = items.find((i) => i.id === itemId);
   if (!item) throw new HttpsError("not-found", "Unknown item.");
+  if (item.seasonal && !isWithinSeasonalWindow(item.seasonal.fromMonthDay, item.seasonal.toMonthDay)) {
+    // Blocks buying a seasonal item outside its window even if someone calls
+    // this function directly instead of going through the (already-hidden)
+    // Shop UI — an item already owned from a past window is unaffected,
+    // since that check only runs on the not-yet-owned path below.
+    throw new HttpsError("failed-precondition", "This item is not available right now.");
+  }
 
   const userRef = db.collection("users").doc(uid);
   return db.runTransaction(async (tx) => {
