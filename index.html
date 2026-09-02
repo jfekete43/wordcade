@@ -328,7 +328,14 @@
         <div class="score-text">SCORE: <span id="score">0</span></div>
         <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
     </div>
-    
+
+    <!-- DAILY GAUNTLET UI -->
+    <div id="daily-header" style="display:none; font-size: 18px; margin: 0 0 10px 0; font-weight: bold; gap: 20px; position: relative; z-index: 2; text-align: center;">
+        <div style="color:#ff9800;">GAUNTLET — WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+        <div class="score-text">SCORE: <span id="daily-score">0</span></div>
+        <button class="btn-dark" style="padding: 4px 10px; font-size: 11px; margin-top: 4px;" onclick="window.leaveDailyGauntlet()">Leave Gauntlet</button>
+    </div>
+
     <!-- VERSUS UI -->
     <div id="versus-track-container">
         
@@ -551,12 +558,42 @@
         </div>
     </div>
 
+    <!-- DAILY GAUNTLET END MODAL -->
+    <div id="daily-end-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
+            <h2 class="modal-title" id="daily-end-title" style="color: #ff9800;">Gauntlet Complete!</h2>
+            <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:#4caf50; font-size: 24px;">0</span></div>
+
+            <!-- ADSTERRA 320x50 BANNER -->
+            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
+                <script>
+                  atOptions = {
+                    'key' : '71a2e9dc9e3a21bad1179fba579b1f16',
+                    'format' : 'iframe',
+                    'height' : 50,
+                    'width' : 320,
+                    'params' : {}
+                  };
+                </script>
+                <script src="https://www.highrevenueformat.com/71a2e9dc9e3a21bad1179fba579b1f16/invoke.js"></script>
+            </div>
+
+            <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
+
+            <div class="modal-buttons">
+                <button class="btn-cyan" onclick="window.leaveDailyGauntlet(); window.showLeaderboard(); window.setLbTime('daily');">View Daily Leaderboard</button>
+                <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Arcade</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MAIN MENU MODAL -->
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
+                <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800; text-shadow: 0 0 6px #ff9800;" onclick="window.openDailyGauntlet()">🔥 Daily Gauntlet</button>
                 <button class="menu-list-btn" style="color: #ffff00; border-color: #ffff00;" onclick="window.showLeaderboard()">Leaderboard</button>
                 <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
                 <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
@@ -778,6 +815,8 @@
         const callPurchaseItem = httpsCallable(cloudFunctions, "purchaseItem");
         const callChangeUsername = httpsCallable(cloudFunctions, "changeUsername");
         const callRefreshProfile = httpsCallable(cloudFunctions, "refreshProfile");
+        const callStartDailyGauntlet = httpsCallable(cloudFunctions, "startDailyGauntlet");
+        const callGuessDailyWord = httpsCallable(cloudFunctions, "guessDailyWord");
 
         let currentUser = null;
         let userProfileData = null;
@@ -1107,6 +1146,7 @@
         window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; }
         window.confirmNewGame = function() {
             if (isVersusMode) { alert("Leave the match first!"); return; }
+            if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
             if (score > 0 || runStats.played > 0) { let confirmSwitch = confirm("Start a new game? This will end your current run and cash out your score."); if (!confirmSwitch) return; document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun(); } 
             else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
         }
@@ -1309,29 +1349,34 @@
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); }); 
                         }
                         else {
-                            let snapshot; 
-                            if (currentLbTime === 'all') { 
-                                snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(100))); 
-                            } else { 
-                                const now = new Date(); let start = new Date(); 
-                                if (currentLbTime === 'daily') { start.setHours(0,0,0,0); } 
-                                else if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); } 
-                                snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start))); 
+                            let snapshot;
+                            if (currentLbTime === 'all') {
+                                snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(100)));
+                            } else if (currentLbTime === 'daily') {
+                                // Today's shared Daily Gauntlet results — everyone played the
+                                // identical words, so this is now a genuinely fair leaderboard
+                                // (the old "daily" tab just filtered arbitrary endless-mode runs
+                                // by timestamp, which wasn't comparing like-for-like).
+                                snapshot = await getDocs(query(collection(db, "runs"), where("mode", "==", "daily"), where("puzzleDate", "==", getTodayDateStr()), orderBy("score", "desc"), limit(100)));
+                            } else {
+                                const now = new Date(); let start = new Date();
+                                if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
+                                snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
                             }
-                            snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); }); 
-                            if (currentLbTime !== 'all') rawData.sort((a, b) => b.score - a.score);
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
+                            if (currentLbTime !== 'all' && currentLbTime !== 'daily') rawData.sort((a, b) => b.score - a.score);
                         }
-        
+
                         // NEW DEDUPLICATION (By Name to prevent "Soda" duplicates)
-                        let seenNames = new Set(); 
+                        let seenNames = new Set();
                         for (let item of rawData) {
                             let upperName = item.name ? item.name.toUpperCase() : "GUEST";
-                            if (!seenNames.has(upperName)) { 
-                                seenNames.add(upperName); 
-                                finalData.push(item); 
-                                let maxLimit = (currentLbTime === 'career' || currentLbTime === 'clash' || currentLbTime === 'all') ? 100 : 25;
-                                if(finalData.length === maxLimit) break; 
-                            } 
+                            if (!seenNames.has(upperName)) {
+                                seenNames.add(upperName);
+                                finalData.push(item);
+                                let maxLimit = (currentLbTime === 'career' || currentLbTime === 'clash' || currentLbTime === 'all' || currentLbTime === 'daily') ? 100 : 25;
+                                if(finalData.length === maxLimit) break;
+                            }
                         }
         
                         if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
@@ -1371,7 +1416,11 @@
         let currentMatchId = null;
         let matchUnsubscribe = null;
         let isMatchHost = false;
-        let myMiniBoard = []; 
+        let myMiniBoard = [];
+
+        // --- DAILY GAUNTLET STATE ---
+        let isDailyMode = false;
+        let dailyAttempt = null; // server's publicAttemptState — never contains the target words
 
         // --- HTML ESCAPER (prevents chat/message injection) ---
         function escapeHtml(str) {
@@ -1433,6 +1482,7 @@
 
         window.toggleMode = function() {
             document.activeElement.blur();
+            if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
             if (isVersusMode) {
                 let confirmSwitch = confirm("Leave Head-to-Head match?");
                 if (!confirmSwitch) return;
@@ -1474,6 +1524,130 @@
             window.startNewRun();
             document.getElementById("live-feed-container").style.display = "block";
         }
+
+        // --- DAILY GAUNTLET ---
+        function colorCodeToName(c) { return c === 2 ? "correct" : c === 1 ? "present" : "absent"; }
+
+        window.openDailyGauntlet = async function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            if (!currentUser) return;
+            if (isVersusMode) { alert("Leave the Clash match first!"); return; }
+            if (score > 0 || runStats.played > 0) {
+                let confirmSwitch = confirm("Switching to the Daily Gauntlet will cash out your current Standard run. Continue?");
+                if (!confirmSwitch) return;
+                saveRunToCloud();
+            }
+
+            try {
+                const result = await callStartDailyGauntlet();
+                dailyAttempt = result.data.attempt;
+            } catch (e) {
+                alert(e.message || "Couldn't start today's Gauntlet.");
+                console.error(e);
+                return;
+            }
+
+            isDailyMode = true;
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            document.getElementById("btn-mode").style.display = "none";
+            document.getElementById("versus-track-container").style.display = "none";
+            document.getElementById("live-feed-container").style.display = "none";
+            document.getElementById("daily-header").style.display = "block";
+
+            if (dailyAttempt.status === "finished") {
+                boardDisplay.innerHTML = ""; resetKeyboardColors();
+                showDailyEndModal(dailyAttempt, true);
+            } else {
+                startDailyRound();
+            }
+        }
+
+        function startDailyRound() {
+            currentGuess = ""; currentRow = 0; isAnimating = false;
+            createBoard(); resetKeyboardColors();
+            document.getElementById("daily-word-index").innerText = dailyAttempt.wordIndex + 1;
+            document.getElementById("daily-word-count").innerText = dailyAttempt.wordCount;
+            document.getElementById("daily-score").innerText = dailyAttempt.score.toLocaleString();
+
+            // Replay any guesses already made on this word — matters when
+            // resuming after a page reload mid-gauntlet; startDailyGauntlet
+            // returns the existing (not a fresh) attempt in that case.
+            const wordEntry = dailyAttempt.history[dailyAttempt.wordIndex];
+            wordEntry.guesses.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
+            currentRow = wordEntry.guesses.length;
+        }
+
+        async function submitDailyGuess() {
+            if (isAnimating) return;
+            isAnimating = true;
+            const guessArr = currentGuess.split("");
+            const rowIndex = currentRow;
+
+            let result;
+            try {
+                result = (await callGuessDailyWord({ guess: currentGuess })).data;
+            } catch (e) {
+                isAnimating = false;
+                alert(e.message || "Couldn't submit that guess — try again.");
+                console.error(e);
+                return;
+            }
+
+            const tileColors = result.colors.map(colorCodeToName);
+            animateRowReveal(rowIndex, guessArr, tileColors);
+
+            setTimeout(() => {
+                dailyAttempt.score = result.score;
+                document.getElementById("daily-score").innerText = result.score.toLocaleString();
+
+                if (result.solved) {
+                    SFX.correctWord();
+                    showMessage(`+${result.earned} POINTS!`);
+                } else if (result.wordFinished) {
+                    SFX.wrongWord();
+                    showMessage(`WORD WAS ${result.revealedWord}.`);
+                }
+
+                if (result.gauntletFinished) {
+                    dailyAttempt.status = "finished";
+                    dailyAttempt.wordIndex = result.wordIndex;
+                    setTimeout(() => showDailyEndModal(dailyAttempt, false), 1200);
+                } else if (result.wordFinished) {
+                    dailyAttempt.wordIndex = result.wordIndex;
+                    setTimeout(startDailyRound, 1200);
+                } else {
+                    currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();
+                }
+            }, 1000);
+        }
+
+        async function showDailyEndModal(attempt, alreadyPlayed) {
+            document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Gauntlet Complete!";
+            const solvedCount = attempt.history.filter((h) => h.solved).length;
+            document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:#4caf50; font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${solvedCount} / ${attempt.wordCount} words solved`;
+            document.getElementById("daily-end-modal").style.display = "flex";
+
+            // Wallet/careerBank were updated server-side by onRunCreated (the
+            // same trigger every other run uses) — refresh the local profile
+            // so the Shop/Profile screens show the correct total right away.
+            if (currentUser) {
+                try { const snap = await getDoc(doc(db, "users", currentUser.uid)); if (snap.exists()) { userProfileData = snap.data(); } } catch (e) { console.error(e); }
+            }
+        }
+
+        window.leaveDailyGauntlet = function() {
+            document.getElementById("daily-end-modal").style.display = "none";
+            isDailyMode = false;
+            dailyAttempt = null;
+            document.getElementById("daily-header").style.display = "none";
+            document.getElementById("score-board").style.display = "flex";
+            document.getElementById("btn-cash-out").style.display = "inline-block";
+            document.getElementById("btn-mode").style.display = "inline-block";
+            document.getElementById("live-feed-container").style.display = "block";
+            window.startNewRun();
+        }
+
         window.sendChatMessage = async function() {
             let input = document.getElementById("chat-input");
             let text = input.value.trim();
@@ -1848,7 +2022,7 @@
 
         function checkDangerRow() {
             document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile', 'danger-row-static'));
-            if (!isVersusMode && continues <= 0) {
+            if (!isVersusMode && !isDailyMode && continues <= 0) {
                 for (let j = 0; j < 5; j++) { 
                     let tile = document.getElementById(`tile-${maxGuesses - 1}-${j}`); 
                     if (tile) { if (currentRow === maxGuesses - 1) tile.classList.add('danger-tile'); else tile.classList.add('danger-row-static'); } 
@@ -1934,6 +2108,47 @@
 
         function resetKeyboardColors() { document.querySelectorAll(".key").forEach(key => { key.classList.remove("correct", "present", "absent"); }); }
 
+        // Shared by standard-mode checkGuess() and the Daily Gauntlet's
+        // submitDailyGuess() — same flip/reveal visual either way, just fed
+        // colors that came from a local computation in one case and a
+        // server response in the other.
+        function animateRowReveal(rowIndex, guessArr, tileColors) {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    let tile = document.getElementById("tile-" + rowIndex + "-" + i);
+                    if (tile) {
+                        tile.style.transform = "rotateX(90deg)";
+                        setTimeout(() => {
+                            tile.classList.add(tileColors[i]); tile.style.transform = "rotateX(0deg)";
+                            let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
+                            if (keyBtn) {
+                                if (tileColors[i] === "correct") { keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct"); }
+                                else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); }
+                                else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
+                            }
+                        }, 150);
+                    }
+                }, i * 150);
+            }
+        }
+
+        // Instantly renders an already-completed guess row with no flip
+        // animation — used to redraw a Daily Gauntlet word-in-progress after
+        // a page reload (its earlier guesses are already resolved, no need
+        // to re-animate them).
+        function renderCompletedGuessRow(rowIndex, guessArr, tileColors) {
+            for (let i = 0; i < 5; i++) {
+                let tile = document.getElementById("tile-" + rowIndex + "-" + i);
+                if (tile) { tile.innerText = guessArr[i]; tile.classList.add(tileColors[i]); }
+                let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
+                if (keyBtn) {
+                    if (tileColors[i] === "correct") { keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct"); }
+                    else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); }
+                    else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
+                }
+            }
+        }
+
         function startRound() {
             // If in Clash mode, use the shared word list!
             if (isVersusMode && clashWords && clashWords.length > 0) {
@@ -1971,7 +2186,7 @@
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
-                checkGuess();
+                if (isDailyMode) { submitDailyGuess(); } else { checkGuess(); }
             } else if (key === "BACKSPACE" || key === "⌫") {
                 SFX.del();
                 currentGuess = currentGuess.slice(0, -1);
@@ -2014,24 +2229,8 @@
                     if (targetIndex !== -1) { tileColors[i] = "present"; targetArr[targetIndex] = null; }
                 }
 
-                // FASTER FLIP ANIMATION
-                for (let i = 0; i < 5; i++) {
-                    setTimeout(() => {
-                        let tile = document.getElementById("tile-" + currentRow + "-" + i);
-                        if (tile) {
-                            tile.style.transform = "rotateX(90deg)"; 
-                            setTimeout(() => {
-                                tile.classList.add(tileColors[i]); tile.style.transform = "rotateX(0deg)"; 
-                                let keyBtn = document.querySelector(`.key[data-key="${guessArr[i]}"]`);
-                                if (keyBtn) {
-                                    if (tileColors[i] === "correct") { keyBtn.classList.remove("present", "absent"); keyBtn.classList.add("correct"); } 
-                                    else if (tileColors[i] === "present" && !keyBtn.classList.contains("correct")) { keyBtn.classList.remove("absent"); keyBtn.classList.add("present"); } 
-                                    else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
-                                }
-                            }, 150); // Cut from 250
-                        }
-                    }, i * 150); // Cut from 300
-                }
+                // FASTER FLIP ANIMATION (shared with the Daily Gauntlet — see animateRowReveal)
+                animateRowReveal(currentRow, guessArr, tileColors);
 
                 if (isVersusMode && currentMatchId) {
                     try {

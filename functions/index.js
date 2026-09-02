@@ -14,8 +14,17 @@
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+
+// A copy of words.js's word lists, generated once via a small script (see
+// the repo's DEPLOY.md) rather than parsed from words.js at runtime — keep
+// the two in sync if the dictionary ever changes. Used only by the Daily
+// Gauntlet functions below, to validate guesses and pick target words
+// server-side without ever sending the answer to the client.
+const { targetWords: DAILY_TARGET_WORDS, validGuesses: DAILY_VALID_GUESSES } = require("./words.json");
+const DAILY_ALL_VALID_WORDS = new Set([...DAILY_TARGET_WORDS, ...DAILY_VALID_GUESSES]);
 
 initializeApp();
 const db = getFirestore();
@@ -120,6 +129,12 @@ const CHALLENGES = {
 
 const DEFAULT_INVENTORY = ["title_none", "skin_default", "banner_default", "effect_none"];
 const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
+
+// Must match index.html's scorePoints exactly — points awarded by which
+// guess (1st through 5th) solved the word.
+const SCORE_POINTS = [500, 250, 150, 50, 10];
+const DAILY_GAUNTLET_WORD_COUNT = 10;
+const DAILY_GAUNTLET_MAX_GUESSES = 5;
 
 // UTC calendar-day string (YYYY-MM-DD). Must match index.html's
 // getTodayDateStr() exactly, since this is the sole source of truth for
@@ -462,5 +477,196 @@ exports.refreshProfile = onCall(async (request) => {
 
     if (Object.keys(updates).length > 0) tx.update(userRef, updates);
     return { profile: { ...data, ...updates } };
+  });
+});
+
+// ============================================================================
+// DAILY GAUNTLET — a shared, once-per-day puzzle: everyone gets the same
+// DAILY_GAUNTLET_WORD_COUNT words each UTC day, one attempt each. Failing a
+// word ends the run with whatever was earned so far (no continues/wipeout —
+// this mode is meant to be a low-stress daily ritual, not the high-stakes
+// endless mode). Feeds the "Daily" leaderboard tab, replacing what used to
+// just be arbitrary endless-mode runs filtered by timestamp.
+//
+// dailyPuzzles/{date} is never readable by the client (see firestore.rules)
+// — the client only ever learns the words one letter-color at a time via
+// guessDailyWord, exactly like playing against a real opponent would reveal
+// them. Grading a guess happens HERE rather than in the client specifically
+// because this mode's whole point is a fair shared puzzle; letting the
+// client compute colors itself would mean the raw word sits in a variable
+// devtools can read before anyone's finished playing that day.
+// ============================================================================
+
+function gradeGuess(guess, target) {
+  const guessArr = guess.split("");
+  const targetArr = target.split("");
+  const colors = [0, 0, 0, 0, 0]; // 0=absent, 1=present, 2=correct — matches index.html's mini-board encoding
+  for (let i = 0; i < 5; i++) {
+    if (guessArr[i] === targetArr[i]) { colors[i] = 2; targetArr[i] = null; }
+  }
+  for (let i = 0; i < 5; i++) {
+    if (colors[i] === 2) continue;
+    const idx = targetArr.indexOf(guessArr[i]);
+    if (idx !== -1) { colors[i] = 1; targetArr[idx] = null; }
+  }
+  return colors;
+}
+
+function pickDailyWords() {
+  const shuffled = [...DAILY_TARGET_WORDS].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, DAILY_GAUNTLET_WORD_COUNT);
+}
+
+// Picks the day's words once, at 00:00 UTC. Guarded against ever
+// overwriting an already-published day (a re-trigger or cold-start race)
+// so the word set can't change out from under players mid-puzzle.
+exports.generateDailyPuzzle = onSchedule("0 0 * * *", async () => {
+  const today = getTodayDateStr();
+  const puzzleRef = db.collection("dailyPuzzles").doc(today);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(puzzleRef);
+    if (snap.exists) return;
+    tx.set(puzzleRef, { words: pickDailyWords(), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() });
+  });
+});
+
+async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
+  const snap = await tx.get(puzzleRef);
+  if (snap.exists) return snap.data();
+  // Fallback for the rare case the 00:00 UTC schedule hasn't run yet (the
+  // first day after deploy, or a missed trigger) — generate it lazily so
+  // the feature doesn't hard-fail for whoever hits this first that day.
+  const puzzle = { words: pickDailyWords(), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
+  tx.set(puzzleRef, puzzle);
+  return puzzle;
+}
+
+function dailyAttemptRef(uid, date) {
+  return db.collection("dailyAttempts").doc(uid).collection("days").doc(date);
+}
+
+// Shape returned to the client — never includes the target words, only
+// each guess made so far and its color feedback.
+function publicAttemptState(attempt) {
+  return { date: attempt.date, wordIndex: attempt.wordIndex, wordCount: attempt.wordCount, score: attempt.score, status: attempt.status, history: attempt.history };
+}
+
+exports.startDailyGauntlet = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const today = getTodayDateStr();
+  const ref = dailyAttemptRef(uid, today);
+  const puzzleRef = db.collection("dailyPuzzles").doc(today);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) return { attempt: publicAttemptState(snap.data()) };
+
+    const puzzle = await getOrCreateTodaysPuzzle(tx, puzzleRef, today);
+    const attempt = {
+      date: today,
+      wordIndex: 0,
+      wordCount: puzzle.wordCount,
+      score: 0,
+      status: "active",
+      history: Array.from({ length: puzzle.wordCount }, () => ({ guesses: [], solved: false })),
+    };
+    tx.set(ref, attempt);
+    return { attempt: publicAttemptState(attempt) };
+  });
+});
+
+exports.guessDailyWord = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const raw = (request.data && request.data.guess) || "";
+  const guess = String(raw).toUpperCase().trim();
+  if (!/^[A-Z]{5}$/.test(guess)) throw new HttpsError("invalid-argument", "Guess must be a 5-letter word.");
+  if (!DAILY_ALL_VALID_WORDS.has(guess)) throw new HttpsError("invalid-argument", "Not in word list.");
+
+  const today = getTodayDateStr();
+  const ref = dailyAttemptRef(uid, today);
+  const puzzleRef = db.collection("dailyPuzzles").doc(today);
+  const userRef = db.collection("users").doc(uid);
+
+  return db.runTransaction(async (tx) => {
+    const [attemptSnap, puzzleSnap, userSnap] = await Promise.all([tx.get(ref), tx.get(puzzleRef), tx.get(userRef)]);
+    if (!attemptSnap.exists) throw new HttpsError("failed-precondition", "Start today's gauntlet first.");
+    if (!puzzleSnap.exists) throw new HttpsError("not-found", "Today's puzzle is missing.");
+    const attempt = attemptSnap.data();
+    const puzzle = puzzleSnap.data();
+    const username = userSnap.exists ? userSnap.data().username : null;
+    if (attempt.status !== "active") throw new HttpsError("failed-precondition", "Today's gauntlet is already finished.");
+
+    const wordIndex = attempt.wordIndex;
+    const wordEntry = attempt.history[wordIndex];
+    if (wordEntry.guesses.length >= DAILY_GAUNTLET_MAX_GUESSES) throw new HttpsError("failed-precondition", "No guesses left on this word.");
+
+    const target = puzzle.words[wordIndex];
+    const colors = gradeGuess(guess, target);
+    const solved = colors.every((c) => c === 2);
+    const guessNumber = wordEntry.guesses.length + 1; // 1-indexed, for scoring
+
+    const newHistory = attempt.history.map((entry, i) => (i === wordIndex ? { ...entry, guesses: [...entry.guesses, { guess, colors }], solved } : entry));
+
+    let earned = 0;
+    let wordFinished = false;
+    let failedOut = false;
+    if (solved) {
+      earned = SCORE_POINTS[guessNumber - 1];
+      wordFinished = true;
+    } else if (guessNumber >= DAILY_GAUNTLET_MAX_GUESSES) {
+      wordFinished = true;
+      failedOut = true;
+    }
+
+    const newScore = attempt.score + earned;
+    const newWordIndex = wordFinished ? wordIndex + 1 : wordIndex;
+    const gauntletFinished = wordFinished && (failedOut || newWordIndex >= attempt.wordCount);
+    const newStatus = gauntletFinished ? "finished" : "active";
+
+    tx.update(ref, { history: newHistory, score: newScore, wordIndex: newWordIndex, status: newStatus });
+
+    if (gauntletFinished) {
+      // Reuses the exact same payout path as a standard run: score earned
+      // here is real, same as anywhere else in the game. Writing a /runs
+      // doc with a deterministic id (blocks a second submission for the
+      // same day — a repeat write hits the same doc, and onRunCreated's
+      // own payoutApplied guard makes any retry a no-op) lets onRunCreated
+      // apply wallet/careerBank/stat counters through its existing trigger,
+      // no separate payout logic needed here.
+      let wordsGuessed = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, g5 = 0, currentStreak = 0, bestStreak = 0;
+      newHistory.forEach((entry) => {
+        if (entry.guesses.length === 0) return; // word never reached
+        if (entry.solved) {
+          wordsGuessed++;
+          currentStreak++;
+          bestStreak = Math.max(bestStreak, currentStreak);
+          const n = entry.guesses.length;
+          if (n === 1) g1++; else if (n === 2) g2++; else if (n === 3) g3++; else if (n === 4) g4++; else if (n === 5) g5++;
+        } else {
+          currentStreak = 0;
+        }
+      });
+      const wordsPlayed = newHistory.filter((entry) => entry.guesses.length > 0).length;
+
+      // The leaderboard's dedup-by-name step runs BEFORE it re-resolves each
+      // entry's live username, so this can't be left null/generic the way
+      // "the leaderboard re-fetches it anyway" might suggest — every daily
+      // entry sharing one placeholder name would collapse into a single
+      // row. Use the username read above instead.
+      const runRef = db.collection("runs").doc(`daily_${uid}_${today}`);
+      tx.set(runRef, {
+        uid, username, score: newScore, isWipeout: false, lostScore: 0,
+        wordsGuessed, wordsPlayed, guess1: g1, guess2: g2, guess3: g3, guess4: g4, guess5: g5,
+        fails: failedOut ? 1 : 0, kobeCount: 0, bestStreak,
+        mode: "daily", puzzleDate: today,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    }
+
+    return {
+      colors, solved, wordFinished, gauntletFinished,
+      earned, score: newScore, wordIndex: newWordIndex,
+      revealedWord: wordFinished ? target : null, // safe now — this word is done either way
+    };
   });
 });

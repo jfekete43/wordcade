@@ -119,5 +119,22 @@ service cloud.firestore {
 
       allow delete: if isSignedIn() && resource.data.hostUid == request.auth.uid;
     }
+
+    // Daily Gauntlet's target words — NEVER readable by any client. The
+    // client only ever learns them one guess's color feedback at a time via
+    // the guessDailyWord Cloud Function; a readable rule here would let
+    // anyone open devtools and read the day's answers before playing.
+    match /dailyPuzzles/{date} {
+      allow read, write: if false;
+    }
+
+    // A player's own progress through today's (or a past) gauntlet — safe
+    // to let them read directly (past guesses + color feedback + score,
+    // never the unsolved target words), but every write goes through
+    // startDailyGauntlet/guessDailyWord (Admin SDK), never the client SDK.
+    match /dailyAttempts/{userId}/days/{date} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
   }
 }
