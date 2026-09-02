@@ -650,7 +650,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
@@ -1020,7 +1020,37 @@
         }
 
         window.previewItem = function(id, eqKey) { let tempParams = { title:null, banner:null, effect:null }; tempParams[eqKey] = id; window.updatePreviewMonitor(tempParams.title, tempParams.banner, tempParams.effect); }
-        window.buyItem = async function(id, cost, category) { if (userProfileData.wallet < cost) { alert("Not enough points in your Wallet!"); return; } let confirmBuy = confirm(`Purchase for ${cost.toLocaleString()} pts?`); if (!confirmBuy) return; try { userProfileData.wallet -= cost; userProfileData.inventory.push(id); await updateDoc(doc(db, "users", currentUser.uid), { wallet: increment(-cost), inventory: userProfileData.inventory }); document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString(); window.renderShop(category); } catch (e) { alert("Purchase failed."); console.error(e); } }
+        window.buyItem = async function(id, cost, category) {
+            if (!currentUser) return;
+            if (userProfileData.wallet < cost) { alert("Not enough points in your Wallet!"); return; }
+            let confirmBuy = confirm(`Purchase for ${cost.toLocaleString()} pts?`);
+            if (!confirmBuy) return;
+            const userRef = doc(db, "users", currentUser.uid);
+            try {
+                // Run as a transaction so two rapid clicks (or a slow connection) can't both
+                // pass the affordability check before either write lands, which previously
+                // let the wallet go negative or the item get added to inventory twice.
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(userRef);
+                    if (!snap.exists()) throw new Error("NO_PROFILE");
+                    const data = snap.data();
+                    const wallet = data.wallet || 0;
+                    const inventory = data.inventory || [];
+                    if (inventory.includes(id)) throw new Error("ALREADY_OWNED");
+                    if (wallet < cost) throw new Error("INSUFFICIENT_FUNDS");
+                    tx.update(userRef, { wallet: wallet - cost, inventory: [...inventory, id] });
+                });
+            } catch (e) {
+                if (e.message === "INSUFFICIENT_FUNDS") { alert("Not enough points in your Wallet!"); }
+                else if (e.message !== "ALREADY_OWNED") { alert("Purchase failed."); console.error(e); }
+            }
+            // Re-sync from the server (whether the transaction succeeded, failed, or the item
+            // turned out to be already owned) so the UI never trusts stale local state.
+            const freshSnap = await getDoc(userRef);
+            if (freshSnap.exists()) { userProfileData.wallet = freshSnap.data().wallet || 0; userProfileData.inventory = freshSnap.data().inventory || []; }
+            document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString();
+            window.renderShop(category);
+        }
         window.equipItem = async function(id, equipCategoryKey) { try { userProfileData.equipped[equipCategoryKey] = id; await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped }); applyEquippedCosmetics(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects"; window.renderShop(renderCat); window.previewItem(id, equipCategoryKey); } catch (e) { alert("Equip failed."); console.error(e); } }
 
         function applyEquippedCosmetics() {
@@ -1114,6 +1144,11 @@
         let matchUnsubscribe = null;
         let isMatchHost = false;
         let myMiniBoard = []; 
+
+        // --- HTML ESCAPER (prevents chat/message injection) ---
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        }
 
         // --- USERNAME SANITIZER ---
         function sanitizeUsername(name) {
@@ -1217,7 +1252,8 @@
             if (!text || !currentMatchId) return;
             input.value = "";
             try {
-                let msg = `<span style="color:#00ffff; font-weight:bold;">${userProfileData.username}</span>: ${text}`;
+                let safeText = escapeHtml(text.substring(0, 50));
+                let msg = `<span style="color:#00ffff; font-weight:bold;">${userProfileData.username}</span>: ${safeText}`;
                 await updateDoc(doc(db, "matches", currentMatchId), { chat: arrayUnion(msg) });
             } catch(e) { console.error("Chat error", e); }
         }

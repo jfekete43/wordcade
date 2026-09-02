@@ -1,0 +1,110 @@
+rules_version = '2';
+
+// ============================================================================
+// Lexathon / Wordcade — Firestore Security Rules
+//
+// HOW TO DEPLOY (free, no billing plan required):
+//   1. Go to the Firebase Console -> your project (wordcade-387e8) ->
+//      Firestore Database -> Rules tab.
+//   2. Replace the existing rules with the contents of this file.
+//   3. Click "Publish".
+//
+// WHAT THIS DOES AND DOES NOT DO
+//   The game currently has every player's browser write its own score,
+//   wallet, careerBank, and mmr directly to Firestore (there is no backend
+//   that computes/validates these). These rules cannot change that
+//   architecture — a browser console can still call the same SDK calls the
+//   game itself uses. What they DO add is a floor under the worst abuse:
+//     - a user can only ever write to their own /users/{uid} doc
+//     - a single write can't set wallet/careerBank/mmr to an arbitrary huge
+//       number (deltas are capped to roughly what one legitimate run/match
+//       could produce)
+//     - careerBank can only go up (spending only touches wallet)
+//     - /runs (leaderboard) entries must be self-authored, capped, and
+//       server-timestamped
+//     - /matches can only be created/edited by the two participants
+//
+//   Closing the hole completely (so a modified client truly cannot forge a
+//   score, wallet balance, or rank) requires moving that logic server-side,
+//   e.g. a Cloud Function that verifies and writes these fields instead of
+//   the client. That requires the Firebase Blaze (pay-as-you-go) plan.
+//   These rules are the free interim hardening.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // The maximum a single ELO update could legitimately move MMR by
+    // (K=32 in the client's calculateEloChange, so |change| <= 32; give
+    // some headroom).
+    function mmrDeltaOk() {
+      return request.resource.data.mmr <= resource.data.mmr + 60
+          && request.resource.data.mmr >= resource.data.mmr - 60;
+    }
+
+    // Caps how much wallet/careerBank can grow in a single write. Real
+    // writes are per-run or per-match increments; this just blocks
+    // "set my balance to 999999999" in one shot.
+    function currencyDeltaOk() {
+      return request.resource.data.wallet <= resource.data.wallet + 100000
+          && request.resource.data.careerBank <= resource.data.careerBank + 100000
+          // careerBank is a lifetime/leaderboard stat: spending in the shop
+          // must only ever touch wallet, never reduce careerBank.
+          && request.resource.data.careerBank >= resource.data.careerBank;
+    }
+
+    match /users/{userId} {
+      // Profiles (username, cosmetics, public stats) are read by the
+      // leaderboard/live-feed/rank-lookup features for any signed-in user.
+      allow read: if isSignedIn();
+
+      allow create: if isOwner(userId);
+
+      allow update: if isOwner(userId)
+        && request.resource.data.wallet is number
+        && request.resource.data.careerBank is number
+        && request.resource.data.mmr is number
+        && mmrDeltaOk()
+        && currencyDeltaOk();
+
+      allow delete: if false;
+    }
+
+    match /runs/{runId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.score is number
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 100000
+        && request.resource.data.timestamp == request.time;
+
+      allow update, delete: if false;
+    }
+
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.hostUid == request.auth.uid;
+
+      // Either participant can update (moves, chat, scores); joining a
+      // waiting match is the one case where the writer isn't hostUid yet.
+      allow update: if isSignedIn()
+        && (resource.data.hostUid == request.auth.uid
+            || resource.data.guestUid == request.auth.uid
+            || (resource.data.guestUid == null && request.resource.data.guestUid == request.auth.uid));
+
+      allow delete: if isSignedIn() && resource.data.hostUid == request.auth.uid;
+    }
+  }
+}
