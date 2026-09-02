@@ -50,6 +50,13 @@ service cloud.firestore {
         && request.resource.data.kobeCount == 0
         && request.resource.data.clashWins == 0 && request.resource.data.clashLosses == 0
         && request.resource.data.clashTies == 0
+        // These four directly gate one-time challenge rewards (up to 75k
+        // pts) — without forcing them to 0/null here, a throwaway account
+        // could self-seed a fake streak and claim rewards it never earned.
+        && request.resource.data.loginStreak == 0 && request.resource.data.bestLoginStreak == 0
+        && request.resource.data.lastLoginDate == null
+        && request.resource.data.currentClashWinStreak == 0 && request.resource.data.bestClashWinStreak == 0
+        && request.resource.data.bestNoMissStreak == 0
         && request.resource.data.inventory == ["title_none", "skin_default", "banner_default", "effect_none"]
         && request.resource.data.claimedCareer == []
         && request.resource.data.dailyStats.played == 0
@@ -87,6 +94,7 @@ service cloud.firestore {
         && request.resource.data.guess5 is number && request.resource.data.guess5 >= 0 && request.resource.data.guess5 <= 5000
         && request.resource.data.fails is number && request.resource.data.fails >= 0 && request.resource.data.fails <= 5000
         && request.resource.data.kobeCount is number && request.resource.data.kobeCount >= 0 && request.resource.data.kobeCount <= 5000
+        && request.resource.data.bestStreak is number && request.resource.data.bestStreak >= 0 && request.resource.data.bestStreak <= 5000
         && request.resource.data.timestamp == request.time;
 
       // payoutApplied is added afterwards by the Cloud Function (Admin SDK,

@@ -666,6 +666,10 @@
             <!-- STANDARD STATS -->
             <div id="profile-standard" class="modal-stats" style="text-align: left;">
                 <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts</div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">🔥 Login Streak<br><span id="stat-login-streak" style="color:white; font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">🎯 Best No-Miss<br><span id="stat-nomiss-streak" style="color:white; font-size: 18px;">0</span></div>
+                </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 5px;">
                     <div style="text-align: center;">Played<br><span id="stat-played" style="color:white; font-size: 18px;">0</span></div>
                     <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:white; font-size: 18px;">0%</span></div>
@@ -679,10 +683,11 @@
             <div id="profile-clash" class="modal-stats" style="text-align: left; display: none;">
                 <div style="text-align: center; margin-bottom: 20px;">MMR: <br><span id="stat-mmr-score" style="color: #ff9800; font-size: 28px;">1000</span></div>
                 <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;" id="stat-rank-title">Bronze</div>
-                
+
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
                     <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:white; font-size: 18px;">0 - 0 - 0</span></div>
                     <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
+                    <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:white; font-size: 18px;">0</span></div>
                 </div>
             </div>
 
@@ -944,7 +949,13 @@
                     { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
                     { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
                     { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
-                    { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 }
+                    { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 },
+                    { id: "c_untouchable", name: "Untouchable", desc: "Reach a streak of 10 correct guesses without a miss.", req: 10, field: "bestNoMissStreak", reward: 20000 },
+                    { id: "c_perfectionist", name: "Flawless Run", desc: "Reach a streak of 25 correct guesses without a miss.", req: 25, field: "bestNoMissStreak", reward: 60000 },
+                    { id: "c_hotstreak", name: "Hot Streak", desc: "Win 5 Clash matches in a row.", req: 5, field: "bestClashWinStreak", reward: 30000 },
+                    { id: "c_unstoppable", name: "Unstoppable", desc: "Win 10 Clash matches in a row.", req: 10, field: "bestClashWinStreak", reward: 75000 },
+                    { id: "c_dedication", name: "Dedication", desc: "Log in 3 days in a row.", req: 3, field: "bestLoginStreak", reward: 2500 },
+                    { id: "c_devoted", name: "Devoted", desc: "Log in 14 days in a row.", req: 14, field: "bestLoginStreak", reward: 20000 }
                 ]
             };
 
@@ -1015,11 +1026,22 @@
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, wallet: 0, handleChanges: 0, totalWordsGuessed: 0, wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0, kobeCount: 0,
                         mmr: 1000, clashWins: 0, clashLosses: 0, clashTies: 0, clashPucks: 0, // clashTies added here
+                        // Streak fields always start hard-zeroed (enforced by firestore.rules on
+                        // create too) — they gate real challenge rewards, so day-1 credit for a
+                        // new account comes from calling refreshProfile() right after this, the
+                        // same server-authoritative path every later day uses, never from a
+                        // client-chosen starting value.
+                        loginStreak: 0, bestLoginStreak: 0, lastLoginDate: null,
+                        currentClashWinStreak: 0, bestClashWinStreak: 0, bestNoMissStreak: 0,
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
                         equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
                         claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [], activeIds: dailyIds } // activeIds added here
                     };
                     await setDoc(userRef, userProfileData);
+                    try {
+                        const result = await callRefreshProfile();
+                        if (result && result.data && result.data.profile) { userProfileData = result.data.profile; }
+                    } catch (e) { console.error("Day-1 profile refresh failed", e); }
                 } else {
                     userProfileData = docSnap.data();
                     // Legacy-field backfill and daily-challenge rollover used to be
@@ -1112,7 +1134,9 @@
                     userProfileData = data; // Keep local sync fresh
         
                     // standard
-                    document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString(); 
+                    document.getElementById("stat-career-bank").innerText = (data.careerBank || 0).toLocaleString();
+                    document.getElementById("stat-login-streak").innerText = data.loginStreak || 0;
+                    document.getElementById("stat-nomiss-streak").innerText = data.bestNoMissStreak || 0;
                     let played = data.wordsPlayed || 0; let fails = data.fails || 0; let wins = played - fails; let winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
         
                     // NEW: Average Score Math
@@ -1144,6 +1168,7 @@
                     document.getElementById("stat-rank-title").className = rankObj.class;
                     document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses} - ${cTies}`;
                     document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
+                    document.getElementById("stat-clash-streak").innerText = data.currentClashWinStreak || 0;
                             }
     
                 // default to standard tab
@@ -1394,7 +1419,7 @@
         let maxGuesses = 5;
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
         const scorePoints = [500, 250, 150, 50, 10]; 
-        let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
+        let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
         // --- NEW CLASH MODE VARIABLES ---
         let clashWordIndex = 0;
         let clashWords = [];
@@ -1807,7 +1832,9 @@
                 try {
                     const state = JSON.parse(saved);
                     score = state.score || 0; continues = state.continues !== undefined ? state.continues : 1;
-                    wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
+                    wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
+                    // Backfill for a save written before streak tracking existed
+                    runStats.currentStreak = runStats.currentStreak || 0; runStats.bestStreak = runStats.bestStreak || 0;
                     return true;
                 } catch (e) { console.error("Save file corrupted"); return false; }
             }
@@ -1851,6 +1878,7 @@
                         guess1: runStats.guess1, guess2: runStats.guess2, guess3: runStats.guess3,
                         guess4: runStats.guess4, guess5: runStats.guess5, fails: runStats.fails,
                         kobeCount: runStats.kobeCount || 0,
+                        bestStreak: runStats.bestStreak || 0,
                         equipped: userProfileData.equipped,
                         timestamp: serverTimestamp()
                     });
@@ -1891,7 +1919,7 @@
 
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
-            score = 0; continues = 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0 };
+            score = 0; continues = 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
             clearLocalState(); updateScoreBoard(); startRound();
         }
 
@@ -2048,6 +2076,7 @@
                                 SFX.correctWord();
                                 runStats.played++; runStats['guess' + (currentRow + 1)]++;
                                 if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
+                                runStats.currentStreak++; runStats.bestStreak = Math.max(runStats.bestStreak, runStats.currentStreak);
 
                                 let oldScore = score;
                                 let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
@@ -2077,7 +2106,7 @@
                                 clashWordIndex++; 
                                 setTimeout(startRound, 1500); // slightly longer to read the penalty
                             } else {
-                                continues--; runStats.played++; runStats.fails++;
+                                continues--; runStats.played++; runStats.fails++; runStats.currentStreak = 0;
                                 if (continues < 0) {
                                     SFX.wipeout();
                                     showMessage(`WORD WAS ${targetWord}.`);

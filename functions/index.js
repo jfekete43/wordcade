@@ -109,6 +109,12 @@ const CHALLENGES = {
     { id: "c_top10daily", req: 1, field: "achievedTop10Daily", reward: 25000 },
     { id: "c_kobe", req: 1, field: "kobeCount", reward: 5000 },
     { id: "c_closer_elite", req: 50, field: "kobeCount", reward: 75000 },
+    { id: "c_untouchable", req: 10, field: "bestNoMissStreak", reward: 20000 },
+    { id: "c_perfectionist", req: 25, field: "bestNoMissStreak", reward: 60000 },
+    { id: "c_hotstreak", req: 5, field: "bestClashWinStreak", reward: 30000 },
+    { id: "c_unstoppable", req: 10, field: "bestClashWinStreak", reward: 75000 },
+    { id: "c_dedication", req: 3, field: "bestLoginStreak", reward: 2500 },
+    { id: "c_devoted", req: 14, field: "bestLoginStreak", reward: 20000 },
   ],
 };
 
@@ -178,6 +184,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     const g5 = Math.max(0, Number(run.guess5) || 0);
     const fails = Math.max(0, Number(run.fails) || 0);
     const kobe = Math.max(0, Number(run.kobeCount) || 0);
+    const bestStreakThisRun = Math.max(0, Number(run.bestStreak) || 0);
 
     tx.update(userRef, {
       wallet: FieldValue.increment(score),
@@ -191,6 +198,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       guess5: FieldValue.increment(g5),
       fails: FieldValue.increment(fails),
       kobeCount: FieldValue.increment(kobe),
+      bestNoMissStreak: Math.max(user.bestNoMissStreak || 0, bestStreakThisRun),
       dailyStats: {
         date: today,
         played: (daily.played || 0) + wordsPlayed,
@@ -251,6 +259,18 @@ exports.onMatchFinished = onDocumentUpdated("matches/{matchId}", async (event) =
       guestUpdate.clashLosses = FieldValue.increment(hostWon ? 1 : 0);
       if (hostWon) { hostUpdate.wallet = FieldValue.increment(1000); hostUpdate.careerBank = FieldValue.increment(1000); }
       else { guestUpdate.wallet = FieldValue.increment(1000); guestUpdate.careerBank = FieldValue.increment(1000); }
+
+      // Win streak: winner's streak advances, loser's resets to 0. A tie
+      // leaves both untouched (see the else branch) rather than breaking
+      // either player's streak.
+      const hostStreak = hostData.currentClashWinStreak || 0;
+      const guestStreak = guestData.currentClashWinStreak || 0;
+      const newHostStreak = hostWon ? hostStreak + 1 : 0;
+      const newGuestStreak = hostWon ? 0 : guestStreak + 1;
+      hostUpdate.currentClashWinStreak = newHostStreak;
+      hostUpdate.bestClashWinStreak = Math.max(hostData.bestClashWinStreak || 0, newHostStreak);
+      guestUpdate.currentClashWinStreak = newGuestStreak;
+      guestUpdate.bestClashWinStreak = Math.max(guestData.bestClashWinStreak || 0, newGuestStreak);
     } else {
       hostUpdate.clashTies = FieldValue.increment(1);
       guestUpdate.clashTies = FieldValue.increment(1);
@@ -396,7 +416,14 @@ exports.refreshProfile = onCall(async (request) => {
 
     if (data.mmr === undefined) { updates.mmr = 1000; updates.clashWins = 0; updates.clashLosses = 0; updates.clashPucks = 0; }
     if (data.clashTies === undefined) updates.clashTies = 0;
-    if (data.wallet === undefined) {
+
+    // walletBase tracks the wallet's value through this function as a plain
+    // number (never FieldValue.increment) — both the legacy migration below
+    // and the daily-login reward further down can affect it, and mixing an
+    // increment sentinel with a plain-number write to the same field in one
+    // update() would silently drop one of the two effects.
+    let walletBase = data.wallet;
+    if (walletBase === undefined) {
       let spent = 0;
       (data.inventory || []).forEach((itemId) => {
         for (const cat in SHOP_ITEMS) {
@@ -404,7 +431,7 @@ exports.refreshProfile = onCall(async (request) => {
           if (item) spent += item.cost;
         }
       });
-      updates.wallet = data.careerBank || 0;
+      walletBase = data.careerBank || 0;
       updates.careerBank = (data.careerBank || 0) + spent;
     }
     if (data.handleChanges === undefined) updates.handleChanges = 0;
@@ -417,6 +444,21 @@ exports.refreshProfile = onCall(async (request) => {
     if (!data.dailyStats || data.dailyStats.date !== today || !data.dailyStats.activeIds) {
       updates.dailyStats = freshDailyStats(today);
     }
+
+    // Daily login streak + reward. Gated on lastLoginDate !== today so this
+    // only ever fires once per calendar day no matter how many times
+    // refreshProfile gets called that day (sign-in, opening Challenges, …).
+    let walletFinal = walletBase;
+    if (data.lastLoginDate !== today) {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const wasConsecutive = data.lastLoginDate === yesterday;
+      const newStreak = wasConsecutive ? (data.loginStreak || 0) + 1 : 1;
+      updates.loginStreak = newStreak;
+      updates.bestLoginStreak = Math.max(data.bestLoginStreak || 0, newStreak);
+      updates.lastLoginDate = today;
+      walletFinal = (walletBase || 0) + 100;
+    }
+    if (walletFinal !== data.wallet) updates.wallet = walletFinal;
 
     if (Object.keys(updates).length > 0) tx.update(userRef, updates);
     return { profile: { ...data, ...updates } };
