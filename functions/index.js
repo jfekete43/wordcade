@@ -594,6 +594,7 @@ exports.guessDailyWord = onCall(async (request) => {
     const attempt = attemptSnap.data();
     const puzzle = puzzleSnap.data();
     const username = userSnap.exists ? userSnap.data().username : null;
+    const equipped = userSnap.exists ? userSnap.data().equipped : null;
     if (attempt.status !== "active") throw new HttpsError("failed-precondition", "Today's gauntlet is already finished.");
 
     const wordIndex = attempt.wordIndex;
@@ -653,9 +654,13 @@ exports.guessDailyWord = onCall(async (request) => {
       // "the leaderboard re-fetches it anyway" might suggest — every daily
       // entry sharing one placeholder name would collapse into a single
       // row. Use the username read above instead.
+      // equipped mirrors what saveRunToCloud() sends for a standard run —
+      // without it, daily-mode entries render bannerless/effectless in the
+      // live feed and leaderboard even though the player has cosmetics
+      // equipped, since both just read equipped straight off the run doc.
       const runRef = db.collection("runs").doc(`daily_${uid}_${today}`);
       tx.set(runRef, {
-        uid, username, score: newScore, isWipeout: false, lostScore: 0,
+        uid, username, equipped, score: newScore, isWipeout: false, lostScore: 0,
         wordsGuessed, wordsPlayed, guess1: g1, guess2: g2, guess3: g3, guess4: g4, guess5: g5,
         fails: failedOut ? 1 : 0, kobeCount: 0, bestStreak,
         mode: "daily", puzzleDate: today,

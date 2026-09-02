@@ -70,7 +70,7 @@
         .mini-1 { background: #ff00ff; border-color: #ff00ff; box-shadow: 0 0 5px #ff00ff;}
         .mini-2 { background: #00ffff; border-color: #00ffff; box-shadow: 0 0 5px #00ffff;}
 
-        #message { height: 24px; margin-bottom: 10px; color: #ff9800; font-weight: bold; font-size: 18px; position: relative; z-index: 2; text-align: center;}
+        #message { height: 20px; margin-bottom: 4px; color: #ff9800; font-weight: bold; font-size: 18px; position: relative; z-index: 2; text-align: center;}
         
         #legend {
             display: flex; gap: 15px; margin-bottom: 15px; font-size: 12px;
@@ -321,9 +321,9 @@
     
     <nav class="arcade-menu">
         <button onclick="window.showMainMenu()">Menu</button>
-        <button id="btn-mode" onclick="window.toggleMode()">PLAY CLASH</button>
+        <button id="btn-mode" onclick="window.toggleMode()">CLASH</button>
+        <button class="daily-btn" id="btn-daily" onclick="window.toggleDailyMode()">GAUNTLET</button>
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
-        <button class="daily-btn" id="btn-leave-gauntlet" style="display:none;" onclick="window.leaveDailyGauntlet()">Leave Gauntlet</button>
     </nav>
 
     <!-- STANDARD UI -->
@@ -1496,8 +1496,9 @@
                     saveRunToCloud();
                 }
                 isVersusMode = true;
-                document.getElementById("btn-mode").innerText = "PLAY STANDARD";
+                document.getElementById("btn-mode").innerText = "STANDARD";
                 document.getElementById("btn-mode").style.color = "#ff00ff"; document.getElementById("btn-mode").style.borderColor = "#ff00ff";
+                document.getElementById("btn-daily").style.display = "none";
                 document.getElementById("score-board").style.display = "none";
                 document.getElementById("btn-cash-out").style.display = "none";
                 document.getElementById("versus-track-container").style.display = "block";
@@ -1517,8 +1518,9 @@
             
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
-            document.getElementById("btn-mode").innerText = "PLAY CLASH";
+            document.getElementById("btn-mode").innerText = "CLASH";
             document.getElementById("btn-mode").style.color = "#ff9800"; document.getElementById("btn-mode").style.borderColor = "#ff9800";
+            document.getElementById("btn-daily").style.display = "inline-block";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
@@ -1553,7 +1555,7 @@
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("btn-mode").style.display = "none";
-            document.getElementById("btn-leave-gauntlet").style.display = "inline-block";
+            document.getElementById("btn-daily").innerText = "LEAVE GAUNTLET";
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("live-feed-container").style.display = "none";
             document.getElementById("daily-header").style.display = "flex";
@@ -1651,12 +1653,17 @@
             isDailyMode = false;
             dailyAttempt = null;
             document.getElementById("daily-header").style.display = "none";
-            document.getElementById("btn-leave-gauntlet").style.display = "none";
+            document.getElementById("btn-daily").innerText = "GAUNTLET";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("btn-mode").style.display = "inline-block";
             document.getElementById("live-feed-container").style.display = "block";
             window.startNewRun();
+        }
+
+        window.toggleDailyMode = function() {
+            document.activeElement.blur();
+            if (isDailyMode) { window.leaveDailyGauntlet(); } else { window.openDailyGauntlet(); }
         }
 
         window.sendChatMessage = async function() {
