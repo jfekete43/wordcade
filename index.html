@@ -47,11 +47,13 @@
         #btn-mode:hover { background-color: #ff9800; color: #000; }
 
         /* STANDARD UI */
-        #score-board { 
-            font-size: 18px; margin: 0 0 10px 0; font-weight: bold; 
+        #score-board, #daily-header {
+            font-size: 18px; margin: 0 0 10px 0; font-weight: bold;
             display: flex; gap: 20px; position: relative; z-index: 2;
         }
         .score-text { color: #4caf50; }
+        .arcade-menu .daily-btn { color: #ff9800; border-color: #ff9800; }
+        .arcade-menu .daily-btn:hover { background-color: #ff9800; color: #000; }
         .lives-text { color: #ff3333; }
         
         /* VERSUS UI */
@@ -321,6 +323,7 @@
         <button onclick="window.showMainMenu()">Menu</button>
         <button id="btn-mode" onclick="window.toggleMode()">PLAY CLASH</button>
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
+        <button class="daily-btn" id="btn-leave-gauntlet" style="display:none;" onclick="window.leaveDailyGauntlet()">Leave Gauntlet</button>
     </nav>
 
     <!-- STANDARD UI -->
@@ -330,10 +333,9 @@
     </div>
 
     <!-- DAILY GAUNTLET UI -->
-    <div id="daily-header" style="display:none; font-size: 18px; margin: 0 0 10px 0; font-weight: bold; gap: 20px; position: relative; z-index: 2; text-align: center;">
-        <div style="color:#ff9800;">GAUNTLET — WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+    <div id="daily-header" style="display:none;">
+        <div class="score-text" style="color:#ff9800;">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
-        <button class="btn-dark" style="padding: 4px 10px; font-size: 11px; margin-top: 4px;" onclick="window.leaveDailyGauntlet()">Leave Gauntlet</button>
     </div>
 
     <!-- VERSUS UI -->
@@ -1551,9 +1553,10 @@
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("btn-mode").style.display = "none";
+            document.getElementById("btn-leave-gauntlet").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("live-feed-container").style.display = "none";
-            document.getElementById("daily-header").style.display = "block";
+            document.getElementById("daily-header").style.display = "flex";
 
             if (dailyAttempt.status === "finished") {
                 boardDisplay.innerHTML = ""; resetKeyboardColors();
@@ -1583,6 +1586,7 @@
             isAnimating = true;
             const guessArr = currentGuess.split("");
             const rowIndex = currentRow;
+            const wordIndexBeingPlayed = dailyAttempt.wordIndex;
 
             let result;
             try {
@@ -1593,6 +1597,12 @@
                 console.error(e);
                 return;
             }
+
+            // The server only returns this one guess's result, not the whole
+            // attempt — keep the client's local history in sync ourselves
+            // (showDailyEndModal's "X/10 words solved" count reads from it).
+            dailyAttempt.history[wordIndexBeingPlayed].guesses.push({ guess: currentGuess, colors: result.colors });
+            dailyAttempt.history[wordIndexBeingPlayed].solved = result.solved;
 
             const tileColors = result.colors.map(colorCodeToName);
             animateRowReveal(rowIndex, guessArr, tileColors);
@@ -1641,6 +1651,7 @@
             isDailyMode = false;
             dailyAttempt = null;
             document.getElementById("daily-header").style.display = "none";
+            document.getElementById("btn-leave-gauntlet").style.display = "none";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("btn-mode").style.display = "inline-block";
