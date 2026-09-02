@@ -93,9 +93,31 @@
         .danger-tile { border-color: #ff3333 !important; animation: pulse-danger 1.5s infinite; }
         @keyframes pulse-danger { 0% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; } 50% { box-shadow: 0 0 20px #ff3333 inset, 0 0 15px #ff3333; } 100% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; } }
 
-        .correct { background-color: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 12px #00ffff; } 
-        .present { background-color: #ff00ff; border-color: #ff00ff; color: #fff; box-shadow: 0 0 12px #ff00ff; } 
-        .absent { background-color: #1a1a1d; border-color: #222; color: #444; }  
+        .correct { background-color: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 12px #00ffff; }
+        .present { background-color: #ff00ff; border-color: #ff00ff; color: #fff; box-shadow: 0 0 12px #ff00ff; }
+        .absent { background-color: #1a1a1d; border-color: #222; color: #444; }
+
+        /* COLORBLIND MODE — swaps the correct/wrong-spot signal colors (cyan/
+           magenta) for the Okabe-Ito blue/orange pair, which stays distinct
+           across the common forms of color vision deficiency. Applies to
+           tiles, keyboard keys, and the legend swatches — everywhere the
+           game uses color alone to mean "correct" vs "wrong spot". */
+        body.colorblind .correct { background-color: #0072B2; border-color: #0072B2; color: #fff; box-shadow: 0 0 12px #0072B2; }
+        body.colorblind .present { background-color: #E69F00; border-color: #E69F00; color: #000; box-shadow: 0 0 12px #E69F00; }
+        body.colorblind #legend-correct { background-color: #0072B2; box-shadow: 0 0 8px #0072B2; }
+        body.colorblind #legend-present { background-color: #E69F00; box-shadow: 0 0 8px #E69F00; }
+
+        /* REDUCE MOTION — turns off the decorative pulse/glow/scroll
+           keyframe animations. Leaves the tile flip and other functional
+           transitions alone (those convey information, not just flair). */
+        body.reduce-motion .danger-tile,
+        body.reduce-motion .btn-claim,
+        body.reduce-motion .pulse-text,
+        body.reduce-motion .effect_pulse,
+        body.reduce-motion .effect_holo,
+        body.reduce-motion .effect_hologram,
+        body.reduce-motion .effect_golden,
+        body.reduce-motion .banner_matrix::after { animation: none !important; }
 
         #keyboard { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 500px; margin-bottom: 20px; user-select: none; padding: 0 5px; position: relative; z-index: 2;}
         .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
@@ -487,6 +509,7 @@
                 <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
                 <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
                 <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="window.openChallengesMenu()">Challenges</button>
+                <button class="menu-list-btn" style="color: #aaa; border-color: #aaa;" onclick="window.openSettingsMenu()">Settings</button>
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
@@ -615,6 +638,28 @@
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box" style="min-width: 300px;">
+            <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Settings</h2>
+            <div class="modal-stats" style="text-align: left;">
+                <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
+                    <span>Sound Effects</span>
+                    <button id="settings-toggle-sound" class="action-btn" onclick="window.toggleSetting('sound')">ON</button>
+                </div>
+                <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
+                    <span>Colorblind Mode</span>
+                    <button id="settings-toggle-colorblind" class="action-btn" onclick="window.toggleSetting('colorblind')">OFF</button>
+                </div>
+                <div class="stat-bar-container" style="justify-content: space-between;">
+                    <span>Reduce Motion</span>
+                    <button id="settings-toggle-reduceMotion" class="action-btn" onclick="window.toggleSetting('reduceMotion')">OFF</button>
+                </div>
+            </div>
+            <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('settings-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
+        </div>
+    </div>
+
     <!-- LEADERBOARD MODAL -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
@@ -679,6 +724,98 @@
 
         let currentUser = null;
         let userProfileData = null;
+
+        // ==========================================
+        // SETTINGS — sound / colorblind / reduce-motion. Per-device display
+        // preferences, not account data, so these live in localStorage (like
+        // the local run-save) rather than the Firestore profile.
+        // ==========================================
+        const Settings = (() => {
+            const STORAGE_KEY = "wordcade_settings";
+            const defaults = { sound: true, colorblind: false, reduceMotion: false };
+            let current = { ...defaults };
+            try { current = { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; } catch (e) { /* corrupted/unavailable storage — just use defaults */ }
+
+            function apply() {
+                document.body.classList.toggle("colorblind", !!current.colorblind);
+                document.body.classList.toggle("reduce-motion", !!current.reduceMotion);
+            }
+            function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current)); } catch (e) { /* private browsing / storage blocked — setting still works for this session */ } }
+
+            return {
+                get: () => current,
+                set(key, value) { current[key] = value; persist(); apply(); },
+                apply,
+            };
+        })();
+        Settings.apply();
+
+        // ==========================================
+        // SFX — small synthesized arcade blips via the Web Audio API. No
+        // audio files to host; fits the retro-arcade look for free. The
+        // AudioContext is created lazily on first call, which always happens
+        // from inside a click/keydown handler, satisfying browsers' autoplay-
+        // needs-a-user-gesture rule without any separate "unlock" step.
+        // ==========================================
+        const SFX = (() => {
+            let ctx = null;
+            function getCtx() {
+                if (!ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ctx = new AC(); }
+                if (ctx.state === "suspended") ctx.resume();
+                return ctx;
+            }
+            function tone(freq, start, dur, type = "sine", peak = 0.12) {
+                if (!Settings.get().sound) return;
+                try {
+                    const c = getCtx();
+                    if (!c) return;
+                    const osc = c.createOscillator(); const gain = c.createGain();
+                    osc.type = type; osc.frequency.value = freq;
+                    osc.connect(gain); gain.connect(c.destination);
+                    const t0 = c.currentTime + start;
+                    gain.gain.setValueAtTime(0, t0);
+                    gain.gain.linearRampToValueAtTime(peak, t0 + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+                    osc.start(t0); osc.stop(t0 + dur + 0.02);
+                } catch (e) { /* Web Audio unsupported/blocked — sound is a nice-to-have, never break the game over it */ }
+            }
+            return {
+                type: () => tone(700, 0, 0.05, "square", 0.05),
+                del: () => tone(300, 0, 0.05, "square", 0.05),
+                invalid: () => tone(180, 0, 0.15, "sawtooth", 0.08),
+                correctWord: () => { tone(523, 0, 0.1); tone(659, 0.08, 0.1); tone(784, 0.16, 0.18); },
+                wrongWord: () => { tone(300, 0, 0.15, "triangle", 0.1); tone(220, 0.12, 0.25, "triangle", 0.1); },
+                wipeout: () => { tone(180, 0, 0.35, "sawtooth", 0.12); tone(90, 0.1, 0.5, "sawtooth", 0.12); },
+                cashOut: () => { tone(659, 0, 0.1); tone(880, 0.09, 0.1); tone(1175, 0.18, 0.25); },
+                purchase: () => { tone(988, 0, 0.05, "square", 0.07); tone(1319, 0.05, 0.12, "square", 0.07); },
+                claim: () => { tone(523, 0, 0.09); tone(659, 0.08, 0.09); tone(784, 0.16, 0.09); tone(1047, 0.24, 0.2); },
+                clashWin: () => { tone(523, 0, 0.1); tone(659, 0.1, 0.1); tone(784, 0.2, 0.1); tone(1047, 0.3, 0.3); },
+                clashLose: () => { tone(392, 0, 0.15, "triangle", 0.1); tone(311, 0.13, 0.15, "triangle", 0.1); tone(233, 0.26, 0.3, "triangle", 0.1); },
+                clashTie: () => { tone(440, 0, 0.12, "triangle", 0.08); tone(440, 0.14, 0.12, "triangle", 0.08); },
+            };
+        })();
+
+        window.openSettingsMenu = function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            renderSettingsUI();
+            document.getElementById('settings-modal').style.display = 'flex';
+        };
+        function renderSettingsUI() {
+            const s = Settings.get();
+            [["sound", s.sound], ["colorblind", s.colorblind], ["reduceMotion", s.reduceMotion]].forEach(([key, val]) => {
+                const btn = document.getElementById(`settings-toggle-${key}`);
+                if (!btn) return;
+                btn.innerText = val ? "ON" : "OFF";
+                btn.style.borderColor = val ? "#4caf50" : "#ff3333";
+                btn.style.color = val ? "#4caf50" : "#ff3333";
+            });
+        }
+        window.toggleSetting = function(key) {
+            const wasOn = Settings.get()[key];
+            Settings.set(key, !wasOn);
+            renderSettingsUI();
+            if (key === "sound" && !wasOn) SFX.type(); // quick confirmation blip right as sound turns back on
+        };
 
         const SHOP_ITEMS = {
                 titles: [
@@ -979,6 +1116,7 @@
             try {
                 const result = await callClaimChallenge({ id, type });
                 const reward = result.data.reward;
+                SFX.claim();
                 if (type === 'daily') { userProfileData.dailyStats.claimed.push(id); } else { userProfileData.claimedCareer.push(id); }
                 userProfileData.wallet += reward;
                 alert(`Challenge Completed! +${reward.toLocaleString()} pts added to your Wallet.`);
@@ -1025,6 +1163,7 @@
                 // directly, which also closes the double-click double-spend this used
                 // to be vulnerable to.
                 const result = await callPurchaseItem({ itemId: id, category });
+                SFX.purchase();
                 userProfileData.wallet = result.data.wallet;
                 userProfileData.inventory.push(id);
             } catch (e) {
@@ -1036,12 +1175,13 @@
         window.equipItem = async function(id, equipCategoryKey) { try { userProfileData.equipped[equipCategoryKey] = id; await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped }); applyEquippedCosmetics(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects"; window.renderShop(renderCat); window.previewItem(id, equipCategoryKey); } catch (e) { alert("Equip failed."); console.error(e); } }
 
         function applyEquippedCosmetics() {
-    if (!userProfileData || !userProfileData.equipped) return; 
-    document.body.className = "";
-    document.getElementById('legend-correct').style.backgroundColor = '#00ffff'; 
-    document.getElementById('legend-correct').style.boxShadow = `0 0 8px #00ffff`; 
-    document.getElementById('legend-present').style.backgroundColor = '#ff00ff'; 
-    document.getElementById('legend-present').style.boxShadow = `0 0 8px #ff00ff`;
+    if (!userProfileData || !userProfileData.equipped) return;
+    // Board/keyboard cosmetics currently equip nothing on <body> — this used
+    // to reset document.body.className here, which would have clobbered the
+    // colorblind/reduce-motion classes Settings.apply() sets. The legend
+    // swatch colors are handled by CSS (including the colorblind override)
+    // now instead of being force-set inline here.
+    Settings.apply();
 }
 
         // LEADERBOARD LOGIC
@@ -1520,9 +1660,11 @@
                     let isPublicMatch = data.isPublic === true;
 
                     if (isTie) {
+                        SFX.clashTie();
                         document.getElementById("vs-end-title").innerText = "IT'S A TIE!";
                         document.getElementById("vs-end-title").style.color = "#ff9800";
                     } else {
+                        amIWinner ? SFX.clashWin() : SFX.clashLose();
                         document.getElementById("vs-end-title").innerText = amIWinner ? "YOU WIN!" : "YOU LOSE!";
                         document.getElementById("vs-end-title").style.color = amIWinner ? "#4caf50" : "#ff3333";
                     }
@@ -1647,7 +1789,8 @@
 
         function showCashOutModal() {
             isAnimating = false;
-            document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff"; 
+            SFX.cashOut();
+            document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff";
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
             modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(); 
         }
@@ -1718,13 +1861,15 @@
             if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
 
             if (key === "ENTER" && currentGuess.length === 5) {
-                if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { showMessage("Not in word list"); return; }
+                if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
                 checkGuess();
             } else if (key === "BACKSPACE" || key === "⌫") {
+                SFX.del();
                 currentGuess = currentGuess.slice(0, -1);
                 updateCurrentRowDisplay();
-            } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) { 
-                currentGuess += key; 
+            } else if (/^[A-Z]$/.test(key) && currentGuess.length < 5 && key.length === 1) {
+                SFX.type();
+                currentGuess += key;
                 updateCurrentRowDisplay();
             }
         }
@@ -1797,7 +1942,8 @@
                         if (correctCount === 5) {
                             
                             if (isVersusMode && currentMatchId) {
-                                let earned = scorePoints[currentRow]; 
+                                SFX.correctWord();
+                                let earned = scorePoints[currentRow];
                                 clashMyScore += earned;
                                 showMessage(`+${earned}!`);
                                 
@@ -1818,9 +1964,10 @@
                                 }
 
                             } else {
-                                runStats.played++; runStats['guess' + (currentRow + 1)]++; 
+                                SFX.correctWord();
+                                runStats.played++; runStats['guess' + (currentRow + 1)]++;
                                 if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
-                                
+
                                 let oldScore = score;
                                 let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
                                 saveLocalState(); showMessage(`+${earned} POINTS!`); 
@@ -1833,6 +1980,7 @@
                             }
                         } else if (currentRow === maxGuesses - 1) { 
                             if (isVersusMode) {
+                                SFX.wrongWord();
                                 // NEW CLASH PENALTY LOGIC
                                 let penalty = 50;
                                 clashMyScore = Math.max(0, clashMyScore - penalty);
@@ -1848,13 +1996,15 @@
                                 clashWordIndex++; 
                                 setTimeout(startRound, 1500); // slightly longer to read the penalty
                             } else {
-                                continues--; runStats.played++; runStats.fails++; 
+                                continues--; runStats.played++; runStats.fails++;
                                 if (continues < 0) {
-                                    showMessage(`WORD WAS ${targetWord}.`); 
+                                    SFX.wipeout();
+                                    showMessage(`WORD WAS ${targetWord}.`);
                                     let finalLostScore = score;
                                     score = 0; updateScoreBoard();
-                                    setTimeout(() => triggerGameOver(finalLostScore), 1200); 
+                                    setTimeout(() => triggerGameOver(finalLostScore), 1200);
                                 } else {
+                                    SFX.wrongWord();
                                     showMessage(`WORD WAS ${targetWord}.`); updateScoreBoard();
                                     document.getElementById("warning-continues-text").innerText = `${continues} Continues`;
                                     setTimeout(() => { document.getElementById("warning-modal").style.display = "flex"; }, 1200); 
