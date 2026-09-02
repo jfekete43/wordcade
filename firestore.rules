@@ -3,77 +3,65 @@ rules_version = '2';
 // ============================================================================
 // Lexathon / Wordcade — Firestore Security Rules
 //
-// HOW TO DEPLOY (free, no billing plan required):
-//   1. Go to the Firebase Console -> your project (wordcade-387e8) ->
-//      Firestore Database -> Rules tab.
-//   2. Replace the existing rules with the contents of this file.
-//   3. Click "Publish".
+// DEPLOY: firebase deploy --only firestore:rules
+//         (or paste into Firebase Console -> Firestore Database -> Rules ->
+//         Publish). Free on the Spark plan — no billing required.
 //
-// WHAT THIS DOES AND DOES NOT DO
-//   The game currently has every player's browser write its own score,
-//   wallet, careerBank, and mmr directly to Firestore (there is no backend
-//   that computes/validates these). These rules cannot change that
-//   architecture — a browser console can still call the same SDK calls the
-//   game itself uses. What they DO add is a floor under the worst abuse:
-//     - a user can only ever write to their own /users/{uid} doc
-//     - a single write can't set wallet/careerBank/mmr to an arbitrary huge
-//       number (deltas are capped to roughly what one legitimate run/match
-//       could produce)
-//     - careerBank can only go up (spending only touches wallet)
-//     - /runs (leaderboard) entries must be self-authored, capped, and
-//       server-timestamped
-//     - /matches can only be created/edited by the two participants
+// ARCHITECTURE (see functions/index.js): every field with real value —
+// wallet, careerBank, mmr, win/loss/tie records, career+daily stat
+// counters, inventory, username, challenge-claimed lists, match payouts —
+// is written ONLY by a Cloud Function via the Admin SDK, which bypasses
+// these rules entirely. These rules are the backstop: even if a client
+// tried to call the Firestore SDK directly instead of going through a
+// Cloud Function, it physically cannot write any of those fields.
 //
-//   Closing the hole completely (so a modified client truly cannot forge a
-//   score, wallet balance, or rank) requires moving that logic server-side,
-//   e.g. a Cloud Function that verifies and writes these fields instead of
-//   the client. That requires the Firebase Blaze (pay-as-you-go) plan.
-//   These rules are the free interim hardening.
+// The client's only remaining direct writes to its own profile are its
+// cosmetic loadout (`equipped` — no monetary value) and creating the
+// initial doc on signup (locked to the same zeroed defaults every new
+// player gets). It may also create `runs` and `matches` documents (bounded
+// here, then validated/acted on by Cloud Function triggers) and update
+// `matches` documents it's a participant in (live gameplay fields only —
+// payout fields are denied).
 // ============================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // The maximum a single ELO update could legitimately move MMR by
-    // (K=32 in the client's calculateEloChange, so |change| <= 32; give
-    // some headroom).
-    function mmrDeltaOk() {
-      return request.resource.data.mmr <= resource.data.mmr + 60
-          && request.resource.data.mmr >= resource.data.mmr - 60;
-    }
-
-    // Caps how much wallet/careerBank can grow in a single write. Real
-    // writes are per-run or per-match increments; this just blocks
-    // "set my balance to 999999999" in one shot.
-    function currencyDeltaOk() {
-      return request.resource.data.wallet <= resource.data.wallet + 100000
-          && request.resource.data.careerBank <= resource.data.careerBank + 100000
-          // careerBank is a lifetime/leaderboard stat: spending in the shop
-          // must only ever touch wallet, never reduce careerBank.
-          && request.resource.data.careerBank >= resource.data.careerBank;
-    }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
     match /users/{userId} {
-      // Profiles (username, cosmetics, public stats) are read by the
-      // leaderboard/live-feed/rank-lookup features for any signed-in user.
+      // Public profile info (username, cosmetics, mmr, careerBank) is read
+      // for the leaderboard, live feed, and rank lookups.
       allow read: if isSignedIn();
 
-      allow create: if isOwner(userId);
+      // New accounts must start at the same defaults the app gives every
+      // player — no "create my doc pre-loaded with a million points".
+      allow create: if isOwner(userId)
+        && request.resource.data.wallet == 0
+        && request.resource.data.careerBank == 0
+        && request.resource.data.mmr == 1000
+        && request.resource.data.handleChanges == 0
+        && request.resource.data.totalWordsGuessed == 0
+        && request.resource.data.wordsPlayed == 0
+        && request.resource.data.guess1 == 0 && request.resource.data.guess2 == 0
+        && request.resource.data.guess3 == 0 && request.resource.data.guess4 == 0
+        && request.resource.data.guess5 == 0 && request.resource.data.fails == 0
+        && request.resource.data.kobeCount == 0
+        && request.resource.data.clashWins == 0 && request.resource.data.clashLosses == 0
+        && request.resource.data.clashTies == 0
+        && request.resource.data.inventory == ["title_none", "skin_default", "banner_default", "effect_none"]
+        && request.resource.data.claimedCareer == []
+        && request.resource.data.dailyStats.played == 0
+        && request.resource.data.dailyStats.guessed == 0
+        && request.resource.data.dailyStats.claimed == [];
 
+      // The ONLY field the client may ever update directly on its own
+      // profile is its cosmetic loadout. Wallet, careerBank, mmr, win/loss
+      // records, stat counters, inventory, username, claimed lists — all of
+      // it goes through a Cloud Function instead.
       allow update: if isOwner(userId)
-        && request.resource.data.wallet is number
-        && request.resource.data.careerBank is number
-        && request.resource.data.mmr is number
-        && mmrDeltaOk()
-        && currencyDeltaOk();
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['equipped']);
 
       allow delete: if false;
     }
@@ -81,28 +69,45 @@ service cloud.firestore {
     match /runs/{runId} {
       allow read: if isSignedIn();
 
+      // The client reports what happened in a run; the onRunCreated Cloud
+      // Function is what turns this into wallet/stat changes on the user
+      // doc, after these bounds are enforced. Bounds are deliberately
+      // generous (they exist to block "set score to a billion", not to
+      // referee gameplay balance).
       allow create: if isSignedIn()
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.score is number
-        && request.resource.data.score >= 0
-        && request.resource.data.score <= 100000
+        && request.resource.data.score is number && request.resource.data.score >= 0 && request.resource.data.score <= 1000000
+        && request.resource.data.lostScore is number && request.resource.data.lostScore >= 0 && request.resource.data.lostScore <= 1000000
+        && request.resource.data.wordsGuessed is number && request.resource.data.wordsGuessed >= 0 && request.resource.data.wordsGuessed <= 5000
+        && request.resource.data.wordsPlayed is number && request.resource.data.wordsPlayed >= 0 && request.resource.data.wordsPlayed <= 5000
+        && request.resource.data.guess1 is number && request.resource.data.guess1 >= 0 && request.resource.data.guess1 <= 5000
+        && request.resource.data.guess2 is number && request.resource.data.guess2 >= 0 && request.resource.data.guess2 <= 5000
+        && request.resource.data.guess3 is number && request.resource.data.guess3 >= 0 && request.resource.data.guess3 <= 5000
+        && request.resource.data.guess4 is number && request.resource.data.guess4 >= 0 && request.resource.data.guess4 <= 5000
+        && request.resource.data.guess5 is number && request.resource.data.guess5 >= 0 && request.resource.data.guess5 <= 5000
+        && request.resource.data.fails is number && request.resource.data.fails >= 0 && request.resource.data.fails <= 5000
+        && request.resource.data.kobeCount is number && request.resource.data.kobeCount >= 0 && request.resource.data.kobeCount <= 5000
         && request.resource.data.timestamp == request.time;
 
+      // payoutApplied is added afterwards by the Cloud Function (Admin SDK,
+      // bypasses rules) — the client can never edit a run once created.
       allow update, delete: if false;
     }
 
     match /matches/{matchId} {
       allow read: if isSignedIn();
 
-      allow create: if isSignedIn()
-        && request.resource.data.hostUid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid;
 
-      // Either participant can update (moves, chat, scores); joining a
-      // waiting match is the one case where the writer isn't hostUid yet.
+      // Either participant can update live gameplay fields (scores, mini-
+      // boards, chat, endTime, and status/winner to signal "this match is
+      // over"), but neither may touch the payout fields — those are
+      // Cloud-Function-only (see onMatchFinished).
       allow update: if isSignedIn()
         && (resource.data.hostUid == request.auth.uid
             || resource.data.guestUid == request.auth.uid
-            || (resource.data.guestUid == null && request.resource.data.guestUid == request.auth.uid));
+            || (resource.data.guestUid == null && request.resource.data.guestUid == request.auth.uid))
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostChange', 'guestChange', 'payoutApplied']);
 
       allow delete: if isSignedIn() && resource.data.hostUid == request.auth.uid;
     }
