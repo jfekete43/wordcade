@@ -912,19 +912,55 @@ function eloExpected(myMMR, opponentMMR) {
   return 1 / (1 + Math.pow(10, (opponentMMR - myMMR) / 400));
 }
 
+// Rank order (best first) as placement "groups" — a group has more than one
+// player only when they're genuinely tied. Active (never-left) players are
+// grouped by tied score, exactly as if nobody had left. Every player who
+// left mid-match ranks below every active player regardless of their
+// frozen score, each in their own singleton group — leave order is a
+// strict, unambiguous tiebreaker among them, and whoever left FIRST gets
+// the WORST placement (last), so leavers are listed last-to-leave-first.
+// Shared by computeFfaOutcome (payout) and computeFfaEloDeltas (rating) so
+// both agree on the same placement instead of one trusting raw score and
+// the other trusting leave order.
+function computeFfaPlacements(players, leftPlayers = []) {
+  const leftSet = new Set(leftPlayers);
+  const active = players.filter((p) => !leftSet.has(p.uid)).sort((a, b) => b.score - a.score);
+  const leavers = leftPlayers
+    .filter((uid) => players.some((p) => p.uid === uid))
+    .map((uid) => players.find((p) => p.uid === uid))
+    .reverse();
+
+  const groups = [];
+  let i = 0;
+  while (i < active.length) {
+    let j = i;
+    while (j + 1 < active.length && active[j + 1].score === active[i].score) j++;
+    groups.push(active.slice(i, j + 1));
+    i = j + 1;
+  }
+  leavers.forEach((p) => groups.push([p]));
+  return groups;
+}
+
 // Multiplayer Elo: for each player, average their pairwise Elo delta against
 // every other player (actual = 1 beat them / 0.5 tied them / 0 lost to them,
-// by final score), rather than chaining sequential 1v1 updates — keeps the
-// result independent of any ordering and, for exactly 2 players, reduces to
-// the exact same number calculateEloChange would produce.
-function computeFfaEloDeltas(players) {
+// by final PLACEMENT — not raw score, so a leaver's frozen score can't put
+// them ahead of an active player they actually rank below), rather than
+// chaining sequential 1v1 updates — keeps the result independent of any
+// ordering and, for exactly 2 players with nobody leaving, reduces to the
+// exact same number calculateEloChange would produce.
+function computeFfaEloDeltas(players, leftPlayers = []) {
+  const groups = computeFfaPlacements(players, leftPlayers);
+  const rankByUid = {};
+  groups.forEach((group, idx) => { group.forEach((p) => { rankByUid[p.uid] = idx; }); });
+
   const n = players.length;
   const deltas = {};
   players.forEach((p) => {
     let sumDiff = 0;
     players.forEach((o) => {
       if (o.uid === p.uid) return;
-      const actual = p.score > o.score ? 1 : p.score < o.score ? 0 : 0.5;
+      const actual = rankByUid[p.uid] < rankByUid[o.uid] ? 1 : rankByUid[p.uid] > rankByUid[o.uid] ? 0 : 0.5;
       sumDiff += actual - eloExpected(p.mmr, o.mmr);
     });
     deltas[p.uid] = Math.round(32 * (sumDiff / (n - 1)));
@@ -932,26 +968,26 @@ function computeFfaEloDeltas(players) {
   return deltas;
 }
 
-// Ranks players by score (highest first) and splits the payout curve across
-// tied placements — e.g. two players tied for 1st in a 4p match share the
-// combined 1st+2nd payout (1000+500=1500) evenly, and the next distinct
-// score takes the 3rd-place tier. Standard tournament-payout tie handling.
-function computeFfaOutcome(players) {
+// Splits the payout curve across each placement group — e.g. two players
+// tied for 1st in a 4p match share the combined 1st+2nd payout (1000+500)
+// evenly, and a player who left mid-match takes whatever tier their
+// leave-order placement lands on (see computeFfaPlacements).
+function computeFfaOutcome(players, leftPlayers = []) {
   const n = players.length;
   const curve = FFA_PAYOUT_CURVES[n] || FFA_PAYOUT_CURVES[2];
-  const sorted = [...players].sort((a, b) => b.score - a.score);
+  const groups = computeFfaPlacements(players, leftPlayers);
+
   const payoutByUid = {};
-  let i = 0;
-  while (i < n) {
-    let j = i;
-    while (j + 1 < n && sorted[j + 1].score === sorted[i].score) j++;
-    const slots = j - i + 1;
-    const totalPayout = curve.slice(i, j + 1).reduce((a, b) => a + b, 0);
-    const share = Math.round(totalPayout / slots);
-    for (let k = i; k <= j; k++) payoutByUid[sorted[k].uid] = share;
-    i = j + 1;
-  }
-  const winners = sorted.filter((p) => p.score === sorted[0].score).map((p) => p.uid);
+  let slot = 0;
+  groups.forEach((group) => {
+    const loSlot = slot, hiSlot = slot + group.length - 1;
+    const totalPayout = curve.slice(loSlot, hiSlot + 1).reduce((a, b) => a + b, 0);
+    const share = Math.round(totalPayout / group.length);
+    group.forEach((p) => { payoutByUid[p.uid] = share; });
+    slot = hiSlot + 1;
+  });
+
+  const winners = groups.length > 0 ? groups[0].map((p) => p.uid) : [];
   return { payoutByUid, winners };
 }
 
@@ -1005,14 +1041,20 @@ exports.joinFfaMatch = onCall(async (request) => {
   });
 });
 
-// Frees a player's slot in a lobby that hasn't started yet. The host
-// leaving deletes the whole room (mirrors 1v1's client-side "host deletes
-// their own waiting match" behavior — matches.rules already lets any host
-// delete their own match doc directly, so this only needs to handle a
-// non-host slot, which a client can't free itself; see firestore.rules).
-// Leaving a match that's already 'playing'/'finished' is a deliberate
-// no-op — an abandoned slot's score just stops advancing, same tradeoff
-// 1v1 Clash already makes for a disconnected opponent.
+// Before the match starts: frees a player's slot from a lobby that hasn't
+// started yet. The host leaving deletes the whole room (mirrors 1v1's
+// client-side "host deletes their own waiting match" behavior — the
+// firestore.rules delete rule already lets any host delete their own
+// waiting match doc directly, so this only needs to handle a non-host
+// slot, which a client can't free itself).
+//
+// Once the match is 'playing': leaving is NOT a freeze-and-forget. It's
+// recorded in leftPlayers (in leave order) and the match keeps running for
+// whoever's left — computeFfaPlacements ranks every leaver below every
+// still-active player, worst placement to whoever left FIRST, so leaving
+// early always costs you more than sticking it out. This mirrors the "1v1
+// leaving is a forfeit" rule, generalized to a field instead of a single
+// binary loss since more than one player can leave.
 exports.leaveFfaMatch = onCall(async (request) => {
   const uid = requireAuth(request);
   const { matchId } = request.data || {};
@@ -1024,24 +1066,35 @@ exports.leaveFfaMatch = onCall(async (request) => {
     if (!snap.exists) return { ok: true }; // already gone
     const match = snap.data();
     if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
-    if (match.status !== "waiting") return { ok: true }; // already started/finished — nothing to free
 
-    const slots = ffaSlots(match);
-    const mine = slots.find((s) => s.uid === uid);
-    if (!mine) return { ok: true }; // wasn't in it
+    if (match.status === "waiting") {
+      const slots = ffaSlots(match);
+      const mine = slots.find((s) => s.uid === uid);
+      if (!mine) return { ok: true }; // wasn't in it
 
-    if (mine.idx === 0) {
-      tx.delete(matchRef);
-      return { ok: true, deleted: true };
+      if (mine.idx === 0) {
+        tx.delete(matchRef);
+        return { ok: true, deleted: true };
+      }
+      tx.update(matchRef, {
+        [`p${mine.idx}Uid`]: null,
+        [`p${mine.idx}Name`]: null,
+        [`p${mine.idx}Equipped`]: null,
+        [`p${mine.idx}Mmr`]: 1000,
+        playerCount: slots.length - 1,
+      });
+      return { ok: true };
     }
-    tx.update(matchRef, {
-      [`p${mine.idx}Uid`]: null,
-      [`p${mine.idx}Name`]: null,
-      [`p${mine.idx}Equipped`]: null,
-      [`p${mine.idx}Mmr`]: 1000,
-      playerCount: slots.length - 1,
-    });
-    return { ok: true };
+
+    if (match.status === "playing") {
+      if (!ffaSlots(match).some((s) => s.uid === uid)) return { ok: true }; // wasn't in it
+      const left = match.leftPlayers || [];
+      if (left.includes(uid)) return { ok: true, alreadyLeft: true }; // retried call — no-op
+      tx.update(matchRef, { leftPlayers: [...left, uid] });
+      return { ok: true, left: true };
+    }
+
+    return { ok: true }; // already finished — nothing to do
   });
 });
 
@@ -1105,7 +1158,7 @@ exports.finishFfaMatch = onCall(async (request) => {
       throw new HttpsError("failed-precondition", "The match hasn't ended yet.");
     }
 
-    const { winners } = computeFfaOutcome(slots);
+    const { winners } = computeFfaOutcome(slots, match.leftPlayers || []);
     tx.update(matchRef, { status: "finished", winners });
     return { ok: true };
   });
@@ -1138,9 +1191,10 @@ exports.onFfaMatchFinished = onDocumentUpdated("matches/{matchId}", async (event
     if (userSnaps.some((s) => !s.exists)) return;
 
     const players = slots.map((s, i) => ({ uid: s.uid, score: s.score, mmr: userSnaps[i].data().mmr || 1000 }));
-    const { payoutByUid, winners } = computeFfaOutcome(players);
+    const leftPlayers = after.leftPlayers || [];
+    const { payoutByUid, winners } = computeFfaOutcome(players, leftPlayers);
     const isPublicMatch = after.isPublic === true;
-    const eloDeltas = isPublicMatch ? computeFfaEloDeltas(players) : {};
+    const eloDeltas = isPublicMatch ? computeFfaEloDeltas(players, leftPlayers) : {};
 
     const changes = {};
     players.forEach((p, i) => {

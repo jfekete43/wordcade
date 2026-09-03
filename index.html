@@ -1630,7 +1630,7 @@
             if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
             if (isFfaMode) { alert("Leave the FFA match first!"); return; }
             if (isVersusMode) {
-                let confirmSwitch = confirm("Leave Head-to-Head match?");
+                let confirmSwitch = confirm("Leave Head-to-Head match? If a match is in progress, this counts as a forfeit.");
                 if (!confirmSwitch) return;
                 window.leaveVersusMatch();
             } else {
@@ -2266,7 +2266,9 @@
                     }
 
                     let resultText = "Time's up! Tie Game.";
-                    if (data.suddenDeath && data.suddenDeath.result) {
+                    if (data.endReason === "forfeit") {
+                        resultText = amIWinner ? "Opponent forfeited the match!" : "You forfeited the match.";
+                    } else if (data.suddenDeath && data.suddenDeath.result) {
                         // Scores were tied at the buzzer, so the generic
                         // "you had the high score"/"reached 1,000 first"
                         // messages below would be misleading here.
@@ -2312,12 +2314,37 @@
             });
         }
 
-        window.leaveVersusMatch = function() {
+        window.leaveVersusMatch = async function() {
             if (matchUnsubscribe) matchUnsubscribe();
-            if (currentMatchId && isMatchHost) { deleteDoc(doc(db, "matches", currentMatchId)).catch(e => console.error(e)); }
+            if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
+
+            if (currentMatchId) {
+                try {
+                    const snap = await getDoc(doc(db, "matches", currentMatchId));
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        if (data.status === "playing" && data.guestUid) {
+                            // Leaving mid-match (including mid-Sudden-Death) is a
+                            // forfeit — whoever stayed wins outright, same payout/
+                            // MMR path as any other win via onMatchFinished. Also
+                            // clears suddenDeath.active so a guess the opponent's
+                            // client had in flight can't still resolve against it.
+                            const opponentUid = isMatchHost ? data.guestUid : data.hostUid;
+                            const update = { status: "finished", winner: opponentUid, endReason: "forfeit" };
+                            if (data.suddenDeath && data.suddenDeath.active) update.suddenDeath = { ...data.suddenDeath, active: false };
+                            await updateDoc(doc(db, "matches", currentMatchId), update);
+                        } else if (isMatchHost) {
+                            // Still just a lobby (or playing with no opponent yet,
+                            // which shouldn't happen) — nothing to forfeit, so tear
+                            // the room down like before.
+                            await deleteDoc(doc(db, "matches", currentMatchId));
+                        }
+                    }
+                } catch (e) { console.error(e); }
+            }
+
             currentMatchId = null;
             isSuddenDeathMode = false;
-            if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
             document.getElementById("sudden-death-header").style.display = "none";
             document.getElementById("versus-end-modal").style.display = "none";
             document.getElementById("lobby-action-view").style.display = "block";
@@ -2358,7 +2385,7 @@
             if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
             if (isVersusMode) { alert("Leave the Clash match first!"); return; }
             if (isFfaMode) {
-                let confirmSwitch = confirm("Leave the FFA match?");
+                let confirmSwitch = confirm("Leave the FFA match? If it's in progress, the match continues without you and you're locked into the lowest remaining placement.");
                 if (!confirmSwitch) return;
                 window.leaveFfaMatch();
             } else {
@@ -2562,6 +2589,7 @@
                         }, 1000);
                     }
 
+                    const leftPlayers = data.leftPlayers || [];
                     for (let i = 0; i < 4; i++) {
                         const card = document.getElementById(`ffa-card-${i}`);
                         if (!data[`p${i}Uid`]) { card.style.display = "none"; continue; }
@@ -2570,9 +2598,11 @@
                         let eq = data[`p${i}Equipped`] || { banner: "banner_default", effect: "effect_none" };
                         document.getElementById(`ffa-banner-${i}`).className = `lb-entry ${eq.banner || "banner_default"}`;
                         document.getElementById(`ffa-name-${i}`).className = `lb-name ${eq.effect || "effect_none"}`;
-                        document.getElementById(`ffa-name-${i}`).innerText = data[`p${i}Name`] || "Player";
+                        const hasLeft = leftPlayers.includes(data[`p${i}Uid`]);
+                        document.getElementById(`ffa-name-${i}`).innerText = (data[`p${i}Name`] || "Player") + (hasLeft ? " (left)" : "");
                         document.getElementById(`ffa-word-index-${i}`).innerText = data[`p${i}WordIndex`] || 1;
                         document.getElementById(`ffa-score-${i}`).innerText = Number(data[`p${i}Score`] || 0).toLocaleString();
+                        card.style.opacity = hasLeft ? "0.5" : "1";
                         renderMiniBoard(`ffa-board-${i}`, data[`p${i}Board`]);
                     }
 
@@ -2608,11 +2638,21 @@
                         } catch (e) { console.error(e); }
                     }
 
-                    const slots = [];
+                    const allPlayers = [];
                     for (let i = 0; i < 4; i++) {
-                        if (data[`p${i}Uid`]) slots.push({ uid: data[`p${i}Uid`], name: data[`p${i}Name`] || "Player", score: Number(data[`p${i}Score`] || 0) });
+                        if (data[`p${i}Uid`]) allPlayers.push({ uid: data[`p${i}Uid`], name: data[`p${i}Name`] || "Player", score: Number(data[`p${i}Score`] || 0) });
                     }
-                    slots.sort((a, b) => b.score - a.score);
+                    // Mirrors computeFfaPlacements in functions/index.js: active
+                    // players rank by score, every player who left mid-match
+                    // ranks below all of them regardless of their frozen score —
+                    // worst placement to whoever left first — so the displayed
+                    // order always matches what was actually paid out.
+                    const leftPlayers = data.leftPlayers || [];
+                    const leftSet = new Set(leftPlayers);
+                    const activeSlots = allPlayers.filter(p => !leftSet.has(p.uid)).sort((a, b) => b.score - a.score);
+                    const leaverSlots = leftPlayers.filter(uid => allPlayers.some(p => p.uid === uid))
+                        .map(uid => allPlayers.find(p => p.uid === uid)).reverse();
+                    const slots = [...activeSlots, ...leaverSlots];
 
                     const winners = data.winners || [];
                     const amIWinner = winners.includes(currentUser.uid);
@@ -2623,15 +2663,21 @@
                     document.getElementById("ffa-end-title").style.color = amIWinner ? "#4caf50" : "#ffd700";
                     amIWinner ? SFX.clashWin() : SFX.clashLose();
 
-                    let placeNum = 0, lastScore = null, html = "";
+                    let placeNum = 0, html = "";
                     slots.forEach((s, i) => {
-                        if (s.score !== lastScore) { placeNum = i + 1; lastScore = s.score; }
+                        // Active players still share a place on a score tie;
+                        // leavers never do (leave order is a strict tiebreaker),
+                        // so only bump placeNum by score-match for the active run.
+                        const isLeaver = leftSet.has(s.uid);
+                        const prev = slots[i - 1];
+                        const tiedWithPrev = i > 0 && prev && !isLeaver && !leftSet.has(prev.uid) && prev.score === s.score;
+                        if (!tiedWithPrev) placeNum = i + 1;
                         const mine = s.uid === currentUser.uid;
                         const change = changes[s.uid] || { payout: 0, eloChange: 0 };
                         const isWin = winners.includes(s.uid);
                         let mmrText = isPublicMatch ? (change.eloChange >= 0 ? `+${change.eloChange} MMR` : `${change.eloChange} MMR`) : "Unranked";
                         html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "#332b00" : "#222"}; border:1px solid ${isWin ? "#ffd700" : "#444"};">
-                            <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}</div>
+                            <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}${isLeaver ? " <span style=\"color:#ff3333;\">(left)</span>" : ""}</div>
                             <div style="text-align:right;"><div>${s.score.toLocaleString()} pts</div><div style="font-size:11px; color:${change.payout > 0 ? "#4caf50" : "#aaa"};">+${change.payout.toLocaleString()} pts &nbsp; ${mmrText}</div></div>
                         </div>`;
                     });
@@ -2647,14 +2693,21 @@
             if (clashTimerInterval) { clearInterval(clashTimerInterval); clashTimerInterval = null; }
 
             if (currentMatchId) {
-                if (isMatchHost) {
-                    // Only actually deletes while the room is still 'waiting'
-                    // (see firestore.rules) — once it's playing/finished this
-                    // fails with permission-denied by design, and the host's
-                    // slot just goes stale like any other abandoned player
-                    // instead of erasing the match for everyone else.
+                const stillWaiting = lastFfaMatchData && lastFfaMatchData.status === "waiting";
+                if (isMatchHost && stillWaiting) {
+                    // Still just a lobby — tear the room down (mirrors 1v1's
+                    // pre-match leave behavior). firestore.rules only allows
+                    // this while status is 'waiting' regardless, so this is
+                    // also the correct fallback if lastFfaMatchData is stale.
                     deleteDoc(doc(db, "matches", currentMatchId)).catch(e => { if (e.code !== "permission-denied") console.error(e); });
                 } else {
+                    // Live match (host or not) — record the leave server-side
+                    // instead of freezing in place. The match keeps running
+                    // for whoever's left; leaving always lands you below every
+                    // still-active player, worst placement to whoever left
+                    // first (see leaveFfaMatch/computeFfaPlacements in
+                    // functions/index.js) — leaving early always costs more
+                    // than sticking it out, same spirit as 1v1's forfeit rule.
                     callLeaveFfaMatch({ matchId: currentMatchId }).catch(e => console.error(e));
                 }
             }

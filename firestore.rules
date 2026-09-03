@@ -141,6 +141,7 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
              'mode', 'hostUid', 'isPublic', 'status', 'maxPlayers', 'playerCount',
              'words', 'endTime', 'lobbyDeadline', 'winners', 'changes', 'payoutApplied',
+             'leftPlayers',
              'p0Uid', 'p1Uid', 'p2Uid', 'p3Uid',
              'p0Name', 'p1Name', 'p2Name', 'p3Name',
              'p0Equipped', 'p1Equipped', 'p2Equipped', 'p3Equipped',
