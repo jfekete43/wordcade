@@ -1418,6 +1418,7 @@
         let matchUnsubscribe = null;
         let isMatchHost = false;
         let myMiniBoard = [];
+        let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Standard mode
 
         // --- DAILY GAUNTLET STATE ---
         let isDailyMode = false;
@@ -2014,8 +2015,13 @@
 
         // --- STANDARD LOCAL STATE ---
         function saveLocalState() {
-            if (isVersusMode) return;
-            const state = { score: score, continues: continues, wordsGuessed: wordsGuessed, runStats: runStats };
+            if (isVersusMode || isDailyMode) return;
+            // targetWord/currentWordGuesses persist the word currently in
+            // progress — without these, a refresh always started a brand
+            // new random word (losing whatever guesses weren't yet a win),
+            // while the run's overall score/continues/stats survived just
+            // fine, since those were the only things ever saved here.
+            const state = { score: score, continues: continues, wordsGuessed: wordsGuessed, runStats: runStats, targetWord: targetWord, currentWordGuesses: currentWordGuesses };
             localStorage.setItem("wordcade_save", JSON.stringify(state));
         }
 
@@ -2031,6 +2037,8 @@
                     wordsGuessed = state.wordsGuessed || 0; runStats = state.runStats || { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
                     // Backfill for a save written before streak tracking existed
                     runStats.currentStreak = runStats.currentStreak || 0; runStats.bestStreak = runStats.bestStreak || 0;
+                    // Backfill for a save written before in-progress-word tracking existed
+                    targetWord = state.targetWord || ""; currentWordGuesses = Array.isArray(state.currentWordGuesses) ? state.currentWordGuesses : [];
                     return true;
                 } catch (e) { console.error("Save file corrupted"); return false; }
             }
@@ -2180,8 +2188,8 @@
                 targetWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "APPLE"; 
             }
             
-            currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = [];
-            createBoard(); resetKeyboardColors(); checkDangerRow(); 
+            currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = []; currentWordGuesses = [];
+            createBoard(); resetKeyboardColors(); checkDangerRow();
         }
 
         const keys = document.querySelectorAll(".key");
@@ -2246,10 +2254,15 @@
 
                 for (let i = 0; i < 5; i++) { if (guessArr[i] === targetArr[i]) { tileColors[i] = "correct"; targetArr[i] = null; correctCount++; } }
                 for (let i = 0; i < 5; i++) {
-                    if (tileColors[i] === "correct") continue; 
+                    if (tileColors[i] === "correct") continue;
                     let targetIndex = targetArr.indexOf(guessArr[i]);
                     if (targetIndex !== -1) { tileColors[i] = "present"; targetArr[targetIndex] = null; }
                 }
+
+                // Tracked purely for Standard mode's local-save/resume (see
+                // saveLocalState/loadLocalState) — harmless no-op for Clash,
+                // which never reads or persists it.
+                currentWordGuesses.push({ guess: currentGuess, colors: tileColors });
 
                 // FASTER FLIP ANIMATION (shared with the Daily Gauntlet — see animateRowReveal)
                 animateRowReveal(currentRow, guessArr, tileColors);
@@ -2343,6 +2356,7 @@
                             }
                         } else {
                             currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();
+                            saveLocalState(); // persist the in-progress word so a refresh doesn't lose these guesses
                         }
                     } catch (e) {
                         console.error("End guess error", e);
@@ -2358,7 +2372,22 @@
 
         function showMessage(msg) { messageDisplay.innerText = msg; setTimeout(() => { messageDisplay.innerText = ""; }, 2000); }
 
-        setTimeout(() => { if (loadLocalState()) { updateScoreBoard(); checkDangerRow(); } startRound(); }, 300);
+        setTimeout(() => {
+            if (loadLocalState()) {
+                updateScoreBoard();
+                if (targetWord && currentWordGuesses.length > 0 && currentWordGuesses.length < maxGuesses) {
+                    // Resume mid-word instead of starting a brand new one
+                    currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = [];
+                    createBoard(); resetKeyboardColors();
+                    currentWordGuesses.forEach((g) => { renderCompletedGuessRow(currentRow, g.guess.split(""), g.colors); currentRow++; });
+                    checkDangerRow();
+                } else {
+                    startRound();
+                }
+            } else {
+                startRound();
+            }
+        }, 300);
     </script>
 </body>
 </html>
