@@ -146,12 +146,20 @@
         body.reduce-motion .effect_supernova,
         body.reduce-motion .effect_celestial,
         body.reduce-motion .effect_haunted,
+        body.reduce-motion .effect_static,
+        body.reduce-motion .effect_toxic,
+        body.reduce-motion .effect_aurora,
+        body.reduce-motion .effect_singularity,
         body.reduce-motion .banner_matrix::after,
         body.reduce-motion .banner_prism,
         body.reduce-motion .banner_flux,
         body.reduce-motion .banner_solaris,
         body.reduce-motion .banner_celestial,
-        body.reduce-motion .banner_frostbite { animation: none !important; }
+        body.reduce-motion .banner_frostbite,
+        body.reduce-motion .banner_toxic,
+        body.reduce-motion .banner_aurora,
+        body.reduce-motion .banner_bloodmoon,
+        body.reduce-motion .banner_singularity { animation: none !important; }
 
         #keyboard { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 500px; margin-bottom: 20px; user-select: none; padding: 0 5px; position: relative; z-index: 2;}
         .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
@@ -279,6 +287,42 @@
 
         .effect_celestial { background: linear-gradient(90deg, #d4af37 0%, #fff8dc 20%, #d4af37 40%, #8a6d1f 60%, #fff8dc 80%, #d4af37 100%); background-size: 250% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2s linear infinite, celestial-sparkle 1.4s ease-in-out infinite; font-weight: 900; text-shadow: 0 0 10px rgba(255,248,220,0.5); }
         @keyframes celestial-sparkle { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
+
+        /* Two cheap early-game banners reusing colors/patterns already
+           established elsewhere (a plain gradient, a diagonal foil stripe) —
+           no animation, deliberately simple, priced to match. */
+        .banner_diamond { background: linear-gradient(180deg, #1e3b1e 0%, #2b572b 100%); border-left: 3px solid #fff; border-radius: 3px; }
+        .banner_foil { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px); border-left: 3px solid #ddd; border-radius: 3px; }
+
+        .banner_toxic { background: radial-gradient(circle at 30% 40%, #d4ff00 0%, #5a8c00 45%, #0a1400 100%); background-size: 160% 160%; animation: toxic-pulse 2.4s ease-in-out infinite; border-left: 3px solid #d4ff00; border-radius: 3px; }
+        @keyframes toxic-pulse { 0%, 100% { background-position: 30% 40%; filter: brightness(1); } 50% { background-position: 45% 55%; filter: brightness(1.25); } }
+
+        .effect_toxic { background: linear-gradient(90deg, #0a1400 0%, #5a8c00 25%, #d4ff00 50%, #5a8c00 75%, #0a1400 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.2s linear infinite; font-weight: 900; }
+
+        .banner_aurora { background: linear-gradient(120deg, #00ff9d 0%, #00d4ff 35%, #7b2fff 70%, #00ff9d 100%); background-size: 300% 300%; animation: aurora-drift 5s ease-in-out infinite; border-left: 3px solid #00ff9d; border-radius: 3px; }
+        @keyframes aurora-drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+        .effect_aurora { background: linear-gradient(90deg, #00ff9d, #00d4ff, #7b2fff, #00ff9d); background-size: 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 3.5s linear infinite; font-weight: 900; }
+
+        .banner_bloodmoon { background: radial-gradient(circle at 50% 40%, #8b0000 0%, #3a0000 45%, #000 100%); background-size: 160% 160%; animation: bloodmoon-pulse 3.2s ease-in-out infinite; border-left: 3px solid #ff1a1a; border-radius: 3px; }
+        @keyframes bloodmoon-pulse { 0%, 100% { background-position: 50% 40%; filter: brightness(1); } 50% { background-position: 55% 50%; filter: brightness(1.3); } }
+
+        /* Two cheap, low-effort static text effects for the low end of the
+           effects ladder — Neon Outline has no animation at all (an outline
+           glow reads fine static), Static Noise's flicker is fast/subtle
+           rather than the more dramatic pulses used further up the list. */
+        .effect_neon_outline { color: #fff; text-shadow: 0 0 2px #00ffff, 0 0 4px #ff00ff; font-weight: 700; }
+        .effect_static { color: #ddd; text-shadow: 1px 0 #fff, -1px 0 #888; animation: static-flicker 0.15s steps(2) infinite; }
+        @keyframes static-flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        /* New top tier, above Celestial — a black hole rather than more
+           starlight, so it reads as a genuinely different pinnacle instead
+           of a recolor of the previous one. */
+        .banner_singularity { background: radial-gradient(circle at 50% 50%, #000 0%, #1a0033 35%, #3d0080 55%, #000 80%); background-size: 220% 220%; animation: singularity-warp 4s ease-in-out infinite; border-left: 3px solid #b967ff; border-radius: 3px; }
+        @keyframes singularity-warp { 0%, 100% { background-position: 50% 50%; filter: brightness(1); } 50% { background-position: 55% 45%; filter: brightness(1.4); } }
+
+        .effect_singularity { color: #0a0015; text-shadow: 0 0 8px #b967ff, 0 0 18px #6a00ff, 0 0 32px #3d0080; animation: singularity-pulse 2.2s ease-in-out infinite; font-weight: 900; }
+        @keyframes singularity-pulse { 0%, 100% { text-shadow: 0 0 8px #b967ff, 0 0 18px #6a00ff, 0 0 32px #3d0080; } 50% { text-shadow: 0 0 14px #b967ff, 0 0 30px #6a00ff, 0 0 55px #3d0080; } }
 
         /* SEASONAL — time-limited (see isWithinSeasonalWindow in the module
            script and functions/index.js, which enforces the same window
@@ -1086,8 +1130,11 @@
                 titles: [
                     { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
                     { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 500, display: "Rookie" },
+                    { id: "title_nightowl", name: "Night Owl", desc: "Grinding past midnight.", cost: 750, display: "Night Owl" },
+                    { id: "title_debugger", name: "Debugger", desc: "Squashing every bug.", cost: 1500, display: "Debugger" },
                     { id: "title_hacker", name: "Cyber Hacker", desc: "Infiltrating the mainframe.", cost: 2500, display: "Cyber Hacker" },
                     { id: "title_speedrunner", name: "Speedrunner", desc: "Gotta go fast.", cost: 3000, display: "Speedrunner" },
+                    { id: "title_combobreaker", name: "Combo Breaker", desc: "Chaining wins together.", cost: 3500, display: "Combo Breaker" },
                     { id: "title_grid", name: "Grid Runner", desc: "Navigating the neon.", cost: 4000, display: "Grid Runner" },
                     { id: "title_pixel", name: "Pixel Pioneer", desc: "8-bit legendary status.", cost: 5000, display: "Pixel Pioneer" },
                     { id: "title_synth", name: "Synthwave Surfer", desc: "Riding the retro waves.", cost: 6000, display: "Synthwave Surfer" },
@@ -1098,10 +1145,15 @@
                     { id: "title_algorithm", name: "The Algorithm", desc: "Machine precision.", cost: 12500, display: "The Algorithm" },
                     { id: "title_finalboss", name: "Final Boss", desc: "The ultimate challenge.", cost: 15000, display: "Final Boss" },
                     { id: "title_sentient", name: "Sentient", desc: "The AI has awoken.", cost: 25000, display: "Sentient" },
-                    { id: "title_missingno", name: "Ghost in the Machine", desc: "Anomalous entity.", cost: 50000, display: "Ghost in the Machine" }
+                    { id: "title_architect", name: "The Architect", desc: "Building the perfect run.", cost: 35000, display: "The Architect" },
+                    { id: "title_oracle", name: "Oracle", desc: "Sees the word before it's guessed.", cost: 45000, display: "Oracle" },
+                    { id: "title_missingno", name: "Ghost in the Machine", desc: "Anomalous entity.", cost: 50000, display: "Ghost in the Machine" },
+                    { id: "title_singularity", name: "Singularity", desc: "Beyond sentient. Beyond the game.", cost: 125000, display: "Singularity" }
                 ],
                 banners: [
                     { id: "banner_default", name: "Basic Slate", desc: "Standard Background", cost: 0 },
+                    { id: "banner_diamond", name: "Emerald Cut", desc: "Understated. Still sharp.", cost: 1200 },
+                    { id: "banner_foil", name: "Foil Pack", desc: "Diagonal shine, mint condition.", cost: 1800 },
                     { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 2500 },
                     { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 2500 },
                     { id: "banner_8bit", name: "8-Bit Sunset", desc: "Retro horizon.", cost: 5000 },
@@ -1114,25 +1166,34 @@
                     { id: "banner_neoncity", name: "Neon City", desc: "Midnight skyline.", cost: 22500 },
                     { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 },
                     { id: "banner_prism", name: "Prism Drift", desc: "A slow-shifting spectrum sweep.", cost: 30000 },
+                    { id: "banner_toxic", name: "Toxic Spill", desc: "Handle with care.", cost: 35000 },
                     { id: "banner_flux", name: "Quantum Flux", desc: "Two currents, never still.", cost: 45000 },
+                    { id: "banner_aurora", name: "Aurora", desc: "Lights dancing overhead.", cost: 55000 },
                     { id: "banner_solaris", name: "Solaris", desc: "A pulsing solar flare.", cost: 65000 },
+                    { id: "banner_bloodmoon", name: "Blood Moon", desc: "Something's different tonight.", cost: 90000 },
                     { id: "banner_frostbite", name: "Frostbite", desc: "Winter event exclusive — Dec 1 to Jan 5.", cost: 8000, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
-                    { id: "banner_celestial", name: "Celestial Throne", desc: "Amongst the stars. The pinnacle.", cost: 100000 }
+                    { id: "banner_celestial", name: "Celestial Throne", desc: "Amongst the stars.", cost: 100000 },
+                    { id: "banner_singularity", name: "Event Horizon", desc: "Past this point, nothing escapes. The true pinnacle.", cost: 150000 }
                 ],
                 effects: [
                     { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
+                    { id: "effect_neon_outline", name: "Neon Outline", desc: "A crisp double-color glow.", cost: 3000 },
                     { id: "effect_pulse", name: "Neon Pulse", desc: "A gentle glowing rhythm.", cost: 5000 },
+                    { id: "effect_static", name: "Static Noise", desc: "Bad reception, good looks.", cost: 7000 },
                     { id: "effect_glitch", name: "Arcade Glitch", desc: "Corrupted system text.", cost: 10000 },
                     { id: "effect_electric", name: "High Voltage", desc: "Shocking blue aura.", cost: 12500 },
                     { id: "effect_hologram", name: "Hologram", desc: "Flickering projection.", cost: 15000 },
                     { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 20000 },
                     { id: "effect_void", name: "Void Black", desc: "Absorbs all light.", cost: 22500 },
-                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 50000 },
-                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 8000, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+                    { id: "effect_toxic", name: "Toxic Text", desc: "Radioactive and proud of it.", cost: 35000 },
                     { id: "effect_chromatic", name: "Chromatic Drift", desc: "A restless RGB split.", cost: 40000 },
+                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 50000 },
+                    { id: "effect_aurora", name: "Aurora Text", desc: "Green and violet, always shifting.", cost: 55000 },
                     { id: "effect_prism", name: "Prism Text", desc: "The full spectrum, cycling.", cost: 60000 },
                     { id: "effect_supernova", name: "Supernova", desc: "Burning brighter than fire.", cost: 80000 },
-                    { id: "effect_celestial", name: "Celestial Crown", desc: "Gold amongst the stars. The pinnacle.", cost: 100000 }
+                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 8000, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+                    { id: "effect_celestial", name: "Celestial Crown", desc: "Gold amongst the stars.", cost: 100000 },
+                    { id: "effect_singularity", name: "Event Horizon", desc: "Where the light stops. The true pinnacle.", cost: 150000 }
                 ]
             };
 
