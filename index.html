@@ -342,7 +342,7 @@
     <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
         <div style="color:#ff3333; font-size: 20px; font-weight: bold; text-shadow: 0 0 8px #ff3333;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
         <div id="sd-status-text" style="color:#ff9800; font-size: 14px; margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
-        <div id="sd-timer" style="color:#fff; font-size: 16px; font-weight: bold; margin-top: 4px;">0:25</div>
+        <div id="sd-timer" style="color:#fff; font-size: 16px; font-weight: bold; margin-top: 4px;">1:30</div>
     </div>
 
     <!-- VERSUS UI -->
@@ -1663,6 +1663,7 @@
             if (isAnimating) return;
             isAnimating = true;
             const guessArr = currentGuess.split("");
+            const rowIndex = currentRow;
 
             let result;
             try {
@@ -1674,19 +1675,27 @@
                 return;
             }
 
-            mySuddenDeathGuessSubmitted = true;
             const tileColors = result.colors.map(colorCodeToName);
-            animateRowReveal(0, guessArr, tileColors);
-            result.correct ? SFX.correctWord() : SFX.wrongWord();
+            animateRowReveal(rowIndex, guessArr, tileColors);
 
             setTimeout(() => {
-                isAnimating = false;
-                document.getElementById("sd-status-text").innerText = "Locked in! Waiting for opponent...";
-                // The actual round outcome (win/lose/push to another round)
-                // arrives via the match doc listener once both sides have
-                // guessed or the round's deadline passes — never decided
-                // locally, so a modified client can't just declare itself
-                // the winner.
+                if (result.correct) {
+                    // Winning is decided server-side and arrives via the match
+                    // doc listener (status -> 'finished') — this just reflects
+                    // it locally, never declares victory on its own.
+                    SFX.correctWord();
+                    mySuddenDeathGuessSubmitted = true;
+                    document.getElementById("sd-status-text").innerText = "Correct! Confirming...";
+                    isAnimating = false;
+                } else if (rowIndex >= maxGuesses - 1) {
+                    SFX.wrongWord();
+                    mySuddenDeathGuessSubmitted = true;
+                    document.getElementById("sd-status-text").innerText = "Out of guesses — waiting on opponent...";
+                    isAnimating = false;
+                } else {
+                    SFX.wrongWord();
+                    currentRow++; currentGuess = ""; isAnimating = false;
+                }
             }, 1000);
         }
 
@@ -2001,32 +2010,28 @@
 
                         if (!isSuddenDeathMode || suddenDeathRound !== data.suddenDeath.round) {
                             // Entering sudden death, or a new round started after a push
-                            // (nobody guessed right last round).
+                            // (both sides used all 5 guesses without solving it).
                             isSuddenDeathMode = true;
                             suddenDeathRound = data.suddenDeath.round;
                             mySuddenDeathGuessSubmitted = false;
                             document.getElementById("versus-track-container").style.display = "none";
                             document.getElementById("sudden-death-header").style.display = "block";
                             document.getElementById("sd-round").innerText = data.suddenDeath.round;
-                            document.getElementById("sd-status-text").innerText = "One word. One guess. Fastest correct answer wins!";
+                            document.getElementById("sd-status-text").innerText = "Guess the word! First to solve it wins.";
                             currentGuess = ""; currentRow = 0; isAnimating = false;
-                            createBoard(1); resetKeyboardColors();
+                            createBoard(); resetKeyboardColors();
                             if (!suddenDeathTimerInterval) {
                                 suddenDeathTimerInterval = setInterval(() => {
                                     let remain = Math.max(0, suddenDeathDeadline - Date.now());
-                                    document.getElementById("sd-timer").innerText = `0:${Math.ceil(remain / 1000).toString().padStart(2, "0")}`;
+                                    let mins = Math.floor(remain / 60000);
+                                    let secs = Math.floor((remain % 60000) / 1000).toString().padStart(2, "0");
+                                    document.getElementById("sd-timer").innerText = `${mins}:${secs}`;
                                     if (remain <= 0 && isMatchHost) {
                                         clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null;
                                         callResolveSuddenDeathTimeout({ matchId: currentMatchId }).catch((e) => console.error(e));
                                     }
                                 }, 1000);
                             }
-                        }
-
-                        let mySdSubmitted = isMatchHost ? data.suddenDeath.hostSubmitted : data.suddenDeath.guestSubmitted;
-                        let oppSdSubmitted = isMatchHost ? data.suddenDeath.guestSubmitted : data.suddenDeath.hostSubmitted;
-                        if (mySdSubmitted) {
-                            document.getElementById("sd-status-text").innerText = oppSdSubmitted ? "Resolving..." : "Locked in! Waiting for opponent...";
                         }
                     } else if (isSuddenDeathMode) {
                         // Sudden death ended without resolving the match itself (shouldn't
