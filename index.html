@@ -1865,10 +1865,30 @@
             }, 1000);
         }
 
+        // A single failed word ends the whole Gauntlet run right there — the
+        // rest of history stays as untouched {guesses:[], solved:false}
+        // placeholders (see functions/index.js's guessDailyWord), which
+        // reads identically to an actually-attempted-and-failed word unless
+        // filtered out here. Shared by the end screen and the share text so
+        // neither one implies you played all 10 words when a run that ended
+        // early never even reached the rest.
+        function dailyPlayedWords(attempt) {
+            return attempt.history.filter((h) => h.guesses.length > 0);
+        }
+
         async function showDailyEndModal(attempt, alreadyPlayed) {
             document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Gauntlet Complete!";
-            const solvedCount = attempt.history.filter((h) => h.solved).length;
-            document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:#4caf50; font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${solvedCount} / ${attempt.wordCount} words solved`;
+            const played = dailyPlayedWords(attempt);
+            const solvedCount = played.filter((h) => h.solved).length;
+            // Failing a word ends the run immediately, so the only way to
+            // have "played" every word is to have solved every word —
+            // there's no such thing as reaching word 10 with a miss along
+            // the way. A short run gets its own line naming exactly where
+            // it ended instead of a solved-count that implies otherwise.
+            const wordsLine = played.length >= attempt.wordCount
+                ? `${solvedCount} / ${attempt.wordCount} words solved`
+                : `${solvedCount} word${solvedCount === 1 ? "" : "s"} solved — missed word ${played.length} of ${attempt.wordCount}`;
+            document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:#4caf50; font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${wordsLine}`;
             document.getElementById("daily-end-modal").style.display = "flex";
 
             // Wallet/careerBank were updated server-side by onRunCreated (the
@@ -2907,19 +2927,32 @@
 
         window.shareDailyStats = function() {
             if (!dailyAttempt || !Array.isArray(dailyAttempt.history)) return;
-            const solvedCount = dailyAttempt.history.filter((h) => h.solved).length;
+            // Only words actually reached — a run that ended on a miss
+            // never touches the remaining slots, and those untouched
+            // placeholders read identically to a played-and-failed word
+            // unless filtered out (see dailyPlayedWords). Otherwise a
+            // 3-word run and a 10-word run that both ended in a fail would
+            // produce the exact same "10/10 played, some missed" grid.
+            const played = dailyPlayedWords(dailyAttempt);
+            const solvedCount = played.filter((h) => h.solved).length;
             // One emoji per word — the guess count that solved it, or ❌ if
-            // it was never solved — a compact stand-in for Wordle's classic
-            // grid that stays readable across 10 words instead of sprawling
-            // into up to 50 rows. Uses the game's own cyan/magenta-coded
-            // correct/present colors nowhere here on purpose — the numeral
-            // format reads at a glance without needing per-letter detail,
-            // and doesn't visually double as a screenshot of someone else's
-            // Wordle share.
+            // it was missed — a compact stand-in for Wordle's classic grid
+            // that stays readable across up to 10 words instead of
+            // sprawling into up to 50 rows. Uses the game's own cyan/
+            // magenta-coded correct/present colors nowhere here on purpose —
+            // the numeral format reads at a glance without needing
+            // per-letter detail, and doesn't visually double as a
+            // screenshot of someone else's Wordle share.
             const numeralEmoji = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
-            const grid = dailyAttempt.history.map((h) => (h.solved ? (numeralEmoji[h.guesses.length] || "5️⃣") : "❌")).join("");
+            const grid = played.map((h) => (h.solved ? (numeralEmoji[h.guesses.length] || "5️⃣") : "❌")).join("");
             const dateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }).format(new Date());
-            const shareMessage = `🕹️ Lexathon Gauntlet — ${dateLabel}\n${grid}\n💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved`;
+            // Same "no such thing as a full run with a miss in it" logic as
+            // showDailyEndModal — a short run gets an honest "out on word N"
+            // instead of implying it ran the full 10.
+            const resultLine = played.length >= dailyAttempt.wordCount
+                ? `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved`
+                : `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount} solved · out on word ${played.length} of ${dailyAttempt.wordCount}`;
+            const shareMessage = `🕹️ Lexathon Gauntlet — ${dateLabel}\n${grid}\n${resultLine}`;
             shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
         }
 
