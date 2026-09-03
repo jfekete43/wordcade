@@ -138,6 +138,15 @@ const DAILY_GAUNTLET_MAX_GUESSES = 5;
 const SUDDEN_DEATH_ROUND_MS = 90000; // a full 5-guess board per side, not one quick guess — needs real thinking time
 const SUDDEN_DEATH_MAX_ROUNDS = 3; // after this many pushes (nobody guessed right), fall back to a true tie
 
+const FFA_MAX_PLAYERS = 4;
+const FFA_MIN_PLAYERS = 2;
+const FFA_LOBBY_GRACE_MS = 20000; // once a public lobby has 2+, give it this long to fill further before auto-starting
+const FFA_MATCH_MS = 420000; // same 7-minute race as 1v1 Clash
+// 1st/2nd/3rd/4th split of the same 1,000-point pool 1v1 pays its winner —
+// keyed by player count so a 2p FFA lobby degenerates to exactly duel's
+// win/lose payout, and a 3p lobby drops the "200" tier rather than the "500".
+const FFA_PAYOUT_CURVES = { 2: [1000, 0], 3: [1000, 500, 0], 4: [1000, 500, 200, 0] };
+
 // UTC calendar-day string (YYYY-MM-DD). Must match index.html's
 // getTodayDateStr() exactly, since this is the sole source of truth for
 // when daily challenges/stats roll over.
@@ -847,5 +856,307 @@ exports.resolveSuddenDeathTimeout = onCall(async (request) => {
 
     pushSuddenDeathRoundOrFinalTie(tx, matchRef, secretRef, secret.round);
     return { ok: true };
+  });
+});
+
+// ============================================================================
+// CLASH: FREE-FOR-ALL — the same timed Score Attack race as 1v1 Clash (shared
+// word list, 7-minute clock, most points when time's up wins), scaled to
+// 2-4 players. Deliberately reuses 1v1's trust model rather than the hidden-
+// word server-validated one Sudden Death/Gauntlet use: the word list is
+// still generated client-side and stored openly on the match doc, and each
+// player still self-reports their own score/board/word-index as they play
+// (see checkGuess() in index.html) — no different from what 1v1 Clash
+// already does. What IS new here, and DOES matter: unlike 1v1's finishMatch
+// (a bare client updateDoc — any participant could, in principle, declare
+// themselves the winner outright without playing), placement AND payout for
+// FFA are decided by finishFfaMatch below, from the match doc's own score
+// fields, not from whatever a client claims. A determined cheater can still
+// inflate their own score client-side (same pre-existing limitation as 1v1),
+// but can no longer just skip to a self-declared win.
+//
+// Schema (matches/{matchId}, mode:'ffa'): up to 4 flat player slots —
+// p0Uid/p0Name/p0Equipped/p0Mmr/p0Score/p0Board/p0WordIndex, same for
+// p1-p3 — rather than a nested players map or array, so each player's
+// client can update its own slot's gameplay fields independently via a
+// plain updateDoc (mirrors hostScore/guestScore in 1v1) without any
+// read-modify-write race. Joining a slot, however, DOES have a real race
+// (two players both grabbing "the last open slot" at once) — so unlike
+// match creation, joining/starting/finishing all go through callables
+// (Admin SDK, transactional) instead of raw client writes; see
+// firestore.rules, which denies clients write access to every field below
+// except pNScore/pNBoard/pNWordIndex/chat for exactly that reason.
+// ============================================================================
+
+// Returns the occupied slots (2-4 of them) as a normalized array, in slot
+// order. Never includes empty slots (pNUid === null).
+function ffaSlots(match) {
+  const slots = [];
+  for (let i = 0; i < FFA_MAX_PLAYERS; i++) {
+    const uid = match[`p${i}Uid`];
+    if (uid) {
+      slots.push({
+        idx: i,
+        uid,
+        name: match[`p${i}Name`],
+        equipped: match[`p${i}Equipped`],
+        mmr: match[`p${i}Mmr`] || 1000,
+        score: Number(match[`p${i}Score`] || 0),
+      });
+    }
+  }
+  return slots;
+}
+
+function eloExpected(myMMR, opponentMMR) {
+  return 1 / (1 + Math.pow(10, (opponentMMR - myMMR) / 400));
+}
+
+// Multiplayer Elo: for each player, average their pairwise Elo delta against
+// every other player (actual = 1 beat them / 0.5 tied them / 0 lost to them,
+// by final score), rather than chaining sequential 1v1 updates — keeps the
+// result independent of any ordering and, for exactly 2 players, reduces to
+// the exact same number calculateEloChange would produce.
+function computeFfaEloDeltas(players) {
+  const n = players.length;
+  const deltas = {};
+  players.forEach((p) => {
+    let sumDiff = 0;
+    players.forEach((o) => {
+      if (o.uid === p.uid) return;
+      const actual = p.score > o.score ? 1 : p.score < o.score ? 0 : 0.5;
+      sumDiff += actual - eloExpected(p.mmr, o.mmr);
+    });
+    deltas[p.uid] = Math.round(32 * (sumDiff / (n - 1)));
+  });
+  return deltas;
+}
+
+// Ranks players by score (highest first) and splits the payout curve across
+// tied placements — e.g. two players tied for 1st in a 4p match share the
+// combined 1st+2nd payout (1000+500=1500) evenly, and the next distinct
+// score takes the 3rd-place tier. Standard tournament-payout tie handling.
+function computeFfaOutcome(players) {
+  const n = players.length;
+  const curve = FFA_PAYOUT_CURVES[n] || FFA_PAYOUT_CURVES[2];
+  const sorted = [...players].sort((a, b) => b.score - a.score);
+  const payoutByUid = {};
+  let i = 0;
+  while (i < n) {
+    let j = i;
+    while (j + 1 < n && sorted[j + 1].score === sorted[i].score) j++;
+    const slots = j - i + 1;
+    const totalPayout = curve.slice(i, j + 1).reduce((a, b) => a + b, 0);
+    const share = Math.round(totalPayout / slots);
+    for (let k = i; k <= j; k++) payoutByUid[sorted[k].uid] = share;
+    i = j + 1;
+  }
+  const winners = sorted.filter((p) => p.score === sorted[0].score).map((p) => p.uid);
+  return { payoutByUid, winners };
+}
+
+// Claims the next open slot for the caller. Transactional so two players
+// joining the same lobby at once can't both land in "the last slot" — one
+// wins the transaction, the other's transaction retries against the
+// now-full (or now-different) match and fails cleanly instead of racing.
+exports.joinFfaMatch = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  const userRef = db.collection("users").doc(uid);
+
+  return db.runTransaction(async (tx) => {
+    const [matchSnap, userSnap] = await Promise.all([tx.get(matchRef), tx.get(userRef)]);
+    if (!matchSnap.exists) throw new HttpsError("not-found", "Match not found.");
+    if (!userSnap.exists) throw new HttpsError("not-found", "Profile not found.");
+    const match = matchSnap.data();
+    if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
+    if (match.status !== "waiting") throw new HttpsError("failed-precondition", "That match already started.");
+
+    const slots = ffaSlots(match);
+    const already = slots.find((s) => s.uid === uid);
+    if (already) return { matchId, slotIndex: already.idx, playerCount: slots.length, started: false }; // retried call — no-op
+    if (slots.length >= FFA_MAX_PLAYERS) throw new HttpsError("failed-precondition", "That match is full.");
+
+    const openIdx = [0, 1, 2, 3].find((i) => !match[`p${i}Uid`]);
+    const userData = userSnap.data();
+    const newCount = slots.length + 1;
+    const update = {
+      [`p${openIdx}Uid`]: uid,
+      [`p${openIdx}Name`]: userData.username || "Guest",
+      [`p${openIdx}Equipped`]: userData.equipped || DEFAULT_EQUIPPED,
+      [`p${openIdx}Mmr`]: userData.mmr || 1000,
+      playerCount: newCount,
+    };
+
+    let started = false;
+    if (newCount >= FFA_MAX_PLAYERS) {
+      update.status = "playing";
+      update.endTime = Date.now() + FFA_MATCH_MS;
+      started = true;
+    } else if (match.isPublic && newCount === 2 && !match.lobbyDeadline) {
+      update.lobbyDeadline = Date.now() + FFA_LOBBY_GRACE_MS;
+    }
+
+    tx.update(matchRef, update);
+    return { matchId, slotIndex: openIdx, playerCount: newCount, started };
+  });
+});
+
+// Frees a player's slot in a lobby that hasn't started yet. The host
+// leaving deletes the whole room (mirrors 1v1's client-side "host deletes
+// their own waiting match" behavior — matches.rules already lets any host
+// delete their own match doc directly, so this only needs to handle a
+// non-host slot, which a client can't free itself; see firestore.rules).
+// Leaving a match that's already 'playing'/'finished' is a deliberate
+// no-op — an abandoned slot's score just stops advancing, same tradeoff
+// 1v1 Clash already makes for a disconnected opponent.
+exports.leaveFfaMatch = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) return { ok: true }; // already gone
+    const match = snap.data();
+    if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
+    if (match.status !== "waiting") return { ok: true }; // already started/finished — nothing to free
+
+    const slots = ffaSlots(match);
+    const mine = slots.find((s) => s.uid === uid);
+    if (!mine) return { ok: true }; // wasn't in it
+
+    if (mine.idx === 0) {
+      tx.delete(matchRef);
+      return { ok: true, deleted: true };
+    }
+    tx.update(matchRef, {
+      [`p${mine.idx}Uid`]: null,
+      [`p${mine.idx}Name`]: null,
+      [`p${mine.idx}Equipped`]: null,
+      [`p${mine.idx}Mmr`]: 1000,
+      playerCount: slots.length - 1,
+    });
+    return { ok: true };
+  });
+});
+
+// Starts a still-waiting lobby early: host-only for a private room (any
+// time there are 2+ players), or any participant once a public lobby's
+// grace period has elapsed. Re-validates the deadline against the server's
+// own clock rather than trusting the caller's — a client can't start it
+// early by lying about what time it is locally.
+exports.startFfaMatch = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Match not found.");
+    const match = snap.data();
+    if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
+    if (!ffaSlots(match).some((s) => s.uid === uid)) throw new HttpsError("permission-denied", "Not a participant.");
+    if (match.status !== "waiting") return { ok: true, alreadyStarted: true }; // idempotent no-op
+
+    const count = match.playerCount || 0;
+    if (count < FFA_MIN_PLAYERS) throw new HttpsError("failed-precondition", "Need at least 2 players.");
+
+    if (match.isPublic) {
+      if (!match.lobbyDeadline || Date.now() < match.lobbyDeadline) {
+        throw new HttpsError("failed-precondition", "The grace period hasn't elapsed yet.");
+      }
+    } else if (match.hostUid !== uid) {
+      throw new HttpsError("permission-denied", "Only the host can start a private match early.");
+    }
+
+    tx.update(matchRef, { status: "playing", endTime: Date.now() + FFA_MATCH_MS });
+    return { ok: true };
+  });
+});
+
+// Ends a 'playing' FFA match once its clock has actually run out, computing
+// winners from the match doc's own score fields — not from anything the
+// calling client asserts. Any participant's client may call this (whichever
+// one notices the timer hit zero first); it's transaction-idempotent, so a
+// race between multiple clients calling it at once just means the rest are
+// no-ops. Payout/MMR happen separately in onFfaMatchFinished, same split as
+// the 1v1 duel/onMatchFinished relationship.
+exports.finishFfaMatch = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Match not found.");
+    const match = snap.data();
+    if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
+    const slots = ffaSlots(match);
+    if (!slots.some((s) => s.uid === uid)) throw new HttpsError("permission-denied", "Not a participant.");
+    if (match.status !== "playing") return { ok: true }; // already resolved — idempotent no-op
+    if (!match.endTime || Date.now() < match.endTime - 2000) {
+      throw new HttpsError("failed-precondition", "The match hasn't ended yet.");
+    }
+
+    const { winners } = computeFfaOutcome(slots);
+    tx.update(matchRef, { status: "finished", winners });
+    return { ok: true };
+  });
+});
+
+// Payout/MMR trigger for FFA matches — the exact counterpart to
+// onMatchFinished, just computing placements across 2-4 players instead of
+// a binary win/lose. Public matches move MMR (pairwise-averaged Elo, see
+// computeFfaEloDeltas); private matches still pay the wallet split but never
+// touch MMR, same rule 1v1 already follows. clashWins/clashLosses/clashTies
+// stay 1v1-only (a 3-way placement doesn't map cleanly onto a win/loss
+// counter) — FFA gets its own lightweight ffaMatchesPlayed/ffaWins counters
+// instead, for future FFA-specific challenges.
+exports.onFfaMatchFinished = onDocumentUpdated("matches/{matchId}", async (event) => {
+  const after = event.data.after.data();
+  const before = event.data.before.data();
+  if (!after || after.mode !== "ffa") return;
+  if (after.status !== "finished" || (before && before.status === "finished")) return;
+
+  const matchRef = event.data.after.ref;
+  const slots = ffaSlots(after);
+  if (slots.length < FFA_MIN_PLAYERS) return; // never actually filled — nothing to pay out
+
+  const userRefs = slots.map((s) => db.collection("users").doc(s.uid));
+
+  await db.runTransaction(async (tx) => {
+    const matchSnap = await tx.get(matchRef);
+    if (!matchSnap.exists || matchSnap.data().payoutApplied) return; // already processed (retry-safe)
+    const userSnaps = await Promise.all(userRefs.map((r) => tx.get(r)));
+    if (userSnaps.some((s) => !s.exists)) return;
+
+    const players = slots.map((s, i) => ({ uid: s.uid, score: s.score, mmr: userSnaps[i].data().mmr || 1000 }));
+    const { payoutByUid, winners } = computeFfaOutcome(players);
+    const isPublicMatch = after.isPublic === true;
+    const eloDeltas = isPublicMatch ? computeFfaEloDeltas(players) : {};
+
+    const changes = {};
+    players.forEach((p, i) => {
+      const payout = payoutByUid[p.uid] || 0;
+      const eloChange = eloDeltas[p.uid] || 0;
+      const newMmr = Math.max(0, p.mmr + eloChange);
+      const update = { mmr: newMmr, ffaMatchesPlayed: FieldValue.increment(1) };
+      if (payout > 0) {
+        update.wallet = FieldValue.increment(payout);
+        update.careerBank = FieldValue.increment(payout);
+      }
+      if (winners.includes(p.uid)) update.ffaWins = FieldValue.increment(1);
+      tx.update(userRefs[i], update);
+      changes[p.uid] = { payout, eloChange };
+    });
+
+    tx.update(matchRef, { changes, payoutApplied: true });
   });
 });

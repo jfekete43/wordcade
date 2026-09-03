@@ -30,6 +30,14 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
+    // 1v1 duel matches never set a `mode` field at all (only FFA matches
+    // do) — resource.data.mode would THROW on a duel match if read with
+    // plain dot notation (Firestore rules error out on a genuinely missing
+    // map key, they don't just return null), which would deny every 1v1
+    // match update outright. .get(key, default) is the safe way to read a
+    // field that may not exist.
+    function matchMode(m) { return m.get('mode', 'duel'); }
+
     match /users/{userId} {
       // Public profile info (username, cosmetics, mmr, careerBank) is read
       // for the leaderboard, live feed, and rank lookups.
@@ -110,14 +118,43 @@ service cloud.firestore {
       // Either participant can update live gameplay fields (scores, mini-
       // boards, chat, endTime, and status/winner to signal "this match is
       // over"), but neither may touch the payout fields — those are
-      // Cloud-Function-only (see onMatchFinished).
-      allow update: if isSignedIn()
+      // Cloud-Function-only (see onMatchFinished). 1v1 duels only —
+      // mode:'ffa' matches are handled by the block below instead.
+      allow update: if isSignedIn() && matchMode(resource.data) != 'ffa'
         && (resource.data.hostUid == request.auth.uid
             || resource.data.guestUid == request.auth.uid
             || (resource.data.guestUid == null && request.resource.data.guestUid == request.auth.uid))
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostChange', 'guestChange', 'payoutApplied']);
 
-      allow delete: if isSignedIn() && resource.data.hostUid == request.auth.uid;
+      // Clash: Free-For-All (2-4 players, see functions/index.js). Unlike
+      // the 1v1 rule above, joining/starting/finishing a match ALL go
+      // through callables (joinFfaMatch/startFfaMatch/finishFfaMatch) —
+      // there's a real race in claiming one of a fixed number of open
+      // slots that a plain client updateDoc can't safely resolve, the way
+      // 1v1's single guest slot gets away with. So a client here may only
+      // ever touch its own live gameplay fields (pNScore/pNBoard/
+      // pNWordIndex) and chat — every identity, roster, timing, and payout
+      // field is Admin-SDK-only.
+      allow update: if isSignedIn() && matchMode(resource.data) == 'ffa'
+        && (request.auth.uid == resource.data.p0Uid || request.auth.uid == resource.data.p1Uid
+            || request.auth.uid == resource.data.p2Uid || request.auth.uid == resource.data.p3Uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'mode', 'hostUid', 'isPublic', 'status', 'maxPlayers', 'playerCount',
+             'words', 'endTime', 'lobbyDeadline', 'winners', 'changes', 'payoutApplied',
+             'p0Uid', 'p1Uid', 'p2Uid', 'p3Uid',
+             'p0Name', 'p1Name', 'p2Name', 'p3Name',
+             'p0Equipped', 'p1Equipped', 'p2Equipped', 'p3Equipped',
+             'p0Mmr', 'p1Mmr', 'p2Mmr', 'p3Mmr'
+           ]);
+
+      // A 1v1 host may delete their match at any time (mirrors the client's
+      // existing leaveVersusMatch behavior). An FFA host may only delete
+      // theirs while it's still a lobby — once it's 'playing', up to 3
+      // other real players are mid-race in it; deleting the doc would wipe
+      // the match for all of them and skip payout entirely, instead of the
+      // host's own slot simply going stale like any other abandoned player.
+      allow delete: if isSignedIn() && resource.data.hostUid == request.auth.uid
+        && (matchMode(resource.data) != 'ffa' || resource.data.status == 'waiting');
     }
 
     // Daily Gauntlet's target words — NEVER readable by any client. The

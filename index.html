@@ -45,6 +45,8 @@
         
         #btn-mode { color: #ff9800; border-color: #ff9800; }
         #btn-mode:hover { background-color: #ff9800; color: #000; }
+        .arcade-menu .ffa-btn { color: #ffd700; border-color: #ffd700; }
+        .arcade-menu .ffa-btn:hover { background-color: #ffd700; color: #000; }
 
         /* STANDARD UI */
         #score-board, #daily-header {
@@ -65,6 +67,19 @@
         #versus-track { display: flex; justify-content: space-between; align-items: center; position: relative; margin-top: 15px;}
         .track-dot { width: 14px; height: 14px; background: #222; border: 2px solid #555; border-radius: 50%; position: relative; z-index: 2; transition: all 0.3s; }
         .track-dot.puck { background: #fff; border-color: #fff; box-shadow: 0 0 15px #fff; transform: scale(1.3); }
+
+        /* FFA (FREE-FOR-ALL) UI — same Score Attack race as Versus, scaled to 2-4 players */
+        #ffa-track-container {
+            display: none; width: 95%; max-width: 520px; z-index: 2; position: relative;
+            background: #1a1a1d; padding: 15px; border-radius: 5px; border: 2px solid #ffd700; margin-bottom: 15px;
+        }
+        #ffa-timer-display { font-size: 20px; color: #ffd700; font-weight: bold; text-shadow: 0 0 10px #ffd700; text-align: center; margin-bottom: 12px; }
+        #ffa-players-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .ffa-player-card { background: #222; border: 2px solid #444; border-radius: 5px; padding: 8px; text-align: center; }
+        .ffa-player-card.ffa-me { border-color: #ffd700; box-shadow: 0 0 8px #ffd700; }
+        .ffa-player-word-count { font-size: 10px; color: #aaa; font-weight: bold; margin: 2px 0; text-transform: uppercase; }
+        .ffa-player-score { font-size: 18px; font-weight: bold; color: #ffd700; margin-top: 4px; }
+        .ffa-mini-board { display: grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: center; margin: 4px 0; }
 
         .mini-0 { background: transparent; border-color: #333; }
         .mini-1 { background: #ff00ff; border-color: #ff00ff; box-shadow: 0 0 5px #ff00ff;}
@@ -323,6 +338,7 @@
         <button onclick="window.showMainMenu()">Menu</button>
         <button id="btn-mode" onclick="window.toggleMode()">CLASH</button>
         <button class="daily-btn" id="btn-daily" onclick="window.toggleDailyMode()">GAUNTLET</button>
+        <button class="ffa-btn" id="btn-ffa" onclick="window.toggleFfaMode()">FFA</button>
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
     </nav>
 
@@ -394,6 +410,45 @@
             <!-- SCORES -->
             <div id="vs-guest-score" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: #ff00ff;">0</div>
             <div id="vs-host-score" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: #00ffff;">0</div>
+        </div>
+    </div>
+
+    <!-- FFA (FREE-FOR-ALL) UI -->
+    <div id="ffa-track-container">
+        <div id="ffa-timer-display">7:00</div>
+        <div id="ffa-players-grid">
+            <div class="ffa-player-card" id="ffa-card-0" style="display:none;">
+                <div class="lb-entry banner_default" id="ffa-banner-0" style="padding: 6px; font-size: 12px; min-height: 40px;">
+                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-0" style="font-size: 13px;">P1</div></div>
+                </div>
+                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-0">1</span></div>
+                <div class="ffa-mini-board" id="ffa-board-0"></div>
+                <div class="ffa-player-score" id="ffa-score-0">0</div>
+            </div>
+            <div class="ffa-player-card" id="ffa-card-1" style="display:none;">
+                <div class="lb-entry banner_default" id="ffa-banner-1" style="padding: 6px; font-size: 12px; min-height: 40px;">
+                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-1" style="font-size: 13px;">P2</div></div>
+                </div>
+                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-1">1</span></div>
+                <div class="ffa-mini-board" id="ffa-board-1"></div>
+                <div class="ffa-player-score" id="ffa-score-1">0</div>
+            </div>
+            <div class="ffa-player-card" id="ffa-card-2" style="display:none;">
+                <div class="lb-entry banner_default" id="ffa-banner-2" style="padding: 6px; font-size: 12px; min-height: 40px;">
+                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-2" style="font-size: 13px;">P3</div></div>
+                </div>
+                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-2">1</span></div>
+                <div class="ffa-mini-board" id="ffa-board-2"></div>
+                <div class="ffa-player-score" id="ffa-score-2">0</div>
+            </div>
+            <div class="ffa-player-card" id="ffa-card-3" style="display:none;">
+                <div class="lb-entry banner_default" id="ffa-banner-3" style="padding: 6px; font-size: 12px; min-height: 40px;">
+                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-3" style="font-size: 13px;">P4</div></div>
+                </div>
+                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-3">1</span></div>
+                <div class="ffa-mini-board" id="ffa-board-3"></div>
+                <div class="ffa-player-score" id="ffa-score-3">0</div>
+            </div>
         </div>
     </div>
 
@@ -565,6 +620,60 @@
                 <button class="btn-cyan" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
                 <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: #aaa; font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
                 <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FFA LOBBY MODAL -->
+    <div id="ffa-lobby-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
+            <h2 class="modal-title" style="color: #ffd700;">Free-For-All</h2>
+            <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
+                2-4 players. Score Attack rules.<br>Highest score when the clock hits 0 wins!
+            </div>
+
+            <div id="ffa-lobby-action-view">
+                <div class="modal-buttons">
+                    <button class="btn-cyan" style="border-color: #ffd700; color: #ffd700;" onclick="window.findRandomFfaMatch()">Find Public Match</button>
+                    <div id="ffa-active-searchers-text" style="color: #ffd700; font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+
+                    <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIENDS -</div>
+
+                    <button class="btn-dark" style="border-color: #ffd700 !important; color: #ffd700;" onclick="window.hostFfaMatch()">Host Private Room</button>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <input type="text" id="ffa-join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
+                        <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinFfaMatchByCode()">Join</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ffa-lobby-waiting-view" style="display: none; width: 100%; text-align: center;">
+                <h2 id="ffa-waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">WAITING FOR PLAYERS...</h2>
+
+                <div id="ffa-display-room-code" style="font-size: 32px; color: #ffd700; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
+
+                <div id="ffa-lobby-players-list" style="font-size: 14px; color: #fff; margin-bottom: 15px; line-height: 1.6;"></div>
+
+                <div id="ffa-lobby-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 15px; font-style: italic;"></div>
+
+                <div class="modal-buttons">
+                    <button class="btn-cyan" id="ffa-btn-start-early" style="display: none; border-color: #ffd700; color: #ffd700;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
+                    <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelFfaLobby()">Cancel</button>
+                </div>
+            </div>
+
+            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Standard</button>
+        </div>
+    </div>
+
+    <!-- FFA END MODAL -->
+    <div id="ffa-end-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
+            <h2 class="modal-title" id="ffa-end-title" style="color: #ffd700;">Match Complete!</h2>
+            <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: 14px;"></div>
+
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="window.leaveFfaMatch()">Leave Match</button>
             </div>
         </div>
     </div>
@@ -830,6 +939,10 @@
         const callStartSuddenDeath = httpsCallable(cloudFunctions, "startSuddenDeath");
         const callGuessSuddenDeathWord = httpsCallable(cloudFunctions, "guessSuddenDeathWord");
         const callResolveSuddenDeathTimeout = httpsCallable(cloudFunctions, "resolveSuddenDeathTimeout");
+        const callJoinFfaMatch = httpsCallable(cloudFunctions, "joinFfaMatch");
+        const callLeaveFfaMatch = httpsCallable(cloudFunctions, "leaveFfaMatch");
+        const callStartFfaMatch = httpsCallable(cloudFunctions, "startFfaMatch");
+        const callFinishFfaMatch = httpsCallable(cloudFunctions, "finishFfaMatch");
 
         let currentUser = null;
         let userProfileData = null;
@@ -1160,6 +1273,7 @@
         window.confirmNewGame = function() {
             if (isVersusMode) { alert("Leave the match first!"); return; }
             if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
+            if (isFfaMode) { alert("Leave the FFA match first!"); return; }
             if (score > 0 || runStats.played > 0) { let confirmSwitch = confirm("Start a new game? This will end your current run and cash out your score."); if (!confirmSwitch) return; document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun(); } 
             else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
         }
@@ -1444,6 +1558,15 @@
         let suddenDeathTimerInterval = null;
         let mySuddenDeathGuessSubmitted = false;
 
+        // --- CLASH: FREE-FOR-ALL STATE ---
+        // Reuses clashWords/clashWordIndex/clashMyScore/clashTimerInterval —
+        // isVersusMode and isFfaMode are mutually exclusive, same as every
+        // other pair of modes here, so sharing those globals is safe.
+        let isFfaMode = false;
+        let myFfaSlot = -1; // 0-3, this client's slot index in the match doc
+        let ffaLobbyDeadline = 0;
+        let ffaLobbyTimerInterval = null;
+
         // --- HTML ESCAPER (prevents chat/message injection) ---
         function escapeHtml(str) {
             return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1505,10 +1628,11 @@
         window.toggleMode = function() {
             document.activeElement.blur();
             if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
+            if (isFfaMode) { alert("Leave the FFA match first!"); return; }
             if (isVersusMode) {
                 let confirmSwitch = confirm("Leave Head-to-Head match?");
                 if (!confirmSwitch) return;
-                window.leaveVersusMatch(); 
+                window.leaveVersusMatch();
             } else {
                 if (score > 0 || runStats.played > 0) {
                     let confirmSwitch = confirm("Switching to Clash will cash out your current Standard run. Continue?");
@@ -1519,28 +1643,30 @@
                 document.getElementById("btn-mode").innerText = "STANDARD";
                 document.getElementById("btn-mode").style.color = "#ff00ff"; document.getElementById("btn-mode").style.borderColor = "#ff00ff";
                 document.getElementById("btn-daily").style.display = "none";
+                document.getElementById("btn-ffa").style.display = "none";
                 document.getElementById("score-board").style.display = "none";
                 document.getElementById("btn-cash-out").style.display = "none";
                 document.getElementById("versus-track-container").style.display = "block";
                 document.getElementById("clash-chat-container").style.display = "block"; // SHOW CHAT
                 boardDisplay.innerHTML = "";
                 document.getElementById("versus-lobby-modal").style.display = "flex";
-                
-                listenToLobbyCount(); 
+
+                listenToLobbyCount();
             }
             document.getElementById("live-feed-container").style.display = "none";
         }
 
         window.cancelVersusLobby = function() {
             if (currentMatchId) { window.leaveVersusMatch(); return; }
-            
-            stopLobbyCount(); 
-            
+
+            stopLobbyCount();
+
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
             document.getElementById("btn-mode").innerText = "CLASH";
             document.getElementById("btn-mode").style.color = "#ff9800"; document.getElementById("btn-mode").style.borderColor = "#ff9800";
             document.getElementById("btn-daily").style.display = "inline-block";
+            document.getElementById("btn-ffa").style.display = "inline-block";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
@@ -1556,6 +1682,7 @@
             document.getElementById('main-menu-modal').style.display = 'none';
             if (!currentUser) return;
             if (isVersusMode) { alert("Leave the Clash match first!"); return; }
+            if (isFfaMode) { alert("Leave the FFA match first!"); return; }
             if (score > 0 || runStats.played > 0) {
                 let confirmSwitch = confirm("Switching to the Daily Gauntlet will cash out your current Standard run. Continue?");
                 if (!confirmSwitch) return;
@@ -1575,6 +1702,7 @@
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("btn-mode").style.display = "none";
+            document.getElementById("btn-ffa").style.display = "none";
             document.getElementById("btn-daily").innerText = "LEAVE GAUNTLET";
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("live-feed-container").style.display = "none";
@@ -1722,6 +1850,7 @@
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("btn-mode").style.display = "inline-block";
+            document.getElementById("btn-ffa").style.display = "inline-block";
             document.getElementById("live-feed-container").style.display = "block";
             window.startNewRun();
         }
@@ -2197,9 +2326,350 @@
             window.cancelVersusLobby(); // Fixed prefix
         }
 
+        // ============================================================================
+        // CLASH: FREE-FOR-ALL — same Score Attack race as 1v1 Clash (shared word
+        // list, 7-minute clock, most points wins), scaled to 2-4 players. Mirrors
+        // the findRandomMatch/hostMatch/joinMatch/listenToMatch/leaveVersusMatch
+        // group above, generalized from host/guest to up to 4 flat pN* slots —
+        // see functions/index.js for the server side (joinFfaMatch/startFfaMatch/
+        // finishFfaMatch/leaveFfaMatch/onFfaMatchFinished) and firestore.rules for
+        // why joining/starting/finishing go through those instead of raw writes.
+        // ============================================================================
+        let ffaMatchUnsubscribe = null;
+        let ffaLobbyCountUnsubscribe = null;
+
+        function listenToFfaLobbyCount() {
+            if (ffaLobbyCountUnsubscribe) ffaLobbyCountUnsubscribe();
+            const q = query(collection(db, "matches"), where("status", "==", "waiting"), where("isPublic", "==", true), where("mode", "==", "ffa"));
+            ffaLobbyCountUnsubscribe = onSnapshot(q, (snapshot) => {
+                let count = 0;
+                snapshot.forEach(d => { count += d.data().playerCount || 0; });
+                const el = document.getElementById("ffa-active-searchers-text");
+                if (el) {
+                    if (count === 0) { el.innerText = "No players currently searching."; el.style.color = "#aaa"; }
+                    else { el.innerText = `${count} player(s) in queue...`; el.style.color = "#ffd700"; }
+                }
+            });
+        }
+        function stopFfaLobbyCount() { if (ffaLobbyCountUnsubscribe) { ffaLobbyCountUnsubscribe(); ffaLobbyCountUnsubscribe = null; } }
+
+        window.toggleFfaMode = function() {
+            document.activeElement.blur();
+            if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
+            if (isVersusMode) { alert("Leave the Clash match first!"); return; }
+            if (isFfaMode) {
+                let confirmSwitch = confirm("Leave the FFA match?");
+                if (!confirmSwitch) return;
+                window.leaveFfaMatch();
+            } else {
+                if (score > 0 || runStats.played > 0) {
+                    let confirmSwitch = confirm("Switching to FFA will cash out your current Standard run. Continue?");
+                    if (!confirmSwitch) return;
+                    saveRunToCloud();
+                }
+                isFfaMode = true;
+                document.getElementById("btn-mode").style.display = "none";
+                document.getElementById("btn-daily").style.display = "none";
+                document.getElementById("score-board").style.display = "none";
+                document.getElementById("btn-cash-out").style.display = "none";
+                boardDisplay.innerHTML = "";
+                document.getElementById("ffa-lobby-modal").style.display = "flex";
+                listenToFfaLobbyCount();
+            }
+            document.getElementById("live-feed-container").style.display = "none";
+        }
+
+        window.cancelFfaLobby = function() {
+            if (currentMatchId) { window.leaveFfaMatch(); return; }
+            stopFfaLobbyCount();
+            document.getElementById("ffa-lobby-modal").style.display = "none";
+            isFfaMode = false;
+            document.getElementById("btn-mode").style.display = "inline-block";
+            document.getElementById("btn-daily").style.display = "inline-block";
+            document.getElementById("score-board").style.display = "flex";
+            document.getElementById("btn-cash-out").style.display = "inline-block";
+            document.getElementById("ffa-track-container").style.display = "none";
+            window.startNewRun();
+            document.getElementById("live-feed-container").style.display = "block";
+        }
+
+        function newFfaMatchDoc(hostUid, hostName, hostEquipped, hostMmr, isPublic) {
+            return {
+                mode: "ffa", hostUid, isPublic, status: "waiting",
+                maxPlayers: 4, playerCount: 1,
+                p0Uid: hostUid, p0Name: hostName, p0Equipped: hostEquipped, p0Mmr: hostMmr || 1000, p0Score: 0, p0Board: [], p0WordIndex: 1,
+                p1Uid: null, p1Name: null, p1Equipped: null, p1Mmr: 1000, p1Score: 0, p1Board: [], p1WordIndex: 1,
+                p2Uid: null, p2Name: null, p2Equipped: null, p2Mmr: 1000, p2Score: 0, p2Board: [], p2WordIndex: 1,
+                p3Uid: null, p3Name: null, p3Equipped: null, p3Mmr: 1000, p3Score: 0, p3Board: [], p3WordIndex: 1,
+                words: generateClashWords(), endTime: null, lobbyDeadline: null, chat: [],
+                winners: null, changes: null, payoutApplied: false,
+            };
+        }
+
+        window.findRandomFfaMatch = async function() {
+            if (!currentUser) return;
+            window.matchFinishedProcessed = false;
+
+            document.getElementById("ffa-lobby-action-view").style.display = "none";
+            document.getElementById("ffa-lobby-waiting-view").style.display = "block";
+            document.getElementById("ffa-waiting-status-text").innerHTML = "Searching the Arcade...";
+            document.getElementById("ffa-display-room-code").style.display = "none";
+            document.getElementById("ffa-lobby-sub-text").innerText = "Looking for an open FFA lobby...";
+
+            try {
+                const staleQ = query(collection(db, "matches"), where("hostUid", "==", currentUser.uid), where("status", "==", "waiting"), where("mode", "==", "ffa"));
+                const staleSnap = await getDocs(staleQ);
+                staleSnap.forEach(d => { deleteDoc(doc(db, "matches", d.id)).catch(e => {}); });
+
+                const q = query(collection(db, "matches"), where("status", "==", "waiting"), where("isPublic", "==", true), where("mode", "==", "ffa"), limit(10));
+                const snapshot = await getDocs(q);
+                let foundMatch = null;
+                snapshot.forEach(d => { if ((d.data().playerCount || 0) < 4 && d.data().hostUid !== currentUser.uid) foundMatch = d; });
+
+                if (foundMatch) {
+                    const result = await callJoinFfaMatch({ matchId: foundMatch.id });
+                    currentMatchId = foundMatch.id; myFfaSlot = result.data.slotIndex; isMatchHost = (myFfaSlot === 0);
+                    listenToFfaMatch();
+                } else {
+                    currentMatchId = generateRoomCode(); isMatchHost = true; myFfaSlot = 0;
+                    await setDoc(doc(db, "matches", currentMatchId), newFfaMatchDoc(currentUser.uid, userProfileData.username, userProfileData.equipped, userProfileData.mmr, true));
+                    listenToFfaMatch();
+                }
+            } catch (e) {
+                console.error("FFA matchmaking error", e);
+                document.getElementById("ffa-waiting-status-text").innerHTML = "<span style='color:#ff3333;'>Firebase Error:</span>";
+                document.getElementById("ffa-lobby-sub-text").innerHTML = `<span style='color:#ff3333; font-size:14px; font-style:normal;'>${e.message}</span>`;
+            }
+        }
+
+        window.hostFfaMatch = async function() {
+            if (!currentUser) return;
+            window.matchFinishedProcessed = false;
+            currentMatchId = generateRoomCode(); isMatchHost = true; myFfaSlot = 0;
+
+            await setDoc(doc(db, "matches", currentMatchId), newFfaMatchDoc(currentUser.uid, userProfileData.username, userProfileData.equipped, userProfileData.mmr, false));
+
+            document.getElementById("ffa-lobby-action-view").style.display = "none";
+            document.getElementById("ffa-lobby-waiting-view").style.display = "block";
+            document.getElementById("ffa-waiting-status-text").innerHTML = "Your Room Code:";
+            document.getElementById("ffa-display-room-code").innerText = currentMatchId;
+            document.getElementById("ffa-display-room-code").style.display = "block";
+            listenToFfaMatch();
+        }
+
+        window.joinFfaMatchByCode = async function() {
+            if (!currentUser) return;
+            window.matchFinishedProcessed = false;
+            let code = document.getElementById("ffa-join-code-input").value.trim().toUpperCase();
+            if (code.length !== 5) { alert("Invalid code."); return; }
+
+            try {
+                const result = await callJoinFfaMatch({ matchId: code });
+                currentMatchId = code; myFfaSlot = result.data.slotIndex; isMatchHost = (myFfaSlot === 0);
+                document.getElementById("ffa-lobby-action-view").style.display = "none";
+                document.getElementById("ffa-lobby-waiting-view").style.display = "block";
+                listenToFfaMatch();
+            } catch (e) {
+                alert(e.message || "Couldn't join that match.");
+            }
+        }
+
+        window.startFfaMatchEarly = async function() {
+            if (!currentMatchId) return;
+            try { await callStartFfaMatch({ matchId: currentMatchId }); } catch (e) { alert(e.message || "Couldn't start yet."); }
+        }
+
+        function renderFfaLobbyWaiting(data) {
+            const slots = [];
+            for (let i = 0; i < 4; i++) { if (data[`p${i}Uid`]) slots.push({ idx: i, name: data[`p${i}Name`] || "Guest" }); }
+            document.getElementById("ffa-lobby-players-list").innerHTML = slots.map(s =>
+                `<div>${s.idx === 0 ? "👑 " : "• "}${escapeHtml(s.name)}${s.idx === myFfaSlot ? " (you)" : ""}</div>`
+            ).join("");
+
+            const startBtn = document.getElementById("ffa-btn-start-early");
+            startBtn.style.display = (!data.isPublic && isMatchHost && slots.length >= 2) ? "inline-block" : "none";
+
+            const subText = document.getElementById("ffa-lobby-sub-text");
+            if (data.isPublic) {
+                if (slots.length >= 4) {
+                    subText.innerText = "Lobby full — starting now...";
+                } else if (data.lobbyDeadline) {
+                    let remain = Math.max(0, Math.ceil((data.lobbyDeadline - Date.now()) / 1000));
+                    subText.innerText = `Starting in ${remain}s with ${slots.length} player(s)... more may still join!`;
+                } else {
+                    subText.innerText = `Waiting for a 2nd player... (${slots.length}/4)`;
+                }
+            } else {
+                subText.innerText = slots.length >= 2 ? "Ready! Start anytime, or wait for more (up to 4)." : "Share the room code — need at least 2 to start.";
+            }
+        }
+
+        let lastFfaMatchData = null; // refreshed on every snapshot — the 1s countdown ticker below reads this instead of closing over one stale snapshot forever
+
+        function listenToFfaMatch() {
+            if (ffaMatchUnsubscribe) ffaMatchUnsubscribe();
+            lastFfaMatchData = null;
+
+            ffaMatchUnsubscribe = onSnapshot(doc(db, "matches", currentMatchId), async (docSnap) => {
+                if (!docSnap.exists()) {
+                    if (document.getElementById("ffa-end-modal").style.display === "flex") return;
+                    showMessage("MATCH CLOSED."); window.leaveFfaMatch(); return;
+                }
+                let data = docSnap.data();
+                lastFfaMatchData = data;
+                // Confirm/refresh which slot is mine (covers a reload mid-lobby).
+                for (let i = 0; i < 4; i++) { if (data[`p${i}Uid`] === currentUser.uid) { myFfaSlot = i; isMatchHost = (i === 0); break; } }
+
+                if (data.status === "waiting") {
+                    renderFfaLobbyWaiting(data);
+
+                    // Public lobby's grace-period auto-start — any joined client
+                    // can trigger it once the deadline passes; the callable
+                    // re-validates against its own clock, so a client lying
+                    // about local time doesn't start it early.
+                    if (data.isPublic && data.lobbyDeadline && Date.now() >= data.lobbyDeadline) {
+                        callStartFfaMatch({ matchId: currentMatchId }).catch(e => console.error(e));
+                    }
+                    if (!ffaLobbyTimerInterval) {
+                        ffaLobbyTimerInterval = setInterval(() => {
+                            if (document.getElementById("ffa-lobby-waiting-view").style.display === "block" && lastFfaMatchData) renderFfaLobbyWaiting(lastFfaMatchData);
+                        }, 1000);
+                    }
+                } else if (ffaLobbyTimerInterval) {
+                    clearInterval(ffaLobbyTimerInterval); ffaLobbyTimerInterval = null;
+                }
+
+                if (data.status === "playing") {
+                    if (document.getElementById("ffa-lobby-modal").style.display === "flex") {
+                        document.getElementById("ffa-lobby-modal").style.display = "none";
+                        document.getElementById("ffa-track-container").style.display = "block";
+                        document.getElementById("clash-chat-container").style.display = "block";
+                        document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
+                        clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0;
+                        startRound();
+                    }
+
+                    if (data.endTime && !clashTimerInterval) {
+                        clashTimerInterval = setInterval(async () => {
+                            let remain = Math.max(0, data.endTime - Date.now());
+                            let mins = Math.floor(remain / 60000);
+                            let secs = Math.floor((remain % 60000) / 1000).toString().padStart(2, "0");
+                            document.getElementById("ffa-timer-display").innerText = `${mins}:${secs}`;
+                            if (remain <= 0) {
+                                clearInterval(clashTimerInterval); clashTimerInterval = null;
+                                callFinishFfaMatch({ matchId: currentMatchId }).catch(e => console.error(e));
+                            }
+                        }, 1000);
+                    }
+
+                    for (let i = 0; i < 4; i++) {
+                        const card = document.getElementById(`ffa-card-${i}`);
+                        if (!data[`p${i}Uid`]) { card.style.display = "none"; continue; }
+                        card.style.display = "block";
+                        card.classList.toggle("ffa-me", i === myFfaSlot);
+                        let eq = data[`p${i}Equipped`] || { banner: "banner_default", effect: "effect_none" };
+                        document.getElementById(`ffa-banner-${i}`).className = `lb-entry ${eq.banner || "banner_default"}`;
+                        document.getElementById(`ffa-name-${i}`).className = `lb-name ${eq.effect || "effect_none"}`;
+                        document.getElementById(`ffa-name-${i}`).innerText = data[`p${i}Name`] || "Player";
+                        document.getElementById(`ffa-word-index-${i}`).innerText = data[`p${i}WordIndex`] || 1;
+                        document.getElementById(`ffa-score-${i}`).innerText = Number(data[`p${i}Score`] || 0).toLocaleString();
+                        renderMiniBoard(`ffa-board-${i}`, data[`p${i}Board`]);
+                    }
+
+                    if (data.chat && data.chat.length > 0) {
+                        const chatBox = document.getElementById("chat-messages");
+                        let chatHtml = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
+                        data.chat.forEach(msg => { chatHtml += `<div>${msg}</div>`; });
+                        chatBox.innerHTML = chatHtml;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                }
+
+                if (data.status === "finished" && !window.matchFinishedProcessed) {
+                    if (clashTimerInterval) { clearInterval(clashTimerInterval); clashTimerInterval = null; }
+
+                    // Same "wait for the server to actually apply payout before
+                    // showing results" rule as 1v1 — see the identical comment
+                    // in listenToMatch() above.
+                    if (!data.payoutApplied) {
+                        document.getElementById("ffa-end-title").innerText = "CALCULATING RESULTS...";
+                        document.getElementById("ffa-end-title").style.color = "#ff9800";
+                        document.getElementById("ffa-end-results").innerHTML = "Hang tight while the match is verified.";
+                        document.getElementById("ffa-end-modal").style.display = "flex";
+                        return;
+                    }
+
+                    window.matchFinishedProcessed = true;
+
+                    if (currentUser) {
+                        try {
+                            const freshSnap = await getDoc(doc(db, "users", currentUser.uid));
+                            if (freshSnap.exists()) { userProfileData = freshSnap.data(); }
+                        } catch (e) { console.error(e); }
+                    }
+
+                    const slots = [];
+                    for (let i = 0; i < 4; i++) {
+                        if (data[`p${i}Uid`]) slots.push({ uid: data[`p${i}Uid`], name: data[`p${i}Name`] || "Player", score: Number(data[`p${i}Score`] || 0) });
+                    }
+                    slots.sort((a, b) => b.score - a.score);
+
+                    const winners = data.winners || [];
+                    const amIWinner = winners.includes(currentUser.uid);
+                    const isPublicMatch = data.isPublic === true;
+                    const changes = data.changes || {};
+
+                    document.getElementById("ffa-end-title").innerText = amIWinner ? (winners.length > 1 ? "TIED FOR 1ST!" : "YOU WIN!") : "MATCH COMPLETE";
+                    document.getElementById("ffa-end-title").style.color = amIWinner ? "#4caf50" : "#ffd700";
+                    amIWinner ? SFX.clashWin() : SFX.clashLose();
+
+                    let placeNum = 0, lastScore = null, html = "";
+                    slots.forEach((s, i) => {
+                        if (s.score !== lastScore) { placeNum = i + 1; lastScore = s.score; }
+                        const mine = s.uid === currentUser.uid;
+                        const change = changes[s.uid] || { payout: 0, eloChange: 0 };
+                        const isWin = winners.includes(s.uid);
+                        let mmrText = isPublicMatch ? (change.eloChange >= 0 ? `+${change.eloChange} MMR` : `${change.eloChange} MMR`) : "Unranked";
+                        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "#332b00" : "#222"}; border:1px solid ${isWin ? "#ffd700" : "#444"};">
+                            <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}</div>
+                            <div style="text-align:right;"><div>${s.score.toLocaleString()} pts</div><div style="font-size:11px; color:${change.payout > 0 ? "#4caf50" : "#aaa"};">+${change.payout.toLocaleString()} pts &nbsp; ${mmrText}</div></div>
+                        </div>`;
+                    });
+                    document.getElementById("ffa-end-results").innerHTML = html;
+                    document.getElementById("ffa-end-modal").style.display = "flex";
+                }
+            });
+        }
+
+        window.leaveFfaMatch = function() {
+            if (ffaMatchUnsubscribe) ffaMatchUnsubscribe();
+            if (ffaLobbyTimerInterval) { clearInterval(ffaLobbyTimerInterval); ffaLobbyTimerInterval = null; }
+            if (clashTimerInterval) { clearInterval(clashTimerInterval); clashTimerInterval = null; }
+
+            if (currentMatchId) {
+                if (isMatchHost) {
+                    // Only actually deletes while the room is still 'waiting'
+                    // (see firestore.rules) — once it's playing/finished this
+                    // fails with permission-denied by design, and the host's
+                    // slot just goes stale like any other abandoned player
+                    // instead of erasing the match for everyone else.
+                    deleteDoc(doc(db, "matches", currentMatchId)).catch(e => { if (e.code !== "permission-denied") console.error(e); });
+                } else {
+                    callLeaveFfaMatch({ matchId: currentMatchId }).catch(e => console.error(e));
+                }
+            }
+            currentMatchId = null; myFfaSlot = -1;
+            document.getElementById("ffa-end-modal").style.display = "none";
+            document.getElementById("ffa-lobby-action-view").style.display = "block";
+            document.getElementById("ffa-lobby-waiting-view").style.display = "none";
+            document.getElementById("ffa-join-code-input").value = "";
+            document.getElementById("clash-chat-container").style.display = "none";
+            window.cancelFfaLobby();
+        }
+
         // --- STANDARD LOCAL STATE ---
         function saveLocalState() {
-            if (isVersusMode || isDailyMode) return;
+            if (isVersusMode || isDailyMode || isFfaMode) return;
             // targetWord/currentWordGuesses persist the word currently in
             // progress — without these, a refresh always started a brand
             // new random word (losing whatever guesses weren't yet a win),
@@ -2212,7 +2682,7 @@
         function clearLocalState() { localStorage.removeItem("wordcade_save"); }
 
         function loadLocalState() {
-            if (isVersusMode) return false;
+            if (isVersusMode || isFfaMode) return false;
             const saved = localStorage.getItem("wordcade_save");
             if (saved) {
                 try {
@@ -2230,13 +2700,13 @@
         }
 
         function updateScoreBoard() {
-            if (isVersusMode) return;
+            if (isVersusMode || isFfaMode) return;
             scoreDisplay.innerText = score.toLocaleString(); continuesDisplay.innerText = continues;
         }
 
         function checkDangerRow() {
             document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile', 'danger-row-static'));
-            if (!isVersusMode && !isDailyMode && continues <= 0) {
+            if (!isVersusMode && !isDailyMode && !isFfaMode && continues <= 0) {
                 for (let j = 0; j < 5; j++) { 
                     let tile = document.getElementById(`tile-${maxGuesses - 1}-${j}`); 
                     if (tile) { if (currentRow === maxGuesses - 1) tile.classList.add('danger-tile'); else tile.classList.add('danger-row-static'); } 
@@ -2364,8 +2834,8 @@
         }
 
         function startRound() {
-            // If in Clash mode, use the shared word list!
-            if (isVersusMode && clashWords && clashWords.length > 0) {
+            // If in Clash mode (1v1 or FFA), use the shared word list!
+            if ((isVersusMode || isFfaMode) && clashWords && clashWords.length > 0) {
                 // Modulo (%) prevents crashing if they somehow play more than 50 words
                 targetWord = clashWords[clashWordIndex % clashWords.length]; 
             } else {
@@ -2428,6 +2898,13 @@
             checkDangerRow();
         }
 
+        // Field name on the match doc this client owns for a given piece of
+        // race state ("Score"/"Board"/"WordIndex") — hostX/guestX in 1v1
+        // Clash, pNX (this client's own slot) in FFA. Shared by checkGuess.
+        function raceField(base) {
+            return isFfaMode ? `p${myFfaSlot}${base}` : (isMatchHost ? `host${base}` : `guest${base}`);
+        }
+
         async function checkGuess() {
             if (isAnimating) return;
             isAnimating = true; 
@@ -2452,12 +2929,12 @@
                 // FASTER FLIP ANIMATION (shared with the Daily Gauntlet — see animateRowReveal)
                 animateRowReveal(currentRow, guessArr, tileColors);
 
-                if (isVersusMode && currentMatchId) {
+                if ((isVersusMode || isFfaMode) && currentMatchId) {
                     try {
                         // FIX: Join the array into a string so Firebase doesn't block it!
                         let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0).join("");
                         myMiniBoard.push(colorCodes);
-                        let updatePayload = {}; updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = myMiniBoard;
+                        let updatePayload = {}; updatePayload[raceField("Board")] = myMiniBoard;
                         updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error("Mini-board sync error:", e));
                     } catch(e) { console.error(e); }
                 }
@@ -2468,26 +2945,26 @@
 
                     try {
                         if (correctCount === 5) {
-                            
-                            if (isVersusMode && currentMatchId) {
+
+                            if ((isVersusMode || isFfaMode) && currentMatchId) {
                                 SFX.correctWord();
                                 let earned = scorePoints[currentRow];
                                 clashMyScore += earned;
                                 showMessage(`+${earned}!`);
-                                
+
                                 try {
                                     let mSnap = await getDoc(doc(db, "matches", currentMatchId));
                                     if(mSnap.exists() && mSnap.data().status === 'playing') {
                                         let updatePayload = {};
-                                        updatePayload[isMatchHost ? "hostScore" : "guestScore"] = clashMyScore;
-                                        updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = []; 
-                                        updatePayload[isMatchHost ? "hostWordIndex" : "guestWordIndex"] = clashWordIndex + 2; // +2 because 0-index and moving to next
+                                        updatePayload[raceField("Score")] = clashMyScore;
+                                        updatePayload[raceField("Board")] = [];
+                                        updatePayload[raceField("WordIndex")] = clashWordIndex + 2; // +2 because 0-index and moving to next
                                         await updateDoc(doc(db, "matches", currentMatchId), updatePayload);
                                     }
                                 } catch (err) {
                                     console.error("Match logic error caught", err);
                                 } finally {
-                                    clashWordIndex++; 
+                                    clashWordIndex++;
                                     setTimeout(startRound, 1000);
                                 }
 
@@ -2507,22 +2984,22 @@
                                 
                                 setTimeout(startRound, 1200); 
                             }
-                        } else if (currentRow === maxGuesses - 1) { 
-                            if (isVersusMode) {
+                        } else if (currentRow === maxGuesses - 1) {
+                            if (isVersusMode || isFfaMode) {
                                 SFX.wrongWord();
                                 // NEW CLASH PENALTY LOGIC
                                 let penalty = 50;
                                 clashMyScore = Math.max(0, clashMyScore - penalty);
                                 showMessage(`WORD WAS ${targetWord}. -${penalty}!`);
-                                
+
                                 if(currentMatchId) {
-                                    let updatePayload = {}; 
-                                    updatePayload[isMatchHost ? "hostScore" : "guestScore"] = clashMyScore;
-                                    updatePayload[isMatchHost ? "hostBoard" : "guestBoard"] = [];
-                                    updatePayload[isMatchHost ? "hostWordIndex" : "guestWordIndex"] = clashWordIndex + 2;
+                                    let updatePayload = {};
+                                    updatePayload[raceField("Score")] = clashMyScore;
+                                    updatePayload[raceField("Board")] = [];
+                                    updatePayload[raceField("WordIndex")] = clashWordIndex + 2;
                                     updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e=>console.error(e));
                                 }
-                                clashWordIndex++; 
+                                clashWordIndex++;
                                 setTimeout(startRound, 1500); // slightly longer to read the penalty
                             } else {
                                 continues--; runStats.played++; runStats.fails++; runStats.currentStreak = 0;
