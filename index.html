@@ -565,7 +565,10 @@
                 
                 <!-- ROOM CODE DISPLAY -->
                 <div id="display-room-code" style="font-size: 32px; color: #00ffff; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
-                
+
+                <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
+                <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: #00ffff !important; color: #00ffff; margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
+
                 <!-- SUB-TEXT BLOCK -->
                 <div id="waiting-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 20px; font-style: italic;"></div>
                 
@@ -651,6 +654,9 @@
                 <h2 id="ffa-waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">WAITING FOR PLAYERS...</h2>
 
                 <div id="ffa-display-room-code" style="font-size: 32px; color: #ffd700; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
+
+                <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
+                <button id="ffa-btn-share-invite" class="btn-dark" style="display: none; border-color: #ffd700 !important; color: #ffd700; margin-bottom: 10px;" onclick="window.shareFfaInvite()">Share Invite</button>
 
                 <div id="ffa-lobby-players-list" style="font-size: 14px; color: #fff; margin-bottom: 15px; line-height: 1.6;"></div>
 
@@ -1935,6 +1941,7 @@
             document.getElementById("lobby-waiting-view").style.display = "block";
             document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:#aaa; font-weight:normal;'>Looking for public opponent</span>";
             document.getElementById("display-room-code").style.display = "none";
+            document.getElementById("btn-share-invite").style.display = "none";
             document.getElementById("waiting-sub-text").style.display = "block";
             document.getElementById("waiting-sub-text").innerHTML = "Waiting for challenger...";
 
@@ -1994,6 +2001,7 @@
             document.getElementById("waiting-status-text").innerHTML = "Your Room Code:";
             document.getElementById("display-room-code").innerText = currentMatchId;
             document.getElementById("display-room-code").style.display = "block";
+            document.getElementById("btn-share-invite").style.display = "inline-block";
             document.getElementById("waiting-sub-text").style.display = "block";
             listenToMatch();
         }
@@ -2473,6 +2481,7 @@
             document.getElementById("ffa-lobby-waiting-view").style.display = "block";
             document.getElementById("ffa-waiting-status-text").innerHTML = "Searching the Arcade...";
             document.getElementById("ffa-display-room-code").style.display = "none";
+            document.getElementById("ffa-btn-share-invite").style.display = "none";
             document.getElementById("ffa-lobby-sub-text").innerText = "Looking for an open FFA lobby...";
 
             try {
@@ -2513,6 +2522,7 @@
             document.getElementById("ffa-waiting-status-text").innerHTML = "Your Room Code:";
             document.getElementById("ffa-display-room-code").innerText = currentMatchId;
             document.getElementById("ffa-display-room-code").style.display = "block";
+            document.getElementById("ffa-btn-share-invite").style.display = "inline-block";
             listenToFfaMatch();
         }
 
@@ -2547,6 +2557,23 @@
 
             const startBtn = document.getElementById("ffa-btn-start-early");
             startBtn.style.display = (!data.isPublic && isMatchHost && slots.length >= 2) ? "inline-block" : "none";
+
+            // Driven by live match data rather than set once at whichever
+            // entry point got you here — findRandomFfaMatch/hostFfaMatch/
+            // joinFfaMatchByCode all funnel into the same waiting view, and
+            // only this function actually knows the current isPublic/host
+            // state for certain (matters most for someone who joined via a
+            // shared code — they never went through hostFfaMatch itself).
+            const roomCodeEl = document.getElementById("ffa-display-room-code");
+            const shareBtn = document.getElementById("ffa-btn-share-invite");
+            if (!data.isPublic) {
+                roomCodeEl.innerText = currentMatchId;
+                roomCodeEl.style.display = "block";
+                shareBtn.style.display = isMatchHost ? "inline-block" : "none";
+            } else {
+                roomCodeEl.style.display = "none";
+                shareBtn.style.display = "none";
+            }
 
             const subText = document.getElementById("ffa-lobby-sub-text");
             if (data.isPublic) {
@@ -2894,6 +2921,27 @@
             const dateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }).format(new Date());
             const shareMessage = `🕹️ Lexathon Gauntlet — ${dateLabel}\n${grid}\n💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved`;
             shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
+        }
+
+        // Clash/FFA don't have a shared daily puzzle to compare results
+        // against the way the Gauntlet does — a random per-match word list
+        // makes a "beat my score" share meaningless once the match is over.
+        // What IS worth sharing is the private room itself, while it's
+        // still open: the host's room code, so a friend can join the
+        // in-progress wait instead of it being read/typed out manually.
+        // Only ever shown to the host of a private room (see
+        // renderFfaLobbyWaiting and hostMatch/findRandomMatch) — a public
+        // queue match isn't "yours" to invite someone into.
+        window.shareMatchInvite = function() {
+            if (!currentMatchId) return;
+            const shareMessage = `🕹️ Join my private Lexathon Clash match!\nRoom code: ${currentMatchId}`;
+            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, "https://lexathon.gg", document.getElementById("btn-share-invite"), "Share Invite");
+        }
+
+        window.shareFfaInvite = function() {
+            if (!currentMatchId) return;
+            const shareMessage = `🕹️ Join my private Lexathon FFA match!\nRoom code: ${currentMatchId}`;
+            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, "https://lexathon.gg", document.getElementById("ffa-btn-share-invite"), "Share Invite");
         }
 
         window.startNewRun = function() {
