@@ -116,15 +116,22 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid;
 
       // Either participant can update live gameplay fields (scores, mini-
-      // boards, chat, endTime, and status/winner to signal "this match is
-      // over"), but neither may touch the payout fields — those are
-      // Cloud-Function-only (see onMatchFinished). 1v1 duels only —
-      // mode:'ffa' matches are handled by the block below instead.
+      // boards, chat, endTime) and a guest can claim the open slot (status
+      // waiting -> playing), but neither may touch the payout fields, and
+      // NEITHER may ever set winner/endReason or move status to 'finished'
+      // directly — that decision is Cloud-Function-only now (see
+      // finishClashMatch/forfeitClashMatch/onMatchFinished). This used to
+      // just deny the three payout fields and leave status/winner wide
+      // open — any participant could, at any point mid-match, write
+      // themselves in as the winner with a bare updateDoc. 1v1 duels
+      // only — mode:'ffa' matches are handled by the block below instead.
       allow update: if isSignedIn() && matchMode(resource.data) != 'ffa'
         && (resource.data.hostUid == request.auth.uid
             || resource.data.guestUid == request.auth.uid
             || (resource.data.guestUid == null && request.resource.data.guestUid == request.auth.uid))
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostChange', 'guestChange', 'payoutApplied']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostChange', 'guestChange', 'payoutApplied', 'winner', 'endReason'])
+        && (request.resource.data.status == resource.data.status
+            || (resource.data.status == 'waiting' && request.resource.data.status == 'playing'));
 
       // Clash: Free-For-All (2-4 players, see functions/index.js). Unlike
       // the 1v1 rule above, joining/starting/finishing a match ALL go

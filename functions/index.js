@@ -139,6 +139,10 @@ const CHALLENGES = {
     { id: "c_perfectionist", req: 25, field: "bestNoMissStreak", reward: 60000 },
     { id: "c_hotstreak", req: 5, field: "bestClashWinStreak", reward: 30000 },
     { id: "c_unstoppable", req: 10, field: "bestClashWinStreak", reward: 75000 },
+    { id: "c_ffa_rookie", req: 10, field: "ffaMatchesPlayed", reward: 8000 },
+    { id: "c_ffa_veteran", req: 50, field: "ffaMatchesPlayed", reward: 25000 },
+    { id: "c_ffa_champion", req: 10, field: "ffaWins", reward: 35000 },
+    { id: "c_ffa_legend", req: 40, field: "ffaWins", reward: 100000 },
     { id: "c_dedication", req: 3, field: "bestLoginStreak", reward: 2500 },
     { id: "c_devoted", req: 14, field: "bestLoginStreak", reward: 20000 },
   ],
@@ -214,8 +218,20 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
   const userRef = db.collection("users").doc(run.uid);
   const runRef = snap.ref;
 
+  // A Gauntlet run also gets checked against today's top 10 — Firestore
+  // transactions need every read up front, before any write, so this
+  // query has to be prepared here alongside the plain doc reads below
+  // rather than run separately afterward.
+  const top10Query = run.mode === "daily" && run.puzzleDate
+    ? db.collection("runs").where("mode", "==", "daily").where("puzzleDate", "==", run.puzzleDate).orderBy("score", "desc").limit(10)
+    : null;
+
   await db.runTransaction(async (tx) => {
-    const [runSnap, userSnap] = await Promise.all([tx.get(runRef), tx.get(userRef)]);
+    const [runSnap, userSnap, top10Snap] = await Promise.all([
+      tx.get(runRef),
+      tx.get(userRef),
+      top10Query ? tx.get(top10Query) : Promise.resolve(null),
+    ]);
     if (!runSnap.exists || runSnap.data().payoutApplied) return; // already processed (retry-safe)
     if (!userSnap.exists) return;
 
@@ -235,7 +251,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     const kobe = Math.max(0, Number(run.kobeCount) || 0);
     const bestStreakThisRun = Math.max(0, Number(run.bestStreak) || 0);
 
-    tx.update(userRef, {
+    const update = {
       wallet: FieldValue.increment(score),
       careerBank: FieldValue.increment(score),
       totalWordsGuessed: FieldValue.increment(wordsGuessed),
@@ -257,7 +273,24 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
         claimed: daily.claimed || [],
         activeIds: daily.activeIds || freshDailyStats(today).activeIds,
       },
-    });
+    };
+
+    // Gauntlet-only: did this run land in today's top 10? The query above
+    // returns the top 10 including this run's own doc (already written by
+    // guessDailyWord before this trigger fired), so it has to be filtered
+    // out before comparing — otherwise a run's score is always <= the min
+    // of a set that already contains itself, silently failing every check.
+    // A snapshot at the moment you finish, like most daily-leaderboard
+    // achievements — not revoked if someone posts a higher score later in
+    // the day. Only ever set once (never re-decremented/reset) since this
+    // is a one-time career challenge, not a daily-resetting one.
+    if (top10Snap && !user.achievedTop10Daily) {
+      const others = top10Snap.docs.filter((d) => d.id !== runRef.id).map((d) => d.data().score || 0);
+      const madeTop10 = others.length < 10 || score > Math.min(...others);
+      if (madeTop10) update.achievedTop10Daily = 1;
+    }
+
+    tx.update(userRef, update);
     tx.update(runRef, { payoutApplied: true });
   });
 });
@@ -328,6 +361,90 @@ exports.onMatchFinished = onDocumentUpdated("matches/{matchId}", async (event) =
     tx.update(hostRef, hostUpdate);
     tx.update(guestRef, guestUpdate);
     tx.update(matchRef, { hostChange, guestChange, payoutApplied: true });
+  });
+});
+
+// Ends a 'playing' 1v1 Clash match once it's genuinely over — either side
+// reached the 1,000-point lead, or the clock ran out — deciding the winner
+// from the match doc's own hostScore/guestScore fields, not from anything
+// the calling client asserts. Previously this was a bare client updateDoc
+// setting status/winner directly: firestore.rules never restricted what a
+// participant could write there beyond a few payout fields, so literally
+// any player could, at any point mid-match, write themselves in as the
+// winner without playing at all. This closes exactly that gap, the same
+// way finishFfaMatch and the Sudden Death functions already do — the
+// client still decides WHEN to call this (it's the one watching its own
+// countdown timer), but no longer decides WHO won.
+//
+// Doesn't touch the deeper, separate, already-known limitation that
+// hostScore/guestScore themselves are still self-reported by each client
+// as they play (the word list is visible client-side, same as Sudden
+// Death's board isn't) — fixing that would mean moving Clash's whole
+// scoring model server-side, a much bigger change than this one.
+exports.finishClashMatch = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Match not found.");
+    const match = snap.data();
+    if (match.hostUid !== uid && match.guestUid !== uid) throw new HttpsError("permission-denied", "Not a participant.");
+    if (match.status !== "playing") return { ok: true }; // already resolved — idempotent no-op
+    if (match.suddenDeath && match.suddenDeath.active) throw new HttpsError("failed-precondition", "Sudden death is already deciding this match.");
+
+    const hostScore = Number(match.hostScore || 0);
+    const guestScore = Number(match.guestScore || 0);
+    const scoreDiff = hostScore - guestScore;
+    const leadReached = Math.abs(scoreDiff) >= 1000;
+    const timeUp = match.endTime && Date.now() >= match.endTime - 2000;
+    if (!leadReached && !timeUp) throw new HttpsError("failed-precondition", "This match hasn't ended yet.");
+
+    if (scoreDiff === 0) {
+      // Only reachable via timeUp (leadReached implies |diff| >= 1000) —
+      // tied at the buzzer. Never awards a win off a tie; the caller
+      // starts Sudden Death instead (see startSuddenDeath, which
+      // independently validates status and is idempotent on its own).
+      return { ok: true, tied: true };
+    }
+
+    tx.update(matchRef, { status: "finished", winner: scoreDiff > 0 ? match.hostUid : match.guestUid });
+    return { ok: true };
+  });
+});
+
+// Leaving a 'playing' 1v1 match is a forfeit — the side that stayed wins
+// outright, same payout/MMR path as any other win via onMatchFinished.
+// Moved server-side alongside finishClashMatch so firestore.rules can
+// deny status/winner from direct client writes entirely: the client no
+// longer has ANY legitimate path to set winner itself (previously this
+// was a bare updateDoc — safe in what it actually asserted, since a
+// leaving client only ever named the OTHER side as winner, but only
+// safe because the legitimate code happened to be written that way, not
+// because anything stopped a modified client from asserting itself as
+// the winner via the same open field). No-ops if there's no opponent yet
+// or the match is already decided, so it's safe to call from
+// leaveVersusMatch() unconditionally.
+exports.forfeitClashMatch = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) return { ok: true }; // already gone
+    const match = snap.data();
+    if (match.hostUid !== uid && match.guestUid !== uid) throw new HttpsError("permission-denied", "Not a participant.");
+    if (match.status !== "playing" || !match.guestUid) return { ok: true }; // nothing to forfeit
+
+    const opponentUid = match.hostUid === uid ? match.guestUid : match.hostUid;
+    const update = { status: "finished", winner: opponentUid, endReason: "forfeit" };
+    if (match.suddenDeath && match.suddenDeath.active) update.suddenDeath = { ...match.suddenDeath, active: false };
+    tx.update(matchRef, update);
+    return { ok: true, forfeited: true };
   });
 });
 

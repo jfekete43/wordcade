@@ -1023,6 +1023,8 @@
         const callRefreshProfile = httpsCallable(cloudFunctions, "refreshProfile");
         const callStartDailyGauntlet = httpsCallable(cloudFunctions, "startDailyGauntlet");
         const callGuessDailyWord = httpsCallable(cloudFunctions, "guessDailyWord");
+        const callFinishClashMatch = httpsCallable(cloudFunctions, "finishClashMatch");
+        const callForfeitClashMatch = httpsCallable(cloudFunctions, "forfeitClashMatch");
         const callStartSuddenDeath = httpsCallable(cloudFunctions, "startSuddenDeath");
         const callGuessSuddenDeathWord = httpsCallable(cloudFunctions, "guessSuddenDeathWord");
         const callResolveSuddenDeathTimeout = httpsCallable(cloudFunctions, "resolveSuddenDeathTimeout");
@@ -1223,6 +1225,10 @@
                     { id: "c_perfectionist", name: "Flawless Run", desc: "Reach a streak of 25 correct guesses without a miss.", req: 25, field: "bestNoMissStreak", reward: 60000 },
                     { id: "c_hotstreak", name: "Hot Streak", desc: "Win 5 Clash matches in a row.", req: 5, field: "bestClashWinStreak", reward: 30000 },
                     { id: "c_unstoppable", name: "Unstoppable", desc: "Win 10 Clash matches in a row.", req: 10, field: "bestClashWinStreak", reward: 75000 },
+                    { id: "c_ffa_rookie", name: "Free-For-All Rookie", desc: "Play 10 FFA matches.", req: 10, field: "ffaMatchesPlayed", reward: 8000 },
+                    { id: "c_ffa_veteran", name: "Free-For-All Veteran", desc: "Play 50 FFA matches.", req: 50, field: "ffaMatchesPlayed", reward: 25000 },
+                    { id: "c_ffa_champion", name: "Free-For-All Champion", desc: "Win 10 FFA matches.", req: 10, field: "ffaWins", reward: 35000 },
+                    { id: "c_ffa_legend", name: "Free-For-All Legend", desc: "Win 40 FFA matches.", req: 40, field: "ffaWins", reward: 100000 },
                     { id: "c_dedication", name: "Dedication", desc: "Log in 3 days in a row.", req: 3, field: "bestLoginStreak", reward: 2500 },
                     { id: "c_devoted", name: "Devoted", desc: "Log in 14 days in a row.", req: 14, field: "bestLoginStreak", reward: 20000 }
                 ]
@@ -1325,8 +1331,38 @@
                     } catch (e) { console.error("Profile refresh failed", e); }
                 }
                 applyEquippedCosmetics();
+                tryAutoJoinFromUrl();
             } else { signInAnonymously(auth); }
         });
+
+        // Tap-to-join invite links: https://lexathon.gg/?join=ABCDE&mode=duel|ffa
+        // (see shareMatchInvite/shareFfaInvite). Pre-fills and auto-submits the
+        // matching join flow once auth/profile are ready, so following a shared
+        // invite is one tap instead of typing a 5-letter code by hand. The
+        // query params are stripped immediately so this can only ever fire
+        // once per page load, even though onAuthStateChanged itself can refire
+        // later in the session (e.g. linking a Google account).
+        async function tryAutoJoinFromUrl() {
+            const params = new URLSearchParams(location.search);
+            const code = (params.get("join") || "").trim().toUpperCase();
+            const mode = params.get("mode");
+            if (!/^[A-Z]{5}$/.test(code)) return;
+            history.replaceState(null, "", location.pathname);
+
+            if (mode === "ffa") {
+                if (isVersusMode || isDailyMode) { alert("Leave your current match/mode first, then use the invite link again."); return; }
+                window.toggleFfaMode();
+                if (!isFfaMode) return; // declined the "cash out your run" confirm
+                document.getElementById("ffa-join-code-input").value = code;
+                await window.joinFfaMatchByCode();
+            } else {
+                if (isFfaMode || isDailyMode) { alert("Leave your current match/mode first, then use the invite link again."); return; }
+                window.toggleMode();
+                if (!isVersusMode) return; // declined the "cash out your run" confirm
+                document.getElementById("join-code-input").value = code;
+                await window.joinMatch();
+            }
+        }
 
         // UI & MENU FUNCTIONS
         window.saveUsername = async function() {
@@ -2194,15 +2230,28 @@
             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); document.getElementById(`${prefix}-title`).innerText = tObj && tObj.display ? tObj.display : "";
         }
 
-        // Helper function so the Host can cleanly end the match. This now only
-        // signals *that* the match is over and who won — the MMR/wallet payout
-        // is computed and applied server-side by the onMatchFinished Cloud
-        // Function (triggered by this write), never by either player's client.
-        async function finishMatch(winnerUid, isTie, data) {
-            await updateDoc(doc(db, "matches", currentMatchId), {
-                status: 'finished',
-                winner: isTie ? null : winnerUid
-            });
+        // Signals *that* the match is over — the server (finishClashMatch)
+        // independently re-derives WHO won from the match doc's own scores
+        // and writes status/winner itself; this client only decides WHEN to
+        // call it (whichever side's timer/lead-check notices first). Used to
+        // be a bare updateDoc asserting a client-chosen winner directly —
+        // see the comment above finishClashMatch in functions/index.js for
+        // why that was a real gap. MMR/wallet payout still happens
+        // separately, server-side, via onMatchFinished once winner lands.
+        async function finishMatch() {
+            try {
+                const result = await callFinishClashMatch({ matchId: currentMatchId });
+                // Defensive: both call sites below already only call
+                // finishMatch() once they've confirmed locally that scores
+                // aren't tied, so this shouldn't normally trigger — but if
+                // scores changed between that local check and the server
+                // actually reading them, fall back the same way a detected
+                // tie already does: start Sudden Death instead of leaving
+                // the match stuck.
+                if (result.data && result.data.tied) {
+                    await callStartSuddenDeath({ matchId: currentMatchId });
+                }
+            } catch (e) { console.error("finishMatch error", e); }
         }
 
         function listenToMatch() {
@@ -2259,8 +2308,7 @@
                                         // suddenDeath field on this same match doc.
                                         try { await callStartSuddenDeath({ matchId: currentMatchId }); } catch (e) { console.error(e); }
                                     } else {
-                                        let winnerUid = hScore > gScore ? data.hostUid : data.guestUid;
-                                        finishMatch(winnerUid, false, data);
+                                        finishMatch();
                                     }
                                 }
                             }
@@ -2352,8 +2400,7 @@
                     // TUG-OF-WAR TARGET SCORE REACHED! (1,000 Point Lead)
                     if (Math.abs(scoreDiff) >= winTarget) {
                         if (isMatchHost && data.status === 'playing') {
-                            let winnerUid = scoreDiff >= winTarget ? data.hostUid : data.guestUid;
-                            finishMatch(winnerUid, false, data);
+                            finishMatch();
                         }
                     }
                 }
@@ -2460,13 +2507,12 @@
                         if (data.status === "playing" && data.guestUid) {
                             // Leaving mid-match (including mid-Sudden-Death) is a
                             // forfeit — whoever stayed wins outright, same payout/
-                            // MMR path as any other win via onMatchFinished. Also
-                            // clears suddenDeath.active so a guess the opponent's
-                            // client had in flight can't still resolve against it.
-                            const opponentUid = isMatchHost ? data.guestUid : data.hostUid;
-                            const update = { status: "finished", winner: opponentUid, endReason: "forfeit" };
-                            if (data.suddenDeath && data.suddenDeath.active) update.suddenDeath = { ...data.suddenDeath, active: false };
-                            await updateDoc(doc(db, "matches", currentMatchId), update);
+                            // MMR path as any other win via onMatchFinished.
+                            // Server-side (forfeitClashMatch) so firestore.rules
+                            // can deny status/winner from direct client writes
+                            // entirely — see the comment above finishClashMatch
+                            // in functions/index.js.
+                            await callForfeitClashMatch({ matchId: currentMatchId });
                         } else if (isMatchHost) {
                             // Still just a lobby (or playing with no opponent yet,
                             // which shouldn't happen) — nothing to forfeit, so tear
@@ -3041,14 +3087,18 @@
         // queue match isn't "yours" to invite someone into.
         window.shareMatchInvite = function() {
             if (!currentMatchId) return;
+            // Tap-to-join: the link itself carries the code + mode so
+            // whoever opens it lands straight in the join flow pre-filled
+            // (see tryAutoJoinFromUrl) — the code is still spelled out in
+            // the message too, for anyone who only copies the text.
             const shareMessage = `🕹️ Join my private Lexathon Clash match!\nRoom code: ${currentMatchId}`;
-            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, "https://lexathon.gg", document.getElementById("btn-share-invite"), "Share Invite");
+            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, `https://lexathon.gg/?join=${currentMatchId}&mode=duel`, document.getElementById("btn-share-invite"), "Share Invite");
         }
 
         window.shareFfaInvite = function() {
             if (!currentMatchId) return;
             const shareMessage = `🕹️ Join my private Lexathon FFA match!\nRoom code: ${currentMatchId}`;
-            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, "https://lexathon.gg", document.getElementById("ffa-btn-share-invite"), "Share Invite");
+            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, `https://lexathon.gg/?join=${currentMatchId}&mode=ffa`, document.getElementById("ffa-btn-share-invite"), "Share Invite");
         }
 
         window.startNewRun = function() {
