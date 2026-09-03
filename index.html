@@ -656,6 +656,20 @@
 
                 <div id="ffa-lobby-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 15px; font-style: italic;"></div>
 
+                <!-- ADSTERRA 320x50 BANNER -->
+                <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
+                    <script>
+                      atOptions = {
+                        'key' : '71a2e9dc9e3a21bad1179fba579b1f16',
+                        'format' : 'iframe',
+                        'height' : 50,
+                        'width' : 320,
+                        'params' : {}
+                      };
+                    </script>
+                    <script src="https://www.highrevenueformat.com/71a2e9dc9e3a21bad1179fba579b1f16/invoke.js"></script>
+                </div>
+
                 <div class="modal-buttons">
                     <button class="btn-cyan" id="ffa-btn-start-early" style="display: none; border-color: #ffd700; color: #ffd700;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
                     <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelFfaLobby()">Cancel</button>
@@ -671,6 +685,20 @@
         <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
             <h2 class="modal-title" id="ffa-end-title" style="color: #ffd700;">Match Complete!</h2>
             <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: 14px;"></div>
+
+            <!-- ADSTERRA 320x50 BANNER -->
+            <div class="ad-container" style="text-align: center; margin: 15px 0; min-height: 50px;">
+                <script>
+                  atOptions = {
+                    'key' : '71a2e9dc9e3a21bad1179fba579b1f16',
+                    'format' : 'iframe',
+                    'height' : 50,
+                    'width' : 320,
+                    'params' : {}
+                  };
+                </script>
+                <script src="https://www.highrevenueformat.com/71a2e9dc9e3a21bad1179fba579b1f16/invoke.js"></script>
+            </div>
 
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="window.leaveFfaMatch()">Leave Match</button>
@@ -2827,8 +2855,27 @@
         }
 
         window.shareStats = function() {
-            let shareText = `🕹️ Lexathon\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
-            navigator.clipboard.writeText(shareText).then(() => { let shareBtn = document.getElementById("btn-share"); shareBtn.innerText = "COPIED!"; setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000); });
+            const shareUrl = "https://lexathon.gg";
+            const shareMessage = `🕹️ Lexathon\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+
+            if (navigator.share) {
+                // Mobile/supported browsers: opens the native share sheet
+                // (Messages, socials, etc.) — text and url passed separately
+                // so the target app formats them naturally instead of one
+                // undifferentiated blob.
+                navigator.share({ title: "Lexathon", text: shareMessage, url: shareUrl })
+                    .catch((e) => { if (e.name !== "AbortError") console.error("Share failed", e); });
+            } else {
+                // Desktop fallback: no native share sheet, so copy the link
+                // right along with the message — the whole point of sharing
+                // a score is inviting someone to come play, which doesn't
+                // work if the text they paste has nowhere to click through.
+                let shareBtn = document.getElementById("btn-share");
+                navigator.clipboard.writeText(`${shareMessage}\n${shareUrl}`).then(() => {
+                    shareBtn.innerText = "COPIED!";
+                    setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000);
+                });
+            }
         }
 
         window.startNewRun = function() {
