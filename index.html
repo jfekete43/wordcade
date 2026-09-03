@@ -729,6 +729,7 @@
             <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
             <div class="modal-buttons">
+                <button class="btn-cyan" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
                 <button class="btn-cyan" onclick="window.leaveDailyGauntlet(); window.showLeaderboard(); window.setLbTime('daily');">View Gauntlet Leaderboard</button>
                 <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Arcade</button>
             </div>
@@ -2854,28 +2855,45 @@
             modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(true, lostScore); 
         }
 
-        window.shareStats = function() {
-            const shareUrl = "https://lexathon.gg";
-            const shareMessage = `🕹️ Lexathon\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
-
+        // Shared by every "Share ___" button — the native share sheet where
+        // supported (mobile/modern browsers: text/url passed separately so
+        // the target app, Messages/Twitter/etc., formats them naturally),
+        // clipboard-copy with the link folded right into the text as the
+        // fallback everywhere else (no share sheet on most desktop browsers).
+        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
             if (navigator.share) {
-                // Mobile/supported browsers: opens the native share sheet
-                // (Messages, socials, etc.) — text and url passed separately
-                // so the target app formats them naturally instead of one
-                // undifferentiated blob.
-                navigator.share({ title: "Lexathon", text: shareMessage, url: shareUrl })
+                navigator.share({ title, text: message, url })
                     .catch((e) => { if (e.name !== "AbortError") console.error("Share failed", e); });
             } else {
-                // Desktop fallback: no native share sheet, so copy the link
-                // right along with the message — the whole point of sharing
-                // a score is inviting someone to come play, which doesn't
-                // work if the text they paste has nowhere to click through.
-                let shareBtn = document.getElementById("btn-share");
-                navigator.clipboard.writeText(`${shareMessage}\n${shareUrl}`).then(() => {
-                    shareBtn.innerText = "COPIED!";
-                    setTimeout(() => { shareBtn.innerText = "Share Score"; }, 2000);
+                navigator.clipboard.writeText(`${message}\n${url}`).then(() => {
+                    if (!buttonEl) return;
+                    buttonEl.innerText = "COPIED!";
+                    setTimeout(() => { buttonEl.innerText = defaultLabel; }, 2000);
                 });
             }
+        }
+
+        window.shareStats = function() {
+            const shareMessage = `🕹️ Lexathon\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+            shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score");
+        }
+
+        window.shareDailyStats = function() {
+            if (!dailyAttempt || !Array.isArray(dailyAttempt.history)) return;
+            const solvedCount = dailyAttempt.history.filter((h) => h.solved).length;
+            // One emoji per word — the guess count that solved it, or ❌ if
+            // it was never solved — a compact stand-in for Wordle's classic
+            // grid that stays readable across 10 words instead of sprawling
+            // into up to 50 rows. Uses the game's own cyan/magenta-coded
+            // correct/present colors nowhere here on purpose — the numeral
+            // format reads at a glance without needing per-letter detail,
+            // and doesn't visually double as a screenshot of someone else's
+            // Wordle share.
+            const numeralEmoji = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
+            const grid = dailyAttempt.history.map((h) => (h.solved ? (numeralEmoji[h.guesses.length] || "5️⃣") : "❌")).join("");
+            const dateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }).format(new Date());
+            const shareMessage = `🕹️ Lexathon Gauntlet — ${dateLabel}\n${grid}\n💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved`;
+            shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
         }
 
         window.startNewRun = function() {
