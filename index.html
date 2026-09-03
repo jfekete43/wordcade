@@ -110,6 +110,13 @@
         .danger-tile { border-color: #ff3333 !important; animation: pulse-danger 1.5s infinite; }
         @keyframes pulse-danger { 0% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; } 50% { box-shadow: 0 0 20px #ff3333 inset, 0 0 15px #ff3333; } 100% { box-shadow: 0 0 5px #ff3333 inset, 0 0 5px #ff3333; } }
 
+        /* Gauntlet/Sudden Death guesses are graded server-side (see
+           markRowPending) — the only visible sign anything happened between
+           hitting Enter and the flip animation starting, since neither mode
+           can grade locally without exposing the answer to devtools. */
+        .tile-pending { animation: pulse-pending 0.9s ease-in-out infinite; }
+        @keyframes pulse-pending { 0%, 100% { opacity: 1; border-color: #565758; } 50% { opacity: 0.45; border-color: #b967ff; } }
+
         .correct { background-color: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 12px #00ffff; }
         .present { background-color: #ff00ff; border-color: #ff00ff; color: #fff; box-shadow: 0 0 12px #ff00ff; }
         .absent { background-color: #1a1a1d; border-color: #222; color: #444; }
@@ -1780,16 +1787,19 @@
             const guessArr = currentGuess.split("");
             const rowIndex = currentRow;
             const wordIndexBeingPlayed = dailyAttempt.wordIndex;
+            markRowPending(rowIndex, true);
 
             let result;
             try {
                 result = (await callGuessDailyWord({ guess: currentGuess })).data;
             } catch (e) {
+                markRowPending(rowIndex, false);
                 isAnimating = false;
                 alert(e.message || "Couldn't submit that guess — try again.");
                 console.error(e);
                 return;
             }
+            markRowPending(rowIndex, false);
 
             // The server only returns this one guess's result, not the whole
             // attempt — keep the client's local history in sync ourselves
@@ -1830,16 +1840,19 @@
             isAnimating = true;
             const guessArr = currentGuess.split("");
             const rowIndex = currentRow;
+            markRowPending(rowIndex, true);
 
             let result;
             try {
                 result = (await callGuessSuddenDeathWord({ matchId: currentMatchId, guess: currentGuess })).data;
             } catch (e) {
+                markRowPending(rowIndex, false);
                 isAnimating = false;
                 alert(e.message || "Couldn't submit that guess — try again.");
                 console.error(e);
                 return;
             }
+            markRowPending(rowIndex, false);
 
             const tileColors = result.colors.map(colorCodeToName);
             animateRowReveal(rowIndex, guessArr, tileColors);
@@ -2993,6 +3006,19 @@
         }
 
         function resetKeyboardColors() { document.querySelectorAll(".key").forEach(key => { key.classList.remove("correct", "present", "absent"); }); }
+
+        // Gauntlet/Sudden Death guesses have to round-trip a Cloud Function
+        // to get graded (the server never hands the client the answer to
+        // grade locally) — on a cold instance that can take a few real
+        // seconds, and with nothing else changing on screen in that window
+        // it reads as the game being frozen. This is the only feedback
+        // between hitting Enter and the actual flip animation starting.
+        function markRowPending(rowIndex, pending) {
+            for (let i = 0; i < 5; i++) {
+                const tile = document.getElementById("tile-" + rowIndex + "-" + i);
+                if (tile) tile.classList.toggle("tile-pending", pending);
+            }
+        }
 
         // Shared by standard-mode checkGuess() and the Daily Gauntlet's
         // submitDailyGuess() — same flip/reveal visual either way, just fed
