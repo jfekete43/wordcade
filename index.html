@@ -555,6 +555,8 @@
             </div>
 
             <div class="modal-buttons">
+                <button class="btn-cyan" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
+                <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: #aaa; font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
                 <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
             </div>
         </div>
@@ -1417,6 +1419,7 @@
         let currentMatchId = null;
         let matchUnsubscribe = null;
         let isMatchHost = false;
+        let isRematchTransition = false; // set right before listenToMatch() when re-entering an already-'playing' match directly (rematch), skipping the normal lobby-modal-visible check
         let myMiniBoard = [];
         let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Standard mode
 
@@ -1776,6 +1779,40 @@
             document.getElementById("waiting-sub-text").style.display = "block";
             listenToMatch();
         }
+
+        window.rematchVersusMatch = async function() {
+            if (!currentMatchId || !isMatchHost) return;
+            const oldMatchId = currentMatchId;
+            let oldData;
+            try {
+                const snap = await getDoc(doc(db, "matches", oldMatchId));
+                if (!snap.exists()) { alert("That match is no longer available."); return; }
+                oldData = snap.data();
+            } catch (e) { alert("Couldn't start a rematch."); console.error(e); return; }
+            if (!oldData.guestUid) { alert("No opponent to rematch."); return; }
+
+            const newMatchId = generateRoomCode();
+            window.matchFinishedProcessed = false;
+
+            await setDoc(doc(db, "matches", newMatchId), {
+                hostUid: currentUser.uid, hostName: userProfileData.username, hostEquipped: userProfileData.equipped, hostBoard: [], hostMMR: userProfileData.mmr || 1000,
+                guestUid: oldData.guestUid, guestName: oldData.guestName, guestEquipped: oldData.guestEquipped, guestBoard: [], guestMMR: oldData.guestMMR || 1000,
+                status: 'playing', isPublic: false,
+                hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                hostWordIndex: 1, guestWordIndex: 1, chat: []
+            });
+
+            // Signal the guest's still-listening client (subscribed to the old,
+            // finished match doc) to automatically follow along — no need for
+            // them to re-enter a room code.
+            await updateDoc(doc(db, "matches", oldMatchId), { rematchMatchId: newMatchId });
+
+            currentMatchId = newMatchId;
+            isRematchTransition = true;
+            document.getElementById("versus-end-modal").style.display = "none";
+            listenToMatch();
+        }
+
         window.joinMatch = async function() {
             if (!currentUser) return;
             window.matchFinishedProcessed = false;
@@ -1857,12 +1894,25 @@
                 }
                 let data = docSnap.data();
 
+                // REMATCH: the host just created a fresh match from this
+                // (now-finished) one — follow along automatically rather
+                // than making the guest re-enter a room code.
+                if (data.rematchMatchId && !isMatchHost && data.rematchMatchId !== currentMatchId) {
+                    currentMatchId = data.rematchMatchId;
+                    window.matchFinishedProcessed = false;
+                    isRematchTransition = true;
+                    document.getElementById("versus-end-modal").style.display = "none";
+                    listenToMatch();
+                    return;
+                }
+
                 if (data.status === 'playing') {
-                    if (document.getElementById("versus-lobby-modal").style.display === "flex") {
+                    if (document.getElementById("versus-lobby-modal").style.display === "flex" || isRematchTransition) {
+                        isRematchTransition = false;
                         document.getElementById("versus-lobby-modal").style.display = "none";
                         clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0;
                         document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
-                        
+
                         if (!data.endTime && isMatchHost) { updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 420000 }); }
                         startRound();
                     }
@@ -1949,6 +1999,8 @@
                         document.getElementById("vs-end-title").innerText = "CALCULATING RESULT...";
                         document.getElementById("vs-end-title").style.color = "#ff9800";
                         document.getElementById("vs-end-desc").innerText = "Hang tight while the match is verified.";
+                        document.getElementById("btn-rematch").style.display = "none";
+                        document.getElementById("rematch-waiting-text").style.display = "none";
                         document.getElementById("versus-end-modal").style.display = "flex";
                         return;
                     }
@@ -1997,6 +2049,16 @@
                     if (isTie && isPublicMatch) mmrText = `<span style="color:#aaa;">+0 MMR (Draw)</span>`;
 
                     document.getElementById("vs-end-desc").innerHTML = `${resultText}<br><br><span style="font-size:16px;">Rank: <span class="${rankObj.class}" style="text-transform:uppercase; font-weight:bold;">${rankObj.name}</span></span><br>${mmrText}`;
+
+                    // Rematch: only offered for private matches (a public
+                    // matchmaking opponent may want a fresh random match, not
+                    // necessarily you again). Only the host can start one —
+                    // avoids both clients racing to create competing matches
+                    // — the guest's client auto-follows via rematchMatchId
+                    // (see the check near the top of this listener).
+                    document.getElementById("btn-rematch").style.display = (!isPublicMatch && isMatchHost) ? "inline-block" : "none";
+                    document.getElementById("rematch-waiting-text").style.display = (!isPublicMatch && !isMatchHost) ? "block" : "none";
+
                     document.getElementById("versus-end-modal").style.display = "flex";
                 }
             });
