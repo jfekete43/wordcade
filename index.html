@@ -799,6 +799,7 @@
             <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
+                <button class="menu-list-btn" style="color: #00e5ff; border-color: #00e5ff;" onclick="window.openHowToPlay()">How To Play</button>
                 <button class="menu-list-btn" style="color: #ffff00; border-color: #ffff00;" onclick="window.showLeaderboard()">Leaderboard</button>
                 <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
                 <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
@@ -824,6 +825,111 @@
                 </div>
 
                 <button class="menu-list-btn" style="color: #777; border-color: #777; margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ONBOARDING MODAL (first visit only — see maybeShowOnboarding) -->
+    <div id="onboarding-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff; max-width: 380px;">
+            <div id="onboarding-slides">
+                <div class="onboarding-slide">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🕹️</div>
+                    <h2 class="modal-title" style="color: #ff00ff;">Welcome to Lexathon</h2>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">A neon word-guessing arcade with four ways to play. Guess 5-letter words, climb the ranks, and unlock cosmetics as you go.</p>
+                </div>
+                <div class="onboarding-slide" style="display: none;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🎯</div>
+                    <h2 class="modal-title" style="color: #4caf50;">Standard</h2>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">Guess words endlessly for points. Miss one with a Continue left and you keep going; miss again with none left and you lose the whole run. Cash Out anytime to bank what you've earned for real.</p>
+                </div>
+                <div class="onboarding-slide" style="display: none;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">⚔️</div>
+                    <h2 class="modal-title" style="color: #ff9800;">Clash</h2>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">Race an opponent through the same words for 7 minutes. First to a 1,000-point lead — or the higher score when time's up — wins. Tied at the buzzer? Sudden Death decides it.</p>
+                </div>
+                <div class="onboarding-slide" style="display: none;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">🔥</div>
+                    <h2 class="modal-title" style="color: #b967ff;">Gauntlet</h2>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">One shared puzzle, once a day. Everyone gets the same 10 words — solve as many as you can, then share your grid and see who did better.</p>
+                </div>
+                <div class="onboarding-slide" style="display: none;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">👑</div>
+                    <h2 class="modal-title" style="color: #ffd700;">FFA</h2>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">The same race as Clash, but with 2-4 players at once. Highest score when time's up takes the top spot — everyone else still earns something.</p>
+                </div>
+            </div>
+
+            <div id="onboarding-dots" style="display: flex; justify-content: center; gap: 6px; margin: 15px 0;"></div>
+
+            <div id="onboarding-final-controls" style="display: none;">
+                <label style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #aaa; margin-bottom: 15px; cursor: pointer;">
+                    <input type="checkbox" id="onboarding-dont-show" checked style="width: 16px; height: 16px;">
+                    Don't show this again
+                </label>
+            </div>
+
+            <div class="modal-buttons" style="flex-direction: row; justify-content: center; gap: 10px;">
+                <button class="btn-dark" id="onboarding-back-btn" style="display: none; flex: 1;" onclick="window.onboardingBack()">Back</button>
+                <button class="btn-cyan" id="onboarding-next-btn" style="flex: 2;" onclick="window.onboardingNext()">Next</button>
+            </div>
+            <button class="btn-dark" id="onboarding-skip-btn" style="margin-top: 10px; width: 100%; font-size: 12px; padding: 8px;" onclick="window.closeOnboarding(true)">Skip</button>
+        </div>
+    </div>
+
+    <!-- HOW TO PLAY MODAL — the full reference version of onboarding, open anytime from the Menu -->
+    <div id="howto-modal" class="modal-overlay">
+        <div class="modal-box" style="max-width: 440px; text-align: left;">
+            <h2 class="modal-title" style="text-align: center; color: #00e5ff;">How To Play</h2>
+
+            <div style="font-size: 13px; line-height: 1.6; color: #ddd;">
+                <h3 style="color: #4caf50; text-transform: uppercase; margin-bottom: 6px;">🎯 Standard</h3>
+                <ul style="margin: 0 0 18px 0; padding-left: 18px;">
+                    <li>Guess a 5-letter word in up to 5 tries, one word after another.</li>
+                    <li>Correct on try 1/2/3/4/5 scores 500/250/150/50/10 points.</li>
+                    <li>You start with 1 Continue. Miss a word with a Continue left, and you lose the Continue but keep playing.</li>
+                    <li>Miss again with 0 Continues left and you lose your <b>entire</b> run — score and all.</li>
+                    <li><b>Cash Out</b> anytime to lock your score in for good, added to your Wallet and career total.</li>
+                </ul>
+
+                <h3 style="color: #ff9800; text-transform: uppercase; margin-bottom: 6px;">⚔️ Clash</h3>
+                <ul style="margin: 0 0 18px 0; padding-left: 18px;">
+                    <li>Head-to-head, 7 minutes, both players racing through the same word list — same scoring as Standard, but a miss costs -50 points instead of ending your run.</li>
+                    <li>First to a 1,000-point lead wins instantly; otherwise, whoever's ahead when the clock hits 0 wins.</li>
+                    <li>Tied at the buzzer: Sudden Death. Same secret word, 5 guesses each, first to solve it wins. Both miss all 5 and a new word starts (up to 3 rounds) before it's called a true tie.</li>
+                    <li>Find a public opponent, or host/join a private room with a friend — private rooms can Share Invite (one-tap join link) and Rematch after.</li>
+                    <li>Public matches move your MMR rank; private matches don't.</li>
+                    <li>Leaving mid-match forfeits the match — your opponent wins automatically.</li>
+                </ul>
+
+                <h3 style="color: #b967ff; text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
+                <ul style="margin: 0 0 18px 0; padding-left: 18px;">
+                    <li>One shared puzzle per day — everyone gets the identical 10 words, one attempt each.</li>
+                    <li>Same 5-guess, 500/250/150/50/10 scoring as Standard — but missing a word ends the whole run immediately, no Continues.</li>
+                    <li>Resets at midnight Eastern.</li>
+                    <li>Share your result as a Wordle-style grid (guess count per word, or ❌ if missed) — no spoilers, just the pattern.</li>
+                    <li>The Gauntlet leaderboard tab only ever shows today's scores.</li>
+                </ul>
+
+                <h3 style="color: #ffd700; text-transform: uppercase; margin-bottom: 6px;">👑 FFA</h3>
+                <ul style="margin: 0 0 18px 0; padding-left: 18px;">
+                    <li>The same 7-minute race as Clash, scaled to 2-4 players — public queue or a private room with friends (Share Invite works here too).</li>
+                    <li>No early win condition — purely whoever has the highest score when the clock runs out.</li>
+                    <li>Payout scales with placement instead of a binary win/lose — 1st earns the most, last earns nothing.</li>
+                    <li>Leaving mid-match doesn't end it for everyone else — you're locked into the worst remaining placement, and it's worse the earlier you leave.</li>
+                </ul>
+
+                <h3 style="color: #00e5ff; text-transform: uppercase; margin-bottom: 6px;">💰 The Rest</h3>
+                <ul style="margin: 0; padding-left: 18px;">
+                    <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
+                    <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
+                    <li><b>Challenges:</b> Daily (3 rotate each day) and Career (one-time milestones) — both pay out in points.</li>
+                    <li><b>Leaderboards:</b> All Time, Monthly, Gauntlet (today only), Clash (MMR rank), and FFA (win count).</li>
+                </ul>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="document.getElementById('howto-modal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -983,6 +1089,7 @@
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
                 <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Gauntlet</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
+                <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
             </div>
             <div id="lb-daily-note" style="display:none; font-size: 11px; color: #aaa; text-align: center; font-style: italic; margin: -8px 0 10px;">Today's Daily Gauntlet only — resets at midnight ET.</div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
@@ -1105,6 +1212,63 @@
                 clashTie: () => { tone(440, 0, 0.12, "triangle", 0.08); tone(440, 0.14, 0.12, "triangle", 0.08); },
             };
         })();
+
+        window.openHowToPlay = function() {
+            document.activeElement.blur();
+            document.getElementById('main-menu-modal').style.display = 'none';
+            document.getElementById('howto-modal').style.display = 'flex';
+        }
+
+        // --- ONBOARDING (first visit only) ---
+        // The condensed, slide-by-slide teaser version — How To Play (above)
+        // is the full reference, open anytime from the Menu. Purely a
+        // localStorage flag, no account/Firebase involvement, so it can run
+        // before auth even resolves.
+        const ONBOARDING_SLIDE_COUNT = 5;
+        let onboardingIndex = 0;
+
+        function showOnboardingSlide(i) {
+            onboardingIndex = i;
+            document.querySelectorAll("#onboarding-slides .onboarding-slide").forEach((el, idx) => { el.style.display = idx === i ? "block" : "none"; });
+
+            let dots = "";
+            for (let d = 0; d < ONBOARDING_SLIDE_COUNT; d++) {
+                dots += `<div style="width:8px; height:8px; border-radius:50%; background:${d === i ? "#ff00ff" : "#444"}; transition: background 0.2s;"></div>`;
+            }
+            document.getElementById("onboarding-dots").innerHTML = dots;
+
+            const isLast = i === ONBOARDING_SLIDE_COUNT - 1;
+            document.getElementById("onboarding-back-btn").style.display = i === 0 ? "none" : "block";
+            document.getElementById("onboarding-next-btn").innerText = isLast ? "Let's Play!" : "Next";
+            document.getElementById("onboarding-final-controls").style.display = isLast ? "block" : "none";
+            document.getElementById("onboarding-skip-btn").style.display = isLast ? "none" : "block";
+        }
+
+        window.onboardingNext = function() {
+            if (onboardingIndex >= ONBOARDING_SLIDE_COUNT - 1) {
+                window.closeOnboarding(document.getElementById("onboarding-dont-show").checked);
+            } else {
+                showOnboardingSlide(onboardingIndex + 1);
+            }
+        }
+        window.onboardingBack = function() { if (onboardingIndex > 0) showOnboardingSlide(onboardingIndex - 1); }
+
+        window.closeOnboarding = function(suppress) {
+            document.getElementById("onboarding-modal").style.display = "none";
+            if (suppress) { try { localStorage.setItem("wordcade_seen_onboarding", "1"); } catch (e) { } }
+        }
+
+        function maybeShowOnboarding() {
+            // Skip entirely if this load is actually a tap-to-join invite —
+            // finishing that flow matters more than a first-run teaser, and
+            // stacking modals on top of it would just be confusing.
+            if (new URLSearchParams(location.search).has("join")) return;
+            let seen = false;
+            try { seen = localStorage.getItem("wordcade_seen_onboarding") === "1"; } catch (e) { }
+            if (seen) return;
+            showOnboardingSlide(0);
+            document.getElementById("onboarding-modal").style.display = "flex";
+        }
 
         window.openSettingsMenu = function() {
             document.getElementById('main-menu-modal').style.display = 'none';
@@ -1614,8 +1778,15 @@
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); }); 
                         } 
                         else if (currentLbTime === 'clash') {
-                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(100))); 
-                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); }); 
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(100)));
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); });
+                        }
+                        else if (currentLbTime === 'ffa') {
+                            // Ranked by total FFA wins, not MMR — FFA already feeds the
+                            // same MMR pool the Clash tab shows, so ranking by MMR again
+                            // here would just be a second copy of that tab.
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("ffaWins", "desc"), limit(100)));
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().ffaWins || 0, equipped: doc.data().equipped }); });
                         }
                         else {
                             let snapshot;
@@ -1643,14 +1814,14 @@
                             if (!seenNames.has(upperName)) {
                                 seenNames.add(upperName);
                                 finalData.push(item);
-                                let maxLimit = (currentLbTime === 'career' || currentLbTime === 'clash' || currentLbTime === 'all' || currentLbTime === 'daily') ? 100 : 25;
+                                let maxLimit = (currentLbTime === 'career' || currentLbTime === 'clash' || currentLbTime === 'ffa' || currentLbTime === 'all' || currentLbTime === 'daily') ? 100 : 25;
                                 if(finalData.length === maxLimit) break;
                             }
                         }
         
                         if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
         
-                        if (currentLbTime !== 'career' && currentLbTime !== 'clash') { 
+                        if (currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa') {
                             for (let entry of finalData) { 
                                 if (entry.uid) { 
                                     try { 
@@ -3388,6 +3559,7 @@
             } else {
                 startRound();
             }
+            maybeShowOnboarding();
         }, 300);
     </script>
 </body>
