@@ -934,6 +934,19 @@
         </div>
     </div>
 
+    <!-- SIGN-UP NUDGE — contextual, guest-only, see maybeShowSignupNudge -->
+    <div id="signup-nudge-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff; max-width: 360px;">
+            <h2 class="modal-title" style="color: #00ffff;">Don't Lose This!</h2>
+            <p id="signup-nudge-reason" style="color: #fff; font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
+            <p style="color: #aaa; font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in with Google to keep it forever and play from any device.</p>
+            <div class="modal-buttons">
+                <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign In With Google</button>
+                <button class="btn-dark" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
+            </div>
+        </div>
+    </div>
+
     <!-- CHALLENGES MODAL -->
     <div id="challenges-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 340px; border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff;">
@@ -1001,7 +1014,7 @@
                 </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
                     <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
-                        Link a Google account from the Main Menu to set a custom Arcade Handle!
+                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Link a Google account from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
                     </div>
                 </div>
             </div>
@@ -1101,7 +1114,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
@@ -1268,6 +1281,26 @@
             if (seen) return;
             showOnboardingSlide(0);
             document.getElementById("onboarding-modal").style.display = "flex";
+        }
+
+        // --- SIGN-UP NUDGE (contextual, guest-only) ---
+        // Fires at moments a guest has just visibly earned/won something —
+        // not on page load before they've invested anything — with the
+        // honest pitch: this progress lives only in this browser. At most
+        // once per session, and at most once per 24h even across sessions,
+        // so it's a periodic reminder rather than a wall. Naturally stops
+        // firing forever once isGuest flips to false after linking.
+        let signupNudgeShownThisSession = false;
+        function maybeShowSignupNudge(reason) {
+            if (!currentUser || !userProfileData || !userProfileData.isGuest) return;
+            if (signupNudgeShownThisSession) return;
+            let lastShown = 0;
+            try { lastShown = parseInt(localStorage.getItem("wordcade_signup_nudge_last_shown") || "0", 10); } catch (e) { }
+            if (Date.now() - lastShown < 86400000) return; // at most once per 24h
+            signupNudgeShownThisSession = true;
+            try { localStorage.setItem("wordcade_signup_nudge_last_shown", String(Date.now())); } catch (e) { }
+            document.getElementById("signup-nudge-reason").innerText = reason;
+            document.getElementById("signup-nudge-modal").style.display = "flex";
         }
 
         window.openSettingsMenu = function() {
@@ -1571,8 +1604,49 @@
         };
 
         window.handleAuthAction = async function() {
-            if (userProfileData && !userProfileData.isGuest) { let confirmOut = confirm("Are you sure you want to sign out?"); if (confirmOut) { await signOut(auth); window.location.reload(); } } 
-            else { try { await signInWithPopup(auth, new GoogleAuthProvider()); alert("Account linked successfully!"); document.getElementById('main-menu-modal').style.display = 'none'; setTimeout(() => { window.location.reload(); }, 500); } catch (error) { alert("Login Error: " + error.message); } }
+            if (userProfileData && !userProfileData.isGuest) {
+                let confirmOut = confirm("Are you sure you want to sign out?");
+                if (confirmOut) { await signOut(auth); window.location.reload(); }
+                return;
+            }
+
+            try {
+                // linkWithPopup upgrades the CURRENT anonymous session to a
+                // Google-backed one — same uid, same Firestore doc, so every
+                // bit of guest progress (wallet, MMR, cosmetics, everything)
+                // carries over untouched. A plain signInWithPopup here would
+                // instead sign into (or create) a totally separate account,
+                // silently abandoning the guest profile — that used to be
+                // the actual bug this replaced.
+                await linkWithPopup(currentUser, new GoogleAuthProvider());
+                alert("Account linked! Your progress is now saved to this Google account.");
+                document.getElementById('main-menu-modal').style.display = 'none';
+                setTimeout(() => { window.location.reload(); }, 500);
+            } catch (error) {
+                if (error.code === "auth/credential-already-in-use") {
+                    // This Google account already has its own Lexathon profile
+                    // from somewhere else (another device, a previous guest
+                    // session) — it can't be merged with this one automatically.
+                    // Give the player an informed choice rather than silently
+                    // discarding either side.
+                    const credential = GoogleAuthProvider.credentialFromError(error);
+                    const switchConfirm = confirm(
+                        "This Google account is already linked to a different Lexathon profile.\n\n" +
+                        "Sign into that existing profile instead? Your current guest progress on THIS device will not transfer to it."
+                    );
+                    if (switchConfirm && credential) {
+                        try {
+                            await signInWithCredential(auth, credential);
+                            document.getElementById('main-menu-modal').style.display = 'none';
+                            setTimeout(() => { window.location.reload(); }, 500);
+                        } catch (e2) { alert("Login Error: " + e2.message); }
+                    }
+                } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
+                    // Closed the popup — not worth alerting about.
+                } else {
+                    alert("Login Error: " + error.message);
+                }
+            }
         }
 
         window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; }
@@ -2662,6 +2736,7 @@
                     document.getElementById("rematch-waiting-text").style.display = (!isPublicMatch && !isMatchHost) ? "block" : "none";
 
                     document.getElementById("versus-end-modal").style.display = "flex";
+                    if (amIWinner) setTimeout(() => maybeShowSignupNudge("You just won a Clash match!"), 2000);
                 }
             });
         }
@@ -3168,6 +3243,11 @@
                     // totals regardless.
                     userProfileData.wallet += score; userProfileData.careerBank += score;
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
+                    // A sizable, genuine Cash Out (not a wipeout — that's a
+                    // gameplay loss, not a "your browser could lose this"
+                    // moment) is a natural point to mention that a Guest's
+                    // wallet only exists in this one browser.
+                    if (!isWipeout && score >= 2500) setTimeout(() => maybeShowSignupNudge(`You just cashed out ${score.toLocaleString()} points!`), 2000);
                 } catch (e) { document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed."; document.getElementById("cloud-save-status").style.color = "#ff3333"; console.error(e); }
             } else { document.getElementById("cloud-save-status").innerText = "No stats to save."; }
         }

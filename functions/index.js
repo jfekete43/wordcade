@@ -583,6 +583,15 @@ exports.refreshProfile = onCall(async (request) => {
     if (data.mmr === undefined) { updates.mmr = 1000; updates.clashWins = 0; updates.clashLosses = 0; updates.clashPucks = 0; }
     if (data.clashTies === undefined) updates.clashTies = 0;
 
+    // A guest who links a Google account (see linkWithPopup client-side)
+    // keeps the exact same uid/doc — the auth token's own provider flips
+    // to non-anonymous immediately, but isGuest on the profile doc was
+    // only ever set once, at doc creation. Correct it here so the
+    // client's "am I a guest" checks (Profile menu, the sign-up nudge,
+    // Sign Out vs Sign Up button text) don't keep reading stale data.
+    const isAnonymous = !!(request.auth.token.firebase && request.auth.token.firebase.sign_in_provider === "anonymous");
+    if (data.isGuest === true && !isAnonymous) updates.isGuest = false;
+
     // walletBase tracks the wallet's value through this function as a plain
     // number (never FieldValue.increment) — both the legacy migration below
     // and the daily-login reward further down can affect it, and mixing an
