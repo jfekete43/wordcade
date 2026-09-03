@@ -595,7 +595,6 @@
             <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
-                <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800; text-shadow: 0 0 6px #ff9800;" onclick="window.openDailyGauntlet()">🔥 Daily Gauntlet</button>
                 <button class="menu-list-btn" style="color: #ffff00; border-color: #ffff00;" onclick="window.showLeaderboard()">Leaderboard</button>
                 <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
                 <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
@@ -1578,9 +1577,14 @@
             // Replay any guesses already made on this word — matters when
             // resuming after a page reload mid-gauntlet; startDailyGauntlet
             // returns the existing (not a fresh) attempt in that case.
-            const wordEntry = dailyAttempt.history[dailyAttempt.wordIndex];
-            wordEntry.guesses.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
-            currentRow = wordEntry.guesses.length;
+            const wordEntry = dailyAttempt.history && dailyAttempt.history[dailyAttempt.wordIndex];
+            if (wordEntry && Array.isArray(wordEntry.guesses)) {
+                console.log("Daily Gauntlet resume: replaying", wordEntry.guesses.length, "prior guess(es) on word", dailyAttempt.wordIndex + 1, wordEntry.guesses);
+                wordEntry.guesses.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
+                currentRow = wordEntry.guesses.length;
+            } else {
+                console.error("Daily Gauntlet resume: no history entry for wordIndex", dailyAttempt.wordIndex, "— full attempt was:", dailyAttempt);
+            }
         }
 
         async function submitDailyGuess() {
