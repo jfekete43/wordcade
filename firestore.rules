@@ -136,5 +136,15 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow write: if false;
     }
+
+    // Clash sudden-death's secret word + each side's graded guess for the
+    // current round — same reasoning as dailyPuzzles: never client-readable,
+    // or a devtools-savvy player could see the word (or their opponent's
+    // still-pending guess) before the round resolves. Public, non-spoiling
+    // state (round number, deadline, who's submitted, the eventual result)
+    // lives on the match doc instead, written by the same Cloud Functions.
+    match /matchSecrets/{matchId} {
+      allow read, write: if false;
+    }
   }
 }

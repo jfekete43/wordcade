@@ -135,6 +135,8 @@ const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "b
 const SCORE_POINTS = [500, 250, 150, 50, 10];
 const DAILY_GAUNTLET_WORD_COUNT = 10;
 const DAILY_GAUNTLET_MAX_GUESSES = 5;
+const SUDDEN_DEATH_ROUND_MS = 25000; // generous — has to survive a Cloud Functions cold start on either player's guess
+const SUDDEN_DEATH_MAX_ROUNDS = 3; // after this many pushes (nobody guessed right), fall back to a true tie
 
 // UTC calendar-day string (YYYY-MM-DD). Must match index.html's
 // getTodayDateStr() exactly, since this is the sole source of truth for
@@ -673,5 +675,175 @@ exports.guessDailyWord = onCall(async (request) => {
       earned, score: newScore, wordIndex: newWordIndex,
       revealedWord: wordFinished ? target : null, // safe now — this word is done either way
     };
+  });
+});
+
+// ============================================================================
+// CLASH SUDDEN DEATH — when a Clash match's timer runs out tied, instead of
+// immediately calling it a tie, both players get one guess each at a single
+// shared secret word (same "never trust the client with the answer" reasoning
+// as the Daily Gauntlet: gradeGuess runs here, not in the browser). Fastest
+// correct guess wins; if neither or both miss, another round starts; after
+// SUDDEN_DEATH_MAX_ROUNDS unresolved rounds, it falls back to a true tie.
+//
+// matches/{matchId}.suddenDeath carries the public, non-spoiling state
+// (round, deadline, whether each side has submitted, and the result once
+// resolved). matchSecrets/{matchId} carries the actual word and each side's
+// graded guess — never readable by the client (see firestore.rules) — and
+// is scratch state only: once a round resolves, whatever's in there is
+// never read again, so there's no need to keep it in sync with the final
+// outcome.
+//
+// Resolution writes status:'finished' + winner straight onto the match doc,
+// which the existing onMatchFinished trigger already picks up — no separate
+// payout logic needed here, same MMR/wallet/streak path as any other win,
+// and a fallback tie still increments clashTies exactly like the original
+// (pre-sudden-death) tie path did.
+// ============================================================================
+
+function matchSecretRef(matchId) {
+  return db.collection("matchSecrets").doc(matchId);
+}
+
+function pickSuddenDeathWord() {
+  return DAILY_TARGET_WORDS[Math.floor(Math.random() * DAILY_TARGET_WORDS.length)];
+}
+
+// Applies the outcome of a fully-known round (both guesses present, real or
+// a synthesized "didn't guess" entry from a timeout) to the match + secret
+// docs. Writes each document at most once — Firestore transactions don't
+// support multiple writes to the same doc reference.
+function applySuddenDeathOutcome(tx, matchRef, secretRef, match, round, hostGuess, guestGuess) {
+  let winnerMarker = null; // "host" | "guest" | null (push/tie)
+  if (hostGuess.correct && guestGuess.correct) winnerMarker = hostGuess.at <= guestGuess.at ? "host" : "guest";
+  else if (hostGuess.correct) winnerMarker = "host";
+  else if (guestGuess.correct) winnerMarker = "guest";
+
+  if (winnerMarker) {
+    const winnerUid = winnerMarker === "host" ? match.hostUid : match.guestUid;
+    tx.update(matchRef, {
+      status: "finished",
+      winner: winnerUid,
+      suddenDeath: { active: false, round, hostSubmitted: true, guestSubmitted: true, deadline: 0, result: winnerMarker },
+    });
+    return;
+  }
+
+  if (round >= SUDDEN_DEATH_MAX_ROUNDS) {
+    tx.update(matchRef, {
+      status: "finished",
+      winner: null,
+      suddenDeath: { active: false, round, hostSubmitted: true, guestSubmitted: true, deadline: 0, result: "tie" },
+    });
+    return;
+  }
+
+  const nextRound = round + 1;
+  tx.set(secretRef, { round: nextRound, word: pickSuddenDeathWord(), hostGuess: null, guestGuess: null });
+  tx.update(matchRef, {
+    suddenDeath: { active: true, round: nextRound, deadline: Date.now() + SUDDEN_DEATH_ROUND_MS, hostSubmitted: false, guestSubmitted: false, result: null },
+  });
+}
+
+exports.startSuddenDeath = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (!matchId) throw new HttpsError("invalid-argument", "Missing matchId.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  const secretRef = matchSecretRef(matchId);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Match not found.");
+    const match = snap.data();
+    if (match.hostUid !== uid && match.guestUid !== uid) throw new HttpsError("permission-denied", "Not a participant in this match.");
+    if (match.status !== "playing") throw new HttpsError("failed-precondition", "Match isn't active.");
+    if (match.suddenDeath && match.suddenDeath.active) return { ok: true }; // already started — no-op (e.g. a race between both clients)
+
+    tx.set(secretRef, { round: 1, word: pickSuddenDeathWord(), hostGuess: null, guestGuess: null });
+    tx.update(matchRef, {
+      suddenDeath: { active: true, round: 1, deadline: Date.now() + SUDDEN_DEATH_ROUND_MS, hostSubmitted: false, guestSubmitted: false, result: null },
+    });
+    return { ok: true };
+  });
+});
+
+exports.guessSuddenDeathWord = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  const raw = (request.data && request.data.guess) || "";
+  const guess = String(raw).toUpperCase().trim();
+  if (!matchId) throw new HttpsError("invalid-argument", "Missing matchId.");
+  if (!/^[A-Z]{5}$/.test(guess)) throw new HttpsError("invalid-argument", "Guess must be a 5-letter word.");
+  if (!DAILY_ALL_VALID_WORDS.has(guess)) throw new HttpsError("invalid-argument", "Not in word list.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  const secretRef = matchSecretRef(matchId);
+
+  return db.runTransaction(async (tx) => {
+    const [matchSnap, secretSnap] = await Promise.all([tx.get(matchRef), tx.get(secretRef)]);
+    if (!matchSnap.exists || !secretSnap.exists) throw new HttpsError("not-found", "Match not found.");
+    const match = matchSnap.data();
+    const secret = secretSnap.data();
+    const isHost = match.hostUid === uid;
+    const isGuest = match.guestUid === uid;
+    if (!isHost && !isGuest) throw new HttpsError("permission-denied", "Not a participant in this match.");
+    const sd = match.suddenDeath;
+    if (!sd || !sd.active) throw new HttpsError("failed-precondition", "Sudden death isn't active.");
+    if (sd.round !== secret.round) throw new HttpsError("failed-precondition", "This round has already ended.");
+    if (Date.now() > sd.deadline) throw new HttpsError("failed-precondition", "Time's up for this round.");
+
+    const mySlot = isHost ? "hostGuess" : "guestGuess";
+    if (secret[mySlot]) throw new HttpsError("already-exists", "You already guessed this round.");
+
+    const colors = gradeGuess(guess, secret.word);
+    const correct = colors.every((c) => c === 2);
+    const myEntry = { guess, correct, at: Date.now() };
+    const otherSlot = isHost ? "guestGuess" : "hostGuess";
+    const otherEntry = secret[otherSlot];
+
+    if (otherEntry) {
+      // Both guesses are in — resolve the round now. (No separate write of
+      // myEntry into secretRef here: matchSecrets is scratch state that's
+      // never read again once the round resolves, and a doc can only be
+      // written once per transaction — applySuddenDeathOutcome may itself
+      // write secretRef, for the next round.)
+      applySuddenDeathOutcome(tx, matchRef, secretRef, match, secret.round, isHost ? myEntry : otherEntry, isHost ? otherEntry : myEntry);
+    } else {
+      tx.update(secretRef, { [mySlot]: myEntry });
+      tx.update(matchRef, { suddenDeath: { ...sd, [isHost ? "hostSubmitted" : "guestSubmitted"]: true } });
+    }
+
+    return { correct, colors };
+  });
+});
+
+// Host-triggered (mirrors how the main match clock is already only watched
+// by the host's client) when a round's deadline passes without both players
+// submitting. A missing guess counts as incorrect.
+exports.resolveSuddenDeathTimeout = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const { matchId } = request.data || {};
+  if (!matchId) throw new HttpsError("invalid-argument", "Missing matchId.");
+
+  const matchRef = db.collection("matches").doc(matchId);
+  const secretRef = matchSecretRef(matchId);
+
+  return db.runTransaction(async (tx) => {
+    const [matchSnap, secretSnap] = await Promise.all([tx.get(matchRef), tx.get(secretRef)]);
+    if (!matchSnap.exists || !secretSnap.exists) throw new HttpsError("not-found", "Match not found.");
+    const match = matchSnap.data();
+    const secret = secretSnap.data();
+    if (match.hostUid !== uid && match.guestUid !== uid) throw new HttpsError("permission-denied", "Not a participant in this match.");
+    const sd = match.suddenDeath;
+    if (!sd || !sd.active) return { ok: true }; // already resolved via the both-submitted path — no-op
+    if (sd.round !== secret.round) return { ok: true }; // stale call from a client that hasn't seen the round advance yet
+    if (Date.now() < sd.deadline) throw new HttpsError("failed-precondition", "Round isn't over yet.");
+
+    const hostGuess = secret.hostGuess || { correct: false, at: Infinity };
+    const guestGuess = secret.guestGuess || { correct: false, at: Infinity };
+    applySuddenDeathOutcome(tx, matchRef, secretRef, match, secret.round, hostGuess, guestGuess);
+    return { ok: true };
   });
 });

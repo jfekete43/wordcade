@@ -338,9 +338,16 @@
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
     </div>
 
+    <!-- SUDDEN DEATH UI -->
+    <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
+        <div style="color:#ff3333; font-size: 20px; font-weight: bold; text-shadow: 0 0 8px #ff3333;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
+        <div id="sd-status-text" style="color:#ff9800; font-size: 14px; margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
+        <div id="sd-timer" style="color:#fff; font-size: 16px; font-weight: bold; margin-top: 4px;">0:25</div>
+    </div>
+
     <!-- VERSUS UI -->
     <div id="versus-track-container">
-        
+
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
             <!-- GUEST PROFILE -->
             <div class="vs-profile-area" id="guest-profile-area">
@@ -820,6 +827,9 @@
         const callRefreshProfile = httpsCallable(cloudFunctions, "refreshProfile");
         const callStartDailyGauntlet = httpsCallable(cloudFunctions, "startDailyGauntlet");
         const callGuessDailyWord = httpsCallable(cloudFunctions, "guessDailyWord");
+        const callStartSuddenDeath = httpsCallable(cloudFunctions, "startSuddenDeath");
+        const callGuessSuddenDeathWord = httpsCallable(cloudFunctions, "guessSuddenDeathWord");
+        const callResolveSuddenDeathTimeout = httpsCallable(cloudFunctions, "resolveSuddenDeathTimeout");
 
         let currentUser = null;
         let userProfileData = null;
@@ -1427,6 +1437,13 @@
         let isDailyMode = false;
         let dailyAttempt = null; // server's publicAttemptState — never contains the target words
 
+        // --- CLASH SUDDEN DEATH STATE ---
+        let isSuddenDeathMode = false;
+        let suddenDeathRound = 0;
+        let suddenDeathDeadline = 0;
+        let suddenDeathTimerInterval = null;
+        let mySuddenDeathGuessSubmitted = false;
+
         // --- HTML ESCAPER (prevents chat/message injection) ---
         function escapeHtml(str) {
             return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1642,6 +1659,37 @@
             }, 1000);
         }
 
+        async function submitSuddenDeathGuess() {
+            if (isAnimating) return;
+            isAnimating = true;
+            const guessArr = currentGuess.split("");
+
+            let result;
+            try {
+                result = (await callGuessSuddenDeathWord({ matchId: currentMatchId, guess: currentGuess })).data;
+            } catch (e) {
+                isAnimating = false;
+                alert(e.message || "Couldn't submit that guess — try again.");
+                console.error(e);
+                return;
+            }
+
+            mySuddenDeathGuessSubmitted = true;
+            const tileColors = result.colors.map(colorCodeToName);
+            animateRowReveal(0, guessArr, tileColors);
+            result.correct ? SFX.correctWord() : SFX.wrongWord();
+
+            setTimeout(() => {
+                isAnimating = false;
+                document.getElementById("sd-status-text").innerText = "Locked in! Waiting for opponent...";
+                // The actual round outcome (win/lose/push to another round)
+                // arrives via the match doc listener once both sides have
+                // guessed or the round's deadline passes — never decided
+                // locally, so a modified client can't just declare itself
+                // the winner.
+            }, 1000);
+        }
+
         async function showDailyEndModal(attempt, alreadyPlayed) {
             document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Gauntlet Complete!";
             const solvedCount = attempt.history.filter((h) => h.solved).length;
@@ -1809,6 +1857,8 @@
 
             currentMatchId = newMatchId;
             isRematchTransition = true;
+            isSuddenDeathMode = false; // defensive — should already be false once the prior match finished
+            if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
             document.getElementById("versus-end-modal").style.display = "none";
             listenToMatch();
         }
@@ -1930,11 +1980,62 @@
                                 if (isMatchHost && data.status === 'playing') {
                                     let hScore = Number(data.hostScore || 0);
                                     let gScore = Number(data.guestScore || 0);
-                                    let winnerUid = hScore > gScore ? data.hostUid : data.guestUid;
-                                    finishMatch(winnerUid, hScore === gScore, data); // Explicit Math
+                                    if (hScore === gScore) {
+                                        // Tied at the buzzer — sudden death instead of an
+                                        // immediate tie. The Cloud Function picks the
+                                        // secret word; both clients pick it up via the
+                                        // suddenDeath field on this same match doc.
+                                        try { await callStartSuddenDeath({ matchId: currentMatchId }); } catch (e) { console.error(e); }
+                                    } else {
+                                        let winnerUid = hScore > gScore ? data.hostUid : data.guestUid;
+                                        finishMatch(winnerUid, false, data);
+                                    }
                                 }
                             }
                         }, 1000);
+                    }
+
+                    // SUDDEN DEATH
+                    if (data.suddenDeath && data.suddenDeath.active) {
+                        suddenDeathDeadline = data.suddenDeath.deadline;
+
+                        if (!isSuddenDeathMode || suddenDeathRound !== data.suddenDeath.round) {
+                            // Entering sudden death, or a new round started after a push
+                            // (nobody guessed right last round).
+                            isSuddenDeathMode = true;
+                            suddenDeathRound = data.suddenDeath.round;
+                            mySuddenDeathGuessSubmitted = false;
+                            document.getElementById("versus-track-container").style.display = "none";
+                            document.getElementById("sudden-death-header").style.display = "block";
+                            document.getElementById("sd-round").innerText = data.suddenDeath.round;
+                            document.getElementById("sd-status-text").innerText = "One word. One guess. Fastest correct answer wins!";
+                            currentGuess = ""; currentRow = 0; isAnimating = false;
+                            createBoard(1); resetKeyboardColors();
+                            if (!suddenDeathTimerInterval) {
+                                suddenDeathTimerInterval = setInterval(() => {
+                                    let remain = Math.max(0, suddenDeathDeadline - Date.now());
+                                    document.getElementById("sd-timer").innerText = `0:${Math.ceil(remain / 1000).toString().padStart(2, "0")}`;
+                                    if (remain <= 0 && isMatchHost) {
+                                        clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null;
+                                        callResolveSuddenDeathTimeout({ matchId: currentMatchId }).catch((e) => console.error(e));
+                                    }
+                                }, 1000);
+                            }
+                        }
+
+                        let mySdSubmitted = isMatchHost ? data.suddenDeath.hostSubmitted : data.suddenDeath.guestSubmitted;
+                        let oppSdSubmitted = isMatchHost ? data.suddenDeath.guestSubmitted : data.suddenDeath.hostSubmitted;
+                        if (mySdSubmitted) {
+                            document.getElementById("sd-status-text").innerText = oppSdSubmitted ? "Resolving..." : "Locked in! Waiting for opponent...";
+                        }
+                    } else if (isSuddenDeathMode) {
+                        // Sudden death ended without resolving the match itself (shouldn't
+                        // normally happen mid-'playing' — resolution flips status to
+                        // 'finished' — but tear the UI down safely either way).
+                        isSuddenDeathMode = false;
+                        if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
+                        document.getElementById("sudden-death-header").style.display = "none";
+                        document.getElementById("versus-track-container").style.display = "block";
                     }
 
                     // Update Ranks & Banners with Global Positioning
@@ -1990,6 +2091,12 @@
                 }
 
                 if (data.status === 'finished' && !window.matchFinishedProcessed) {
+                    if (isSuddenDeathMode) {
+                        isSuddenDeathMode = false;
+                        if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
+                        document.getElementById("sudden-death-header").style.display = "none";
+                        document.getElementById("versus-track-container").style.display = "block";
+                    }
                     // Neither client computed hostChange/guestChange/payoutApplied —
                     // those are written by the onMatchFinished Cloud Function once it
                     // has verified the outcome and applied MMR/wallet changes to both
@@ -2025,7 +2132,14 @@
                     }
 
                     let resultText = "Time's up! Tie Game.";
-                    if (!isTie) {
+                    if (data.suddenDeath && data.suddenDeath.result) {
+                        // Scores were tied at the buzzer, so the generic
+                        // "you had the high score"/"reached 1,000 first"
+                        // messages below would be misleading here.
+                        resultText = data.suddenDeath.result === "tie"
+                            ? `Tied after ${data.suddenDeath.round} Sudden Death round${data.suddenDeath.round > 1 ? "s" : ""}!`
+                            : (amIWinner ? `Won it in Sudden Death (Round ${data.suddenDeath.round})!` : `Lost it in Sudden Death (Round ${data.suddenDeath.round}).`);
+                    } else if (!isTie) {
                         resultText = amIWinner ? "First to 1,000 pts!" : "Opponent reached 1,000 pts first.";
                         if ((data.hostScore || 0) < 1000 && (data.guestScore || 0) < 1000) {
                             resultText = amIWinner ? "Time's up! You had the high score." : "Time's up! Opponent outscored you.";
@@ -2068,6 +2182,9 @@
             if (matchUnsubscribe) matchUnsubscribe();
             if (currentMatchId && isMatchHost) { deleteDoc(doc(db, "matches", currentMatchId)).catch(e => console.error(e)); }
             currentMatchId = null;
+            isSuddenDeathMode = false;
+            if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
+            document.getElementById("sudden-death-header").style.display = "none";
             document.getElementById("versus-end-modal").style.display = "none";
             document.getElementById("lobby-action-view").style.display = "block";
             document.getElementById("lobby-waiting-view").style.display = "none";
@@ -2189,9 +2306,9 @@
             clearLocalState(); updateScoreBoard(); startRound();
         }
 
-        function createBoard() {
-            boardDisplay.innerHTML = ""; boardDisplay.style.gridTemplateRows = `repeat(${maxGuesses}, 55px)`;
-            for (let i = 0; i < maxGuesses; i++) {
+        function createBoard(rows = maxGuesses) {
+            boardDisplay.innerHTML = ""; boardDisplay.style.gridTemplateRows = `repeat(${rows}, 55px)`;
+            for (let i = 0; i < rows; i++) {
                 let row = document.createElement("div"); row.className = "row";
                 for (let j = 0; j < 5; j++) { let tile = document.createElement("div"); tile.className = "tile"; tile.id = "tile-" + i + "-" + j; row.appendChild(tile); }
                 boardDisplay.appendChild(row);
@@ -2275,10 +2392,11 @@
         
         window.handleInput = function(key) {
             if (isAnimating || document.querySelectorAll('.modal-overlay[style*="display: flex"]').length > 0) return;
+            if (isSuddenDeathMode && mySuddenDeathGuessSubmitted) return; // one guess only, locked in until the round resolves
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
-                if (isDailyMode) { submitDailyGuess(); } else { checkGuess(); }
+                if (isDailyMode) { submitDailyGuess(); } else if (isSuddenDeathMode) { submitSuddenDeathGuess(); } else { checkGuess(); }
             } else if (key === "BACKSPACE" || key === "⌫") {
                 SFX.del();
                 currentGuess = currentGuess.slice(0, -1);
