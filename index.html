@@ -54,8 +54,8 @@
             display: flex; gap: 20px; position: relative; z-index: 2;
         }
         .score-text { color: #4caf50; }
-        .arcade-menu .daily-btn { color: #ff9800; border-color: #ff9800; }
-        .arcade-menu .daily-btn:hover { background-color: #ff9800; color: #000; }
+        .arcade-menu .daily-btn { color: #b967ff; border-color: #b967ff; }
+        .arcade-menu .daily-btn:hover { background-color: #b967ff; color: #000; }
         .lives-text { color: #ff3333; }
         
         /* VERSUS UI */
@@ -350,7 +350,7 @@
 
     <!-- DAILY GAUNTLET UI -->
     <div id="daily-header" style="display:none;">
-        <div class="score-text" style="color:#ff9800;">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+        <div class="score-text" style="color:#b967ff;">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
     </div>
 
@@ -680,8 +680,8 @@
 
     <!-- DAILY GAUNTLET END MODAL -->
     <div id="daily-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
-            <h2 class="modal-title" id="daily-end-title" style="color: #ff9800;">Gauntlet Complete!</h2>
+        <div class="modal-box" style="border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
+            <h2 class="modal-title" id="daily-end-title" style="color: #b967ff;">Gauntlet Complete!</h2>
             <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:#4caf50; font-size: 24px;">0</span></div>
 
             <!-- ADSTERRA 320x50 BANNER -->
@@ -701,7 +701,7 @@
             <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
             <div class="modal-buttons">
-                <button class="btn-cyan" onclick="window.leaveDailyGauntlet(); window.showLeaderboard(); window.setLbTime('daily');">View Daily Leaderboard</button>
+                <button class="btn-cyan" onclick="window.leaveDailyGauntlet(); window.showLeaderboard(); window.setLbTime('daily');">View Gauntlet Leaderboard</button>
                 <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Arcade</button>
             </div>
         </div>
@@ -895,9 +895,10 @@
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
-                <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
+                <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Gauntlet</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
             </div>
+            <div id="lb-daily-note" style="display:none; font-size: 11px; color: #aaa; text-align: center; font-style: italic; margin: -8px 0 10px;">Today's Daily Gauntlet only — resets at midnight ET.</div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button></div>
         </div>
@@ -1112,7 +1113,7 @@
                     { id: "c_hof", name: "Legendary Milestone", desc: "Guess 2,500 total words correctly.", req: 2500, field: "totalWordsGuessed", reward: 100000 },
                     { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
                     { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
-                    { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
+                    { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Gauntlet Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
                     { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
                     { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 },
                     { id: "c_untouchable", name: "Untouchable", desc: "Reach a streak of 10 correct guesses without a miss.", req: 10, field: "bestNoMissStreak", reward: 20000 },
@@ -1124,11 +1125,13 @@
                 ]
             };
 
-          // UTC calendar-day string (YYYY-MM-DD) — must match functions/index.js's
-          // getTodayDateStr() exactly, since the server is now the one deciding
-          // when daily challenges/stats roll over. A locale-dependent date (the
-          // old toLocaleDateString()) would drift between client and server.
-          function getTodayDateStr() { return new Date().toISOString().slice(0, 10); }
+          // Eastern-time calendar-day string (YYYY-MM-DD) — must match
+          // functions/index.js's getTodayDateStr() exactly, since the server is
+          // the one deciding when the Gauntlet/daily challenges/stats actually
+          // roll over; this copy only needs to agree on what "today" is, e.g.
+          // for the leaderboard's puzzleDate filter. America/New_York (an IANA
+          // zone, not a fixed offset) keeps this correct across EST/EDT.
+          function getTodayDateStr() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
 
           // Recurring annual "MM-DD" window (UTC), wrap-safe for windows that
           // cross the New Year (e.g. Dec 1 -> Jan 5). Must match the identical
@@ -1460,7 +1463,7 @@
         // LEADERBOARD LOGIC
         let currentLbTime = 'all'; 
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
-        window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
+        window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); document.getElementById("lb-daily-note").style.display = (time === 'daily') ? "block" : "none"; window.loadLeaderboardData(); }
         
         window.loadLeaderboardData = async function() {
                     const listDiv = document.getElementById("leaderboard-list"); 

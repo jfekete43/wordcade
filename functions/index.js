@@ -147,11 +147,17 @@ const FFA_MATCH_MS = 420000; // same 7-minute race as 1v1 Clash
 // win/lose payout, and a 3p lobby drops the "200" tier rather than the "500".
 const FFA_PAYOUT_CURVES = { 2: [1000, 0], 3: [1000, 500, 0], 4: [1000, 500, 200, 0] };
 
-// UTC calendar-day string (YYYY-MM-DD). Must match index.html's
-// getTodayDateStr() exactly, since this is the sole source of truth for
-// when daily challenges/stats roll over.
+// Eastern-time calendar-day string (YYYY-MM-DD) — the sole source of truth
+// for when the Gauntlet puzzle, daily challenges/stats, and login streaks
+// roll over. Must match index.html's getTodayDateStr() exactly. Using the
+// America/New_York IANA zone (rather than a fixed UTC offset) means this
+// correctly follows EST/EDT across DST changes with no manual adjustment.
+// A straight UTC day was simpler but rolled over at 7-8pm Eastern, which
+// read as "way too early" to US players — revisit if the player base ever
+// gets large/global enough that a single fixed reset time stops making
+// sense for everyone.
 function getTodayDateStr() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 function freshDailyStats(today) {
@@ -493,7 +499,8 @@ exports.refreshProfile = onCall(async (request) => {
 
 // ============================================================================
 // DAILY GAUNTLET — a shared, once-per-day puzzle: everyone gets the same
-// DAILY_GAUNTLET_WORD_COUNT words each UTC day, one attempt each. Failing a
+// DAILY_GAUNTLET_WORD_COUNT words each Eastern-time day (see
+// getTodayDateStr), one attempt each. Failing a
 // word ends the run with whatever was earned so far (no continues/wipeout —
 // this mode is meant to be a low-stress daily ritual, not the high-stakes
 // endless mode). Feeds the "Daily" leaderboard tab, replacing what used to
@@ -528,10 +535,14 @@ function pickDailyWords() {
   return shuffled.slice(0, DAILY_GAUNTLET_WORD_COUNT);
 }
 
-// Picks the day's words once, at 00:00 UTC. Guarded against ever
-// overwriting an already-published day (a re-trigger or cold-start race)
-// so the word set can't change out from under players mid-puzzle.
-exports.generateDailyPuzzle = onSchedule("0 0 * * *", async () => {
+// Picks the day's words once, at 00:00 Eastern (America/New_York — an IANA
+// zone, so this stays correct across EST/EDT with no manual DST handling).
+// Guarded against ever overwriting an already-published day (a re-trigger
+// or cold-start race) so the word set can't change out from under players
+// mid-puzzle. Also just a backstop — getOrCreateTodaysPuzzle's lazy-
+// generate fallback (below) covers the rare case this hasn't fired yet
+// when the first player of the day opens the Gauntlet.
+exports.generateDailyPuzzle = onSchedule({ schedule: "0 0 * * *", timeZone: "America/New_York" }, async () => {
   const today = getTodayDateStr();
   const puzzleRef = db.collection("dailyPuzzles").doc(today);
   await db.runTransaction(async (tx) => {
@@ -544,8 +555,8 @@ exports.generateDailyPuzzle = onSchedule("0 0 * * *", async () => {
 async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
   const snap = await tx.get(puzzleRef);
   if (snap.exists) return snap.data();
-  // Fallback for the rare case the 00:00 UTC schedule hasn't run yet (the
-  // first day after deploy, or a missed trigger) — generate it lazily so
+  // Fallback for the rare case the 00:00 Eastern schedule hasn't run yet
+  // (the first day after deploy, or a missed trigger) — generate it lazily so
   // the feature doesn't hard-fail for whoever hits this first that day.
   const puzzle = { words: pickDailyWords(), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
   tx.set(puzzleRef, puzzle);
