@@ -4,10 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lexathon</title>
-    <!-- Inline SVG favicon (no separate asset file, matches the rest of the
-         site) — a Wordle-style "correct guess" green tile with the L
-         initial, so it reads instantly as a word game in a crowded tab bar. -->
+    <!-- Favicon: a Wordle-style "correct guess" green tile with the L
+         initial. Real PNG/ICO files (not just a data-URI SVG) because
+         mobile Chrome's tab-strip and "Add to Home Screen" icon pickers
+         are unreliable with SVG-only favicons — /favicon.ico at the site
+         root is also what browsers fall back to automatically even
+         without a <link> tag at all. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234caf50'/%3E%3Ctext x='32' y='46' font-family='Arial, Helvetica, sans-serif' font-weight='700' font-size='38' fill='white' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
     <style>
         * { touch-action: manipulation; box-sizing: border-box; }
 
