@@ -1835,7 +1835,32 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             if (currentLbTime !== 'all' && currentLbTime !== 'daily') rawData.sort((a, b) => b.score - a.score);
                         }
 
-                        // NEW DEDUPLICATION (By Name to prevent "Soda" duplicates)
+                        // Resolve each run to its player's LIVE username/cosmetics before
+                        // deduping, not after. A "runs" doc's own name/equipped fields are
+                        // just a snapshot from whenever that run was saved — if a player has
+                        // changed their handle since, their older runs can be stored under a
+                        // different name than their newest one. Deduping on those stale,
+                        // mismatched names (the old order) let the same player's runs slip
+                        // past the "one entry per name" check, only for all of them to then
+                        // get overwritten with today's identical live name afterward —
+                        // exactly the "SODA" showing up 3 times bug. Cached per uid so a
+                        // prolific player's many runs cost one read, not one per run.
+                        if (currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa') {
+                            const liveCache = {};
+                            for (let item of rawData) {
+                                if (!item.uid) continue;
+                                if (!(item.uid in liveCache)) {
+                                    try {
+                                        let uSnap = await getDoc(doc(db, "users", item.uid));
+                                        liveCache[item.uid] = uSnap.exists() ? { name: uSnap.data().username, equipped: uSnap.data().equipped } : null;
+                                    } catch (e) { liveCache[item.uid] = null; }
+                                }
+                                let live = liveCache[item.uid];
+                                if (live) { item.name = live.name; item.equipped = live.equipped; }
+                            }
+                        }
+
+                        // DEDUPLICATION (By Name to prevent "Soda" duplicates)
                         let seenNames = new Set();
                         for (let item of rawData) {
                             let upperName = item.name ? item.name.toUpperCase() : "GUEST";
@@ -1846,19 +1871,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
                                 if(finalData.length === maxLimit) break;
                             }
                         }
-        
+
                         if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
-        
-                        if (currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa') {
-                            for (let entry of finalData) { 
-                                if (entry.uid) { 
-                                    try { 
-                                        let uSnap = await getDoc(doc(db, "users", entry.uid)); 
-                                        if (uSnap.exists()) { entry.equipped = uSnap.data().equipped; entry.name = uSnap.data().username; } 
-                                    } catch(e) { } 
-                                } 
-                            } 
-                        }
         
                         finalData.forEach((entry, index) => {
                             let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
