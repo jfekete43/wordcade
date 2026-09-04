@@ -794,6 +794,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="window.openChallengesMenu()">Challenges</button>
                 <button class="menu-list-btn" style="color: #aaa; border-color: #aaa;" onclick="window.openSettingsMenu()">Settings</button>
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
+                <button id="auth-action-btn-email" class="menu-list-btn" style="color: #fff; border-color: #fff; display: none;" onclick="window.openEmailAuthModal()">Sign Up / Log In with Email</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
                     <button class="btn-dark" style="border-color: #fff !important; padding: 8px 12px;" onclick="window.open('https://twitter.com', '_blank')">
@@ -814,6 +815,27 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                 <button class="menu-list-btn" style="color: #777; border-color: #777; margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
             </div>
+        </div>
+    </div>
+
+    <!-- EMAIL SIGN UP / LOG IN MODAL — one form handles both cases: tries to
+         link this email/password to the current guest session first (new
+         account), and if that email is already taken, falls back to signing
+         into the existing account with the same password (see
+         submitEmailAuth). -->
+    <div id="email-auth-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #fff; box-shadow: 0 0 20px #fff;">
+            <h2 class="modal-title" style="color: #fff;">Email Sign Up / Log In</h2>
+            <div class="modal-stats" style="font-size: 12px; color: #aaa; margin-bottom: 15px; line-height: 1.4; text-align: center;">
+                New here? This saves your current guest progress to this email. Already have a Lexathon account with this email? You'll be signed into it instead.
+            </div>
+            <input type="email" id="email-auth-email" class="input-field" placeholder="EMAIL" autocomplete="email" style="text-transform: none; letter-spacing: normal; text-align: left;">
+            <input type="password" id="email-auth-password" class="input-field" placeholder="PASSWORD (6+ characters)" autocomplete="current-password" style="text-transform: none; letter-spacing: normal; text-align: left;">
+            <button class="btn-cyan" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer; margin-top: 5px;" onclick="window.submitEmailAuth()">Continue</button>
+            <div style="text-align: center; margin-top: 10px;">
+                <a href="#" style="color: #777; font-size: 11px; text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
+            </div>
+            <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-dark" onclick="document.getElementById('email-auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
     </div>
 
@@ -993,7 +1015,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
                     <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
-                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Link a Google account from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
+                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Link a Google account or email from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
                     </div>
                 </div>
             </div>
@@ -1084,7 +1106,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, linkWithCredential, EmailAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
@@ -1452,7 +1474,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user; let isGuest = user.isAnonymous;
-                document.getElementById("auth-action-btn").innerText = isGuest ? "Sign Up / Log In" : "Sign Out";
+                document.getElementById("auth-action-btn").innerText = isGuest ? "Sign in with Google" : "Sign Out";
+                document.getElementById("auth-action-btn-email").style.display = isGuest ? "" : "none";
                 const userRef = doc(db, "users", user.uid); const docSnap = await getDoc(userRef);
                 let todayStr = getTodayDateStr();
 
@@ -1461,7 +1484,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     if (isGuest) {
                         let randWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "Player";
                         defaultUsername = "G_" + (randWord.charAt(0).toUpperCase() + randWord.slice(1).toLowerCase()) + "_" + Math.floor(1000 + Math.random() * 9000);
-                    } else { defaultUsername = user.displayName.split(" ")[0].toUpperCase(); }
+                    } else {
+                        // Google always provides displayName; an email/password
+                        // account never has one, so fall back to the part of the
+                        // email before the @ (in practice this branch is rare for
+                        // email anyway — linking keeps the guest's existing doc,
+                        // so a brand new non-anonymous user with no doc yet is
+                        // almost always a fresh Google sign-in).
+                        let fallbackName = user.email ? user.email.split("@")[0] : "Player";
+                        defaultUsername = (user.displayName || fallbackName).split(" ")[0].toUpperCase();
+                    }
 
                     // NEW: Randomly select 3 daily challenges for a brand new user
                     let shuffled = [...CHALLENGES.daily_pool].sort(() => 0.5 - Math.random());
@@ -1618,6 +1650,67 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 }
             }
         }
+
+        window.openEmailAuthModal = function() {
+            document.getElementById('main-menu-modal').style.display = 'none';
+            document.getElementById('email-auth-email').value = '';
+            document.getElementById('email-auth-password').value = '';
+            document.getElementById('email-auth-modal').style.display = 'flex';
+        };
+
+        window.submitEmailAuth = async function() {
+            const email = document.getElementById('email-auth-email').value.trim();
+            const password = document.getElementById('email-auth-password').value;
+            if (!email || !password) { alert("Enter both an email and a password."); return; }
+
+            try {
+                // Same principle as Google: link this credential to the CURRENT
+                // guest session (same uid, same Firestore doc) rather than
+                // creating a separate account — every bit of guest progress
+                // carries over untouched. This is the "new account" path.
+                await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
+                alert("Account created! Your progress is now saved to this email.");
+                document.getElementById('email-auth-modal').style.display = 'none';
+                setTimeout(() => { window.location.reload(); }, 500);
+            } catch (error) {
+                if (error.code === "auth/email-already-in-use") {
+                    // This email already has its own Lexathon profile elsewhere.
+                    // Unlike Google's popup flow, we already have the plaintext
+                    // password the player just typed — no separate credential-
+                    // extraction step needed, just try signing into that
+                    // existing account with it directly.
+                    try {
+                        await signInWithEmailAndPassword(auth, email, password);
+                        document.getElementById('email-auth-modal').style.display = 'none';
+                        setTimeout(() => { window.location.reload(); }, 500);
+                    } catch (e2) {
+                        if (e2.code === "auth/wrong-password" || e2.code === "auth/invalid-credential") {
+                            alert("That email is already registered, but the password doesn't match. Try again, or use Forgot Password.");
+                        } else {
+                            alert("Login Error: " + (e2.message || e2.code));
+                        }
+                    }
+                } else if (error.code === "auth/weak-password") {
+                    alert("Password must be at least 6 characters.");
+                } else if (error.code === "auth/invalid-email") {
+                    alert("That doesn't look like a valid email address.");
+                } else {
+                    alert("Error: " + (error.message || error.code));
+                    console.error(error);
+                }
+            }
+        };
+
+        window.handleForgotPassword = async function() {
+            const email = document.getElementById('email-auth-email').value.trim();
+            if (!email) { alert("Enter your email above first, then tap Forgot Password."); return; }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                alert("Password reset email sent — check your inbox.");
+            } catch (e) {
+                alert("Error: " + (e.message || e.code));
+            }
+        };
 
         window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; }
         window.confirmNewGame = function() {
