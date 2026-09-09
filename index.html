@@ -1107,7 +1107,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, linkWithCredential, EmailAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer, documentId } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
         const firebaseConfig = {
@@ -1908,6 +1908,28 @@ placeholder comment below, sized to fit the existing 320x50 container.
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); document.getElementById("lb-daily-note").style.display = (time === 'daily') ? "block" : "none"; window.loadLeaderboardData(); }
         
+        // Batched lookup of many user docs by id. Firestore's `in` filter takes
+        // up to 30 values per query, so a 100-row leaderboard costs ~4 queries
+        // instead of 100 getDoc round-trips waited on one at a time — the same
+        // billed reads, but the difference between "instant" and several
+        // seconds of "Fetching scores...". Chunks are issued in parallel, and
+        // a chunk that fails degrades to "no live data" for those uids (they
+        // keep their run doc's stored name) rather than failing the whole
+        // leaderboard.
+        const USER_LOOKUP_CHUNK = 30; // Firestore's max values per `in` filter
+        async function fetchUsersByIds(uids) {
+            const out = {};
+            const chunks = [];
+            for (let i = 0; i < uids.length; i += USER_LOOKUP_CHUNK) chunks.push(uids.slice(i, i + USER_LOOKUP_CHUNK));
+            await Promise.all(chunks.map(async (chunk) => {
+                try {
+                    const snap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
+                    snap.forEach((d) => { out[d.id] = { name: d.data().username, equipped: d.data().equipped }; });
+                } catch (e) { console.error("Leaderboard name lookup failed for a chunk of", chunk.length, "players", e); }
+            }));
+            return out;
+        }
+
         window.loadLeaderboardData = async function() {
                     const listDiv = document.getElementById("leaderboard-list"); 
                     listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; 
@@ -1955,32 +1977,28 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         // mismatched names (the old order) let the same player's runs slip
                         // past the "one entry per name" check, only for all of them to then
                         // get overwritten with today's identical live name afterward —
-                        // exactly the "SODA" showing up 3 times bug. Cached per uid so a
-                        // prolific player's many runs cost one read, not one per run.
+                        // exactly the "SODA" showing up 3 times bug. This ordering is load-
+                        // bearing: resolve first, THEN dedup on the resolved name.
                         if (currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa') {
-                            const liveCache = {};
+                            const uids = [...new Set(rawData.map((i) => i.uid).filter(Boolean))];
+                            const liveCache = await fetchUsersByIds(uids);
                             for (let item of rawData) {
-                                if (!item.uid) continue;
-                                if (!(item.uid in liveCache)) {
-                                    try {
-                                        let uSnap = await getDoc(doc(db, "users", item.uid));
-                                        liveCache[item.uid] = uSnap.exists() ? { name: uSnap.data().username, equipped: uSnap.data().equipped } : null;
-                                    } catch (e) { liveCache[item.uid] = null; }
-                                }
-                                let live = liveCache[item.uid];
+                                let live = item.uid ? liveCache[item.uid] : null;
                                 if (live) { item.name = live.name; item.equipped = live.equipped; }
                             }
                         }
 
-                        // DEDUPLICATION (By Name to prevent "Soda" duplicates)
+                        // DEDUPLICATION (By Name to prevent "Soda" duplicates).
+                        // Runs in score order, so the entry kept for a given name is that
+                        // player's best. Must stay AFTER the live-name resolution above.
+                        const maxLimit = (currentLbTime === 'monthly') ? 25 : 100;
                         let seenNames = new Set();
                         for (let item of rawData) {
                             let upperName = item.name ? item.name.toUpperCase() : "GUEST";
                             if (!seenNames.has(upperName)) {
                                 seenNames.add(upperName);
                                 finalData.push(item);
-                                let maxLimit = (currentLbTime === 'career' || currentLbTime === 'clash' || currentLbTime === 'ffa' || currentLbTime === 'all' || currentLbTime === 'daily') ? 100 : 25;
-                                if(finalData.length === maxLimit) break;
+                                if (finalData.length === maxLimit) break;
                             }
                         }
 
