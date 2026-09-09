@@ -1460,12 +1460,15 @@ placeholder comment below, sized to fit the existing 320x50 container.
             snapshot.forEach(doc => {
                 let data = doc.data();
                 let eq = data.equipped || { banner: 'banner_default', effect: 'effect_none' };
-                let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
-                
+                // username/equipped here come off a `runs` doc, written by the
+                // client that played the run — never render either unescaped.
+                let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
+                let feedName = escapeHtml(data.username || "Guest");
+
                 if (data.isWipeout && data.lostScore > 0) {
-                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${data.username}</span> wiped out & lost <span style="color:#ff3333; font-weight:bold;">${data.lostScore.toLocaleString()}</span> pts</div>`;
+                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${feedName}</span> wiped out & lost <span style="color:#ff3333; font-weight:bold;">${Number(data.lostScore || 0).toLocaleString()}</span> pts</div>`;
                 } else if (data.score > 0) {
-                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${data.username}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${data.score.toLocaleString()}</span> pts</div>`;
+                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${feedName}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${Number(data.score || 0).toLocaleString()}</span> pts</div>`;
                 }
             });
             document.getElementById("live-feed-list").innerHTML = html || "No recent activity.";
@@ -1985,7 +1988,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         
                         finalData.forEach((entry, index) => {
                             let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
-                            let eq = entry.equipped || {}; let bannerClass = eq.banner || 'banner_default'; let nameClass = eq.effect || 'effect_none';
+                            let eq = entry.equipped || {}; let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
                             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
             
                             let titleStr = tObj && tObj.display ? tObj.display : "";
@@ -1994,7 +1997,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                                 titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
                             }
             
-                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${entry.name}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.score.toLocaleString()}</div></div>`;
+                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${Number(entry.score || 0).toLocaleString()}</div></div>`;
                         }); 
                         listDiv.innerHTML = html;
                     } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
@@ -2034,6 +2037,18 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // --- HTML ESCAPER (prevents chat/message injection) ---
         function escapeHtml(str) {
             return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        }
+
+        // --- COSMETIC CLASS WHITELIST ---
+        // Cosmetic ids (banner_x / effect_x / title_x / skin_x) get dropped
+        // straight into class="..." when rendering the leaderboard, live feed,
+        // and race cards. They come off other players' profiles and run docs —
+        // and `equipped` is the one profile field firestore.rules lets a client
+        // write directly — so they are NOT trusted input. Every real id is
+        // machine-generated and matches ^[a-z0-9_]+$; anything else is a
+        // tampered value, so fall back to the default rather than render it.
+        function safeCosmetic(value, fallback) {
+            return (typeof value === "string" && /^[a-z0-9_]+$/.test(value)) ? value : fallback;
         }
 
         // --- USERNAME SANITIZER ---
@@ -2547,8 +2562,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
             const prefix = isHost ? "vs-host" : "vs-guest";
             document.getElementById(`${prefix}-name`).innerText = name || (isHost ? "HOST" : "GUEST");
             let eq = equipped || { banner: 'banner_default', effect: 'effect_none', title: 'title_none' };
-            document.getElementById(`${prefix}-banner`).className = `lb-entry ${eq.banner || 'banner_default'}`;
-            document.getElementById(`${prefix}-name`).className = `lb-name ${eq.effect || 'effect_none'}`;
+            document.getElementById(`${prefix}-banner`).className = `lb-entry ${safeCosmetic(eq.banner, 'banner_default')}`;
+            document.getElementById(`${prefix}-name`).className = `lb-name ${safeCosmetic(eq.effect, 'effect_none')}`;
             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); document.getElementById(`${prefix}-title`).innerText = tObj && tObj.display ? tObj.display : "";
         }
 
@@ -3118,8 +3133,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         card.style.display = "block";
                         card.classList.toggle("ffa-me", i === myFfaSlot);
                         let eq = data[`p${i}Equipped`] || { banner: "banner_default", effect: "effect_none" };
-                        document.getElementById(`ffa-banner-${i}`).className = `lb-entry ${eq.banner || "banner_default"}`;
-                        document.getElementById(`ffa-name-${i}`).className = `lb-name ${eq.effect || "effect_none"}`;
+                        document.getElementById(`ffa-banner-${i}`).className = `lb-entry ${safeCosmetic(eq.banner, "banner_default")}`;
+                        document.getElementById(`ffa-name-${i}`).className = `lb-name ${safeCosmetic(eq.effect, "effect_none")}`;
                         const hasLeft = leftPlayers.includes(data[`p${i}Uid`]);
                         document.getElementById(`ffa-name-${i}`).innerText = (data[`p${i}Name`] || "Player") + (hasLeft ? " (left)" : "");
                         document.getElementById(`ffa-word-index-${i}`).innerText = data[`p${i}WordIndex`] || 1;
@@ -3251,14 +3266,22 @@ placeholder comment below, sized to fit the existing 320x50 container.
             // while the run's overall score/continues/stats survived just
             // fine, since those were the only things ever saved here.
             const state = { score: score, continues: continues, wordsGuessed: wordsGuessed, runStats: runStats, targetWord: targetWord, currentWordGuesses: currentWordGuesses };
-            localStorage.setItem("wordcade_save", JSON.stringify(state));
+            // Wrapped like every other localStorage touch in this file: where
+            // site data is blocked (embedded contexts, strict privacy modes)
+            // even reading `localStorage` throws. Unguarded, that exception
+            // escaped saveLocalState() mid-guess and, worse, escaped
+            // loadLocalState() on boot — leaving the player a blank board and
+            // no onboarding. Losing the resume-save is fine; breaking the game
+            // is not.
+            try { localStorage.setItem("wordcade_save", JSON.stringify(state)); } catch (e) { /* storage full/blocked — the run still plays, it just can't be resumed after a refresh */ }
         }
 
-        function clearLocalState() { localStorage.removeItem("wordcade_save"); }
+        function clearLocalState() { try { localStorage.removeItem("wordcade_save"); } catch (e) { } }
 
         function loadLocalState() {
             if (isVersusMode || isFfaMode) return false;
-            const saved = localStorage.getItem("wordcade_save");
+            let saved = null;
+            try { saved = localStorage.getItem("wordcade_save"); } catch (e) { return false; }
             if (saved) {
                 try {
                     const state = JSON.parse(saved);
@@ -3293,6 +3316,14 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         async function saveRunToCloud(isWipeout = false, lostScore = 0) {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
+            // The profile load lags auth by a Firestore round-trip, so a fast
+            // cash-out can land here with currentUser set but userProfileData
+            // still null. Reading .username/.equipped off it threw, and the
+            // run was lost. Fall back instead of bailing: onRunCreated applies
+            // every stat and payout from the run's uid, so the run still
+            // counts in full — only its display name/cosmetics are a
+            // placeholder, and the leaderboard re-resolves those live by uid.
+            const profile = userProfileData || {};
             if (currentUser && (score > 0 || isWipeout || runStats.played > 0) && !isVersusMode) {
                 try {
                     // The client only reports what happened in this run. The
@@ -3302,7 +3333,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     // client no longer writes those fields to Firestore itself.
                     await addDoc(collection(db, "runs"), {
                         uid: currentUser.uid,
-                        username: userProfileData.username,
+                        username: profile.username || "Player",
                         score: score,
                         isWipeout: isWipeout,
                         lostScore: lostScore,
@@ -3312,13 +3343,13 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         guess4: runStats.guess4, guess5: runStats.guess5, fails: runStats.fails,
                         kobeCount: runStats.kobeCount || 0,
                         bestStreak: runStats.bestStreak || 0,
-                        equipped: userProfileData.equipped,
+                        equipped: profile.equipped || { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
                         timestamp: serverTimestamp()
                     });
                     // Optimistic local reflection so the UI feels immediate; the
                     // next profile/leaderboard read will show the server-confirmed
                     // totals regardless.
-                    userProfileData.wallet += score; userProfileData.careerBank += score;
+                    if (userProfileData) { userProfileData.wallet = (userProfileData.wallet || 0) + score; userProfileData.careerBank = (userProfileData.careerBank || 0) + score; }
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
                     // A sizable, genuine Cash Out (not a wipeout — that's a
                     // gameplay loss, not a "your browser could lose this"
