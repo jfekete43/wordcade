@@ -1,0 +1,14 @@
+{
+  "name": "lexathon-tests",
+  "private": true,
+  "type": "module",
+  "description": "Firestore emulator tests for the security rules and the leaderboard dedup pipeline.",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-wordcade-test --config ../firebase.json \"node leaderboard.test.mjs && node leaderboard-chunking.test.mjs && node rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.18.0",
+    "firebase-tools": "^15.29.0"
+  }
+}
