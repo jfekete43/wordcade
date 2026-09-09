@@ -2109,6 +2109,13 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         let maxGuesses = 5;
         let targetWord = ""; let currentGuess = ""; let currentRow = 0; let score = 0; let continues = 1; let wordsGuessed = 0; let isAnimating = false; 
+        // words.js ships allValidWords as a ~13k-entry array, and every Enter
+        // press used to scan it linearly. Same list, hashed once at load, so
+        // the check is O(1) instead of thousands of string compares per guess
+        // — noticeable on low-end phones. words.js is a plain <script> that
+        // has already run by this point; stays null-safe if it ever doesn't.
+        const validWordSet = (window.allValidWords && window.allValidWords.length) ? new Set(window.allValidWords) : null;
+
         const scorePoints = [500, 250, 150, 50, 10]; 
         let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
         // --- NEW CLASH MODE VARIABLES ---
@@ -3586,7 +3593,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             if (isSuddenDeathMode && mySuddenDeathGuessSubmitted) return; // one guess only, locked in until the round resolves
 
             if (key === "ENTER" && currentGuess.length === 5) {
-                if (window.allValidWords && !window.allValidWords.includes(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
+                if (validWordSet && !validWordSet.has(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
                 if (isDailyMode) { submitDailyGuess(); } else if (isSuddenDeathMode) { submitSuddenDeathGuess(); } else { checkGuess(); }
             } else if (key === "BACKSPACE" || key === "⌫") {
                 SFX.del();
