@@ -3411,17 +3411,61 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // the target app, Messages/Twitter/etc., formats them naturally),
         // clipboard-copy with the link folded right into the text as the
         // fallback everywhere else (no share sheet on most desktop browsers).
+        // Phones get the native share sheet — there it's the fastest route into
+        // Messages/WhatsApp and feels native. Desktop deliberately does NOT,
+        // even though desktop browsers now implement navigator.share: on
+        // Windows that opens a full OS panel listing the player's personal
+        // contacts (a tester compared it to Xbox overlays being forced into a
+        // game), and it builds its preview around the URL, quietly dropping
+        // the score text that is the entire point of "Share Score". Copying
+        // is both less intrusive and more useful on a desktop — paste
+        // straight into Discord. "Is this a touch-primary device" is what the
+        // old `if (navigator.share)` check was really trying to ask.
+        function prefersNativeShare() {
+            if (!navigator.share) return false;
+            // Chromium tells us outright; Safari/iOS doesn't, so fall back to
+            // asking whether the primary pointer is a finger rather than a mouse.
+            if (navigator.userAgentData && typeof navigator.userAgentData.mobile === "boolean") return navigator.userAgentData.mobile;
+            return window.matchMedia("(pointer: coarse)").matches;
+        }
+
+        function flashButtonLabel(buttonEl, text, defaultLabel) {
+            if (!buttonEl) return;
+            buttonEl.innerText = text;
+            setTimeout(() => { buttonEl.innerText = defaultLabel; }, 2000);
+        }
+
+        // Returns whether the copy actually landed, so the button can tell the
+        // truth either way — the old version assumed success and silently did
+        // nothing at all if the write was rejected.
+        async function copyToClipboard(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+            } catch (e) { /* blocked or unfocused — try the legacy path below */ }
+            try {
+                const ta = document.createElement("textarea");
+                ta.value = text; ta.setAttribute("readonly", "");
+                ta.style.position = "fixed"; ta.style.top = "-1000px"; ta.style.opacity = "0";
+                document.body.appendChild(ta); ta.select();
+                const ok = document.execCommand("copy");
+                document.body.removeChild(ta);
+                return ok;
+            } catch (e) { return false; }
+        }
+
         function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
-            if (navigator.share) {
-                navigator.share({ title, text: message, url })
-                    .catch((e) => { if (e.name !== "AbortError") console.error("Share failed", e); });
-            } else {
-                navigator.clipboard.writeText(`${message}\n${url}`).then(() => {
-                    if (!buttonEl) return;
-                    buttonEl.innerText = "COPIED!";
-                    setTimeout(() => { buttonEl.innerText = defaultLabel; }, 2000);
+            const payload = `${message}\n${url}`;
+            const copyInstead = () => copyToClipboard(payload).then((ok) => flashButtonLabel(buttonEl, ok ? "COPIED!" : "COPY FAILED", defaultLabel));
+
+            if (prefersNativeShare()) {
+                navigator.share({ title, text: message, url }).catch((e) => {
+                    if (e.name === "AbortError") return; // dismissed the sheet on purpose — not a failure
+                    console.error("Share failed", e);
+                    copyInstead(); // sheet unavailable/errored — still get them the text
                 });
+                return;
             }
+            copyInstead();
         }
 
         window.shareStats = function() {
