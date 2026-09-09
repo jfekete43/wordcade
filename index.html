@@ -3473,6 +3473,28 @@ placeholder comment below, sized to fit the existing 320x50 container.
             shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score");
         }
 
+        // Puzzle number for the share heading, counted off the first-ever
+        // Gauntlet. Derived from the ATTEMPT's own date (server-issued, always
+        // America/New_York) rather than the viewer's clock, so a player in
+        // Tokyo sharing today's run quotes the same number as one in New York,
+        // and an older attempt still reports the number it was played under.
+        //
+        // Both dates are parsed as UTC midnights purely to subtract them, which
+        // keeps the difference exact whole days with no DST drift — this is
+        // date arithmetic on two plain YYYY-MM-DD strings, not a timezone
+        // conversion.
+        //
+        // NOTE: this number is permanent the moment anyone shares it. Changing
+        // the epoch later renumbers every past share, so it should only ever be
+        // corrected if it's wrong from the start.
+        const GAUNTLET_EPOCH = "2026-09-02"; // date of Gauntlet #1
+        function gauntletNumber(dateStr) {
+            if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+            const toUTC = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+            const days = Math.floor((toUTC(dateStr) - toUTC(GAUNTLET_EPOCH)) / 86400000) + 1;
+            return days >= 1 ? days : null;
+        }
+
         window.shareDailyStats = function() {
             if (!dailyAttempt || !Array.isArray(dailyAttempt.history)) return;
             // Only words actually reached — a run that ended on a miss
@@ -3493,14 +3515,30 @@ placeholder comment below, sized to fit the existing 320x50 container.
             // screenshot of someone else's Wordle share.
             const numeralEmoji = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
             const grid = played.map((h) => (h.solved ? (numeralEmoji[h.guesses.length] || "5️⃣") : "❌")).join("");
-            const dateLabel = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }).format(new Date());
+
+            // Average guesses per word attempted — the one number that
+            // separates a sharp run from a lucky one, since the grid above
+            // renders every run at the same visual size no matter how well it
+            // went. A missed word counts its full 5, which is the honest
+            // reading of "how many guesses did this cost you".
+            const totalGuesses = played.reduce((sum, h) => sum + h.guesses.length, 0);
+            const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
+
             // Same "no such thing as a full run with a miss in it" logic as
             // showDailyEndModal — a short run gets an honest "out on word N"
-            // instead of implying it ran the full 10.
-            const resultLine = played.length >= dailyAttempt.wordCount
-                ? `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved`
-                : `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount} solved · out on word ${played.length} of ${dailyAttempt.wordCount}`;
-            const shareMessage = `🕹️ Lexathon Gauntlet — ${dateLabel}\n${grid}\n${resultLine}`;
+            // instead of implying it ran the full 10. A clean sweep gets said
+            // outright rather than left as a flat "10/10 solved": the whole
+            // point of a share is to make a great run look like one.
+            const isPerfect = solvedCount === dailyAttempt.wordCount;
+            const resultLine = isPerfect
+                ? `🏆 PERFECT · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`
+                : played.length >= dailyAttempt.wordCount
+                    ? `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved · ${avgGuesses} avg`
+                    : `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount} solved · out on word ${played.length} of ${dailyAttempt.wordCount} · ${avgGuesses} avg`;
+
+            const num = gauntletNumber(dailyAttempt.date);
+            const heading = num ? `🕹️ Lexathon Gauntlet #${num}` : "🕹️ Lexathon Gauntlet";
+            const shareMessage = `${heading}\n${grid}\n${resultLine}`;
             shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
         }
 
