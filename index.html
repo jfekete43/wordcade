@@ -210,6 +210,15 @@
 
         #live-feed-container { width: 90%; max-width: 320px; background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
         .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
+        /* Default look for a player's name in the feed. Deliberately a class
+           and deliberately declared ABOVE the .effect_* rules: those are also
+           single-class selectors, so the later declaration wins and a player's
+           equipped effect colours their name here exactly as it does on the
+           leaderboard. This used to be an inline style:color on the span,
+           which no class can outrank — so every name rendered magenta no
+           matter what effect was equipped, while the effect's text-shadow
+           still applied (pink text wearing someone else's glow). */
+        .live-feed-name { color: #fff; font-weight: bold; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
         .modal-box { background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
@@ -1466,9 +1475,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 let feedName = escapeHtml(data.username || "Guest");
 
                 if (data.isWipeout && data.lostScore > 0) {
-                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${feedName}</span> wiped out & lost <span style="color:#ff3333; font-weight:bold;">${Number(data.lostScore || 0).toLocaleString()}</span> pts</div>`;
+                    html += `<div class="live-feed-item ${bannerClass}"><span class="live-feed-name ${nameClass}">${feedName}</span> wiped out & lost <span style="color:#ff3333; font-weight:bold;">${Number(data.lostScore || 0).toLocaleString()}</span> pts</div>`;
                 } else if (data.score > 0) {
-                    html += `<div class="live-feed-item ${bannerClass}"><span class="${nameClass}" style="color:#ff00ff; font-weight: bold;">${feedName}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${Number(data.score || 0).toLocaleString()}</span> pts</div>`;
+                    html += `<div class="live-feed-item ${bannerClass}"><span class="live-feed-name ${nameClass}">${feedName}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${Number(data.score || 0).toLocaleString()}</span> pts</div>`;
                 }
             });
             document.getElementById("live-feed-list").innerHTML = html || "No recent activity.";
