@@ -81,7 +81,11 @@ const SHOP_ITEMS = {
     { id: "banner_bloodmoon", cost: 90000 },
     { id: "banner_frostbite", cost: 8000, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
     { id: "banner_celestial", cost: 100000 },
+    { id: "banner_titanium", cost: 40000 },
+    { id: "banner_circuit", cost: 60000 },
+    { id: "banner_obsidian", cost: 85000 },
     { id: "banner_singularity", cost: 150000 },
+    { id: "banner_nero", cost: 175000 },
   ],
   effects: [
     { id: "effect_none", cost: 0 },
@@ -101,6 +105,9 @@ const SHOP_ITEMS = {
     { id: "effect_supernova", cost: 80000 },
     { id: "effect_haunted", cost: 8000, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
     { id: "effect_celestial", cost: 100000 },
+    { id: "effect_permafrost", cost: 30000 },
+    { id: "effect_chrome", cost: 45000 },
+    { id: "effect_oilslick", cost: 75000 },
     { id: "effect_singularity", cost: 150000 },
   ],
 };
