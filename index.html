@@ -466,6 +466,14 @@
         .rank-platinum { color: #e5e4e2; }
         .rank-sapphire { color: #0f52ba; }
         .rank-ruby { color: #e0115f; text-shadow: 0 0 5px #e0115f; }
+
+        /* Skip Word — race modes only (see updateSkipButton). Sits between the
+           board and the keyboard so it's reachable with the same thumb, but
+           styled down so it never competes with ENTER. */
+        #skip-word-container { display: none; width: 100%; justify-content: center; margin: 4px 0 8px; position: relative; z-index: 2; }
+        #skip-word-btn { background: #222; color: #ff9800; border: 2px solid #ff9800; padding: 7px 16px; font-weight: bold; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
+        #skip-word-btn:hover:not(:disabled) { background: #ff9800; color: #111; }
+        #skip-word-btn:disabled { color: #555; border-color: #444; cursor: default; }
     </style>
 </head>
 <body>
@@ -598,6 +606,10 @@
     </div>
 
     <div id="board"></div>
+
+    <div id="skip-word-container">
+        <button id="skip-word-btn" onclick="window.skipWord()">Skip Word (2)</button>
+    </div>
 
     <div id="keyboard">
         <div class="key-row">
@@ -2197,6 +2209,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
         let clashWords = [];
         let clashTimerInterval = null;
         let clashMyScore = 0;
+        // Skips let a player bail out of a word they can't get instead of
+        // eating the -50 miss penalty. Two per match, per player, in both
+        // Clash and FFA; spent skips don't come back on the next word.
+        const CLASH_SKIPS_PER_MATCH = 2;
+        let clashSkipsRemaining = CLASH_SKIPS_PER_MATCH;
         // --------------------------------
         
         const boardDisplay = document.getElementById("board"); const scoreDisplay = document.getElementById("score");
@@ -2602,6 +2619,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             currentMatchId = newMatchId;
             isRematchTransition = true;
             isSuddenDeathMode = false; // defensive — should already be false once the prior match finished
+            updateSkipButton();
             if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
             document.getElementById("versus-end-modal").style.display = "none";
             listenToMatch();
@@ -2717,7 +2735,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     if (document.getElementById("versus-lobby-modal").style.display === "flex" || isRematchTransition) {
                         isRematchTransition = false;
                         document.getElementById("versus-lobby-modal").style.display = "none";
-                        clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0;
+                        clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0; clashSkipsRemaining = CLASH_SKIPS_PER_MATCH;
                         document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
 
                         if (!data.endTime && isMatchHost) { updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 420000 }); }
@@ -2759,6 +2777,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             // Entering sudden death, or a new round started after a push
                             // (both sides used all 5 guesses without solving it).
                             isSuddenDeathMode = true;
+                            updateSkipButton();
                             suddenDeathRound = data.suddenDeath.round;
                             mySuddenDeathGuessSubmitted = false;
                             document.getElementById("versus-track-container").style.display = "none";
@@ -2785,6 +2804,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         // normally happen mid-'playing' — resolution flips status to
                         // 'finished' — but tear the UI down safely either way).
                         isSuddenDeathMode = false;
+                        updateSkipButton();
                         if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
                         document.getElementById("sudden-death-header").style.display = "none";
                         document.getElementById("versus-track-container").style.display = "block";
@@ -2844,6 +2864,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 if (data.status === 'finished' && !window.matchFinishedProcessed) {
                     if (isSuddenDeathMode) {
                         isSuddenDeathMode = false;
+                        updateSkipButton();
                         if (suddenDeathTimerInterval) { clearInterval(suddenDeathTimerInterval); suddenDeathTimerInterval = null; }
                         document.getElementById("sudden-death-header").style.display = "none";
                         document.getElementById("versus-track-container").style.display = "block";
@@ -2962,6 +2983,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
             currentMatchId = null;
             isSuddenDeathMode = false;
+            updateSkipButton();
             document.getElementById("sudden-death-header").style.display = "none";
             document.getElementById("versus-end-modal").style.display = "none";
             document.getElementById("lobby-action-view").style.display = "block";
@@ -3208,7 +3230,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         document.getElementById("ffa-track-container").style.display = "block";
                         document.getElementById("clash-chat-container").style.display = "block";
                         document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
-                        clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0;
+                        clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0; clashSkipsRemaining = CLASH_SKIPS_PER_MATCH;
                         startRound();
                     }
 
@@ -3722,7 +3744,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             }
             
             currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = []; currentWordGuesses = [];
-            createBoard(); resetKeyboardColors(); checkDangerRow();
+            createBoard(); resetKeyboardColors(); checkDangerRow(); updateSkipButton();
         }
 
         const keys = document.querySelectorAll(".key");
@@ -3780,6 +3802,42 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // Field name on the match doc this client owns for a given piece of
         // race state ("Score"/"Board"/"WordIndex") — hostX/guestX in 1v1
         // Clash, pNX (this client's own slot) in FFA. Shared by checkGuess.
+        // Shown only while actually racing: not in Standard or Gauntlet, and not
+        // during Sudden Death, where there is only ever one word and skipping it
+        // would just forfeit the round.
+        function updateSkipButton() {
+            const container = document.getElementById("skip-word-container");
+            const btn = document.getElementById("skip-word-btn");
+            const racing = (isVersusMode || isFfaMode) && !!currentMatchId && !isSuddenDeathMode;
+            container.style.display = racing ? "flex" : "none";
+            if (!racing) return;
+            btn.innerText = `Skip Word (${clashSkipsRemaining})`;
+            btn.disabled = clashSkipsRemaining <= 0;
+        }
+
+        // Advance past the current word for free. Mirrors the miss path in
+        // checkGuess exactly (clear the mini-board, push the word index, start
+        // the next round) minus the score penalty — so the opponent's view of
+        // your progress stays truthful about which word you're on.
+        window.skipWord = function() {
+            if (!(isVersusMode || isFfaMode) || !currentMatchId || isSuddenDeathMode) return;
+            if (clashSkipsRemaining <= 0 || isAnimating) return;
+
+            clashSkipsRemaining--;
+            updateSkipButton();   // refresh the count now, not 1.2s later when startRound lands
+            SFX.del();
+            showMessage(`SKIPPED — WORD WAS ${targetWord}`);
+
+            let updatePayload = {};
+            updatePayload[raceField("Board")] = [];
+            updatePayload[raceField("WordIndex")] = clashWordIndex + 2;
+            updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error("Skip sync error:", e));
+
+            clashWordIndex++;
+            isAnimating = true;            // lock input over the reveal, same as a miss
+            setTimeout(() => { isAnimating = false; startRound(); }, 1200);
+        };
+
         function raceField(base) {
             return isFfaMode ? `p${myFfaSlot}${base}` : (isMatchHost ? `host${base}` : `guest${base}`);
         }

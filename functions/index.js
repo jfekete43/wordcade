@@ -164,7 +164,7 @@ const SCORE_POINTS = [500, 250, 150, 50, 10];
 const DAILY_GAUNTLET_WORD_COUNT = 10;
 const DAILY_GAUNTLET_MAX_GUESSES = 5;
 const SUDDEN_DEATH_ROUND_MS = 90000; // a full 5-guess board per side, not one quick guess — needs real thinking time
-const SUDDEN_DEATH_MAX_ROUNDS = 3; // after this many pushes (nobody guessed right), fall back to a true tie
+const SUDDEN_DEATH_MAX_ROUNDS = 1; // one word decides it — if neither side solves it, the match is a genuine tie rather than dragging a drawn 7-minute match out by another 90s per extra round
 
 const FFA_MAX_PLAYERS = 4;
 const FFA_MIN_PLAYERS = 2;
