@@ -2731,22 +2731,22 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             let secs = Math.floor((remain % 60000) / 1000).toString().padStart(2, "0");
                             document.getElementById("clash-timer-display").innerText = `${mins}:${secs}`;
                             
-                            // TIME IS UP! (FIXED SCORE LOGIC)
+                            // TIME IS UP — the outcome is decided server-side, never
+                            // from `data` here. This callback closes over the snapshot
+                            // from the single invocation that created the interval, and
+                            // that interval is created once, the moment the match gets
+                            // its endTime — when both scores are still 0. Reading
+                            // data.hostScore/data.guestScore at the buzzer therefore
+                            // compared two frozen zeroes, so EVERY timed-out match
+                            // looked like a 0-0 tie and went to Sudden Death no matter
+                            // how far ahead someone actually was.
+                            // finishClashMatch re-reads the live scores in a
+                            // transaction and decides; finishMatch() already falls back
+                            // to Sudden Death when the server reports a genuine tie.
+                            // (This is what the FFA timer below has always done.)
                             if (remain <= 0) {
-                                clearInterval(clashTimerInterval);
-                                if (isMatchHost && data.status === 'playing') {
-                                    let hScore = Number(data.hostScore || 0);
-                                    let gScore = Number(data.guestScore || 0);
-                                    if (hScore === gScore) {
-                                        // Tied at the buzzer — sudden death instead of an
-                                        // immediate tie. The Cloud Function picks the
-                                        // secret word; both clients pick it up via the
-                                        // suddenDeath field on this same match doc.
-                                        try { await callStartSuddenDeath({ matchId: currentMatchId }); } catch (e) { console.error(e); }
-                                    } else {
-                                        finishMatch();
-                                    }
-                                }
+                                clearInterval(clashTimerInterval); clashTimerInterval = null;
+                                if (isMatchHost) finishMatch();
                             }
                         }, 1000);
                     }
