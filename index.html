@@ -3416,14 +3416,20 @@ placeholder comment below, sized to fit the existing 320x50 container.
         }
 
         // --- STANDARD LOCAL STATE ---
-        function saveLocalState() {
+        // wordFinished: the word just ended (solved) and startRound() is queued
+        // but hasn't run yet. Saving mid-window would otherwise persist a word
+        // that's already over as though it were still in progress — see the
+        // resume guard below for what that looked like.
+        function saveLocalState(wordFinished = false) {
             if (isVersusMode || isDailyMode || isFfaMode) return;
             // targetWord/currentWordGuesses persist the word currently in
             // progress — without these, a refresh always started a brand
             // new random word (losing whatever guesses weren't yet a win),
             // while the run's overall score/continues/stats survived just
             // fine, since those were the only things ever saved here.
-            const state = { score: score, continues: continues, wordsGuessed: wordsGuessed, runStats: runStats, targetWord: targetWord, currentWordGuesses: currentWordGuesses };
+            const state = { score: score, continues: continues, wordsGuessed: wordsGuessed, runStats: runStats,
+                            targetWord: wordFinished ? "" : targetWord,
+                            currentWordGuesses: wordFinished ? [] : currentWordGuesses };
             // Wrapped like every other localStorage touch in this file: where
             // site data is blocked (embedded contexts, strict privacy modes)
             // even reading `localStorage` throws. Unguarded, that exception
@@ -3470,7 +3476,12 @@ placeholder comment below, sized to fit the existing 320x50 container.
             }
         }
 
-        window.dismissWarning = function() { document.getElementById("warning-modal").style.display = "none"; saveLocalState(); startRound(); }
+        // Also a finished word (missed, Continue spent), saved in the same gap
+        // before startRound(). Safe today only because a miss always has exactly
+        // maxGuesses guesses so the resume length check catches it — passing the
+        // flag makes "a finished word is never persisted as in-progress" hold on
+        // its own rather than by coincidence.
+        window.dismissWarning = function() { document.getElementById("warning-modal").style.display = "none"; saveLocalState(true); startRound(); }
 
         async function saveRunToCloud(isWipeout = false, lostScore = 0) {
             document.getElementById("cloud-save-status").innerText = "Saving to cloud...";
@@ -3950,7 +3961,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                                 let oldScore = score;
                                 let earned = scorePoints[currentRow]; score += earned; wordsGuessed++; 
-                                saveLocalState(); showMessage(`+${earned} POINTS!`); 
+                                saveLocalState(true); showMessage(`+${earned} POINTS!`); 
                                 
                                 // NEW: Animate the score up!
                                 continuesDisplay.innerText = continues;
@@ -4011,7 +4022,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
         setTimeout(() => {
             if (loadLocalState()) {
                 updateScoreBoard();
-                if (targetWord && currentWordGuesses.length > 0 && currentWordGuesses.length < maxGuesses) {
+                // A restored word whose last guess was all-correct is already SOLVED:
+                // the run was saved in the 1.2s gap between scoring the word and
+                // startRound() clearing it. Resuming it redrew the winning row and
+                // asked for another guess on a word the player had already beaten —
+                // paying them twice if they re-solved it, and costing them a Continue
+                // if they missed. Saves written before this fix still carry that
+                // state, so the check lives here rather than only at save time.
+                const lastGuess = currentWordGuesses[currentWordGuesses.length - 1];
+                const wordAlreadySolved = !!(lastGuess && Array.isArray(lastGuess.colors) && lastGuess.colors.length > 0 && lastGuess.colors.every((c) => c === "correct"));
+                if (targetWord && !wordAlreadySolved && currentWordGuesses.length > 0 && currentWordGuesses.length < maxGuesses) {
                     // Resume mid-word instead of starting a brand new one
                     currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = [];
                     createBoard(); resetKeyboardColors();
