@@ -229,6 +229,18 @@
             background-size: 100% 4px, 3px 100%; z-index: 1; pointer-events: none; opacity: 0.8;
         }
 
+        /* Today's Gauntlet board, in the slot the Live Arcade Feed occupies
+           during a Standard run. Wider than the feed and scrolls on its own
+           so a busy day doesn't push the page down. */
+        #gauntlet-feed-container { width: 90%; max-width: 420px; background: #111; border: 1px solid #3a2a4a; border-radius: 5px; padding: 10px; margin-bottom: 20px; position: relative; z-index: 2; }
+        #gauntlet-feed-title { color: #b967ff; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; text-align: center; }
+        #gauntlet-feed-list { max-height: 270px; overflow-y: auto; font-size: 14px; }
+        #gauntlet-feed-list .lb-entry { font-size: 14px; padding: 6px 5px; }
+        /* Your own row. An outline rather than a background so it can't fight
+           whichever banner the player has equipped. */
+        #gauntlet-feed-list .gf-me { outline: 2px solid #b967ff; outline-offset: -2px; border-radius: 3px; }
+        #gauntlet-feed-empty { color: #888; font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
+
         #live-feed-container { width: 90%; max-width: 320px; background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
         .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
         /* Default look for a player's name in the feed. Deliberately a class
@@ -655,6 +667,13 @@
     <div id="live-feed-container">
         <div style="color: #00ffff; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;">Live Arcade Feed</div>
         <div id="live-feed-list" style="font-size: 14px; color: #aaa; font-style: italic;">Connecting to server...</div>
+    </div>
+
+    <!-- Today's Gauntlet board. Shown only in Gauntlet mode, in place of the
+         Live Arcade Feed above (the two are never visible at once). -->
+    <div id="gauntlet-feed-container" style="display:none;">
+        <div id="gauntlet-feed-title">Today's Gauntlet Board</div>
+        <div id="gauntlet-feed-list"></div>
     </div>
 
     <!-- Below-the-fold intro. Deliberately after the board so it never pushes
@@ -2423,6 +2442,89 @@ placeholder comment below, sized to fit the existing 320x50 container.
             return { place: ahead.data().count + 1, total: total.data().count };
         }
 
+        // Today's Gauntlet board, live, in the slot the Live Arcade Feed uses
+        // during a Standard run.
+        //
+        // A Gauntlet run is only written to /runs when it FINISHES, so this
+        // fills in as players complete their runs rather than ticking
+        // constantly — at most one write per player per day, which is what
+        // makes an onSnapshot here cheap enough to leave open while you play.
+        let gauntletFeedUnsub = null;
+
+        function stopGauntletFeed() {
+            if (gauntletFeedUnsub) { gauntletFeedUnsub(); gauntletFeedUnsub = null; }
+            document.getElementById("gauntlet-feed-container").style.display = "none";
+        }
+
+        function startGauntletFeed(dateStr) {
+            stopGauntletFeed();
+            const listEl = document.getElementById("gauntlet-feed-list");
+            const num = gauntletNumber(dateStr);
+            document.getElementById("gauntlet-feed-title").innerText =
+                num ? `Gauntlet #${num} — Today's Board` : "Today's Gauntlet Board";
+            listEl.innerHTML = '<div id="gauntlet-feed-empty">Loading today\'s board...</div>';
+            document.getElementById("gauntlet-feed-container").style.display = "block";
+
+            const q = query(
+                collection(db, "runs"),
+                where("mode", "==", "daily"), where("puzzleDate", "==", dateStr),
+                orderBy("score", "desc"), limit(100)
+            );
+            gauntletFeedUnsub = onSnapshot(q,
+                (snapshot) => renderGauntletFeed(snapshot),
+                (err) => {
+                    console.error("Gauntlet feed failed", err);
+                    listEl.innerHTML = '<div id="gauntlet-feed-empty" style="color:#ff3333;">Couldn\'t load today\'s board.</div>';
+                }
+            );
+        }
+
+        function renderGauntletFeed(snapshot) {
+            const listEl = document.getElementById("gauntlet-feed-list");
+            let html = "";
+            let index = 0, place = 0, prevScore = null;
+
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                index++;
+                const score = Math.max(0, Number(data.score) || 0);
+                // Competition ranking: a tie shares a place and the next score
+                // skips ahead (1, 2, 2, 4), so what this board shows agrees
+                // with the number fetchGauntletStanding reports for the same
+                // run — that function counts the runs above you and adds one.
+                if (prevScore === null || score !== prevScore) { place = index; prevScore = score; }
+
+                // No dedup pass, deliberately. The all-time board collapses
+                // rows by name because one player can hold many runs; here the
+                // deterministic runs/daily_{uid}_{date} id caps them at one per
+                // puzzle, so the only thing a dedup could do is collapse two
+                // DIFFERENT players who share a handle — and if one of them
+                // were the viewer, it would erase them from their own board.
+                //
+                // Names come off the run doc rather than being re-resolved
+                // against /users: these runs were all written today, so the
+                // stored name is same-day fresh, and re-resolving on every
+                // snapshot would cost a users read per player per update.
+                // Both fields are player-supplied — never render them raw.
+                const eq = data.equipped || {};
+                const bannerClass = safeCosmetic(eq.banner, "banner_default");
+                const nameClass = safeCosmetic(eq.effect, "effect_none");
+                const isMe = currentUser && data.uid === currentUser.uid;
+                const solved = Math.max(0, Number(data.wordsGuessed) || 0);
+
+                html += `<div class="lb-entry ${bannerClass}${isMe ? " gf-me" : ""}">` +
+                    `<div class="lb-rank">#${place}</div>` +
+                    `<div class="lb-name-col">` +
+                        `<div class="lb-name ${nameClass}">${escapeHtml(data.username || "Guest")}</div>` +
+                        `<div class="lb-date" style="color:#b967ff;">${solved} solved</div>` +
+                    `</div>` +
+                    `<div class="lb-score">${score.toLocaleString()}</div>` +
+                `</div>`;
+            });
+
+            listEl.innerHTML = html || '<div id="gauntlet-feed-empty">No finished runs yet today — be the first.</div>';
+        }
+
         // "You finished 12th of 47" for yesterday's Gauntlet, shown when you
         // come back for today's.
         //
@@ -2489,6 +2591,10 @@ placeholder comment below, sized to fit the existing 320x50 container.
             // shouldn't hold up the first word appearing on screen. The strip
             // fills itself in a moment later.
             showPreviousGauntletCallout();
+            // The attempt's date is server-issued (America/New_York), so this
+            // is the same puzzle the player is actually on even if their own
+            // clock disagrees.
+            startGauntletFeed(dailyAttempt.date);
 
             if (dailyAttempt.status === "finished") {
                 boardDisplay.innerHTML = ""; resetKeyboardColors();
@@ -2670,6 +2776,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             dailyAttempt = null;
             document.getElementById("daily-header").style.display = "none";
             document.getElementById("gauntlet-callout").style.display = "none";
+            stopGauntletFeed();
             document.getElementById("btn-daily").innerText = "GAUNTLET";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";

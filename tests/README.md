@@ -16,7 +16,8 @@ npm install     # first time only
 npm test
 ```
 
-That boots the emulator, runs all four suites, and shuts the emulator down
+That runs the one suite that needs no emulator, then boots the emulator for
+the other four, and shuts the emulator down
 again. A non-zero exit means something failed.
 
 The PWA suite is separate — it drives a real browser instead of the emulator,
@@ -61,6 +62,18 @@ date and a second Gauntlet for the same player, both of which must be excluded
 would take first place and inflate the field size. Exactness rests on daily
 runs living at a deterministic `runs/daily_{uid}_{date}` id, which caps a
 player at one run per puzzle date.
+
+**`gauntlet-feed.test.mjs`** — the renderer for today's Gauntlet board, the
+scrolling list under the play area. Two things there are easy to get quietly
+wrong. Placement numbering has to give ties a shared place and skip the next
+score (1, 2, 2, 4) so the board agrees with the "you finished 12th of 47"
+callout, which arrives at its number a completely different way. And this is
+the one board with **no dedup pass** — every other board collapses rows by
+display name because a player can hold many runs, but a Gauntlet caps a player
+at one run per day, so a dedup here could only ever collapse two *different*
+players who share a handle, and erase the viewer from their own board if one of
+them were them. Also covers the usual hostile `username`/`equipped` payloads.
+Pure, so it needs no emulator.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game
