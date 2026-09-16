@@ -12,7 +12,7 @@ const env = await initializeTestEnvironment({
 });
 const html = fs.readFileSync(REPO('index.html'),'utf8').replace(/\r\n/g,'\n');
 const fetchSrc   = html.match(/const USER_LOOKUP_CHUNK[\s\S]*?\n        \}\n/)[0];
-const resolveSrc = html.match(/if \(currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa'\) \{\s*\n\s*const uids[\s\S]*?\n                        \}/)[0];
+const resolveSrc = html.match(/if \(currentLbTime[^)]*\) \{\s*\n\s*const uids[\s\S]*?\n                        \}/)[0];
 const dedupSrc   = html.match(/^ +maxLimit = \(currentLbTime[\s\S]*?\n                        \}\n/m)[0];
 const runPipeline = new Function('db','collection','getDocs','query','where','documentId','currentLbTime','rawData',
   `${fetchSrc}
@@ -38,7 +38,8 @@ const db = env.authenticatedContext('viewer').firestore();
 const snap = await getDocs(query(collection(db,'runs'), orderBy('score','desc'), limit(100)));
 const rawData = []; snap.forEach(d => rawData.push({ uid:d.data().uid, name:d.data().username, score:d.data().score }));
 
-const out = await runPipeline(db, collection, getDocs, query, where, documentId, 'all', rawData);
+// Monthly is the one board still built from /runs, so it is the one this pipeline still runs for. Note its cap is 25 rows, not 100 — the >30-uid chunking under test happens during name resolution, before the cap applies.
+const out = await runPipeline(db, collection, getDocs, query, where, documentId, 'monthly', rawData);
 const names = out.map(e => e.name);
 const dupes = names.filter((n,i)=>names.indexOf(n)!==i);
 const stale = names.filter(n => /^(STALE|OLDER)/.test(n));

@@ -984,7 +984,10 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
             <div class="modal-buttons">
                 <button class="btn-cyan" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
-                <button class="btn-cyan" onclick="window.leaveDailyGauntlet(); window.showLeaderboard(); window.setLbTime('daily');">View Gauntlet Leaderboard</button>
+                <!-- Just dismisses the modal: today's board is already live
+                     underneath it, and the Gauntlet tab is now the all-time
+                     hall of fame rather than today's standings. -->
+                <button class="btn-cyan" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
                 <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Arcade</button>
             </div>
         </div>
@@ -1313,7 +1316,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
                 <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
             </div>
-            <div id="lb-daily-note" style="display:none; font-size: 11px; color: #aaa; text-align: center; font-style: italic; margin: -8px 0 10px;">Today's Daily Gauntlet only — resets at midnight ET.</div>
+            <div id="lb-daily-note" style="display:none; font-size: 11px; color: #aaa; text-align: center; font-style: italic; margin: -8px 0 10px;">Best Gauntlet run ever. Today's live board is under the game, with every past day in Past Gauntlets.</div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <!-- Your own line, pinned under every board. A top-100 list tells
                  the other 95% of players nothing about where they stand. -->
@@ -2188,19 +2191,19 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // How exact this can be differs by board, and the difference is worth
         // stating rather than papering over:
         //
-        //   clash / ffa  — the board IS /users ordered by one field, so
-        //                  "count the players above me, add one" is exact at
-        //                  any size, and needs only the single-field index
-        //                  Firestore maintains automatically.
-        //   daily        — one run per player per puzzle date, so the same
-        //                  counting trick is exact (see fetchGauntletStanding).
-        //   all/monthly  — these read /runs and then dedup to one row per
-        //                  player, so counting runs above you overcounts
-        //                  anyone holding several good runs. Until a
-        //                  per-player best is denormalised onto the user doc,
-        //                  this reports your position when you are on the
-        //                  visible board and plainly says you are not when you
-        //                  aren't, rather than a confident wrong number.
+        //   all / daily / clash / ffa — each of these boards IS /users ordered
+        //                  by a single field, so "count the players above me,
+        //                  add one" is exact at any size, on the single-field
+        //                  index Firestore maintains automatically. Denormalising
+        //                  bestRunScore/bestGauntletScore onto the user doc is
+        //                  what bought the first two of those.
+        //   monthly      — still reads /runs and dedups to one row per player,
+        //                  because it is time-windowed and so can't be answered
+        //                  from a single stored best. Counting runs above you
+        //                  would overcount anyone holding several good runs in
+        //                  the month, so this reports your position when you are
+        //                  on the visible board and plainly says you are not
+        //                  when you aren't, rather than a confident wrong number.
         async function renderYourRank(mode, finalData, maxLimit) {
             const el = document.getElementById("lb-you");
             if (!currentUser || !userProfileData) { el.style.display = "none"; return; }
@@ -2225,38 +2228,40 @@ placeholder comment below, sized to fit the existing 320x50 container.
             paint("#–", "…", "");
 
             try {
-                if (mode === "clash" || mode === "ffa") {
-                    const field = mode === "clash" ? "mmr" : "ffaWins";
-                    // Read the live doc rather than trusting the cached
-                    // profile: the count query is answered by the server, so a
-                    // stale local mmr would be ranked against a field it no
-                    // longer matches — showing a position that disagrees with
-                    // the board right above it.
-                    let mine;
+                // Every board but monthly is /users ordered by one field.
+                const USERS_BOARD = {
+                    all:   { field: "bestRunScore",      fallback: 0,    empty: "No runs yet — play a game to get on the board" },
+                    daily: { field: "bestGauntletScore", fallback: 0,    empty: "No Gauntlet finished yet" },
+                    clash: { field: "mmr",               fallback: 1000, empty: "" },
+                    ffa:   { field: "ffaWins",           fallback: 0,    empty: "Win an FFA match to climb" },
+                };
+                const board = USERS_BOARD[mode];
+                if (board) {
+                    // Read the live doc rather than trusting the cached profile:
+                    // the count is answered by the server, so a stale local value
+                    // would be ranked against a field it no longer matches —
+                    // showing a position that disagrees with the board directly
+                    // above it.
+                    let live = userProfileData;
                     try {
                         const snap = await getDoc(doc(db, "users", currentUser.uid));
-                        const live = snap.exists() ? snap.data() : userProfileData;
-                        mine = mode === "clash" ? (Number(live.mmr) || 1000) : Math.max(0, Number(live.ffaWins) || 0);
-                    } catch (e) {
-                        mine = mode === "clash" ? (Number(userProfileData.mmr) || 1000) : Math.max(0, Number(userProfileData.ffaWins) || 0);
-                    }
-                    const ahead = await getCountFromServer(query(collection(db, "users"), where(field, ">", mine)));
+                        if (snap.exists()) live = snap.data();
+                    } catch (e) { console.error("Live profile read failed, using cached", e); }
+
+                    const raw = Number(live[board.field]);
+                    const mine = Number.isFinite(raw) ? raw : board.fallback;
+                    // An unset best means no qualifying run, which is not the
+                    // same as a zero — the board itself excludes those players,
+                    // so claiming a position on it would be a lie.
+                    if (!Number.isFinite(raw) && board.fallback === 0) { paint("#–", "—", board.empty); return; }
+
+                    const ahead = await getCountFromServer(query(collection(db, "users"), where(board.field, ">", mine)));
                     paint(`#${(ahead.data().count + 1).toLocaleString()}`, mine.toLocaleString(),
-                        mode === "ffa" && mine === 0 ? "Win an FFA match to climb" : "");
+                        mine === 0 ? board.empty : "");
                     return;
                 }
 
-                if (mode === "daily") {
-                    const today = getTodayDateStr();
-                    const run = await fetchMyGauntletRun(today);
-                    if (!run) { paint("#–", "—", "You haven't finished today's Gauntlet yet"); return; }
-                    const score = Math.max(0, Number(run.score) || 0);
-                    const { place, total } = await fetchGauntletStanding(today, score);
-                    paint(`#${place}`, score.toLocaleString(), `of ${total} today`);
-                    return;
-                }
-
-                // all / monthly — position within the list actually on screen.
+                // monthly — position within the list actually on screen.
                 const meIndex = finalData.findIndex((entry) => entry.uid === currentUser.uid);
                 if (meIndex >= 0) {
                     paint(`#${meIndex + 1}`, Number(finalData[meIndex].score || 0).toLocaleString(), "");
@@ -2311,23 +2316,35 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("ffaWins", "desc"), limit(100)));
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().ffaWins || 0, equipped: doc.data().equipped }); });
                         }
+                        else if (currentLbTime === 'all') {
+                            // Each player's best single run, read off their own
+                            // doc (maintained by onRunCreated). This used to scan
+                            // /runs and collapse rows by display name afterwards,
+                            // which is what produced the "SODA three times" bug —
+                            // one row per player is now a property of the query
+                            // rather than something patched up in the client.
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestRunScore", "desc"), limit(100)));
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestRunScore || 0, ts: d.bestRunAt, equipped: d.equipped }); });
+                        }
+                        else if (currentLbTime === 'daily') {
+                            // Best Gauntlet run ever, with the puzzle it was set
+                            // on. Today's live board is on the play screen and in
+                            // Past Gauntlets — this tab is the hall of fame, so a
+                            // player joining months in still sees something worth
+                            // chasing instead of a board that resets nightly.
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestGauntletScore", "desc"), limit(100)));
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestGauntletScore || 0, puzzleDate: d.bestGauntletDate, equipped: d.equipped }); });
+                        }
                         else {
-                            let snapshot;
-                            if (currentLbTime === 'all') {
-                                snapshot = await getDocs(query(collection(db, "runs"), orderBy("score", "desc"), limit(100)));
-                            } else if (currentLbTime === 'daily') {
-                                // Today's shared Daily Gauntlet results — everyone played the
-                                // identical words, so this is now a genuinely fair leaderboard
-                                // (the old "daily" tab just filtered arbitrary endless-mode runs
-                                // by timestamp, which wasn't comparing like-for-like).
-                                snapshot = await getDocs(query(collection(db, "runs"), where("mode", "==", "daily"), where("puzzleDate", "==", getTodayDateStr()), orderBy("score", "desc"), limit(100)));
-                            } else {
-                                const now = new Date(); let start = new Date();
-                                if (currentLbTime === 'monthly') { start.setDate(1); start.setHours(0,0,0,0); }
-                                snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
-                            }
+                            // Monthly is the one board still built from /runs: it
+                            // is time-windowed, so it can't be answered from a
+                            // single stored best. It keeps the name-resolution and
+                            // dedup pipeline below.
+                            const now = new Date(); let start = new Date();
+                            start.setDate(1); start.setHours(0,0,0,0);
+                            const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
                             snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
-                            if (currentLbTime !== 'all' && currentLbTime !== 'daily') rawData.sort((a, b) => b.score - a.score);
+                            rawData.sort((a, b) => b.score - a.score);
                         }
 
                         // Resolve each run to its player's LIVE username/cosmetics before
@@ -2340,7 +2357,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         // get overwritten with today's identical live name afterward —
                         // exactly the "SODA" showing up 3 times bug. This ordering is load-
                         // bearing: resolve first, THEN dedup on the resolved name.
-                        if (currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa') {
+                        // Monthly alone still needs this: its rows come from
+                        // /runs, whose stored username is a snapshot from
+                        // whenever the run was saved. Every other board now
+                        // reads /users directly, so its names are already live.
+                        if (currentLbTime === 'monthly') {
                             const uids = [...new Set(rawData.map((i) => i.uid).filter(Boolean))];
                             const liveCache = await fetchUsersByIds(uids);
                             for (let item of rawData) {
@@ -2349,18 +2370,28 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             }
                         }
 
-                        // DEDUPLICATION (By Name to prevent "Soda" duplicates).
+                        // DEDUPLICATION (by name, to prevent "SODA" duplicates).
                         // Runs in score order, so the entry kept for a given name is that
                         // player's best. Must stay AFTER the live-name resolution above.
+                        //
+                        // Monthly only. Deduping a /users-backed board could never
+                        // remove a real duplicate — there is one row per player by
+                        // construction — and could only collapse two DIFFERENT
+                        // players who happen to share a handle, deleting one of
+                        // them from the board outright.
                         maxLimit = (currentLbTime === 'monthly') ? 25 : 100;
-                        let seenNames = new Set();
-                        for (let item of rawData) {
-                            let upperName = item.name ? item.name.toUpperCase() : "GUEST";
-                            if (!seenNames.has(upperName)) {
-                                seenNames.add(upperName);
-                                finalData.push(item);
-                                if (finalData.length === maxLimit) break;
+                        if (currentLbTime === 'monthly') {
+                            let seenNames = new Set();
+                            for (let item of rawData) {
+                                let upperName = item.name ? item.name.toUpperCase() : "GUEST";
+                                if (!seenNames.has(upperName)) {
+                                    seenNames.add(upperName);
+                                    finalData.push(item);
+                                    if (finalData.length === maxLimit) break;
+                                }
                             }
+                        } else {
+                            finalData = rawData.slice(0, maxLimit);
                         }
 
                         // Still render your own line on an empty board — an
@@ -2373,7 +2404,14 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         }
         
                         finalData.forEach((entry, index) => {
-                            let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
+                            let dateStr = "";
+                            if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
+                            // Which Gauntlet the best run was set on — the reason
+                            // puzzle numbers exist as a naming scheme at all.
+                            if (currentLbTime === 'daily' && entry.puzzleDate) {
+                                const gNum = gauntletNumber(entry.puzzleDate);
+                                if (gNum) dateStr = `<span style="font-weight:normal;"> - Gauntlet #${gNum}</span>`;
+                            }
                             let eq = entry.equipped || {}; let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
                             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
             

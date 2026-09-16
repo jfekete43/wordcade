@@ -17,7 +17,7 @@ npm test
 ```
 
 That runs the three suites that need no emulator, then boots the emulator for
-the other four, and shuts the emulator down
+the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
 The PWA suite is separate — it drives a real browser instead of the emulator,
@@ -95,6 +95,19 @@ rather than on whenever the suite runs. It also pins the assumption behind the
 single offset lookup — that the naive timestamp and the answer share a UTC
 offset, which holds for ET because the switch is at 02:00 local. Pure, so it
 needs no emulator.
+
+**`leaderboard-bests.test.mjs`** — the denormalised `bestRunScore` /
+`bestGauntletScore` on the user doc, and the two boards now built on them. Half
+of it runs the real bookkeeping extracted from `onRunCreated`'s transaction
+against fake run/user pairs (a worse run must not overwrite, a Gauntlet run
+advances both bests, a standard run never touches the Gauntlet one, a corrupt
+stored value is treated as zero rather than NaN). The other half seeds the
+emulator and checks the boards themselves — including the case that motivated
+all of this: **two different players sharing a display name now both appear**,
+because one row per player is a property of the query rather than something a
+dedup pass patches up afterwards. Also checks that a player with no runs stays
+off the board rather than being seated at zero, and that the counted rank
+matches the row actually rendered.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

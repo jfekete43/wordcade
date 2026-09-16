@@ -282,6 +282,37 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       },
     };
 
+    // Denormalised per-player bests.
+    //
+    // The all-time boards used to read /runs and then collapse rows by
+    // display name down to one per player. That is what produced the "SODA
+    // three times" bug, and it also makes an exact rank impossible: counting
+    // the runs above you overcounts anyone holding several good runs. Keeping
+    // each player's best on their own doc turns those boards into a plain
+    // /users query — one row per player by construction, no dedup — and
+    // their ranks into a single count.
+    //
+    // Free to maintain here: this transaction already reads and writes the
+    // user doc for every run, so this adds no read and no write.
+    //
+    // Plain writes rather than FieldValue.increment, and always guarded by a
+    // max() against the stored value, which makes them idempotent — the
+    // backfill in refreshProfile can run against the same field without
+    // risking a higher value being clobbered by a lower one.
+    if (score > Math.max(0, Number(user.bestRunScore) || 0)) {
+      update.bestRunScore = score;
+      // The board shows when a best was set. Prefer the run's own timestamp;
+      // it is written by the same operation that created this doc, so it is
+      // resolved by the time this trigger sees it.
+      update.bestRunAt = run.timestamp || FieldValue.serverTimestamp();
+    }
+    if (run.mode === "daily" && run.puzzleDate && score > Math.max(0, Number(user.bestGauntletScore) || 0)) {
+      update.bestGauntletScore = score;
+      // Which Gauntlet it was, so the all-time board can cite the puzzle
+      // number rather than a bare date.
+      update.bestGauntletDate = run.puzzleDate;
+    }
+
     // Gauntlet-only: did this run land in today's top 10? The query above
     // returns the top 10 including this run's own doc (already written by
     // guessDailyWord before this trigger fired), so it has to be filtered
@@ -616,6 +647,51 @@ exports.refreshProfile = onCall(async (request) => {
       walletBase = data.careerBank || 0;
       updates.careerBank = (data.careerBank || 0) + spent;
     }
+    // One-time backfill of the denormalised bests (see onRunCreated) for
+    // accounts whose runs predate them. Without this, switching the all-time
+    // boards over to /users would silently drop every score set before the
+    // deploy.
+    //
+    // Self-healing rather than a one-off admin script: refreshProfile already
+    // runs on every sign-in, so each account repairs itself the next time its
+    // owner opens the game. The flag means the two queries below are paid
+    // once per account, ever — not on every call.
+    //
+    // Both reads happen before this transaction writes anything, which is
+    // what a Firestore transaction requires. Values are combined with the
+    // stored ones via max(), so this can never walk a best backwards if a run
+    // completed between the deploy and the backfill.
+    if (!data.bestsBackfilled) {
+      try {
+        const runsRef = db.collection("runs");
+        const [bestAnySnap, bestDailySnap] = await Promise.all([
+          tx.get(runsRef.where("uid", "==", uid).orderBy("score", "desc").limit(1)),
+          tx.get(runsRef.where("uid", "==", uid).where("mode", "==", "daily").orderBy("score", "desc").limit(1)),
+        ]);
+        updates.bestsBackfilled = true;
+        if (!bestAnySnap.empty) {
+          const best = bestAnySnap.docs[0].data();
+          const bestScore = Math.max(0, Number(best.score) || 0);
+          if (bestScore > Math.max(0, Number(data.bestRunScore) || 0)) {
+            updates.bestRunScore = bestScore;
+            if (best.timestamp) updates.bestRunAt = best.timestamp;
+          }
+        }
+        if (!bestDailySnap.empty) {
+          const best = bestDailySnap.docs[0].data();
+          const bestScore = Math.max(0, Number(best.score) || 0);
+          if (bestScore > Math.max(0, Number(data.bestGauntletScore) || 0)) {
+            updates.bestGauntletScore = bestScore;
+            if (best.puzzleDate) updates.bestGauntletDate = best.puzzleDate;
+          }
+        }
+      } catch (e) {
+        // A missing index or a transient failure must not break sign-in —
+        // the flag stays unset, so the next refreshProfile tries again.
+        console.error("Bests backfill failed", uid, e);
+      }
+    }
+
     if (data.handleChanges === undefined) updates.handleChanges = 0;
     if (data.achievedTop10Daily === undefined) updates.achievedTop10Daily = 0;
     if (data.kobeCount === undefined) updates.kobeCount = 0;

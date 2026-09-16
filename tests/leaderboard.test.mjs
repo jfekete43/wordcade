@@ -17,7 +17,7 @@ const db = env.authenticatedContext('viewer').firestore();
 // ---- Pull the REAL shipped code out of index.html, don't paraphrase it ----
 const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const fetchSrc = html.match(/const USER_LOOKUP_CHUNK[\s\S]*?\n        \}\n/)[0];
-const resolveSrc = html.match(/if \(currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa'\) \{\s*\n\s*const uids[\s\S]*?\n                        \}/)[0];
+const resolveSrc = html.match(/if \(currentLbTime[^)]*\) \{\s*\n\s*const uids[\s\S]*?\n                        \}/)[0];
 const dedupSrc = html.match(/^ +maxLimit = \(currentLbTime[\s\S]*?\n                        \}\n/m)[0];
 console.log('extracted from index.html: fetchUsersByIds', fetchSrc.length, 'chars | resolve', resolveSrc.length, '| dedup', dedupSrc.length);
 
@@ -68,7 +68,8 @@ const rawData = [];
 snap.forEach(d => rawData.push({ uid: d.data().uid, name: d.data().username, score: d.data().score }));
 console.log('\nraw rows from Firestore (pre-dedup):', rawData.map(r => r.name + ':' + r.score).join(', '));
 
-const out = await runPipeline(db, collection, getDocs, query, where, documentId, 'all', rawData);
+// All Time now reads /users (one row per player by construction), so Monthly is the board that still runs this name-resolution + dedup pipeline — and the board this regression can still occur on.
+const out = await runPipeline(db, collection, getDocs, query, where, documentId, 'monthly', rawData);
 console.log('\nRENDERED LEADERBOARD:');
 out.forEach((e, idx) => console.log(`  #${idx+1} ${e.name} — ${e.score}  [uid ${e.uid}, banner ${(e.equipped||{}).banner || 'default'}]`));
 
