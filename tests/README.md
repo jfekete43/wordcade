@@ -20,14 +20,14 @@ That runs the four suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
-The PWA suite is separate — it drives a real browser instead of the emulator,
-so it is not part of `npm test`:
+Two suites drive a real browser instead of the emulator, so they are not part
+of `npm test`:
 
 ```
 cd tests
 npm install                     # first time only
 npx playwright install chromium # first time only
-npm run test:pwa
+npm run test:browser
 ```
 
 ## What each suite covers
@@ -118,6 +118,17 @@ receiving app join the two however it likes — in practice with a space — so 
 URL ran onto the end of the last line in Discord. The URL now travels inside the
 shared text, and the suite asserts the native-sheet and clipboard paths produce
 byte-for-byte the same string. Pure, so it needs no emulator.
+
+**`gauntlet-done-surface.test.mjs`** — the screen you get when today's Gauntlet
+is already finished. There is nothing left to type, but dismissing the end modal
+used to leave an empty board and a live keyboard above a header still reading
+"WORD 1/10 · SCORE: 0" — a screenful of dead space above the standings the
+player came back to see. The risk in the hide/restore pair that fixes it is the
+*restore*: the display values are written as literals, so a stylesheet change
+would bring an element back with the wrong layout and nothing would visibly
+break. This runs the real function against the real markup and stylesheet in
+Chromium, and compares the restored layout against pristine copies rather than
+against those literals. Needs Playwright.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

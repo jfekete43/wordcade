@@ -546,7 +546,10 @@
 
     <!-- DAILY GAUNTLET UI -->
     <div id="daily-header" style="display:none;">
-        <div class="score-text" style="color:#b967ff;">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+        <div class="score-text" id="daily-progress-text" style="color:#b967ff;">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+        <!-- Swapped in once today's run is over, when "WORD 1/10" would be
+             describing a board that is no longer on screen. -->
+        <div class="score-text" id="daily-complete-text" style="color:#b967ff; display:none;">COMPLETE</div>
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
     </div>
 
@@ -2597,6 +2600,23 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // --- DAILY GAUNTLET ---
         function colorCodeToName(c) { return c === 2 ? "correct" : c === 1 ? "present" : "absent"; }
 
+        // A Gauntlet is one run per day, so once today's is finished there is
+        // nothing left to type. Dismissing the end modal used to leave an
+        // empty board and a live keyboard sitting above a header still reading
+        // "WORD 1/10 · SCORE: 0" — a whole screen of dead space above the
+        // standings the player actually came back to look at.
+        //
+        // Restores to the stylesheet's own display values rather than
+        // remembering them, because nothing else in the app toggles these
+        // three inline (see #legend/#board/#keyboard in the CSS).
+        function setGauntletPlaySurfaceVisible(visible) {
+            document.getElementById("legend").style.display = visible ? "flex" : "none";
+            document.getElementById("board").style.display = visible ? "grid" : "none";
+            document.getElementById("keyboard").style.display = visible ? "flex" : "none";
+            document.getElementById("daily-progress-text").style.display = visible ? "block" : "none";
+            document.getElementById("daily-complete-text").style.display = visible ? "none" : "block";
+        }
+
         // --- GAUNTLET STANDINGS ---
         //
         // A finished Gauntlet is written to runs/daily_{uid}_{date} — a
@@ -3039,6 +3059,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         }
 
         function startDailyRound() {
+            setGauntletPlaySurfaceVisible(true);
             currentGuess = ""; currentRow = 0; isAnimating = false;
             createBoard(); resetKeyboardColors();
             document.getElementById("daily-word-index").innerText = dailyAttempt.wordIndex + 1;
@@ -3167,6 +3188,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
         }
 
         async function showDailyEndModal(attempt, alreadyPlayed) {
+            // Covers both routes into this screen — finishing a run now, and
+            // reopening a Gauntlet already played today — so dismissing the
+            // modal leaves the standings as the whole page either way.
+            setGauntletPlaySurfaceVisible(false);
+            document.getElementById("daily-score").innerText = Math.max(0, Number(attempt.score) || 0).toLocaleString();
             document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Gauntlet Complete!";
             const played = dailyPlayedWords(attempt);
             const solvedCount = played.filter((h) => h.solved).length;
@@ -3208,6 +3234,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("daily-end-modal").style.display = "none";
             isDailyMode = false;
             dailyAttempt = null;
+            // Standard needs the board and keyboard back, whether or not
+            // today's Gauntlet was finished when they left it.
+            setGauntletPlaySurfaceVisible(true);
             document.getElementById("daily-header").style.display = "none";
             document.getElementById("gauntlet-callout").style.display = "none";
             stopGauntletFeed();
