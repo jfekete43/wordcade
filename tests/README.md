@@ -19,6 +19,16 @@ npm test
 That boots the emulator, runs all three suites, and shuts the emulator down
 again. A non-zero exit means something failed.
 
+The PWA suite is separate — it drives a real browser instead of the emulator,
+so it is not part of `npm test`:
+
+```
+cd tests
+npm install                     # first time only
+npx playwright install chromium # first time only
+npm run test:pwa
+```
+
 ## What each suite covers
 
 **`rules.test.mjs`** — `firestore.rules`. Confirms the stored-XSS vectors stay
@@ -40,6 +50,19 @@ forces the batched lookup to split into multiple queries (Firestore allows at
 most 30 ids per `in` filter). If a chunk were ever silently dropped, those
 players would fall back to stale names and reappear as duplicates — this is
 the test that would catch it.
+
+**`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
+localhost in a headless Chromium and checks the things that make the game
+installable (a parseable manifest with `start_url`, both icon sizes, a worker
+that registers and takes control) *and*, more importantly, the things the
+worker must **not** do: cache a cross-origin response, cache a URL with a
+query string, keep a second copy of the shell that could go stale, or pin
+players to an old build. The freshness check fakes a deploy and asserts the
+new page arrives on the very next load; the offline check tears the server
+down completely rather than emulating offline, because Playwright's offline
+mode and request routing don't reliably cover a service worker's own fetches
+— an "offline" test built on those can quietly pass on the network instead of
+the cache.
 
 Both leaderboard suites extract the **real functions out of `index.html`** and
 execute those, rather than a copy that could drift from what actually ships.

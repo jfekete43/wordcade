@@ -1,11 +1,17 @@
 {
-  "name": "Lexathon",
+  "id": "/",
+  "name": "Lexathon — Competitive Word Game",
   "short_name": "Lexathon",
+  "description": "A competitive arcade word game: endless runs, daily Gauntlets, head-to-head Clash and free-for-all matches.",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ],
   "theme_color": "#121213",
   "background_color": "#121213",
-  "display": "standalone"
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["games", "word", "puzzle"]
 }

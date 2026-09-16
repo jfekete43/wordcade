@@ -4089,5 +4089,39 @@ placeholder comment below, sized to fit the existing 320x50 container.
             maybeShowOnboarding();
         }, 300);
     </script>
+<script>
+    /*
+     * Service worker registration — this is what makes Lexathon installable
+     * ("Add to Home Screen" on Android/desktop Chrome; iOS already honoured
+     * the manifest without one) and gives it an offline shell. See sw.js for
+     * what it will and will not cache.
+     *
+     * Deliberately non-fatal: a registration failure (private browsing, an
+     * http:// origin, a browser without support) must never stop the game
+     * from loading, so everything is wrapped and only logged.
+     */
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+            navigator.serviceWorker.register("/sw.js").then(function (reg) {
+                // A new sw.js is deployed with every meaningful site update.
+                // Let it take over as soon as it is ready rather than waiting
+                // for every tab to close, so cached assets can't go stale for
+                // a player who never fully quits the game.
+                reg.addEventListener("updatefound", function () {
+                    var incoming = reg.installing;
+                    if (!incoming) return;
+                    incoming.addEventListener("statechange", function () {
+                        if (incoming.state === "installed" && navigator.serviceWorker.controller) {
+                            incoming.postMessage("skip-waiting");
+                        }
+                    });
+                });
+            }).catch(function (err) {
+                console.log("Service worker registration skipped:", err && err.message);
+            });
+        });
+    }
+</script>
+
 </body>
 </html>
