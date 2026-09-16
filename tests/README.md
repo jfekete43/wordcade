@@ -133,7 +133,10 @@ against those literals. Needs Playwright.
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game
 installable (a parseable manifest with `start_url`, both icon sizes, a worker
-that registers and takes control) *and*, more importantly, the things the
+that registers and takes control, and a maskable icon that is opaque and keeps
+its artwork inside the centre 80% safe zone — without one Android letterboxes
+the icon on a white circle, with a full-bleed one it crops the logo, and both
+look fine in the manifest and only show up on a phone) *and*, more importantly, the things the
 worker must **not** do: cache a cross-origin response, cache a URL with a
 query string, keep a second copy of the shell that could go stale, or pin
 players to an old build. The freshness check fakes a deploy and asserts the

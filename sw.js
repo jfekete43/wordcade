@@ -22,7 +22,7 @@
  * Bump CACHE_VERSION whenever the precache list changes; activate deletes
  * every cache that is not the current one.
  */
-const CACHE_VERSION = "lexathon-v1";
+const CACHE_VERSION = "lexathon-v2";
 
 // Kept small on purpose: enough to boot the game offline, nothing more.
 //
@@ -38,6 +38,7 @@ const PRECACHE_URLS = [
     "/favicon.ico",
     "/icon-192.png",
     "/icon-512.png",
+    "/icon-maskable-512.png",
     "/apple-touch-icon.png",
     "/how-to-play.html",
     "/strategy.html",

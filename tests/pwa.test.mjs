@@ -118,6 +118,44 @@ try {
     check(sizes.includes("192x192") && sizes.includes("512x512"),
         "manifest has both a 192px and a 512px icon", sizes.join(","));
 
+    // --- the maskable icon -------------------------------------------------
+    // Android masks a home-screen icon to a circle or squircle. Without an
+    // icon declared `maskable`, it letterboxes the "any" icon on a white
+    // circle; with one whose artwork runs to the edges, it crops it. Both
+    // failure modes look fine in the manifest and only show up on a phone.
+    const maskable = (d.icons || []).find((i) => (i.purpose || "").split(/\s+/).includes("maskable"));
+    check(!!maskable, "manifest declares a maskable icon", JSON.stringify((d.icons || []).map((i) => i.purpose)));
+    if (maskable) {
+        const probe = await page.evaluate(async (src) => {
+            const img = new Image();
+            img.src = src;
+            await img.decode();
+            const c = document.createElement("canvas");
+            c.width = img.width; c.height = img.height;
+            const ctx = c.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            const { data } = ctx.getImageData(0, 0, c.width, c.height);
+            const cx = c.width / 2, cy = c.height / 2, safe = c.width * 0.4;
+            let minAlpha = 255, outsideSafe = 0;
+            for (let y = 0; y < c.height; y++) {
+                for (let x = 0; x < c.width; x++) {
+                    const i = (y * c.width + x) * 4;
+                    if (data[i + 3] < minAlpha) minAlpha = data[i + 3];
+                    // The letter is the only dark thing in the artwork, so a
+                    // dark pixel out here is one the mask would clip.
+                    if (Math.hypot(x - cx, y - cy) > safe && data[i] + data[i + 1] + data[i + 2] < 260) outsideSafe++;
+                }
+            }
+            return { minAlpha, outsideSafe, w: c.width };
+        }, ORIGIN + maskable.src);
+        check(probe.w >= 512, "the maskable icon is at least 512px", String(probe.w));
+        check(probe.minAlpha === 255,
+            "it is fully opaque — a transparent corner would show through the mask", "min alpha " + probe.minAlpha);
+        check(probe.outsideSafe === 0,
+            "its letter stays inside the centre 80% safe zone, so the mask can't clip it",
+            probe.outsideSafe + " px outside");
+    }
+
     // --- what got cached --------------------------------------------------
     const cached = await page.evaluate(async () => {
         const names = await caches.keys();
