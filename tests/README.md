@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the two suites that need no emulator, then boots the emulator for
+That runs the three suites that need no emulator, then boots the emulator for
 the other four, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -83,6 +83,18 @@ load an empty board — walking back past Gauntlet #1 into dates that never
 existed, and including today, whose board is still live and not final. Both are
 pinned here, along with paging, the day-one empty state, and year and leap-day
 boundaries. Pure, so it needs no emulator.
+
+**`gauntlet-countdown.test.mjs`** — the "Next in 6h 12m" clock on the Gauntlet
+headline card. A Gauntlet day runs midnight-to-midnight in America/New_York, so
+the trap is DST: on the two transition days an ET day is 23 or 25 hours long,
+and counting the seconds left on the ET *wall clock* puts the countdown a full
+hour out (in opposite directions, twice a year). The card resolves a real
+instant instead, and these cases pin the elapsed time across both transitions
+and both standard offsets, with "now" injected so they assert on fixed instants
+rather than on whenever the suite runs. It also pins the assumption behind the
+single offset lookup — that the naive timestamp and the answer share a UTC
+offset, which holds for ET because the switch is at 02:00 local. Pure, so it
+needs no emulator.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

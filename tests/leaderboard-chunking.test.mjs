@@ -13,7 +13,7 @@ const env = await initializeTestEnvironment({
 const html = fs.readFileSync(REPO('index.html'),'utf8').replace(/\r\n/g,'\n');
 const fetchSrc   = html.match(/const USER_LOOKUP_CHUNK[\s\S]*?\n        \}\n/)[0];
 const resolveSrc = html.match(/if \(currentLbTime !== 'career' && currentLbTime !== 'clash' && currentLbTime !== 'ffa'\) \{\s*\n\s*const uids[\s\S]*?\n                        \}/)[0];
-const dedupSrc   = html.match(/const maxLimit = \(currentLbTime[\s\S]*?\n                        \}\n/)[0];
+const dedupSrc   = html.match(/^ +maxLimit = \(currentLbTime[\s\S]*?\n                        \}\n/m)[0];
 const runPipeline = new Function('db','collection','getDocs','query','where','documentId','currentLbTime','rawData',
   `${fetchSrc}
    return (async () => { let finalData = [];

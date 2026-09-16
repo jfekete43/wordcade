@@ -233,6 +233,15 @@
            during a Standard run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
         #gauntlet-feed-container { width: 90%; max-width: 420px; background: #111; border: 1px solid #3a2a4a; border-radius: 5px; padding: 10px; margin-bottom: 20px; position: relative; z-index: 2; }
+        #gauntlet-card { width: 90%; max-width: 420px; background: linear-gradient(160deg, rgba(185,103,255,0.18), rgba(185,103,255,0.05)); border: 1px solid #b967ff; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; position: relative; z-index: 2; }
+        #gauntlet-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        #gauntlet-card-title { color: #b967ff; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        #gauntlet-card-timer { color: #888; font-size: 11px; white-space: nowrap; }
+        #gauntlet-card-body { color: #e8d5ff; font-size: 14px; margin-bottom: 10px; }
+        #gauntlet-card-body .gcb-strong { color: #fff; font-weight: bold; }
+        #gauntlet-card-btn { width: 100%; background: transparent; color: #b967ff; border: 2px solid #b967ff; border-radius: 5px; padding: 10px; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+        #gauntlet-card-btn:hover { background: #b967ff; color: #000; }
+
         #gauntlet-feed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
         #gauntlet-archive-btn { background: transparent; color: #b967ff; border: 1px solid #b967ff; border-radius: 3px; padding: 3px 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
         #gauntlet-archive-btn:hover { background: #b967ff; color: #000; }
@@ -287,6 +296,10 @@
 
         #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         
+        #lb-you { border-top: 2px solid #444; margin-top: 6px; padding-top: 8px; }
+        #lb-you .lb-you-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: bold; margin-bottom: 4px; }
+        #lb-you .lb-entry { border-bottom: none; }
+        #lb-you .lb-rank { color: #00ffff; }
         .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 5px; border-bottom: 1px dashed #333; font-size: 16px; position: relative; z-index: 1;}
         .lb-entry:last-child { border-bottom: none; }
         .lb-rank { font-weight: bold; color: #ff9800; width: 35px; z-index: 2;}
@@ -673,6 +686,21 @@
             <input type="text" id="chat-input" class="input-field" maxlength="50" placeholder="Type message..." style="font-size: 12px; padding: 8px; margin: 0; text-transform: none; letter-spacing: normal;">
             <button class="action-btn" style="border-color: #00ffff; color: #00ffff;" onclick="window.sendChatMessage()">Send</button>
         </div>
+    </div>
+
+    <!-- Gauntlet headline card. The Gauntlet is the reason to come back
+         tomorrow, but as one of five equal buttons in the nav it reads as one
+         of five things. This states today's puzzle, where you stand on it and
+         when the next one lands, without making it the mode the site boots
+         into — Standard is the forgiving, instant, offline-capable front door
+         a first-time visitor needs. -->
+    <div id="gauntlet-card" style="display:none;">
+        <div id="gauntlet-card-head">
+            <span id="gauntlet-card-title">Daily Gauntlet</span>
+            <span id="gauntlet-card-timer"></span>
+        </div>
+        <div id="gauntlet-card-body">Ten words, one shot each.</div>
+        <button id="gauntlet-card-btn" onclick="window.openDailyGauntlet()">Play Today's Gauntlet</button>
     </div>
 
     <div id="live-feed-container">
@@ -1287,6 +1315,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
             </div>
             <div id="lb-daily-note" style="display:none; font-size: 11px; color: #aaa; text-align: center; font-style: italic; margin: -8px 0 10px;">Today's Daily Gauntlet only — resets at midnight ET.</div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
+            <!-- Your own line, pinned under every board. A top-100 list tells
+                 the other 95% of players nothing about where they stand. -->
+            <div id="lb-you" style="display:none;"></div>
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button></div>
         </div>
     </div>
@@ -1729,6 +1760,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     } catch (e) { console.error("Profile refresh failed", e); }
                 }
                 applyEquippedCosmetics();
+                // First paint of the Gauntlet card, once there's a signed-in
+                // user to read an attempt for. Guarded because this callback
+                // also refires mid-session (linking a Google account), by
+                // which point the player may be in a match.
+                if (!isDailyMode && !isVersusMode && !isFfaMode) showStandardPanels(true);
                 tryAutoJoinFromUrl();
             } else { signInAnonymously(auth); }
         });
@@ -2147,6 +2183,92 @@ placeholder comment below, sized to fit the existing 320x50 container.
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); document.getElementById("lb-daily-note").style.display = (time === 'daily') ? "block" : "none"; window.loadLeaderboardData(); }
         
+        // --- YOUR POSITION ---
+        //
+        // How exact this can be differs by board, and the difference is worth
+        // stating rather than papering over:
+        //
+        //   clash / ffa  — the board IS /users ordered by one field, so
+        //                  "count the players above me, add one" is exact at
+        //                  any size, and needs only the single-field index
+        //                  Firestore maintains automatically.
+        //   daily        — one run per player per puzzle date, so the same
+        //                  counting trick is exact (see fetchGauntletStanding).
+        //   all/monthly  — these read /runs and then dedup to one row per
+        //                  player, so counting runs above you overcounts
+        //                  anyone holding several good runs. Until a
+        //                  per-player best is denormalised onto the user doc,
+        //                  this reports your position when you are on the
+        //                  visible board and plainly says you are not when you
+        //                  aren't, rather than a confident wrong number.
+        async function renderYourRank(mode, finalData, maxLimit) {
+            const el = document.getElementById("lb-you");
+            if (!currentUser || !userProfileData) { el.style.display = "none"; return; }
+
+            const eq = userProfileData.equipped || {};
+            const bannerClass = safeCosmetic(eq.banner, "banner_default");
+            const nameClass = safeCosmetic(eq.effect, "effect_none");
+            const name = escapeHtml(userProfileData.username || "You");
+            const paint = (rank, score, note) => {
+                el.innerHTML = `<div class="lb-you-label">Your position</div>` +
+                    `<div class="lb-entry ${bannerClass}">` +
+                        `<div class="lb-rank">${rank}</div>` +
+                        `<div class="lb-name-col">` +
+                            `<div class="lb-name ${nameClass}">${name}</div>` +
+                            (note ? `<div class="lb-date" style="color:#888;">${escapeHtml(note)}</div>` : "") +
+                        `</div>` +
+                        `<div class="lb-score">${score}</div>` +
+                    `</div>`;
+            };
+
+            el.style.display = "block";
+            paint("#–", "…", "");
+
+            try {
+                if (mode === "clash" || mode === "ffa") {
+                    const field = mode === "clash" ? "mmr" : "ffaWins";
+                    // Read the live doc rather than trusting the cached
+                    // profile: the count query is answered by the server, so a
+                    // stale local mmr would be ranked against a field it no
+                    // longer matches — showing a position that disagrees with
+                    // the board right above it.
+                    let mine;
+                    try {
+                        const snap = await getDoc(doc(db, "users", currentUser.uid));
+                        const live = snap.exists() ? snap.data() : userProfileData;
+                        mine = mode === "clash" ? (Number(live.mmr) || 1000) : Math.max(0, Number(live.ffaWins) || 0);
+                    } catch (e) {
+                        mine = mode === "clash" ? (Number(userProfileData.mmr) || 1000) : Math.max(0, Number(userProfileData.ffaWins) || 0);
+                    }
+                    const ahead = await getCountFromServer(query(collection(db, "users"), where(field, ">", mine)));
+                    paint(`#${(ahead.data().count + 1).toLocaleString()}`, mine.toLocaleString(),
+                        mode === "ffa" && mine === 0 ? "Win an FFA match to climb" : "");
+                    return;
+                }
+
+                if (mode === "daily") {
+                    const today = getTodayDateStr();
+                    const run = await fetchMyGauntletRun(today);
+                    if (!run) { paint("#–", "—", "You haven't finished today's Gauntlet yet"); return; }
+                    const score = Math.max(0, Number(run.score) || 0);
+                    const { place, total } = await fetchGauntletStanding(today, score);
+                    paint(`#${place}`, score.toLocaleString(), `of ${total} today`);
+                    return;
+                }
+
+                // all / monthly — position within the list actually on screen.
+                const meIndex = finalData.findIndex((entry) => entry.uid === currentUser.uid);
+                if (meIndex >= 0) {
+                    paint(`#${meIndex + 1}`, Number(finalData[meIndex].score || 0).toLocaleString(), "");
+                } else {
+                    paint("#–", "—", `Not in the top ${maxLimit} — keep playing`);
+                }
+            } catch (e) {
+                console.error("Your-rank lookup failed", e);
+                el.style.display = "none";
+            }
+        }
+
         // Batched lookup of many user docs by id. Firestore's `in` filter takes
         // up to 30 values per query, so a 100-row leaderboard costs ~4 queries
         // instead of 100 getDoc round-trips waited on one at a time — the same
@@ -2172,7 +2294,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         window.loadLeaderboardData = async function() {
                     const listDiv = document.getElementById("leaderboard-list"); 
                     listDiv.innerHTML = '<div class="lb-loading">Fetching scores...</div>'; 
-                    let html = ""; let rawData = []; let finalData = [];
+                    let html = ""; let rawData = []; let finalData = []; let maxLimit = 100;
                     try {
                         if (currentLbTime === 'career') { 
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("careerBank", "desc"), limit(100))); 
@@ -2230,7 +2352,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         // DEDUPLICATION (By Name to prevent "Soda" duplicates).
                         // Runs in score order, so the entry kept for a given name is that
                         // player's best. Must stay AFTER the live-name resolution above.
-                        const maxLimit = (currentLbTime === 'monthly') ? 25 : 100;
+                        maxLimit = (currentLbTime === 'monthly') ? 25 : 100;
                         let seenNames = new Set();
                         for (let item of rawData) {
                             let upperName = item.name ? item.name.toUpperCase() : "GUEST";
@@ -2241,7 +2363,14 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             }
                         }
 
-                        if (finalData.length === 0) { listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>'; return; }
+                        // Still render your own line on an empty board — an
+                        // early return here would leave whatever the PREVIOUS
+                        // tab put there sitting under "No scores yet".
+                        if (finalData.length === 0) {
+                            listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>';
+                            renderYourRank(currentLbTime, finalData, maxLimit);
+                            return;
+                        }
         
                         finalData.forEach((entry, index) => {
                             let dateStr = ""; if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
@@ -2257,7 +2386,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${Number(entry.score || 0).toLocaleString()}</div></div>`;
                         }); 
                         listDiv.innerHTML = html;
-                    } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; }
+                        // finalData is the deduped, rendered list, so the
+                        // "am I on this board" check below agrees with what
+                        // the player is actually looking at.
+                        renderYourRank(currentLbTime, finalData, maxLimit);
+                    } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; document.getElementById("lb-you").style.display = "none"; }
                 }
 
         // ==========================================
@@ -2401,7 +2534,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                 listenToLobbyCount();
             }
-            document.getElementById("live-feed-container").style.display = "none";
+            showStandardPanels(false);
         }
 
         window.cancelVersusLobby = function() {
@@ -2420,7 +2553,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("clash-chat-container").style.display = "none"; // HIDE CHAT
             window.startNewRun();
-            document.getElementById("live-feed-container").style.display = "block";
+            showStandardPanels(true);
         }
 
         // --- DAILY GAUNTLET ---
@@ -2564,6 +2697,129 @@ placeholder comment below, sized to fit the existing 320x50 container.
             });
 
             listEl.innerHTML = html || `<div class="gauntlet-empty">${escapeHtml(emptyText)}</div>`;
+        }
+
+        // --- GAUNTLET HEADLINE CARD ---
+        let gauntletCardTimer = null;
+        let gauntletCardDate = null;
+
+        // How far America/New_York lags UTC at a given instant, in ms — i.e.
+        // what you ADD to a naive UTC timestamp to get the real instant of
+        // that ET wall-clock time. +4h in EDT, +5h in EST. Read from the
+        // platform's own zone data rather than hardcoded, so DST is never
+        // guessed at.
+        function etOffsetMs(instant) {
+            const parts = new Intl.DateTimeFormat("en-US", {
+                timeZone: "America/New_York", hour12: false,
+                year: "numeric", month: "2-digit", day: "2-digit",
+                hour: "2-digit", minute: "2-digit", second: "2-digit",
+            }).formatToParts(new Date(instant));
+            const p = {};
+            for (const part of parts) p[part.type] = part.value;
+            // The ET wall clock reread as though it were UTC. The gap between
+            // that and the real instant IS the offset.
+            const asIfUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
+            return instant - asIfUtc;
+        }
+
+        // The absolute instant at which the ET clock next reads 00:00.
+        //
+        // Deliberately NOT "seconds left on the ET wall clock": on the two DST
+        // days a year an ET day is 23 or 25 hours long, so wall-clock
+        // subtraction would put the countdown a full hour out. Resolving a
+        // real instant and subtracting keeps it honest.
+        //
+        // One offset lookup is enough here, though it would not be for every
+        // zone. The risk in this pattern is that the offset at the naive
+        // timestamp differs from the offset at the answer. ET switches at 02:00
+        // local, which is 06:00/07:00 UTC — later than both the naive
+        // timestamp (00:00 UTC) and the answer (04:00/05:00 UTC), so on a
+        // transition day the two always land on the same side of the switch.
+        function nextGauntletInstant(todayEtDate) {
+            const [y, m, d] = shiftDateStr(todayEtDate, 1).split("-").map(Number);
+            const naive = Date.UTC(y, m - 1, d);
+            return naive + etOffsetMs(naive);
+        }
+
+        function msUntilNextGauntlet() {
+            return nextGauntletInstant(getTodayDateStr()) - Date.now();
+        }
+
+        function formatCountdown(ms) {
+            const mins = Math.max(0, Math.floor(ms / 60000));
+            if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+            return mins >= 1 ? `${mins}m` : "under a minute";
+        }
+
+        function updateGauntletCardTimer() {
+            // Page left open across midnight ET: today's puzzle is a different
+            // one now, so re-read rather than counting down against a stale
+            // attempt.
+            if (gauntletCardDate && gauntletCardDate !== getTodayDateStr()) { refreshGauntletCard(); return; }
+            document.getElementById("gauntlet-card-timer").innerText = "Next in " + formatCountdown(msUntilNextGauntlet());
+        }
+
+        function stopGauntletCardTimer() {
+            if (gauntletCardTimer) { clearInterval(gauntletCardTimer); gauntletCardTimer = null; }
+        }
+
+        // Reads your own attempt doc for today — owner-readable by design (it
+        // holds your past guesses and their colours, never an unsolved target
+        // word), so this needs no Cloud Function call.
+        async function refreshGauntletCard() {
+            const bodyEl = document.getElementById("gauntlet-card-body");
+            const btnEl = document.getElementById("gauntlet-card-btn");
+            const today = getTodayDateStr();
+            gauntletCardDate = today;
+
+            const num = gauntletNumber(today);
+            document.getElementById("gauntlet-card-title").innerText = num ? `Daily Gauntlet #${num}` : "Daily Gauntlet";
+            stopGauntletCardTimer();
+            updateGauntletCardTimer();
+            gauntletCardTimer = setInterval(updateGauntletCardTimer, 30000);
+
+            if (!currentUser) {
+                bodyEl.innerHTML = "Ten words, one shot each. Everyone gets the same puzzle.";
+                btnEl.innerText = "Play Today's Gauntlet";
+                return;
+            }
+
+            let attempt = null;
+            try {
+                const snap = await getDoc(doc(db, "dailyAttempts", currentUser.uid, "days", today));
+                if (snap.exists()) attempt = snap.data();
+            } catch (e) { console.error("Gauntlet card lookup failed", e); }
+
+            if (!attempt) {
+                bodyEl.innerHTML = "Ten words, one shot each. Everyone gets the same puzzle.";
+                btnEl.innerText = "Play Today's Gauntlet";
+            } else if (attempt.status === "active") {
+                const at = Math.max(0, Number(attempt.wordIndex) || 0) + 1;
+                const of = Math.max(1, Number(attempt.wordCount) || 10);
+                bodyEl.innerHTML = `In progress — you're on word <span class="gcb-strong">${at} of ${of}</span>, ` +
+                    `<span class="gcb-strong">${(Number(attempt.score) || 0).toLocaleString()}</span> pts so far.`;
+                btnEl.innerText = "Resume Gauntlet";
+            } else {
+                const score = Math.max(0, Number(attempt.score) || 0);
+                bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts.`;
+                btnEl.innerText = "See Today's Board";
+                // Placement is a nice-to-have on top of the settled line above,
+                // so it is filled in after rather than delaying the card.
+                fetchGauntletStanding(today, score)
+                    .then(({ place, total }) => {
+                        bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts, ` +
+                            `currently <span class="gcb-strong">${ordinal(place)} of ${total}</span>.`;
+                    })
+                    .catch((e) => console.error("Gauntlet card standing failed", e));
+            }
+        }
+
+        // The Live Arcade Feed and the Gauntlet card both belong to a Standard
+        // run, so every mode switch shows or hides them together.
+        function showStandardPanels(visible) {
+            document.getElementById("live-feed-container").style.display = visible ? "block" : "none";
+            document.getElementById("gauntlet-card").style.display = visible ? "block" : "none";
+            if (visible) refreshGauntletCard(); else stopGauntletCardTimer();
         }
 
         // --- PAST GAUNTLETS ---
@@ -2724,7 +2980,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("btn-ffa").style.display = "none";
             document.getElementById("btn-daily").innerText = "LEAVE GAUNTLET";
             document.getElementById("versus-track-container").style.display = "none";
-            document.getElementById("live-feed-container").style.display = "none";
+            showStandardPanels(false);
             document.getElementById("daily-header").style.display = "flex";
 
             // Deliberately not awaited: two reads and a pair of count queries
@@ -2922,7 +3178,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("btn-mode").style.display = "inline-block";
             document.getElementById("btn-ffa").style.display = "inline-block";
-            document.getElementById("live-feed-container").style.display = "block";
+            showStandardPanels(true);
             window.startNewRun();
         }
 
@@ -3492,7 +3748,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 document.getElementById("ffa-lobby-modal").style.display = "flex";
                 listenToFfaLobbyCount();
             }
-            document.getElementById("live-feed-container").style.display = "none";
+            showStandardPanels(false);
         }
 
         window.cancelFfaLobby = function() {
@@ -3506,7 +3762,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("ffa-track-container").style.display = "none";
             window.startNewRun();
-            document.getElementById("live-feed-container").style.display = "block";
+            showStandardPanels(true);
         }
 
         function newFfaMatchDoc(hostUid, hostName, hostEquipped, hostMmr, isPublic) {
