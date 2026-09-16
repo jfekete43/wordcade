@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the three suites that need no emulator, then boots the emulator for
+That runs the four suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -108,6 +108,16 @@ because one row per player is a property of the query rather than something a
 dedup pass patches up afterwards. Also checks that a player with no runs stays
 off the board rather than being seated at zero, and that the counted rank
 matches the row actually rendered.
+
+**`gauntlet-share.test.mjs`** — the share text. Pins the result line (a flat
+`8/10` replaced a per-word emoji grid and a three-branch result line; missing a
+word ends the run on the spot, so solving 8 *means* you went out on word 9, and
+the old "solved N of 10" branch was unreachable), and pins the link onto its own
+line. That last one was a real bug: `navigator.share({text, url})` lets the
+receiving app join the two however it likes — in practice with a space — so the
+URL ran onto the end of the last line in Discord. The URL now travels inside the
+shared text, and the suite asserts the native-sheet and clipboard paths produce
+byte-for-byte the same string. Pure, so it needs no emulator.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

@@ -4309,7 +4309,14 @@ placeholder comment below, sized to fit the existing 320x50 container.
             const copyInstead = () => copyToClipboard(payload).then((ok) => flashButtonLabel(buttonEl, ok ? "COPIED!" : "COPY FAILED", defaultLabel));
 
             if (prefersNativeShare()) {
-                navigator.share({ title, text: message, url }).catch((e) => {
+                // The link goes inside `text` rather than in `url`. Passing
+                // both lets the receiving app join them however it likes —
+                // in practice with a space, so the URL runs onto the end of
+                // the last line instead of sitting on its own. Embedding it
+                // makes the native sheet produce byte-for-byte what the
+                // clipboard path produces. Link previews still resolve: apps
+                // that unfurl do it from the URL in the message body.
+                navigator.share({ title, text: payload }).catch((e) => {
                     if (e.name === "AbortError") return; // dismissed the sheet on purpose — not a failure
                     console.error("Share failed", e);
                     copyInstead(); // sheet unavailable/errored — still get them the text
@@ -4356,40 +4363,34 @@ placeholder comment below, sized to fit the existing 320x50 container.
             // produce the exact same "10/10 played, some missed" grid.
             const played = dailyPlayedWords(dailyAttempt);
             const solvedCount = played.filter((h) => h.solved).length;
-            // One emoji per word — the guess count that solved it, or ❌ if
-            // it was missed — a compact stand-in for Wordle's classic grid
-            // that stays readable across up to 10 words instead of
-            // sprawling into up to 50 rows. Uses the game's own cyan/
-            // magenta-coded correct/present colors nowhere here on purpose —
-            // the numeral format reads at a glance without needing
-            // per-letter detail, and doesn't visually double as a
-            // screenshot of someone else's Wordle share.
-            const numeralEmoji = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"];
-            const grid = played.map((h) => (h.solved ? (numeralEmoji[h.guesses.length] || "5️⃣") : "❌")).join("");
 
             // Average guesses per word attempted — the one number that
-            // separates a sharp run from a lucky one, since the grid above
-            // renders every run at the same visual size no matter how well it
-            // went. A missed word counts its full 5, which is the honest
-            // reading of "how many guesses did this cost you".
+            // separates a sharp run from a lucky one. A missed word counts
+            // its full 5, which is the honest reading of "how many guesses
+            // did this cost you".
             const totalGuesses = played.reduce((sum, h) => sum + h.guesses.length, 0);
             const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
 
-            // Same "no such thing as a full run with a miss in it" logic as
-            // showDailyEndModal — a short run gets an honest "out on word N"
-            // instead of implying it ran the full 10. A clean sweep gets said
-            // outright rather than left as a flat "10/10 solved": the whole
-            // point of a share is to make a great run look like one.
+            // A solved count rather than a per-word emoji grid. The grid took
+            // a whole line to say something the count says in four characters,
+            // and at ten words it wrapped on narrow clients.
+            //
+            // "8/10" carries everything the old three-branch result line
+            // spelled out, because missing a word ends the run on the spot:
+            // solving 8 means you went out on word 9. There is no such thing
+            // as reaching word 10 with a miss behind you, so the old
+            // "solved N of 10" and "out on word N" cases were the same case.
+            const solvedLine = `${solvedCount}/${dailyAttempt.wordCount}`;
             const isPerfect = solvedCount === dailyAttempt.wordCount;
+            // A clean sweep gets said outright — the whole point of a share is
+            // to make a great run look like one.
             const resultLine = isPerfect
-                ? `🏆 PERFECT · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`
-                : played.length >= dailyAttempt.wordCount
-                    ? `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount}/${dailyAttempt.wordCount} solved · ${avgGuesses} avg`
-                    : `💰 ${dailyAttempt.score.toLocaleString()} pts · ${solvedCount} solved · out on word ${played.length} of ${dailyAttempt.wordCount} · ${avgGuesses} avg`;
+                ? `🏆 PERFECT · ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`
+                : `💰 ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`;
 
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Gauntlet #${num}` : "🕹️ Lexathon Gauntlet";
-            const shareMessage = `${heading}\n${grid}\n${resultLine}`;
+            const shareMessage = `${heading}\n${resultLine}`;
             shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
         }
 
