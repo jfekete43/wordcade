@@ -28,21 +28,22 @@ const grab = (re) => { const m = html.match(re); if (!m) throw new Error('could 
 const src = [
   grab(/        function escapeHtml\(str\) \{\n[\s\S]*?\n        \}/),
   grab(/        function safeCosmetic\(value, fallback\) \{\n[\s\S]*?\n        \}/),
-  grab(/        function renderGauntletFeed\(snapshot\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function renderGauntletBoard\(docs, listEl, emptyText\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
 console.log('extracted from index.html:', src.length, 'chars');
 
-// The renderer touches exactly one element, and only its innerHTML.
-const els = {};
-const documentStub = { getElementById: (id) => (els[id] = els[id] || { innerHTML: '' }) };
-let user = null;
-const render = new Function('document', 'getCurrentUser', `
+// The renderer writes into whatever element it is handed, so the stub is just
+// an object with an innerHTML. `currentUser` is module state in index.html; it
+// is rewritten to a global here so each case can set it.
+const target = { innerHTML: '' };
+const render = new Function(`
   ${src}
-  return (snapshot, u) => { globalThis.__u = u; renderGauntletFeed(snapshot); };
-`.replace(/\bcurrentUser\b/g, 'globalThis.__u'))(documentStub, () => user);
+  return (docs, u) => { globalThis.__u = u; renderGauntletBoard(docs, globalThis.__target, "No finished runs yet today — be the first."); };
+`.replace(/\bcurrentUser\b/g, 'globalThis.__u'))();
+globalThis.__target = target;
 
 const snap = (rows) => ({ forEach: (f) => rows.forEach((r) => f({ data: () => r })) });
-const out = () => els['gauntlet-feed-list'].innerHTML;
+const out = () => target.innerHTML;
 // Split into rows before reading one, so a lazy quantifier can't wander into
 // the next element (lb-name-col is a prefix of lb-name — easy to mismatch).
 const rows = () => out().split('<div class="lb-entry ').slice(1);

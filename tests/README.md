@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the one suite that needs no emulator, then boots the emulator for
+That runs the two suites that need no emulator, then boots the emulator for
 the other four, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -74,6 +74,15 @@ at one run per day, so a dedup here could only ever collapse two *different*
 players who share a handle, and erase the viewer from their own board if one of
 them were them. Also covers the usual hostile `username`/`equipped` payloads.
 Pure, so it needs no emulator.
+
+**`gauntlet-archive.test.mjs`** — the "Past Gauntlets" date list. The list of
+playable dates is *derived*, not queried: `/dailyPuzzles` holds the answer words
+and is `read: if false`, so the archive walks backwards from yesterday with
+`GAUNTLET_EPOCH` as the floor. That leaves two ways to generate entries that
+load an empty board — walking back past Gauntlet #1 into dates that never
+existed, and including today, whose board is still live and not final. Both are
+pinned here, along with paging, the day-one empty state, and year and leap-day
+boundaries. Pure, so it needs no emulator.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

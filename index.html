@@ -233,13 +233,24 @@
            during a Standard run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
         #gauntlet-feed-container { width: 90%; max-width: 420px; background: #111; border: 1px solid #3a2a4a; border-radius: 5px; padding: 10px; margin-bottom: 20px; position: relative; z-index: 2; }
-        #gauntlet-feed-title { color: #b967ff; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px; text-align: center; }
+        #gauntlet-feed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        #gauntlet-archive-btn { background: transparent; color: #b967ff; border: 1px solid #b967ff; border-radius: 3px; padding: 3px 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+        #gauntlet-archive-btn:hover { background: #b967ff; color: #000; }
+        .gauntlet-archive-row { display: flex; align-items: center; justify-content: space-between; width: 100%; background: #1a1a1d; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 9px 12px; margin-bottom: 6px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: inherit; text-align: left; }
+        .gauntlet-archive-row:hover { border-color: #b967ff; color: #fff; }
+        .gauntlet-archive-row .gar-date { font-size: 12px; color: #888; font-weight: normal; }
+        #gauntlet-archive-list, #gauntlet-archive-board { max-height: 300px; overflow-y: auto; }
+        #gauntlet-feed-title { color: #b967ff; font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
         #gauntlet-feed-list { max-height: 270px; overflow-y: auto; font-size: 14px; }
-        #gauntlet-feed-list .lb-entry { font-size: 14px; padding: 6px 5px; }
+        /* Both Gauntlet boards — today's live one and the archive's detail
+           view — share renderGauntletBoard, so they share its styling too.
+           Scoping either rule to one container is what silently dropped the
+           "this is you" outline from the archive. */
+        #gauntlet-feed-list .lb-entry, #gauntlet-archive-board .lb-entry { font-size: 14px; padding: 6px 5px; }
         /* Your own row. An outline rather than a background so it can't fight
            whichever banner the player has equipped. */
-        #gauntlet-feed-list .gf-me { outline: 2px solid #b967ff; outline-offset: -2px; border-radius: 3px; }
-        #gauntlet-feed-empty { color: #888; font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
+        .gf-me { outline: 2px solid #b967ff; outline-offset: -2px; border-radius: 3px; }
+        .gauntlet-empty { color: #888; font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
 
         #live-feed-container { width: 90%; max-width: 320px; background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
         .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
@@ -672,7 +683,10 @@
     <!-- Today's Gauntlet board. Shown only in Gauntlet mode, in place of the
          Live Arcade Feed above (the two are never visible at once). -->
     <div id="gauntlet-feed-container" style="display:none;">
-        <div id="gauntlet-feed-title">Today's Gauntlet Board</div>
+        <div id="gauntlet-feed-head">
+            <div id="gauntlet-feed-title">Today's Gauntlet Board</div>
+            <button id="gauntlet-archive-btn" onclick="window.openGauntletArchive()">Past Gauntlets</button>
+        </div>
         <div id="gauntlet-feed-list"></div>
     </div>
 
@@ -896,6 +910,31 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="window.leaveFfaMatch()">Leave Match</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAST GAUNTLETS (ARCHIVE) MODAL -->
+    <div id="gauntlet-archive-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
+            <h2 class="modal-title" id="gauntlet-archive-title" style="color: #b967ff;">Past Gauntlets</h2>
+
+            <!-- List of past days. -->
+            <div id="gauntlet-archive-browse">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
+                <div id="gauntlet-archive-list"></div>
+                <button class="btn-dark" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
+            </div>
+
+            <!-- One past day's final board. -->
+            <div id="gauntlet-archive-detail" style="display:none;">
+                <div id="gauntlet-archive-standing" style="font-size: 13px; color: #e8d5ff; margin-bottom: 10px; text-align: center;"></div>
+                <div id="gauntlet-archive-board"></div>
+                <button class="btn-dark" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-dark" onclick="document.getElementById('gauntlet-archive-modal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -2462,7 +2501,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             const num = gauntletNumber(dateStr);
             document.getElementById("gauntlet-feed-title").innerText =
                 num ? `Gauntlet #${num} — Today's Board` : "Today's Gauntlet Board";
-            listEl.innerHTML = '<div id="gauntlet-feed-empty">Loading today\'s board...</div>';
+            listEl.innerHTML = '<div class="gauntlet-empty">Loading today\'s board...</div>';
             document.getElementById("gauntlet-feed-container").style.display = "block";
 
             const q = query(
@@ -2471,20 +2510,22 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 orderBy("score", "desc"), limit(100)
             );
             gauntletFeedUnsub = onSnapshot(q,
-                (snapshot) => renderGauntletFeed(snapshot),
+                (snapshot) => renderGauntletBoard(snapshot, listEl, "No finished runs yet today — be the first."),
                 (err) => {
                     console.error("Gauntlet feed failed", err);
-                    listEl.innerHTML = '<div id="gauntlet-feed-empty" style="color:#ff3333;">Couldn\'t load today\'s board.</div>';
+                    listEl.innerHTML = '<div class="gauntlet-empty" style="color:#ff3333;">Couldn\'t load today\'s board.</div>';
                 }
             );
         }
 
-        function renderGauntletFeed(snapshot) {
-            const listEl = document.getElementById("gauntlet-feed-list");
+        // Shared by the live board above and by the archive's detail view.
+        // `docs` is anything with a forEach yielding snapshot docs in score
+        // order — a live QuerySnapshot or a one-off getDocs result.
+        function renderGauntletBoard(docs, listEl, emptyText) {
             let html = "";
             let index = 0, place = 0, prevScore = null;
 
-            snapshot.forEach((docSnap) => {
+            docs.forEach((docSnap) => {
                 const data = docSnap.data();
                 index++;
                 const score = Math.max(0, Number(data.score) || 0);
@@ -2522,8 +2563,107 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 `</div>`;
             });
 
-            listEl.innerHTML = html || '<div id="gauntlet-feed-empty">No finished runs yet today — be the first.</div>';
+            listEl.innerHTML = html || `<div class="gauntlet-empty">${escapeHtml(emptyText)}</div>`;
         }
+
+        // --- PAST GAUNTLETS ---
+        //
+        // Nothing deletes a /runs doc, so every past Gauntlet's final board is
+        // still queryable with the index the live board already uses — the
+        // archive is the same query with a different date.
+        //
+        // The list of dates is derived from GAUNTLET_EPOCH rather than read
+        // out of /dailyPuzzles: that collection holds the answer words and is
+        // `read: if false` in firestore.rules, and it should stay that way.
+        // Puzzles are also created lazily on first play, so a day nobody
+        // played has no puzzle and no runs — such a day simply reports having
+        // no scores.
+        const ARCHIVE_PAGE = 30;
+        let archiveShown = ARCHIVE_PAGE;
+
+        function formatPuzzleDate(dateStr) {
+            const [y, m, d] = dateStr.split("-").map(Number);
+            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+        }
+
+        window.openGauntletArchive = function() {
+            archiveShown = ARCHIVE_PAGE;
+            window.backToGauntletArchiveList();
+            renderGauntletArchiveList();
+            document.getElementById("gauntlet-archive-modal").style.display = "flex";
+        };
+
+        window.backToGauntletArchiveList = function() {
+            document.getElementById("gauntlet-archive-detail").style.display = "none";
+            document.getElementById("gauntlet-archive-browse").style.display = "block";
+            document.getElementById("gauntlet-archive-title").innerText = "Past Gauntlets";
+        };
+
+        window.showOlderGauntlets = function() {
+            archiveShown += ARCHIVE_PAGE;
+            renderGauntletArchiveList();
+        };
+
+        function renderGauntletArchiveList() {
+            const listEl = document.getElementById("gauntlet-archive-list");
+            // Yesterday backwards: today is excluded because it's the live
+            // board on the play screen, and it isn't final yet anyway.
+            let dateStr = shiftDateStr(getTodayDateStr(), -1);
+            let html = "";
+            let shown = 0;
+            while (shown < archiveShown) {
+                const num = gauntletNumber(dateStr);
+                if (!num) break; // walked back past Gauntlet #1
+                html += `<button class="gauntlet-archive-row" onclick="window.viewPastGauntlet('${dateStr}')">` +
+                        `<span>Gauntlet #${num}</span><span class="gar-date">${escapeHtml(formatPuzzleDate(dateStr))}</span></button>`;
+                dateStr = shiftDateStr(dateStr, -1);
+                shown++;
+            }
+            listEl.innerHTML = html || '<div class="gauntlet-empty">No Gauntlets have finished yet — today\'s is the first.</div>';
+            // Hide "Show Older" once the list has reached Gauntlet #1.
+            document.getElementById("gauntlet-archive-more").style.display = gauntletNumber(dateStr) ? "block" : "none";
+        }
+
+        window.viewPastGauntlet = async function(dateStr) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+            const num = gauntletNumber(dateStr);
+            const boardEl = document.getElementById("gauntlet-archive-board");
+            const standingEl = document.getElementById("gauntlet-archive-standing");
+
+            document.getElementById("gauntlet-archive-browse").style.display = "none";
+            document.getElementById("gauntlet-archive-detail").style.display = "block";
+            document.getElementById("gauntlet-archive-title").innerText = num ? `Gauntlet #${num}` : "Past Gauntlet";
+            standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
+            boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
+
+            try {
+                // One-off read, not a listener: a past Gauntlet is settled.
+                const snapshot = await getDocs(query(
+                    collection(db, "runs"),
+                    where("mode", "==", "daily"), where("puzzleDate", "==", dateStr),
+                    orderBy("score", "desc"), limit(100)
+                ));
+                renderGauntletBoard(snapshot, boardEl, "No scores were recorded for this Gauntlet.");
+            } catch (e) {
+                console.error("Past Gauntlet board failed", e);
+                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:#ff3333;">Couldn\'t load this Gauntlet.</div>';
+            }
+
+            // Your own line above the board. Separate from the board query so
+            // it still reports a placement outside the visible top 100.
+            const run = await fetchMyGauntletRun(dateStr);
+            if (!run) {
+                standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))} — you didn't play this one.</span>`;
+                return;
+            }
+            const score = Math.max(0, Number(run.score) || 0);
+            let line = `you scored <span style="color:#fff; font-weight:bold;">${score.toLocaleString()}</span>`;
+            try {
+                const { place, total } = await fetchGauntletStanding(dateStr, score);
+                line = `you finished <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span>`;
+            } catch (e) { console.error("Past Gauntlet standing failed", e); }
+            standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
+        };
 
         // "You finished 12th of 47" for yesterday's Gauntlet, shown when you
         // come back for today's.

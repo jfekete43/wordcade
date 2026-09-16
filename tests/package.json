@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Firestore emulator tests for the security rules and the leaderboard dedup pipeline, plus a browser test for the PWA service worker.",
   "scripts": {
-    "test": "node gauntlet-feed.test.mjs && firebase emulators:exec --only firestore --project demo-wordcade-test --config ../firebase.json \"node leaderboard.test.mjs && node leaderboard-chunking.test.mjs && node gauntlet-standing.test.mjs && node rules.test.mjs\"",
+    "test": "node gauntlet-feed.test.mjs && node gauntlet-archive.test.mjs && firebase emulators:exec --only firestore --project demo-wordcade-test --config ../firebase.json \"node leaderboard.test.mjs && node leaderboard-chunking.test.mjs && node gauntlet-standing.test.mjs && node rules.test.mjs\"",
     "test:pwa": "node pwa.test.mjs"
   },
   "devDependencies": {
