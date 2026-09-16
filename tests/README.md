@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That boots the emulator, runs all three suites, and shuts the emulator down
+That boots the emulator, runs all four suites, and shuts the emulator down
 again. A non-zero exit means something failed.
 
 The PWA suite is separate — it drives a real browser instead of the emulator,
@@ -50,6 +50,17 @@ forces the batched lookup to split into multiple queries (Firestore allows at
 most 30 ids per `in` filter). If a chunk were ever silently dropped, those
 players would fall back to stale names and reappear as duplicates — this is
 the test that would catch it.
+
+**`gauntlet-standing.test.mjs`** — the placement math behind the "you finished
+12th of 47" callout. Placement is counted (runs scoring above you, plus one)
+rather than read off a list, so ties are the thing most likely to be quietly
+wrong: two players on the same score must share a place and the next player
+down must skip one. It also seeds a standard-mode run tagged with the same
+date and a second Gauntlet for the same player, both of which must be excluded
+— a standard run routinely outscores a Gauntlet, so a dropped `mode` filter
+would take first place and inflate the field size. Exactness rests on daily
+runs living at a deterministic `runs/daily_{uid}_{date}` id, which caps a
+player at one run per puzzle date.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

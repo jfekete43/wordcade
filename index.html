@@ -71,6 +71,14 @@
         
         #btn-mode { color: #ff9800; border-color: #ff9800; }
         #btn-mode:hover { background-color: #ff9800; color: #000; }
+        /* Yesterday's Gauntlet placement strip (see #gauntlet-callout). */
+        #gauntlet-callout {
+            width: 90%; max-width: 500px; margin: 0 auto 10px; padding: 8px 12px;
+            background: rgba(185, 103, 255, 0.12); border: 1px solid #b967ff;
+            border-radius: 5px; text-align: center; font-size: 13px; color: #e8d5ff;
+        }
+        #gauntlet-callout .gc-place { color: #fff; font-weight: bold; }
+
         .arcade-menu .ffa-btn { color: #ffd700; border-color: #ffd700; }
         .arcade-menu .ffa-btn:hover { background-color: #ffd700; color: #000; }
 
@@ -506,6 +514,11 @@
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
     </div>
 
+    <!-- Yesterday's placement, shown on entering the Gauntlet. The daily
+         board resets at midnight ET, so without this the only way to learn
+         where you actually finished was to be awake when it closed. -->
+    <div id="gauntlet-callout" style="display:none;"></div>
+
     <!-- SUDDEN DEATH UI -->
     <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
         <div style="color:#ff3333; font-size: 20px; font-weight: bold; text-shadow: 0 0 8px #ff3333;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
@@ -878,6 +891,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
             <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
                 <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
             </div>
+
+            <div id="daily-end-standing" style="display:none; font-size: 13px; color: #e8d5ff; margin-bottom: 12px;"></div>
 
             <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
@@ -2353,6 +2368,93 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // --- DAILY GAUNTLET ---
         function colorCodeToName(c) { return c === 2 ? "correct" : c === 1 ? "present" : "absent"; }
 
+        // --- GAUNTLET STANDINGS ---
+        //
+        // A finished Gauntlet is written to runs/daily_{uid}_{date} — a
+        // deterministic id (see guessDailyWord in functions/index.js), so a
+        // player holds at most one run per puzzle date. That is what makes
+        // every number below exact: unlike the all-time board, which has to
+        // dedup several runs down to one row per player, a single Gauntlet's
+        // board is one row per player by construction, so counting rows above
+        // you IS your placement.
+        function dailyRunId(uid, dateStr) { return `daily_${uid}_${dateStr}`; }
+
+        // Plain YYYY-MM-DD arithmetic via UTC midnights — same approach as
+        // gauntletNumber(), and for the same reason: it keeps the shift exact
+        // whole days with no DST drift, and never converts a timezone.
+        function shiftDateStr(dateStr, days) {
+            const [y, m, d] = dateStr.split("-").map(Number);
+            const t = new Date(Date.UTC(y, m - 1, d) + days * 86400000);
+            const pad = (v) => String(v).padStart(2, "0");
+            return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+        }
+
+        function ordinal(v) {
+            const mod100 = v % 100;
+            if (mod100 >= 11 && mod100 <= 13) return `${v}th`;
+            const suffix = { 1: "st", 2: "nd", 3: "rd" }[v % 10] || "th";
+            return `${v}${suffix}`;
+        }
+
+        // Your own run for one Gauntlet, or null if you never played it.
+        // A single doc read rather than a query, because the id is derivable.
+        async function fetchMyGauntletRun(dateStr) {
+            if (!currentUser) return null;
+            try {
+                const snap = await getDoc(doc(db, "runs", dailyRunId(currentUser.uid, dateStr)));
+                return snap.exists() ? snap.data() : null;
+            } catch (e) { console.error("Gauntlet run lookup failed", e); return null; }
+        }
+
+        // Exact placement in one Gauntlet: count the runs that beat this score
+        // and add one. Ties share a place, so two players on 3,200 are both
+        // 5th and the next player down is 7th.
+        //
+        // The orderBy is load-bearing even though a count ignores ordering: it
+        // pins the query to the (mode, puzzleDate, score DESC) composite index
+        // the daily board already uses, so this needs no new index. Callers
+        // still handle it throwing — see showPreviousGauntletCallout.
+        async function fetchGauntletStanding(dateStr, myScore) {
+            const scoped = [where("mode", "==", "daily"), where("puzzleDate", "==", dateStr)];
+            const [ahead, total] = await Promise.all([
+                getCountFromServer(query(collection(db, "runs"), ...scoped, where("score", ">", myScore), orderBy("score", "desc"))),
+                getCountFromServer(query(collection(db, "runs"), ...scoped)),
+            ]);
+            return { place: ahead.data().count + 1, total: total.data().count };
+        }
+
+        // "You finished 12th of 47" for yesterday's Gauntlet, shown when you
+        // come back for today's.
+        //
+        // Yesterday specifically: the point is to close the loop on the run
+        // you actually just played, a placement from five days ago is noise,
+        // and finding "your most recent Gauntlet" would need an index on
+        // (uid, mode, puzzleDate) that nothing else in the game wants.
+        async function showPreviousGauntletCallout() {
+            const el = document.getElementById("gauntlet-callout");
+            el.style.display = "none";
+            el.innerHTML = "";
+            if (!currentUser) return;
+
+            const dateStr = shiftDateStr(getTodayDateStr(), -1);
+            const run = await fetchMyGauntletRun(dateStr);
+            if (!run) return; // didn't play yesterday — nothing to report
+
+            const num = gauntletNumber(dateStr);
+            const label = num ? `Gauntlet #${num}` : "Yesterday's Gauntlet";
+            const score = Math.max(0, Number(run.score) || 0);
+            let detail = `you scored <span class="gc-place">${score.toLocaleString()}</span>`;
+            try {
+                const { place, total } = await fetchGauntletStanding(dateStr, score);
+                detail = `you finished <span class="gc-place">${ordinal(place)} of ${total}</span>`;
+            } catch (e) {
+                // Placement is the nice-to-have; the score line still lands.
+                console.error("Gauntlet standing lookup failed", e);
+            }
+            el.innerHTML = `📊 ${label} — ${detail}`;
+            el.style.display = "block";
+        }
+
         window.openDailyGauntlet = async function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             if (!currentUser) return;
@@ -2382,6 +2484,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("live-feed-container").style.display = "none";
             document.getElementById("daily-header").style.display = "flex";
+
+            // Deliberately not awaited: two reads and a pair of count queries
+            // shouldn't hold up the first word appearing on screen. The strip
+            // fills itself in a moment later.
+            showPreviousGauntletCallout();
 
             if (dailyAttempt.status === "finished") {
                 boardDisplay.innerHTML = ""; resetKeyboardColors();
@@ -2534,6 +2641,21 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:#4caf50; font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${wordsLine}`;
             document.getElementById("daily-end-modal").style.display = "flex";
 
+            // Where this run currently sits on today's board. Provisional by
+            // nature — the rest of the world is still playing — so it says so
+            // rather than implying a final placement. Uses the attempt's own
+            // server-issued date, not the viewer's clock.
+            const standingEl = document.getElementById("daily-end-standing");
+            standingEl.style.display = "none";
+            standingEl.innerHTML = "";
+            fetchGauntletStanding(attempt.date, Math.max(0, Number(attempt.score) || 0))
+                .then(({ place, total }) => {
+                    standingEl.innerHTML = `Currently <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span> on today's board` +
+                        `<div style="font-size: 11px; color: #888; margin-top: 2px;">Final once today's Gauntlet closes at midnight ET.</div>`;
+                    standingEl.style.display = "block";
+                })
+                .catch((e) => console.error("Today's Gauntlet standing failed", e));
+
             // Wallet/careerBank were updated server-side by onRunCreated (the
             // same trigger every other run uses) — refresh the local profile
             // so the Shop/Profile screens show the correct total right away.
@@ -2547,6 +2669,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             isDailyMode = false;
             dailyAttempt = null;
             document.getElementById("daily-header").style.display = "none";
+            document.getElementById("gauntlet-callout").style.display = "none";
             document.getElementById("btn-daily").innerText = "GAUNTLET";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
