@@ -1731,6 +1731,29 @@ placeholder comment below, sized to fit the existing 320x50 container.
             }
         };
 
+        // A guest session that has never been played in has nothing to lose by
+        // being swapped for an existing account. Deciding that here keeps the
+        // scary "your progress will not transfer" warning for the one case it
+        // is actually true, instead of showing it to every returning player who
+        // signs in on a new browser (where the guest session is seconds old).
+        //
+        // A brand-new guest is handed 100 pts by the day-1 login-streak credit
+        // and the four default cosmetics, so neither a non-zero wallet nor a
+        // stock inventory counts as progress. Everything checked below only
+        // moves once the player has actually played, bought, or won something.
+        function guestHasProgressWorthLosing() {
+            if (!userProfileData) return false;
+            if ((userProfileData.careerBank || 0) > 0) return true;
+            if ((userProfileData.wordsPlayed || 0) > 0) return true;
+            if ((userProfileData.handleChanges || 0) > 0) return true;
+            if ((userProfileData.clashWins || 0) + (userProfileData.clashLosses || 0) + (userProfileData.clashTies || 0) > 0) return true;
+            if ((userProfileData.ffaWins || 0) + (userProfileData.ffaMatchesPlayed || 0) > 0) return true;
+            if (Array.isArray(userProfileData.inventory) && userProfileData.inventory.length > 4) return true;
+            // Points earned in the run that is open right now, not yet banked.
+            if (typeof score === "number" && score > 0) return true;
+            return false;
+        }
+
         window.handleAuthAction = async function() {
             if (userProfileData && !userProfileData.isGuest) {
                 let confirmOut = confirm("Are you sure you want to sign out?");
@@ -1753,22 +1776,30 @@ placeholder comment below, sized to fit the existing 320x50 container.
             } catch (error) {
                 if (error.code === "auth/credential-already-in-use") {
                     // This Google account already has its own Lexathon profile
-                    // from somewhere else (another device, a previous guest
-                    // session) — it can't be merged with this one automatically.
-                    // Give the player an informed choice rather than silently
-                    // discarding either side.
+                    // from somewhere else (another device, a previous browser),
+                    // so it can't be merged with this session's guest profile.
+                    //
+                    // Usually that is just a returning player signing in on a
+                    // new browser: the guest session they were handed on page
+                    // load is empty, so switching to their real account is what
+                    // they asked for and needs no warning — the email path
+                    // already behaves this way via signInWithEmailAndPassword.
+                    // Only when the guest session has real progress in it is
+                    // there a genuine choice to put to them.
                     const credential = GoogleAuthProvider.credentialFromError(error);
-                    const switchConfirm = confirm(
-                        "This Google account is already linked to a different Lexathon profile.\n\n" +
-                        "Sign into that existing profile instead? Your current guest progress on THIS device will not transfer to it."
-                    );
-                    if (switchConfirm && credential) {
-                        try {
-                            await signInWithCredential(auth, credential);
-                            document.getElementById('main-menu-modal').style.display = 'none';
-                            setTimeout(() => { window.location.reload(); }, 500);
-                        } catch (e2) { alert("Login Error: " + e2.message); }
+                    if (!credential) { alert("Login Error: " + error.message); return; }
+                    if (guestHasProgressWorthLosing()) {
+                        const switchConfirm = confirm(
+                            "This Google account is already linked to a different Lexathon profile.\n\n" +
+                            "Sign into that existing profile instead? Your current guest progress on THIS device will not transfer to it."
+                        );
+                        if (!switchConfirm) return;
                     }
+                    try {
+                        await signInWithCredential(auth, credential);
+                        document.getElementById('main-menu-modal').style.display = 'none';
+                        setTimeout(() => { window.location.reload(); }, 500);
+                    } catch (e2) { alert("Login Error: " + e2.message); }
                 } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
                     // Closed the popup — not worth alerting about.
                 } else {
@@ -1805,6 +1836,18 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     // password the player just typed — no separate credential-
                     // extraction step needed, just try signing into that
                     // existing account with it directly.
+                    //
+                    // Same rule as the Google path: only stop to ask when this
+                    // guest session actually holds progress that the switch
+                    // would strand. A seconds-old empty guest gets signed in
+                    // with no dialog at all.
+                    if (guestHasProgressWorthLosing()) {
+                        const switchConfirm = confirm(
+                            "That email is already linked to a different Lexathon profile.\n\n" +
+                            "Sign into that existing profile instead? Your current guest progress on THIS device will not transfer to it."
+                        );
+                        if (!switchConfirm) return;
+                    }
                     try {
                         await signInWithEmailAndPassword(auth, email, password);
                         document.getElementById('email-auth-modal').style.display = 'none';
