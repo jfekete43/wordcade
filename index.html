@@ -83,6 +83,13 @@
             border-radius: 5px; text-align: center; font-size: 13px; color: #e8d5ff;
         }
         #gauntlet-callout .gc-place { color: #fff; font-weight: bold; }
+        .place-badge { vertical-align: -5px; margin-right: 4px; flex-shrink: 0; }
+        /* .modal-stats span is a blanket 24px/green rule, which every stat
+           block in the Profile overrides one span at a time. The Gauntlet
+           tab's Today line is a sentence rather than a figure, so it opts out
+           as a whole and reads at the size of the text around it. */
+        #stat-gauntlet-today span { font-size: 13px; color: #e8d5ff; font-weight: normal; }
+        #stat-gauntlet-today .gs-strong { color: #fff; font-weight: bold; }
 
         .arcade-menu .ffa-btn { color: #ffd700; border-color: #ffd700; }
         .arcade-menu .ffa-btn:hover { background-color: #ffd700; color: #000; }
@@ -1249,8 +1256,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
             </div>
             
             <div class="tabs">
-                <button class="tab-btn active" id="tab-prof-standard" onclick="document.getElementById('profile-standard').style.display='block'; document.getElementById('profile-clash').style.display='none'; this.classList.add('active'); document.getElementById('tab-prof-clash').classList.remove('active');">Standard</button>
-                <button class="tab-btn" id="tab-prof-clash" onclick="document.getElementById('profile-clash').style.display='block'; document.getElementById('profile-standard').style.display='none'; this.classList.add('active'); document.getElementById('tab-prof-standard').classList.remove('active');">Clash</button>
+                <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Standard</button>
+                <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
+                <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Gauntlet</button>
             </div>
 
             <!-- STANDARD STATS -->
@@ -1279,6 +1287,21 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
                     <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:white; font-size: 18px;">0</span></div>
                 </div>
+            </div>
+
+            <!-- GAUNTLET STATS -->
+            <div id="profile-gauntlet" class="modal-stats" style="text-align: left; display: none;">
+                <div style="text-align: center; margin-bottom: 4px;">Best Gauntlet: <br><span id="stat-gauntlet-best" style="color: #b967ff; font-size: 28px;">—</span> pts</div>
+                <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: 12px; color: #888;">&nbsp;</div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">Global Rank<br><span id="stat-gauntlet-rank" style="color:white; font-size: 18px;">—</span></div>
+                    <div style="text-align: center;">Played<br><span id="stat-gauntlet-played" style="color:white; font-size: 18px;">—</span></div>
+                    <div style="text-align: center;">Top 10 Finish<br><span id="stat-gauntlet-top10" style="color:white; font-size: 18px;">—</span></div>
+                </div>
+
+                <div style="font-size: 14px; margin: 18px 0 8px; color: #b967ff; text-transform: uppercase; text-align: center;">Today</div>
+                <div id="stat-gauntlet-today" style="text-align: center; font-size: 13px; color: #e8d5ff;">Checking...</div>
             </div>
 
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
@@ -2071,9 +2094,87 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             }
     
                 // default to standard tab
-                document.getElementById('tab-prof-standard').click();
+                window.setProfileTab('standard');
                 document.getElementById("profile-modal").style.display = "flex";
             }
+
+        // One function instead of three sets of inline DOM juggling — the two
+        // original handlers each had to know about the other panel by name,
+        // which does not survive a third tab.
+        window.setProfileTab = function(name) {
+            for (const tab of ["standard", "clash", "gauntlet"]) {
+                document.getElementById("profile-" + tab).style.display = tab === name ? "block" : "none";
+                document.getElementById("tab-prof-" + tab).classList.toggle("active", tab === name);
+            }
+            if (name === "gauntlet") loadGauntletStats();
+        };
+
+        // Filled on demand rather than when the Profile opens: it costs a
+        // handful of reads, and most visits to this modal are for the Standard
+        // tab. Everything here is derived from data that already exists —
+        // bestGauntletScore/bestGauntletDate on the user doc (maintained by
+        // onRunCreated) and counts over /runs — so no new stat counters and no
+        // functions change were needed.
+        //
+        // Deliberately NOT memoised per session. Finishing a Gauntlet does not
+        // reload the page (leaveDailyGauntlet just starts a fresh Standard
+        // run), so a cached panel would keep showing the pre-run numbers for
+        // the rest of the session — and today's placement moves on its own as
+        // other people finish. Three reads on an explicit tap is the cheaper
+        // mistake.
+        async function loadGauntletStats() {
+            if (!currentUser || !userProfileData) return;
+
+            const bestEl = document.getElementById("stat-gauntlet-best");
+            const whenEl = document.getElementById("stat-gauntlet-best-when");
+            const rankEl = document.getElementById("stat-gauntlet-rank");
+            const playedEl = document.getElementById("stat-gauntlet-played");
+            const top10El = document.getElementById("stat-gauntlet-top10");
+            const todayEl = document.getElementById("stat-gauntlet-today");
+
+            const best = Number(userProfileData.bestGauntletScore);
+            const hasBest = Number.isFinite(best);
+            bestEl.innerText = hasBest ? best.toLocaleString() : "—";
+            const bestNum = hasBest ? gauntletNumber(userProfileData.bestGauntletDate) : null;
+            whenEl.innerText = bestNum ? `set on Gauntlet #${bestNum}` : "\u00a0";
+            top10El.innerText = userProfileData.achievedTop10Daily ? "Yes" : "Not yet";
+
+            // Global standing on the all-time Gauntlet board — the same board
+            // the Leaderboard's Gauntlet tab shows, so the two agree.
+            if (hasBest) {
+                getCountFromServer(query(collection(db, "users"), where("bestGauntletScore", ">", best)))
+                    .then((snap) => { rankEl.innerText = "#" + (snap.data().count + 1).toLocaleString(); })
+                    .catch((e) => { console.error("Gauntlet rank failed", e); rankEl.innerText = "—"; });
+            } else {
+                rankEl.innerText = "—";
+            }
+
+            // How many Gauntlets this player has finished. Equality on uid+mode
+            // is the prefix of the (uid, mode, score) index the bests backfill
+            // already needs, so this costs no extra index.
+            getCountFromServer(query(collection(db, "runs"), where("uid", "==", currentUser.uid), where("mode", "==", "daily")))
+                .then((snap) => { playedEl.innerText = snap.data().count.toLocaleString(); })
+                .catch((e) => { console.error("Gauntlets played failed", e); playedEl.innerText = "—"; });
+
+            // Today's line, phrased the same way the headline card does.
+            try {
+                const today = getTodayDateStr();
+                const num = gauntletNumber(today);
+                const label = num ? `Gauntlet #${num}` : "Today's Gauntlet";
+                const run = await fetchMyGauntletRun(today);
+                if (!run) {
+                    todayEl.innerHTML = `${label} — <span class="gs-strong">not finished yet</span>`;
+                    return;
+                }
+                const score = Math.max(0, Number(run.score) || 0);
+                todayEl.innerHTML = `${label} — <span class="gs-strong">${score.toLocaleString()}</span> pts`;
+                const { place, total } = await fetchGauntletStanding(today, score);
+                todayEl.innerHTML = `${placeBadge(place)} ${label} — <span class="gs-strong">${score.toLocaleString()}</span> pts, ` +
+                    `currently <span class="gs-strong">${ordinal(place)} of ${total}</span>`;
+            } catch (e) {
+                console.error("Today's Gauntlet stat failed", e);
+            }
+        }
 
         window.openChallengesMenu = async function() {
             document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
@@ -2134,7 +2235,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         window.renderShop = function(category) {
             document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-shop-${category}`).classList.add("active");
-            const listDiv = document.getElementById("shop-list"); listDiv.innerHTML = ""; const items = SHOP_ITEMS[category]; let html = "";
+            const listDiv = document.getElementById("shop-list"); listDiv.innerHTML = "";
+            // Sorted by price here rather than by keeping SHOP_ITEMS in price
+            // order. Items get appended to that literal as they are designed,
+            // so every late addition landed out of place; sorting at render
+            // means a new one can never be in the wrong slot again. The sort is
+            // stable, so same-price items (the two 2,500 neon banners) keep
+            // their declared order. A copy, because SHOP_ITEMS is looked up by
+            // id everywhere else and has no business being reordered in place.
+            const items = [...SHOP_ITEMS[category]].sort((a, b) => a.cost - b.cost);
+            let html = "";
             items.forEach(item => {
                 let isOwned = userProfileData.inventory.includes(item.id); let eqKey = category.slice(0, -1); if (category === 'effects') eqKey = 'effect';
                 let isEquipped = userProfileData.equipped[eqKey] === item.id; let btnHtml = ""; let badgeHtml = ""; let rowClass = "grid-item";
@@ -2622,6 +2732,35 @@ placeholder comment below, sized to fit the existing 320x50 container.
             document.getElementById("daily-complete-text").style.display = visible ? "none" : "block";
         }
 
+        // --- PLACEMENT BADGES ---
+        //
+        // Drawn as inline SVG rather than picked from emoji: an emoji renders
+        // in whatever style the viewer's OS ships, which is a different design
+        // language from the rest of the arcade UI and lands differently on
+        // every device. These use the site's own palette and glow.
+        //
+        // Podium gets a trophy; the rest of the top ten gets a star, so the
+        // podium stays special; everyone else gets a deliberately understated
+        // marker that labels the line as a placement without dressing it up as
+        // an achievement.
+        const PLACE_BADGES = {
+            gold: `<svg class="place-badge" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"> <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"> <stop offset="0" stop-color="#fff3b0"/><stop offset=".45" stop-color="#ffcc33"/><stop offset="1" stop-color="#b8860b"/></linearGradient>  <filter id="glbg" x="-50%" y="-50%" width="200%" height="200%">   <feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#ffcc33" flood-opacity="0.9"/>  </filter> </defs> <g filter="url(#glbg)">  <!-- handles -->  <path d="M7.4 5.2H4.6v1.5c0 2 1.3 3.6 3 4.1" fill="none" stroke="url(#bg)" stroke-width="1.5" stroke-linecap="round"/>  <path d="M16.6 5.2h2.8v1.5c0 2-1.3 3.6-3 4.1" fill="none" stroke="url(#bg)" stroke-width="1.5" stroke-linecap="round"/>  <!-- cup -->  <path d="M7 3h10v5.1a5 5 0 0 1-10 0z" fill="url(#bg)"/>  <!-- stem, plinth, base -->  <path d="M11 13.1h2v3.1h-2z" fill="url(#bg)"/>  <path d="M9.1 16.2h5.8l.9 2.1H8.2z" fill="url(#bg)"/>  <rect x="6.9" y="18.6" width="10.2" height="2.2" rx="0.7" fill="url(#bg)"/>  <!-- highlight down the cup so it reads as metal, not a flat cutout -->  <path d="M9 3.6h1.6v4.6a3 3 0 0 0 .9 2.1l-.9.5A4.2 4.2 0 0 1 9 8.2z" fill="#fff" opacity=".35"/> </g></svg>`,
+            silver: `<svg class="place-badge" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"> <defs><linearGradient id="bs" x1="0" y1="0" x2="0" y2="1"> <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#d4dde4"/><stop offset="1" stop-color="#8b98a5"/></linearGradient>  <filter id="glbs" x="-50%" y="-50%" width="200%" height="200%">   <feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#d4dde4" flood-opacity="0.9"/>  </filter> </defs> <g filter="url(#glbs)">  <!-- handles -->  <path d="M7.4 5.2H4.6v1.5c0 2 1.3 3.6 3 4.1" fill="none" stroke="url(#bs)" stroke-width="1.5" stroke-linecap="round"/>  <path d="M16.6 5.2h2.8v1.5c0 2-1.3 3.6-3 4.1" fill="none" stroke="url(#bs)" stroke-width="1.5" stroke-linecap="round"/>  <!-- cup -->  <path d="M7 3h10v5.1a5 5 0 0 1-10 0z" fill="url(#bs)"/>  <!-- stem, plinth, base -->  <path d="M11 13.1h2v3.1h-2z" fill="url(#bs)"/>  <path d="M9.1 16.2h5.8l.9 2.1H8.2z" fill="url(#bs)"/>  <rect x="6.9" y="18.6" width="10.2" height="2.2" rx="0.7" fill="url(#bs)"/>  <!-- highlight down the cup so it reads as metal, not a flat cutout -->  <path d="M9 3.6h1.6v4.6a3 3 0 0 0 .9 2.1l-.9.5A4.2 4.2 0 0 1 9 8.2z" fill="#fff" opacity=".35"/> </g></svg>`,
+            bronze: `<svg class="place-badge" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"> <defs><linearGradient id="bb" x1="0" y1="0" x2="0" y2="1"> <stop offset="0" stop-color="#f4c89a"/><stop offset=".45" stop-color="#d08b45"/><stop offset="1" stop-color="#8a4b1d"/></linearGradient>  <filter id="glbb" x="-50%" y="-50%" width="200%" height="200%">   <feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#d08b45" flood-opacity="0.9"/>  </filter> </defs> <g filter="url(#glbb)">  <!-- handles -->  <path d="M7.4 5.2H4.6v1.5c0 2 1.3 3.6 3 4.1" fill="none" stroke="url(#bb)" stroke-width="1.5" stroke-linecap="round"/>  <path d="M16.6 5.2h2.8v1.5c0 2-1.3 3.6-3 4.1" fill="none" stroke="url(#bb)" stroke-width="1.5" stroke-linecap="round"/>  <!-- cup -->  <path d="M7 3h10v5.1a5 5 0 0 1-10 0z" fill="url(#bb)"/>  <!-- stem, plinth, base -->  <path d="M11 13.1h2v3.1h-2z" fill="url(#bb)"/>  <path d="M9.1 16.2h5.8l.9 2.1H8.2z" fill="url(#bb)"/>  <rect x="6.9" y="18.6" width="10.2" height="2.2" rx="0.7" fill="url(#bb)"/>  <!-- highlight down the cup so it reads as metal, not a flat cutout -->  <path d="M9 3.6h1.6v4.6a3 3 0 0 0 .9 2.1l-.9.5A4.2 4.2 0 0 1 9 8.2z" fill="#fff" opacity=".35"/> </g></svg>`,
+            top10: `<svg class="place-badge" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"> <defs><linearGradient id="bt" x1="0" y1="0" x2="0" y2="1"> <stop offset="0" stop-color="#b8ffff"/><stop offset=".45" stop-color="#00f0ff"/><stop offset="1" stop-color="#0090a8"/></linearGradient>  <filter id="glt" x="-50%" y="-50%" width="200%" height="200%">   <feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#00f0ff" flood-opacity="0.9"/></filter> </defs> <g filter="url(#glt)">  <path d="M12 2.6l2.7 5.9 6.4.7-4.8 4.3 1.3 6.3L12 16.6 6.4 19.8l1.3-6.3L2.9 9.2l6.4-.7z" fill="url(#bt)"/>  <path d="M12 2.6l2.7 5.9 6.4.7-4.8 4.3 1.3 6.3L12 16.6z" fill="#000" opacity=".12"/> </g></svg>`,
+            plain: `<svg class="place-badge" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"> <defs><linearGradient id="bp" x1="0" y1="0" x2="0" y2="1"> <stop offset="0" stop-color="#cfa8ff"/><stop offset=".45" stop-color="#9a5fd0"/><stop offset="1" stop-color="#5b3080"/></linearGradient></defs> <path d="M12 2.8l7.6 4.4v8.8L12 20.4 4.4 16V7.2z" fill="none" stroke="url(#bp)" stroke-width="1.7" stroke-linejoin="round"/> <circle cx="12" cy="11.6" r="2.6" fill="url(#bp)"/> </svg>`,
+        };
+
+        function placeBadge(place) {
+            const p = Number(place);
+            if (!Number.isFinite(p) || p < 1) return PLACE_BADGES.plain;
+            if (p === 1) return PLACE_BADGES.gold;
+            if (p === 2) return PLACE_BADGES.silver;
+            if (p === 3) return PLACE_BADGES.bronze;
+            if (p <= 10) return PLACE_BADGES.top10;
+            return PLACE_BADGES.plain;
+        }
+
         // --- GAUNTLET STANDINGS ---
         //
         // A finished Gauntlet is written to runs/daily_{uid}_{date} — a
@@ -2977,11 +3116,14 @@ placeholder comment below, sized to fit the existing 320x50 container.
             }
             const score = Math.max(0, Number(run.score) || 0);
             let line = `you scored <span style="color:#fff; font-weight:bold;">${score.toLocaleString()}</span>`;
+            let badge = PLACE_BADGES.plain;
             try {
                 const { place, total } = await fetchGauntletStanding(dateStr, score);
                 line = `you finished <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span>`;
+                badge = placeBadge(place);
             } catch (e) { console.error("Past Gauntlet standing failed", e); }
-            standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
+            // Same sentence as the callout, so it gets the same badge.
+            standingEl.innerHTML = `${badge} <span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
         };
 
         // "You finished 12th of 47" for yesterday's Gauntlet, shown when you
@@ -3005,14 +3147,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
             const label = num ? `Gauntlet #${num}` : "Yesterday's Gauntlet";
             const score = Math.max(0, Number(run.score) || 0);
             let detail = `you scored <span class="gc-place">${score.toLocaleString()}</span>`;
+            let badge = PLACE_BADGES.plain;
             try {
                 const { place, total } = await fetchGauntletStanding(dateStr, score);
                 detail = `you finished <span class="gc-place">${ordinal(place)} of ${total}</span>`;
+                badge = placeBadge(place);
             } catch (e) {
                 // Placement is the nice-to-have; the score line still lands.
                 console.error("Gauntlet standing lookup failed", e);
             }
-            el.innerHTML = `📊 ${label} — ${detail}`;
+            el.innerHTML = `${badge} ${label} — ${detail}`;
             el.style.display = "block";
         }
 

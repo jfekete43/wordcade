@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the four suites that need no emulator, then boots the emulator for
+That runs the six suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -129,6 +129,28 @@ would bring an element back with the wrong layout and nothing would visibly
 break. This runs the real function against the real markup and stylesheet in
 Chromium, and compares the restored layout against pristine copies rather than
 against those literals. Needs Playwright.
+
+**`shop-order.test.mjs`** — shop pricing order. `SHOP_ITEMS` is written in the
+order items were designed, so every late addition landed out of price order in
+the grid; four of them had by the time it was noticed. `renderShop` sorts a copy
+by cost instead, so a new item can never be in the wrong slot again. Checks
+every category comes out ascending, that same-price items keep their declared
+order (the sort is stable), that the catalogue itself is *not* reordered — it is
+looked up by id from several other places, including the Cloud Function's copy —
+and names the four that were previously misplaced, so a regression names itself.
+Pure.
+
+**`profile-ui.test.mjs`** — the placement badges and the Profile modal's tabs.
+The badges replaced a 📊 emoji with drawn SVG, because an emoji renders in
+whatever style the viewer's OS ships and lands differently on every device. The
+mapping has two boundaries that are easy to put one off (3rd/4th, 10th/11th) and
+the markup gets concatenated into an `innerHTML` string beside player-supplied
+text, so it is checked for being inert and self-contained with no reused
+gradient ids. The tab switcher replaced two inline handlers that each had to
+name the other panel — a shape that does not survive a third tab — so the tests
+assert exactly one panel visible and one tab active through every transition,
+and that reopening the Gauntlet tab re-reads rather than serving stale numbers.
+Pure.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game
