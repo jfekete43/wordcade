@@ -1,6 +1,7 @@
 # Deploying the Cloud Functions + Firestore rules
 
-This covers `functions/` and `firestore.rules` — the server-side pieces that
+This covers `functions/`, `firestore.rules` and `firestore.indexes.json` — the
+server-side pieces that
 validate score/wallet/mmr instead of trusting the client. The static site
 (`index.html`) is unaffected by any of this and keeps deploying however it
 already does (e.g. GitHub Pages via `CNAME`).
@@ -19,8 +20,12 @@ project set to `wordcade-387e8`. Then:
 ```bash
 cd wordcade            # if it is not there: git clone https://github.com/jfekete43/wordcade.git
 git pull origin main
-firebase deploy --only functions,firestore:rules --project wordcade-387e8
+firebase deploy --only firestore:indexes,firestore:rules,functions --project wordcade-387e8
 ```
+
+**That order is deliberate.** Indexes build asynchronously and a query has no
+index to use until its build finishes, so they go first. Rules are instant.
+Functions take a few minutes and are the thing most likely to need a retry.
 
 **Pull before you deploy.** Cloud Shell keeps its own copy of the repo, and it
 does not update itself. Deploying a stale copy pushes old code back out over
@@ -38,24 +43,37 @@ That should match the newest commit on
 ### Deploying only one piece
 
 ```bash
-firebase deploy --only firestore:rules --project wordcade-387e8   # security rules only
-firebase deploy --only functions --project wordcade-387e8         # cloud functions only
+firebase deploy --only firestore:indexes --project wordcade-387e8  # indexes only
+firebase deploy --only firestore:rules --project wordcade-387e8    # security rules only
+firebase deploy --only functions --project wordcade-387e8          # cloud functions only
 ```
 
-Rules deploy in seconds; functions take a few minutes.
+Rules and indexes deploy in seconds — but an index *build* runs in the
+background afterwards and can take minutes on a collection with history in it.
+Watch it in Firebase Console → **Firestore** → **Indexes**; a query whose index
+is still building fails with `FAILED_PRECONDITION` until it goes green.
+Functions take a few minutes to deploy.
 
 ### When a deploy is actually needed
 
 | Changed file | Needs a deploy? |
 | --- | --- |
 | `index.html`, `words.js`, `privacy.html`, `terms.html` | **No** — GitHub Pages serves these straight from `main`, live within a minute of the push |
-| `functions/index.js` | **Yes** — `--only functions` |
+| `functions/index.js`, `functions/*.json` | **Yes** — `--only functions` |
 | `firestore.rules` | **Yes** — `--only firestore:rules` |
+| `firestore.indexes.json` | **Yes** — `--only firestore:indexes` |
+| `tests/`, `tools/`, `DEPLOY.md` | **No** — never shipped anywhere |
 
 ### If it errors
 
 - `Cloud Functions V2 regions are currently unreachable: us-central1` — a
   transient Google-side blip, nothing to do with the code. Run it again.
+- Several functions fail with `Failed to make request` while others succeed —
+  Cloud Functions API throttling, not a build error. Re-run the same command;
+  it only redeploys what changed, so it costs nothing to retry.
+- `FAILED_PRECONDITION: The query requires an index` — the index deploy has
+  landed but its build has not finished. Wait for it to go green in Firebase
+  Console → Firestore → Indexes.
 - `Error: Failed to authenticate` — run `firebase login --no-localhost` and
   follow the printed link.
 - Anything else — the error text is usually specific; keep it, it is what
@@ -98,23 +116,42 @@ cd ..
 ### First deploy
 
 ```bash
-firebase deploy --only functions,firestore:rules --project wordcade-387e8
+firebase deploy --only firestore:indexes,firestore:rules,functions --project wordcade-387e8
 ```
 
-All 19 functions should deploy successfully: `onRunCreated`,
+All 20 functions should deploy successfully: `onRunCreated`,
 `onMatchFinished`, `finishClashMatch`, `forfeitClashMatch`, `claimChallenge`,
 `purchaseItem`, `changeUsername`, `refreshProfile`, `generateDailyPuzzle`,
-`startDailyGauntlet`, `guessDailyWord`, `startSuddenDeath`,
-`guessSuddenDeathWord`, `resolveSuddenDeathTimeout`, `joinFfaMatch`,
-`leaveFfaMatch`, `startFfaMatch`, `finishFfaMatch`, `onFfaMatchFinished`.
+`aggregateWordStats`, `startDailyGauntlet`, `guessDailyWord`,
+`startSuddenDeath`, `guessSuddenDeathWord`, `resolveSuddenDeathTimeout`,
+`joinFfaMatch`, `leaveFfaMatch`, `startFfaMatch`, `finishFfaMatch`,
+`onFfaMatchFinished`.
 
-(If you are reading an older copy of this file that says 6, that was written
-before Clash sudden-death, the Daily Gauntlet and FFA existed.)
+Two of those are on a schedule rather than called by the game:
+`generateDailyPuzzle` at 00:00 Eastern and `aggregateWordStats` at 01:30.
+
+(If you are reading an older copy of this file with a smaller count, it was
+written before Clash sudden-death, the Daily Gauntlet, FFA or word-difficulty
+tracking existed.)
 
 Note: this repo's `firebase.json` intentionally has no `hosting` section
 (the site is served via GitHub Pages, not Firebase Hosting) — running
 `firebase deploy` without `--only` would try to deploy hosting too and is
 not what you want here.
+
+## Running the tests first (optional, and the same in Cloud Shell)
+
+Cloud Shell has Node and Java, which is everything the emulator suite needs:
+
+```bash
+cd tests
+npm install        # first time only
+npm test           # rules + leaderboard + gauntlet + difficulty suites
+cd ..
+```
+
+A non-zero exit means something is broken; deploying anyway is how a bad rule
+reaches production.
 
 ## Verifying a deploy
 
@@ -122,6 +159,10 @@ not what you want here.
   handle — all should work exactly as before from the player's side.
 - Firebase Console → **Functions** → a function → **Logs** should show
   invocations as you do those actions.
+- Firebase Console → **Functions** → `aggregateWordStats` → **Logs**, after
+  01:30 Eastern. It logs how many word samples it counted and how many it
+  rejected. A handful of rejections is normal; a flood means something is
+  sending junk.
 - Firestore Console → a test user's `users/{uid}` doc → `wallet` /
   `careerBank` / `mmr` should only change *after* the corresponding
   in-game action completes (a brief delay is normal — it's now a network
