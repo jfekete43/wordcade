@@ -135,7 +135,15 @@ service cloud.firestore {
         && request.resource.data.username is string
         && request.resource.data.username.size() <= 40
         && request.resource.data.username.matches('^[^<>]*$')
-        && validEquipped(request.resource.data.equipped);
+        && validEquipped(request.resource.data.equipped)
+        // Per-word difficulty samples. Optional on purpose: a browser still
+        // running a cached copy of index.html does not send it, and a run is
+        // far too important to reject over telemetry. Rules only bound the
+        // size — a list of maps can't be inspected element by element here —
+        // so aggregateWordStats re-checks every entry against the real target
+        // list before counting it.
+        && (!('wordLog' in request.resource.data)
+            || (request.resource.data.wordLog is list && request.resource.data.wordLog.size() <= 300));
 
       // payoutApplied is added afterwards by the Cloud Function (Admin SDK,
       // bypasses rules) — the client can never edit a run once created.

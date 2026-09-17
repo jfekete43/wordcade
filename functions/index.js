@@ -25,6 +25,14 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // server-side without ever sending the answer to the client.
 const { targetWords: DAILY_TARGET_WORDS, validGuesses: DAILY_VALID_GUESSES } = require("./words.json");
 const DAILY_ALL_VALID_WORDS = new Set([...DAILY_TARGET_WORDS, ...DAILY_VALID_GUESSES]);
+const DAILY_TARGET_SET = new Set(DAILY_TARGET_WORDS.map((w) => w.toUpperCase()));
+
+// Precomputed difficulty, 0 (easiest) to 1 (hardest), for every target word.
+// Derived offline from the word list itself — how many other targets differ by
+// a single letter (the "four letters green and still six candidates" trap),
+// repeated letters, letter rarity and vowel count — so it needs no player data
+// and costs nothing at runtime. See tools/build-word-difficulty.mjs.
+const WORD_DIFFICULTY = require("./word-difficulty.json");
 
 initializeApp();
 const db = getFirestore();
@@ -756,9 +764,71 @@ function gradeGuess(guess, target) {
   return colors;
 }
 
-function pickDailyWords() {
-  const shuffled = [...DAILY_TARGET_WORDS].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, DAILY_GAUNTLET_WORD_COUNT);
+// How many samples before measured difficulty is trusted over the computed
+// score. Below this the two are blended in proportion, so a word seen four
+// times barely moves off its prior instead of swinging the whole grading.
+const WORD_STATS_PRIOR = 20;
+
+// Measured difficulty for one word, on the same 0..1 scale as the computed
+// score: average guesses mapped from 1..5 onto 0..1, with a miss counting its
+// full board. Returns the computed score alone when there is nothing measured.
+function effectiveDifficulty(word, stats) {
+  const base = WORD_DIFFICULTY[word];
+  const prior = typeof base === "number" ? base : 0.5;
+  const s = stats && stats[word];
+  const plays = s && Number(s.p) > 0 ? Number(s.p) : 0;
+  if (!plays) return prior;
+  const avg = Number(s.g) / plays;
+  if (!Number.isFinite(avg)) return prior;
+  const measured = Math.min(1, Math.max(0, (avg - 1) / 4));
+  // Shrink toward the computed score in proportion to how much data there is.
+  return (plays * measured + WORD_STATS_PRIOR * prior) / (plays + WORD_STATS_PRIOR);
+}
+
+// Ten words that ramp: three from the easy third, four from the middle, three
+// from the hard third, then ordered easiest to hardest so a Gauntlet opens
+// gently and closes with its teeth out.
+//
+// `stats` is optional. The nightly generator passes the measured table; the
+// lazy fallback inside getOrCreateTodaysPuzzle deliberately does not, because
+// that path runs inside a player's own request and is not worth a read.
+function pickDailyWords(stats) {
+  const ranked = DAILY_TARGET_WORDS
+    .map((w) => ({ w, d: effectiveDifficulty(w.toUpperCase(), stats) }))
+    .sort((a, b) => a.d - b.d);
+
+  const third = Math.floor(ranked.length / 3);
+  const tiers = [ranked.slice(0, third), ranked.slice(third, third * 2), ranked.slice(third * 2)];
+  const want = [3, 4, 3]; // sums to DAILY_GAUNTLET_WORD_COUNT
+
+  const picked = [];
+  tiers.forEach((tier, i) => {
+    const pool = [...tier];
+    for (let k = 0; k < want[i] && pool.length; k++) {
+      picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+  });
+  // Defensive: if the tiers somehow came up short (a truncated word list),
+  // top up at random rather than publishing a puzzle with missing words.
+  while (picked.length < DAILY_GAUNTLET_WORD_COUNT) {
+    const w = DAILY_TARGET_WORDS[Math.floor(Math.random() * DAILY_TARGET_WORDS.length)];
+    if (!picked.some((p) => p.w === w)) picked.push({ w, d: effectiveDifficulty(w.toUpperCase(), stats) });
+  }
+  return picked.sort((a, b) => a.d - b.d).slice(0, DAILY_GAUNTLET_WORD_COUNT).map((p) => p.w);
+}
+
+const WORD_STATS_REF = () => db.collection("wordStats").doc("aggregate");
+
+// The measured table, or null. Only ever called from the scheduled generator,
+// never from a player's request.
+async function loadWordStats() {
+  try {
+    const snap = await WORD_STATS_REF().get();
+    return snap.exists ? (snap.data().words || null) : null;
+  } catch (e) {
+    console.error("Word stats read failed; using computed difficulty only", e);
+    return null;
+  }
 }
 
 // Picks the day's words once, at 00:00 Eastern (America/New_York — an IANA
@@ -771,11 +841,85 @@ function pickDailyWords() {
 exports.generateDailyPuzzle = onSchedule({ schedule: "0 0 * * *", timeZone: "America/New_York" }, async () => {
   const today = getTodayDateStr();
   const puzzleRef = db.collection("dailyPuzzles").doc(today);
+  // One read, once a day, on a schedule with no player waiting on it.
+  const stats = await loadWordStats();
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(puzzleRef);
     if (snap.exists) return;
-    tx.set(puzzleRef, { words: pickDailyWords(), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() });
+    tx.set(puzzleRef, { words: pickDailyWords(stats), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() });
   });
+});
+
+// Folds the per-word samples that ride along on /runs into a single document.
+//
+// Cost shape, which is the whole reason it looks like this: one read per run
+// written since the last pass, plus exactly ONE write. Every word's totals live
+// in one document rather than one document per word, which would otherwise be
+// up to 2,315 writes a night and a write hot-spot besides.
+//
+// Progress is tracked by the timestamp of the last run folded in, not by
+// yesterday's date. That makes it self-healing — a missed night catches up on
+// the next one — and makes double-counting impossible, since a run is only
+// ever read by a pass that starts strictly after it.
+const WORD_STATS_BATCH = 2000;
+
+// Folds one run's samples into the running totals. Split out from the
+// scheduled function so the validation can be tested directly — this is the
+// part that decides what a client is allowed to teach the game about its own
+// word list, and it is client-reported data like everything else on a /runs
+// document.
+function foldRunWordLog(run, words) {
+  let counted = 0, rejected = 0;
+  if (!run || !Array.isArray(run.wordLog)) return { counted, rejected };
+
+  // One sample per word per run. A client controls what it writes here, so a
+  // word repeated within a single run is not evidence of anything.
+  const seen = new Set();
+  for (const entry of run.wordLog) {
+    if (!entry || typeof entry.w !== "string") { rejected++; continue; }
+    const w = entry.w.toUpperCase();
+    const g = Number(entry.g);
+    // Re-checked against the real target list rather than trusted.
+    if (!DAILY_TARGET_SET.has(w) || !Number.isInteger(g) || g < 1 || g > 5) { rejected++; continue; }
+    if (seen.has(w)) { rejected++; continue; }
+    seen.add(w);
+
+    const cur = words[w] || { p: 0, g: 0, f: 0 };
+    cur.p += 1;
+    cur.g += g;
+    if (entry.s === false) cur.f += 1;
+    words[w] = cur;
+    counted++;
+  }
+  return { counted, rejected };
+}
+
+exports.aggregateWordStats = onSchedule({ schedule: "30 1 * * *", timeZone: "America/New_York" }, async () => {
+  const ref = WORD_STATS_REF();
+  const snap = await ref.get();
+  const prev = snap.exists ? snap.data() : {};
+  const words = prev.words || {};
+  const since = prev.lastProcessed || new Date(0);
+
+  const runs = await db.collection("runs")
+    .where("timestamp", ">", since)
+    .orderBy("timestamp", "asc")
+    .limit(WORD_STATS_BATCH)
+    .get();
+  if (runs.empty) return;
+
+  let latest = since;
+  let counted = 0, rejected = 0;
+  for (const doc of runs.docs) {
+    const run = doc.data();
+    if (run.timestamp) latest = run.timestamp;
+    const tally = foldRunWordLog(run, words);
+    counted += tally.counted;
+    rejected += tally.rejected;
+  }
+
+  await ref.set({ words, lastProcessed: latest, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  console.log(`wordStats: ${runs.size} runs, ${counted} samples counted, ${rejected} rejected, ${Object.keys(words).length} words known`);
 });
 
 async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {

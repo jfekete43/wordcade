@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the six suites that need no emulator, then boots the emulator for
+That runs the seven suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -151,6 +151,17 @@ name the other panel — a shape that does not survive a third tab — so the te
 assert exactly one panel visible and one tab active through every transition,
 and that reopening the Gauntlet tab re-reads rather than serving stale numbers.
 Pure.
+
+**`word-difficulty.test.mjs`** — the grading that shapes a Gauntlet, and the
+validation guarding it. Per-word samples ride along on the client-written
+`/runs` document, and `firestore.rules` can only bound the array's size (a list
+of maps cannot be inspected element by element there), so `foldRunWordLog`
+re-checks every entry against the real target list and counts a word once per
+run. Poisoning it would move no points and no money, but it would quietly skew
+which words the Gauntlet thinks are hard — so the rejection cases are the bulk
+of this suite. Also covers the shrinkage in `effectiveDifficulty` (a word seen
+twice must barely move off its computed score) and `pickDailyWords` (ten unique
+real words, always ordered easiest to hardest, with a real spread). Pure.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game

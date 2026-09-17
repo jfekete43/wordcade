@@ -2646,6 +2646,23 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         const scorePoints = [500, 250, 150, 50, 10]; 
         let runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
+
+        // Per-word outcomes for this run, for measuring how hard each word
+        // actually is. Rides along on the /runs document that gets written at
+        // the end of a run anyway, so it costs no extra write and nothing on
+        // the player's path — the aggregateWordStats function folds it up
+        // overnight (see functions/index.js).
+        //
+        // Capped because the run doc has a 1 MiB ceiling and nothing else here
+        // bounds a run's length. 300 words is far beyond any real run, and a
+        // run that somehow passes it still contributes its first 300.
+        const RUN_WORD_LOG_MAX = 300;
+        let runWordLog = [];
+        function logWordResult(word, guesses, solved) {
+            if (runWordLog.length >= RUN_WORD_LOG_MAX) return;
+            if (typeof word !== "string" || word.length !== 5) return;
+            runWordLog.push({ w: word.toUpperCase(), g: guesses, s: solved });
+        }
         // --- NEW CLASH MODE VARIABLES ---
         let clashWordIndex = 0;
         let clashWords = [];
@@ -4397,6 +4414,12 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         guess4: runStats.guess4, guess5: runStats.guess5, fails: runStats.fails,
                         kobeCount: runStats.kobeCount || 0,
                         bestStreak: runStats.bestStreak || 0,
+                        // Difficulty sampling. Never trusted as written: the
+                        // overnight aggregator re-checks every entry against
+                        // the real target list before counting it, because
+                        // this is client-reported like everything else in
+                        // this document.
+                        wordLog: runWordLog,
                         equipped: profile.equipped || { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
                         timestamp: serverTimestamp()
                     });
@@ -4599,7 +4622,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         window.startNewRun = function() {
             modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
-            score = 0; continues = 1; wordsGuessed = 0; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
+            score = 0; continues = 1; wordsGuessed = 0; runWordLog = []; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
             clearLocalState(); updateScoreBoard(); startRound();
         }
 
@@ -4842,6 +4865,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             } else {
                                 SFX.correctWord();
                                 runStats.played++; runStats['guess' + (currentRow + 1)]++;
+                                logWordResult(targetWord, currentRow + 1, true);
                                 if (currentRow === maxGuesses - 1 && continues <= 0) { runStats.kobeCount++; }
                                 runStats.currentStreak++; runStats.bestStreak = Math.max(runStats.bestStreak, runStats.currentStreak);
 
@@ -4874,6 +4898,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
                                 setTimeout(startRound, 1500); // slightly longer to read the penalty
                             } else {
                                 continues--; runStats.played++; runStats.fails++; runStats.currentStreak = 0;
+                                // A miss costs the full board, which is the honest
+                                // reading of what the word cost.
+                                logWordResult(targetWord, maxGuesses, false);
                                 if (continues < 0) {
                                     SFX.wipeout();
                                     showMessage(`WORD WAS ${targetWord}.`);

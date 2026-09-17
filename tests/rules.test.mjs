@@ -44,6 +44,17 @@ await check('equip a real cosmetic', true, () => updateDoc(doc(db, 'users', UID)
 await check('legacy partial loadout still equippable', true, () => updateDoc(doc(legacyDb, 'users', 'legacy'), { equipped: { banner: 'banner_matrix' } }));
 await check('normal run save', true, () => addDoc(collection(db, 'runs'), run()));
 await check('run w/ accented Google-style name', true, () => addDoc(collection(db, 'runs'), run({ username: 'JOSÉ' })));
+// Per-word difficulty samples. The field is OPTIONAL by design: a browser on a
+// cached copy of index.html does not send it, and a run is far too important to
+// reject over telemetry — that rollout case is the first check here.
+await check('run from a client that does not send wordLog yet', true, () => addDoc(collection(db, 'runs'), run()));
+await check('run w/ a wordLog', true, () => addDoc(collection(db, 'runs'), run({ wordLog: [{ w: 'CRANE', g: 3, s: true }, { w: 'SHARE', g: 5, s: false }] })));
+await check('run w/ an empty wordLog', true, () => addDoc(collection(db, 'runs'), run({ wordLog: [] })));
+// Rules can only bound the size — a list of maps cannot be inspected element by
+// element there, which is why foldRunWordLog re-validates every entry. What
+// rules DO have to stop is a document big enough to be a problem on its own.
+await check('run w/ an oversized wordLog', false, () => addDoc(collection(db, 'runs'), run({ wordLog: Array.from({ length: 301 }, () => ({ w: 'CRANE', g: 1, s: true })) })));
+await check('run w/ a wordLog that is not a list', false, () => addDoc(collection(db, 'runs'), run({ wordLog: 'nope' })));
 
 // --- the XSS vectors must be blocked ---
 await check('equipped w/ markup payload', false, () => updateDoc(doc(db, 'users', UID), { equipped: EVIL }));
