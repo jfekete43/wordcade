@@ -4137,10 +4137,54 @@ placeholder comment below, sized to fit the existing 320x50 container.
         }
 
         let lastFfaMatchData = null; // refreshed on every snapshot — the 1s countdown ticker below reads this instead of closing over one stale snapshot forever
+        let ffaAutoStartRequested = false;
+
+        // A public lobby starts itself once its grace period elapses.
+        //
+        // This has to be driven by the clock, not by a snapshot. Setting
+        // lobbyDeadline is the LAST write a 2-player lobby receives: after it,
+        // nothing touches the match document, so no snapshot arrives, so a
+        // deadline check that lives in the snapshot handler never runs again.
+        // The lobby counted down to zero and sat there — the only reason the
+        // mode worked at all was a 4th player joining, which the server starts
+        // immediately on its own.
+        //
+        // Every joined client races to call this; startFfaMatch is
+        // transaction-idempotent and re-checks the deadline against the
+        // server's own clock, so extra callers are harmless and a client with
+        // a fast local clock can't start anything early.
+        // One tick of the lobby: redraw the countdown, and check whether the
+        // grace period has elapsed. Named rather than inline so the timeline
+        // this fixes can be tested against a controlled clock.
+        function ffaLobbyTick() {
+            if (document.getElementById("ffa-lobby-waiting-view").style.display === "block" && lastFfaMatchData) {
+                renderFfaLobbyWaiting(lastFfaMatchData);
+            }
+            // The deadline is a wall-clock event that no write announces, so
+            // something has to watch for it.
+            maybeAutoStartFfa();
+        }
+
+        function maybeAutoStartFfa() {
+            const data = lastFfaMatchData;
+            if (!data || data.status !== "waiting") return;
+            if (!data.isPublic || !data.lobbyDeadline) return;
+            if (Date.now() < data.lobbyDeadline) return;
+            if (ffaAutoStartRequested) return; // one call, not one per second
+
+            ffaAutoStartRequested = true;
+            callStartFfaMatch({ matchId: currentMatchId }).catch((e) => {
+                console.error("FFA auto-start failed", e);
+                // Let a later tick try again rather than stranding the lobby
+                // on one transient failure.
+                ffaAutoStartRequested = false;
+            });
+        }
 
         function listenToFfaMatch() {
             if (ffaMatchUnsubscribe) ffaMatchUnsubscribe();
             lastFfaMatchData = null;
+            ffaAutoStartRequested = false;
 
             ffaMatchUnsubscribe = onSnapshot(doc(db, "matches", currentMatchId), async (docSnap) => {
                 if (!docSnap.exists()) {
@@ -4155,18 +4199,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 if (data.status === "waiting") {
                     renderFfaLobbyWaiting(data);
 
-                    // Public lobby's grace-period auto-start — any joined client
-                    // can trigger it once the deadline passes; the callable
-                    // re-validates against its own clock, so a client lying
-                    // about local time doesn't start it early.
-                    if (data.isPublic && data.lobbyDeadline && Date.now() >= data.lobbyDeadline) {
-                        callStartFfaMatch({ matchId: currentMatchId }).catch(e => console.error(e));
-                    }
-                    if (!ffaLobbyTimerInterval) {
-                        ffaLobbyTimerInterval = setInterval(() => {
-                            if (document.getElementById("ffa-lobby-waiting-view").style.display === "block" && lastFfaMatchData) renderFfaLobbyWaiting(lastFfaMatchData);
-                        }, 1000);
-                    }
+                    // Covers a snapshot that happens to land after the
+                    // deadline (a late joiner); the ticker below is what
+                    // actually fires in the normal case.
+                    maybeAutoStartFfa();
+                    if (!ffaLobbyTimerInterval) ffaLobbyTimerInterval = setInterval(ffaLobbyTick, 1000);
                 } else if (ffaLobbyTimerInterval) {
                     clearInterval(ffaLobbyTimerInterval); ffaLobbyTimerInterval = null;
                 }
@@ -4295,6 +4332,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         window.leaveFfaMatch = function() {
             if (ffaMatchUnsubscribe) ffaMatchUnsubscribe();
             if (ffaLobbyTimerInterval) { clearInterval(ffaLobbyTimerInterval); ffaLobbyTimerInterval = null; }
+            ffaAutoStartRequested = false;
             if (clashTimerInterval) { clearInterval(clashTimerInterval); clashTimerInterval = null; }
 
             if (currentMatchId) {

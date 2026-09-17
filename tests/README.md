@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the seven suites that need no emulator, then boots the emulator for
+That runs the eight suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -172,6 +172,19 @@ deliberate in the markup. The suite renders the real body against the real
 stylesheet, forces every modal open, walks all ~100 buttons, resolves the
 background each one actually sits on (a transparent button inherits its
 container's) and measures. Needs Playwright.
+
+**`ffa-lobby.test.mjs`** — a public FFA lobby starting itself when its grace
+period elapses. The bug it pins: the deadline check lived inside the match
+document's `onSnapshot` handler, but setting `lobbyDeadline` is the *last* write
+a two-player lobby receives — after it nothing touches the document, so no
+snapshot arrives and the check never ran again. The countdown hit zero and the
+lobby sat there; the mode only worked when a fourth player joined, which the
+server starts itself. A deadline is a wall-clock event that no write announces,
+so it has to be driven by the clock. These cases replay that exact timeline —
+one snapshot, then silence — against a controlled clock, and cover the
+one-call-not-one-per-tick guard, retry after a transient failure, and the
+several states that must never auto-start (private rooms, no deadline, already
+playing). Pure.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game
