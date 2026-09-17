@@ -4127,7 +4127,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     subText.innerText = "Lobby full — starting now...";
                 } else if (data.lobbyDeadline) {
                     let remain = Math.max(0, Math.ceil((data.lobbyDeadline - Date.now()) / 1000));
-                    subText.innerText = `Starting in ${remain}s with ${slots.length} player(s)... more may still join!`;
+                    if (ffaAutoStartError) {
+                        subText.innerText = `Couldn't start: ${ffaAutoStartError} — retrying...`;
+                    } else if (remain <= 0) {
+                        // The countdown is over and the start is in flight.
+                        // "Starting in 0s... more may still join!" read like
+                        // nothing was happening at all.
+                        subText.innerText = `Starting the match...`;
+                    } else {
+                        subText.innerText = `Starting in ${remain}s with ${slots.length} player(s)... more may still join!`;
+                    }
                 } else {
                     subText.innerText = `Waiting for a 2nd player... (${slots.length}/4)`;
                 }
@@ -4138,6 +4147,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         let lastFfaMatchData = null; // refreshed on every snapshot — the 1s countdown ticker below reads this instead of closing over one stale snapshot forever
         let ffaAutoStartRequested = false;
+        let ffaAutoStartAttempts = 0;
+        let ffaAutoStartError = null;
 
         // A public lobby starts itself once its grace period elapses.
         //
@@ -4173,18 +4184,37 @@ placeholder comment below, sized to fit the existing 320x50 container.
             if (ffaAutoStartRequested) return; // one call, not one per second
 
             ffaAutoStartRequested = true;
-            callStartFfaMatch({ matchId: currentMatchId }).catch((e) => {
-                console.error("FFA auto-start failed", e);
-                // Let a later tick try again rather than stranding the lobby
-                // on one transient failure.
-                ffaAutoStartRequested = false;
-            });
+            ffaAutoStartAttempts++;
+            callStartFfaMatch({ matchId: currentMatchId })
+                .then(() => { ffaAutoStartError = null; })
+                .catch((e) => {
+                    console.error("FFA auto-start failed", e);
+                    // Say so on screen rather than only in the console. A lobby
+                    // that sits at "Starting in 0s" with no explanation is
+                    // impossible to diagnose from a phone, which is exactly the
+                    // position this bug left everyone in. Held back for a few
+                    // attempts so a single transient blip doesn't flash an
+                    // alarming message at players.
+                    if (ffaAutoStartAttempts >= 3) ffaAutoStartError = e.message || String(e);
+                    // Let a later tick try again rather than stranding the
+                    // lobby on one transient failure.
+                    ffaAutoStartRequested = false;
+                });
         }
+
+        // setInterval is throttled hard, and on mobile often suspended
+        // outright, while a tab is backgrounded — so a player who switches
+        // apps during the 20-second grace period may not tick at all. Coming
+        // back re-checks immediately instead of waiting for the next tick.
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) maybeAutoStartFfa(); });
+        window.addEventListener("focus", () => maybeAutoStartFfa());
 
         function listenToFfaMatch() {
             if (ffaMatchUnsubscribe) ffaMatchUnsubscribe();
             lastFfaMatchData = null;
             ffaAutoStartRequested = false;
+            ffaAutoStartAttempts = 0;
+            ffaAutoStartError = null;
 
             ffaMatchUnsubscribe = onSnapshot(doc(db, "matches", currentMatchId), async (docSnap) => {
                 if (!docSnap.exists()) {
@@ -4333,6 +4363,8 @@ placeholder comment below, sized to fit the existing 320x50 container.
             if (ffaMatchUnsubscribe) ffaMatchUnsubscribe();
             if (ffaLobbyTimerInterval) { clearInterval(ffaLobbyTimerInterval); ffaLobbyTimerInterval = null; }
             ffaAutoStartRequested = false;
+            ffaAutoStartAttempts = 0;
+            ffaAutoStartError = null;
             if (clashTimerInterval) { clearInterval(clashTimerInterval); clashTimerInterval = null; }
 
             if (currentMatchId) {

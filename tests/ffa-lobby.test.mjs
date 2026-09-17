@@ -31,8 +31,8 @@ console.log('extracted from index.html:', src.length, 'chars | grace period', GR
 
 // A lobby harness: a controllable clock, a stub callable, and the two real
 // extracted functions driving it.
-function makeLobby({ failFirstCall = false } = {}) {
-  const state = { now: 1_000_000, calls: [], rendered: 0, failNext: failFirstCall };
+function makeLobby({ failFirstCall = false, failEvery = false } = {}) {
+  const state = { now: 1_000_000, calls: [], rendered: 0, failNext: failFirstCall, failEvery };
   const env = new Function('getNow', 'onStart', 'state', `
     const document = { getElementById: () => ({ style: { display: 'block' } }) };
     // The retry case deliberately rejects once; its console.error would
@@ -41,6 +41,8 @@ function makeLobby({ failFirstCall = false } = {}) {
     let currentMatchId = 'ROOMX';
     let lastFfaMatchData = null;
     let ffaAutoStartRequested = false;
+    let ffaAutoStartAttempts = 0;
+    let ffaAutoStartError = null;
     const Date = { now: getNow };
     function renderFfaLobbyWaiting() { state.rendered++; }
     function callStartFfaMatch(arg) { return onStart(arg); }
@@ -48,10 +50,12 @@ function makeLobby({ failFirstCall = false } = {}) {
     return {
       tick: ffaLobbyTick,
       setData: (d) => { lastFfaMatchData = d; },
-      reset: () => { ffaAutoStartRequested = false; },
+      lastError: () => ffaAutoStartError,
+      reset: () => { ffaAutoStartRequested = false; ffaAutoStartAttempts = 0; ffaAutoStartError = null; },
     };
   `)(() => state.now, (arg) => {
     state.calls.push(arg);
+    if (state.failEvery) return Promise.reject(new Error('The grace period hasn\'t elapsed yet.'));
     if (state.failNext) { state.failNext = false; return Promise.reject(new Error('transient')); }
     return Promise.resolve({ ok: true });
   }, state);
@@ -105,6 +109,22 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
   L.state.now += 1000; L.tick();
   await settle();
   ck(L.state.calls.length === 2, 'and once it succeeds it stops asking', `${L.state.calls.length} calls`);
+}
+
+// ===== a persistent failure has to become visible =========================
+// A lobby sitting at "Starting in 0s" with no explanation is impossible to
+// diagnose from a phone, which is the position the original bug left everyone
+// in. A start that keeps being refused now says so on screen.
+{
+  const L = makeLobby({ failEvery: true });
+  L.setData(waiting(-1, L.state.now));
+  L.tick(); await settle();
+  ck(L.lastError() === null, 'one failure stays quiet — no alarming flash for a blip');
+  L.state.now += 1000; L.tick(); await settle();
+  L.state.now += 1000; L.tick(); await settle();
+  ck(typeof L.lastError() === 'string' && /grace period/.test(L.lastError()),
+     'a persistent failure surfaces the server\'s own reason', String(L.lastError()));
+  ck(L.state.calls.length >= 3, 'and it keeps retrying while it does', `${L.state.calls.length} calls`);
 }
 
 // ===== everything that must NOT start =====================================
