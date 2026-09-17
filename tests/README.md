@@ -20,7 +20,7 @@ That runs the seven suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
-Two suites drive a real browser instead of the emulator, so they are not part
+Three suites drive a real browser instead of the emulator, so they are not part
 of `npm test`:
 
 ```
@@ -162,6 +162,16 @@ which words the Gauntlet thinks are hard — so the rejection cases are the bulk
 of this suite. Also covers the shrinkage in `effectiveDifficulty` (a word seen
 twice must barely move off its computed score) and `pickDailyWords` (ten unique
 real words, always ordered easiest to hardest, with a real spread). Pure.
+
+**`button-contrast.test.mjs`** — every button's text must be readable. This
+exists because "Find Public Match" shipped as a `.btn-cyan` — a class whose
+whole job is cyan fill with *black* text — with the colour overridden inline to
+gold. Gold on cyan measures **1.12:1** against a 3:1 minimum for large bold
+text: not uncomfortable, effectively invisible, and it looked perfectly
+deliberate in the markup. The suite renders the real body against the real
+stylesheet, forces every modal open, walks all ~100 buttons, resolves the
+background each one actually sits on (a transparent button inherits its
+container's) and measures. Needs Playwright.
 
 **`pwa.test.mjs`** — `sw.js` and `site.webmanifest`. Serves the repo over
 localhost in a headless Chromium and checks the things that make the game
