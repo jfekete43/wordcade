@@ -504,6 +504,24 @@ function requireAuth(request) {
   return request.auth.uid;
 }
 
+// The Daily Gauntlet is a fixed puzzle, so its answers can be learned once on
+// one account and replayed on another. Anonymous sign-in is free and instant,
+// which made a scout account cost literally nothing. Requiring a real account
+// does not make scouting impossible — it stops it being free, which is the
+// part that actually governs whether anyone bothers.
+//
+// Enforced here rather than only in the browser: the client check is a
+// courtesy so the player gets a sign-in prompt instead of an error, but this
+// is what a crafted call hits.
+function requireNonGuest(request) {
+  const uid = requireAuth(request);
+  const firebase = request.auth.token && request.auth.token.firebase;
+  if (firebase && firebase.sign_in_provider === "anonymous") {
+    throw new HttpsError("permission-denied", "Sign in with Google or email to play the Daily Gauntlet.");
+  }
+  return uid;
+}
+
 exports.claimChallenge = onCall(async (request) => {
   const uid = requireAuth(request);
   const { id, type } = request.data || {};
@@ -944,7 +962,7 @@ function publicAttemptState(attempt) {
 }
 
 exports.startDailyGauntlet = onCall(async (request) => {
-  const uid = requireAuth(request);
+  const uid = requireNonGuest(request);
   const today = getTodayDateStr();
   const ref = dailyAttemptRef(uid, today);
   const puzzleRef = db.collection("dailyPuzzles").doc(today);

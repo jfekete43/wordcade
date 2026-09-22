@@ -1192,7 +1192,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff; max-width: 360px;">
             <h2 class="modal-title" style="color: #00ffff;">Don't Lose This!</h2>
             <p id="signup-nudge-reason" style="color: #fff; font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
-            <p style="color: #aaa; font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in with Google to keep it forever and play from any device.</p>
+            <p id="signup-nudge-body" style="color: #aaa; font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in with Google to keep it forever and play from any device.</p>
             <div class="modal-buttons">
                 <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign In With Google</button>
                 <button class="btn-dark" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
@@ -1351,11 +1351,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
-                <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Gauntlet</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
                 <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
             </div>
-            <div id="lb-daily-note" style="display:none; font-size: 11px; color: #aaa; text-align: center; font-style: italic; margin: -8px 0 10px;">Best Gauntlet run ever. Today's live board is under the game, with every past day in Past Gauntlets.</div>
             <div id="leaderboard-list"><div class="lb-loading">Loading scores...</div></div>
             <!-- Your own line, pinned under every board. A top-100 list tells
                  the other 95% of players nothing about where they stand. -->
@@ -1545,7 +1543,20 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // so it's a periodic reminder rather than a wall. Naturally stops
         // firing forever once isGuest flips to false after linking.
         let signupNudgeShownThisSession = false;
+        // The guest copy the nudge normally shows, kept so the Gauntlet gate can
+        // borrow the same modal with its own wording and hand it back after.
+        const SIGNUP_NUDGE_DEFAULT_BODY = "You're playing as a Guest \u2014 everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in with Google to keep it forever and play from any device.";
+
+        // A gate, not a nudge: no rate limiting, because the player has just
+        // been refused something rather than gently reminded.
+        function showGuestGate(reason, body) {
+            document.getElementById("signup-nudge-reason").innerText = reason;
+            document.getElementById("signup-nudge-body").innerText = body;
+            document.getElementById("signup-nudge-modal").style.display = "flex";
+        }
+
         function maybeShowSignupNudge(reason) {
+            document.getElementById("signup-nudge-body").innerText = SIGNUP_NUDGE_DEFAULT_BODY;
             if (!currentUser || !userProfileData || !userProfileData.isGuest) return;
             if (signupNudgeShownThisSession) return;
             let lastShown = 0;
@@ -2310,7 +2321,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // LEADERBOARD LOGIC
         let currentLbTime = 'all'; 
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
-        window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); document.getElementById("lb-daily-note").style.display = (time === 'daily') ? "block" : "none"; window.loadLeaderboardData(); }
+        window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
         
         // --- YOUR POSITION ---
         //
@@ -2355,9 +2366,15 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
             try {
                 // Every board but monthly is /users ordered by one field.
+                //
+                // No Gauntlet entry here on purpose. The Gauntlet is a fixed
+                // daily puzzle, so its answers can be scouted with a throwaway
+                // account and replayed on a main one — which a permanent
+                // all-time board would have preserved forever. Its standings
+                // live on the play screen and in Past Gauntlets, where they
+                // reset nightly and a scouted run ages out.
                 const USERS_BOARD = {
                     all:   { field: "bestRunScore",      fallback: 0,    empty: "No runs yet — play a game to get on the board" },
-                    daily: { field: "bestGauntletScore", fallback: 0,    empty: "No Gauntlet finished yet" },
                     clash: { field: "mmr",               fallback: 1000, empty: "" },
                     ffa:   { field: "ffaWins",           fallback: 0,    empty: "Win an FFA match to climb" },
                 };
@@ -2452,15 +2469,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestRunScore", "desc"), limit(100)));
                             snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestRunScore || 0, ts: d.bestRunAt, equipped: d.equipped }); });
                         }
-                        else if (currentLbTime === 'daily') {
-                            // Best Gauntlet run ever, with the puzzle it was set
-                            // on. Today's live board is on the play screen and in
-                            // Past Gauntlets — this tab is the hall of fame, so a
-                            // player joining months in still sees something worth
-                            // chasing instead of a board that resets nightly.
-                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestGauntletScore", "desc"), limit(100)));
-                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestGauntletScore || 0, puzzleDate: d.bestGauntletDate, equipped: d.equipped }); });
-                        }
                         else {
                             // Monthly is the one board still built from /runs: it
                             // is time-windowed, so it can't be answered from a
@@ -2532,12 +2540,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         finalData.forEach((entry, index) => {
                             let dateStr = "";
                             if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
-                            // Which Gauntlet the best run was set on — the reason
-                            // puzzle numbers exist as a naming scheme at all.
-                            if (currentLbTime === 'daily' && entry.puzzleDate) {
-                                const gNum = gauntletNumber(entry.puzzleDate);
-                                if (gNum) dateStr = `<span style="font-weight:normal;"> - Gauntlet #${gNum}</span>`;
-                            }
                             let eq = entry.equipped || {}; let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
                             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
             
@@ -3010,6 +3012,13 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 btnEl.innerText = "Play Today's Gauntlet";
                 return;
             }
+            // Say it on the card rather than letting the tap dead-end in a gate.
+            if (userProfileData && userProfileData.isGuest) {
+                bodyEl.innerHTML = "Ten words, one shot each. Everyone gets the same puzzle \u2014 " +
+                    "<span class=\"gcb-strong\">free account required</span>.";
+                btnEl.innerText = "Sign In To Play";
+                return;
+            }
 
             let attempt = null;
             try {
@@ -3188,6 +3197,15 @@ placeholder comment below, sized to fit the existing 320x50 container.
         window.openDailyGauntlet = async function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             if (!currentUser) return;
+            // startDailyGauntlet refuses guests outright. Catching it here means
+            // a sign-in prompt rather than a raw permission error.
+            if (userProfileData && userProfileData.isGuest) {
+                showGuestGate(
+                    "The Daily Gauntlet needs a free account.",
+                    "Everyone plays the same ten words each day, so the Gauntlet is account-only \u2014 it keeps a throwaway account from being used to look the answers up. Signing in also saves the progress you have already made in this browser."
+                );
+                return;
+            }
             if (isVersusMode) { alert("Leave the Clash match first!"); return; }
             if (isFfaMode) { alert("Leave the FFA match first!"); return; }
             if (score > 0 || runStats.played > 0) {
