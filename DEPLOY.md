@@ -71,6 +71,32 @@ Functions take a few minutes to deploy.
 - Several functions fail with `Failed to make request` while others succeed —
   Cloud Functions API throttling, not a build error. Re-run the same command;
   it only redeploys what changed, so it costs nothing to retry.
+
+  **Then test every function that was in the failed batch.** A retry that
+  reports `Successful update operation` is not proof the function works. In
+  2nd-gen each function is its own Cloud Run service, and `firebase deploy`
+  only creates a new *revision* of it — so a service left half-created by the
+  original failure keeps accepting deploys while 500-ing every single
+  invocation. This cost days once: `startFfaMatch` looked deployed, took three
+  more successful deploys, and failed every call throughout.
+
+  The tell is a callable failing with a bare `internal` and no application
+  message. Every deliberate rejection in this codebase carries its own code
+  (`failed-precondition`, `permission-denied`, …) and `startFfaMatch` wraps
+  unexpected throws with a real message, so a naked `internal` means the
+  handler never ran at all.
+
+  An update cannot fix it. Delete and redeploy, which forces a brand-new
+  service and re-applies its invoker permissions from scratch:
+
+  ```bash
+  firebase functions:delete <name> --project wordcade-387e8 --force
+  firebase deploy --only functions:<name> --project wordcade-387e8
+  ```
+
+  Safe for callables (stateless, recreated in seconds). For a background
+  trigger it also means events in the gap aren't delivered — a few seconds at
+  this traffic.
 - `FAILED_PRECONDITION: The query requires an index` — the index deploy has
   landed but its build has not finished. Wait for it to go green in Firebase
   Console → Firestore → Indexes.
