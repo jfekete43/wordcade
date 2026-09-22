@@ -1490,28 +1490,48 @@ exports.startFfaMatch = onCall(async (request) => {
   if (typeof matchId !== "string" || !matchId) throw new HttpsError("invalid-argument", "Bad match id.");
 
   const matchRef = db.collection("matches").doc(matchId);
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(matchRef);
-    if (!snap.exists) throw new HttpsError("not-found", "Match not found.");
-    const match = snap.data();
-    if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
-    if (!ffaSlots(match).some((s) => s.uid === uid)) throw new HttpsError("permission-denied", "Not a participant.");
-    if (match.status !== "waiting") return { ok: true, alreadyStarted: true }; // idempotent no-op
+  // `return await`, not a bare `return` — a bare one resolves the promise
+  // outside this try and the catch below would never see a rejection.
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(matchRef);
+      if (!snap.exists) throw new HttpsError("not-found", "Match not found.");
+      const match = snap.data();
+      if (match.mode !== "ffa") throw new HttpsError("failed-precondition", "Not an FFA match.");
+      if (!ffaSlots(match).some((s) => s.uid === uid)) throw new HttpsError("permission-denied", "Not a participant.");
+      if (match.status !== "waiting") return { ok: true, alreadyStarted: true }; // idempotent no-op
 
-    const count = match.playerCount || 0;
-    if (count < FFA_MIN_PLAYERS) throw new HttpsError("failed-precondition", "Need at least 2 players.");
+      const count = match.playerCount || 0;
+      if (count < FFA_MIN_PLAYERS) throw new HttpsError("failed-precondition", "Need at least 2 players.");
 
-    if (match.isPublic) {
-      if (!match.lobbyDeadline || Date.now() < match.lobbyDeadline) {
-        throw new HttpsError("failed-precondition", "The grace period hasn't elapsed yet.");
+      if (match.isPublic) {
+        if (!match.lobbyDeadline || Date.now() < match.lobbyDeadline) {
+          throw new HttpsError("failed-precondition", "The grace period hasn't elapsed yet.");
+        }
+      } else if (match.hostUid !== uid) {
+        throw new HttpsError("permission-denied", "Only the host can start a private match early.");
       }
-    } else if (match.hostUid !== uid) {
-      throw new HttpsError("permission-denied", "Only the host can start a private match early.");
-    }
 
-    tx.update(matchRef, { status: "playing", endTime: Date.now() + FFA_MATCH_MS });
-    return { ok: true };
-  });
+      tx.update(matchRef, { status: "playing", endTime: Date.now() + FFA_MATCH_MS });
+      return { ok: true };
+    });
+  } catch (e) {
+    // Every throw above is a decision this function made on purpose, so it
+    // passes through untouched and the lobby still shows its specific reason.
+    if (e instanceof HttpsError) throw e;
+
+    // Anything else used to reach the client as the bare word "internal",
+    // which told nobody anything — a lobby stuck on "Couldn't start:
+    // internal" is undiagnosable from a phone. Log it with the context
+    // needed to find it, and forward the real message so the next person
+    // to hit this can read the cause off their own screen.
+    console.error("startFfaMatch threw", {
+      matchId, uid,
+      name: e && e.name, code: e && e.code,
+      message: e && e.message, stack: e && e.stack,
+    });
+    throw new HttpsError("internal", `start failed: ${(e && e.message) || String(e)}`);
+  }
 });
 
 // Ends a 'playing' FFA match once its clock has actually run out, computing
