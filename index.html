@@ -120,11 +120,33 @@
             background: #1a1a1d; padding: 15px; border-radius: 5px; border: 2px solid #ffd700; margin-bottom: 15px;
         }
         #ffa-timer-display { font-size: 20px; color: #ffd700; font-weight: bold; text-shadow: 0 0 10px #ffd700; text-align: center; margin-bottom: 12px; }
-        #ffa-players-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .ffa-player-card { background: #222; border: 2px solid #444; border-radius: 5px; padding: 8px; text-align: center; }
-        .ffa-player-card.ffa-me { border-color: #ffd700; box-shadow: 0 0 8px #ffd700; }
-        .ffa-player-word-count { font-size: 10px; color: #aaa; font-weight: bold; margin: 2px 0; text-transform: uppercase; }
-        .ffa-player-score { font-size: 18px; font-weight: bold; color: #ffd700; margin-top: 4px; }
+        /* A standings list, not a 2x2 card grid. Four cards each carrying a
+           name plate and a 5x5 mini-board stacked most of a phone screen
+           above the board you are actually playing on, and a grid cannot put
+           the leader on top. Rows are ordered by live standings through flex
+           `order`, so the DOM never gets reshuffled — only the ordinal moves,
+           and the cosmetic classes keep updating in place. Row fills come
+           from the banner_* cosmetics, same as a leaderboard row. */
+        #ffa-players-list { display: flex; flex-direction: column; gap: 5px; }
+        .ffa-list-head, .ffa-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 42px 42px 68px; align-items: center; gap: 6px; }
+        .ffa-list-head { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 1px; padding: 0 8px 5px; }
+        .ffa-row { border: 1px solid #444; border-radius: 5px; padding: 7px 8px; position: relative; z-index: 1; }
+        .ffa-row.ffa-me { border-color: #ffd700; box-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
+        /* banner_matrix paints itself with a z-index:-1 ::after, so the cells
+           need their own stacking context to stay on top of it. */
+        .ffa-row > * { position: relative; z-index: 2; }
+        .ffa-rank { font-size: 13px; font-weight: bold; color: #aaa; text-align: center; }
+        .ffa-row-leader .ffa-rank { color: #ffd700; }
+        .ffa-col { font-size: 13px; font-weight: bold; color: #ddd; text-align: center; }
+        .ffa-col-empty { color: #ff3333; }
+        .ffa-row-score { font-size: 15px; font-weight: bold; color: #ffd700; text-align: right; }
+        .ffa-row-left { opacity: 0.5; }
+        @media (max-width: 380px) {
+            .ffa-list-head, .ffa-row { grid-template-columns: 16px minmax(0, 1fr) 34px 34px 58px; gap: 4px; }
+            .ffa-row { padding: 6px 5px; }
+            .ffa-col { font-size: 12px; }
+            .ffa-row-score { font-size: 14px; }
+        }
         .ffa-mini-board { display: grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: center; margin: 4px 0; }
 
         .mini-0 { background: transparent; border-color: #333; }
@@ -306,6 +328,14 @@
         .btn-gold:hover { background-color: #e6c200; }
         .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
         .btn-dark:hover { background-color: #555; }
+        /* Google's own sign-in treatment rather than the arcade palette:
+           players recognise this plate by sight, and a button restyled to
+           match the site reads as a phishing page asking for a Google
+           password. #3c4043 on #fff measures 10.3:1. */
+        .btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; background: #fff; color: #3c4043; border: none; border-radius: 5px; font-family: inherit; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-google:hover { background: #e8eaed; }
+        .auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+        .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: #333; }
 
         .input-field { padding: 10px; font-size: 18px; width: 100%; text-align: center; border-radius: 5px; border: 2px solid #ff00ff; background: #222; color: #fff; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;}
         .input-field:focus { outline: none; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
@@ -640,38 +670,41 @@
     <!-- FFA (FREE-FOR-ALL) UI -->
     <div id="ffa-track-container">
         <div id="ffa-timer-display">7:00</div>
-        <div id="ffa-players-grid">
-            <div class="ffa-player-card" id="ffa-card-0" style="display:none;">
-                <div class="lb-entry banner_default" id="ffa-banner-0" style="padding: 6px; font-size: 12px; min-height: 40px;">
-                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-0" style="font-size: 13px;">P1</div></div>
-                </div>
-                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-0">1</span></div>
-                <div class="ffa-mini-board" id="ffa-board-0"></div>
-                <div class="ffa-player-score" id="ffa-score-0">0</div>
+        <div class="ffa-list-head">
+            <div style="text-align: center;">#</div>
+            <div>Player</div>
+            <div style="text-align: center;">Word</div>
+            <div style="text-align: center;">Skips</div>
+            <div style="text-align: right;">Score</div>
+        </div>
+        <div id="ffa-players-list">
+            <div class="ffa-row banner_default" id="ffa-row-0" style="display:none;">
+                <div class="ffa-rank" id="ffa-rank-0">1</div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-0" style="font-size: 14px;">P1</div></div>
+                <div class="ffa-col" id="ffa-word-index-0">1</div>
+                <div class="ffa-col" id="ffa-skips-0">2</div>
+                <div class="ffa-row-score" id="ffa-score-0">0</div>
             </div>
-            <div class="ffa-player-card" id="ffa-card-1" style="display:none;">
-                <div class="lb-entry banner_default" id="ffa-banner-1" style="padding: 6px; font-size: 12px; min-height: 40px;">
-                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-1" style="font-size: 13px;">P2</div></div>
-                </div>
-                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-1">1</span></div>
-                <div class="ffa-mini-board" id="ffa-board-1"></div>
-                <div class="ffa-player-score" id="ffa-score-1">0</div>
+            <div class="ffa-row banner_default" id="ffa-row-1" style="display:none;">
+                <div class="ffa-rank" id="ffa-rank-1">2</div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-1" style="font-size: 14px;">P2</div></div>
+                <div class="ffa-col" id="ffa-word-index-1">1</div>
+                <div class="ffa-col" id="ffa-skips-1">2</div>
+                <div class="ffa-row-score" id="ffa-score-1">0</div>
             </div>
-            <div class="ffa-player-card" id="ffa-card-2" style="display:none;">
-                <div class="lb-entry banner_default" id="ffa-banner-2" style="padding: 6px; font-size: 12px; min-height: 40px;">
-                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-2" style="font-size: 13px;">P3</div></div>
-                </div>
-                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-2">1</span></div>
-                <div class="ffa-mini-board" id="ffa-board-2"></div>
-                <div class="ffa-player-score" id="ffa-score-2">0</div>
+            <div class="ffa-row banner_default" id="ffa-row-2" style="display:none;">
+                <div class="ffa-rank" id="ffa-rank-2">3</div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-2" style="font-size: 14px;">P3</div></div>
+                <div class="ffa-col" id="ffa-word-index-2">1</div>
+                <div class="ffa-col" id="ffa-skips-2">2</div>
+                <div class="ffa-row-score" id="ffa-score-2">0</div>
             </div>
-            <div class="ffa-player-card" id="ffa-card-3" style="display:none;">
-                <div class="lb-entry banner_default" id="ffa-banner-3" style="padding: 6px; font-size: 12px; min-height: 40px;">
-                    <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-3" style="font-size: 13px;">P4</div></div>
-                </div>
-                <div class="ffa-player-word-count">Word: <span id="ffa-word-index-3">1</span></div>
-                <div class="ffa-mini-board" id="ffa-board-3"></div>
-                <div class="ffa-player-score" id="ffa-score-3">0</div>
+            <div class="ffa-row banner_default" id="ffa-row-3" style="display:none;">
+                <div class="ffa-rank" id="ffa-rank-3">4</div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-3" style="font-size: 14px;">P4</div></div>
+                <div class="ffa-col" id="ffa-word-index-3">1</div>
+                <div class="ffa-col" id="ffa-skips-3">2</div>
+                <div class="ffa-row-score" id="ffa-score-3">0</div>
             </div>
         </div>
     </div>
@@ -1029,7 +1062,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="window.openChallengesMenu()">Challenges</button>
                 <button class="menu-list-btn" style="color: #aaa; border-color: #aaa;" onclick="window.openSettingsMenu()">Settings</button>
                 <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
-                <button id="auth-action-btn-email" class="menu-list-btn" style="color: #fff; border-color: #fff; display: none;" onclick="window.openEmailAuthModal()">Sign Up / Log In with Email</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
                     <button class="btn-dark" style="border-color: #fff !important; padding: 8px 12px;" onclick="window.open('https://twitter.com', '_blank')">
@@ -1056,24 +1088,37 @@ placeholder comment below, sized to fit the existing 320x50 container.
         </div>
     </div>
 
-    <!-- EMAIL SIGN UP / LOG IN MODAL — one form handles both cases: tries to
-         link this email/password to the current guest session first (new
-         account), and if that email is already taken, falls back to signing
-         into the existing account with the same password (see
-         submitEmailAuth). -->
-    <div id="email-auth-modal" class="modal-overlay">
+    <!-- SIGN UP / LOG IN MODAL — one door, both providers. Google sits on top
+         (one tap, no password to invent) with the email/password form under
+         it for anyone without a Google account; the two used to be separate
+         Main Menu buttons, which made players choose a provider before
+         they'd seen either one. Both paths do the same thing to the same
+         session: link this browser's guest profile to a real credential,
+         falling back to signing into the existing account if that credential
+         already has one (see signInWithGoogle / submitEmailAuth). -->
+    <div id="auth-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: #fff; box-shadow: 0 0 20px #fff;">
-            <h2 class="modal-title" style="color: #fff;">Email Sign Up / Log In</h2>
+            <h2 class="modal-title" style="color: #fff;">Sign Up / Log In</h2>
             <div class="modal-stats" style="font-size: 12px; color: #aaa; margin-bottom: 15px; line-height: 1.4; text-align: center;">
-                New here? This saves your current guest progress to this email. Already have a Lexathon account with this email? You'll be signed into it instead.
+                This saves your current guest progress to whichever you pick. Already have a Lexathon account? You'll be signed into it instead.
             </div>
+            <button class="btn-google" onclick="window.signInWithGoogle()">
+                <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true" focusable="false">
+                    <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+                    <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+                    <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+                    <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+                </svg>
+                <span>Sign in with Google</span>
+            </button>
+            <div class="auth-divider"><span>or use an email</span></div>
             <input type="email" id="email-auth-email" class="input-field" placeholder="EMAIL" autocomplete="email" style="text-transform: none; letter-spacing: normal; text-align: left;">
             <input type="password" id="email-auth-password" class="input-field" placeholder="PASSWORD (6+ characters)" autocomplete="current-password" style="text-transform: none; letter-spacing: normal; text-align: left;">
             <button class="btn-cyan" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer; margin-top: 5px;" onclick="window.submitEmailAuth()">Continue</button>
             <div style="text-align: center; margin-top: 10px;">
                 <a href="#" style="color: #777; font-size: 11px; text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
             </div>
-            <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-dark" onclick="document.getElementById('email-auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
+            <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-dark" onclick="document.getElementById('auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
     </div>
 
@@ -1192,9 +1237,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
         <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff; max-width: 360px;">
             <h2 class="modal-title" style="color: #00ffff;">Don't Lose This!</h2>
             <p id="signup-nudge-reason" style="color: #fff; font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
-            <p id="signup-nudge-body" style="color: #aaa; font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in with Google to keep it forever and play from any device.</p>
+            <p id="signup-nudge-body" style="color: #aaa; font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
             <div class="modal-buttons">
-                <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign In With Google</button>
+                <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign Up / Log In</button>
                 <button class="btn-dark" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
             </div>
         </div>
@@ -1258,7 +1303,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
                     <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
-                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Link a Google account or email from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
+                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Sign up from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
                     </div>
                 </div>
             </div>
@@ -1545,7 +1590,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         let signupNudgeShownThisSession = false;
         // The guest copy the nudge normally shows, kept so the Gauntlet gate can
         // borrow the same modal with its own wording and hand it back after.
-        const SIGNUP_NUDGE_DEFAULT_BODY = "You're playing as a Guest \u2014 everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in with Google to keep it forever and play from any device.";
+        const SIGNUP_NUDGE_DEFAULT_BODY = "You're playing as a Guest \u2014 everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.";
 
         // A gate, not a nudge: no rate limiting, because the player has just
         // been refused something rather than gently reminded.
@@ -1721,6 +1766,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
               return fromMD <= toMD ? (cur >= fromMD && cur <= toMD) : (cur >= fromMD || cur <= toMD);
           }
         
+        // Which credential this session is actually signed in with. Firebase
+        // keeps every linked provider on the user, so a guest who linked
+        // Google and later added a password shows the first one that matches.
+        function authProviderLabel() {
+            const ids = (currentUser && currentUser.providerData || []).map(p => p.providerId);
+            if (ids.includes("google.com")) return "Google";
+            if (ids.includes("password")) return "Email";
+            return "Account";
+        }
+
         function getRankDetails(mmr) {
             if (mmr < 1000) return { name: "Bronze", class: "rank-bronze" };
             if (mmr < 1200) return { name: "Silver", class: "rank-silver" };
@@ -1757,8 +1812,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user; let isGuest = user.isAnonymous;
-                document.getElementById("auth-action-btn").innerText = isGuest ? "Sign in with Google" : "Sign Out";
-                document.getElementById("auth-action-btn-email").style.display = isGuest ? "" : "none";
+                document.getElementById("auth-action-btn").innerText = isGuest ? "Sign Up / Log In" : "Sign Out";
                 const userRef = doc(db, "users", user.uid); const docSnap = await getDoc(userRef);
                 let todayStr = getTodayDateStr();
 
@@ -1916,13 +1970,20 @@ placeholder comment below, sized to fit the existing 320x50 container.
             return false;
         }
 
+        // The single entry point every "sign in" affordance calls — Main Menu
+        // button, sign-up nudge, guest gate. Signed in, it signs you out;
+        // otherwise it opens the one modal that offers both providers, rather
+        // than launching a Google popup the player never asked for.
         window.handleAuthAction = async function() {
             if (userProfileData && !userProfileData.isGuest) {
                 let confirmOut = confirm("Are you sure you want to sign out?");
                 if (confirmOut) { await signOut(auth); window.location.reload(); }
                 return;
             }
+            window.openAuthModal();
+        };
 
+        window.signInWithGoogle = async function() {
             try {
                 // linkWithPopup upgrades the CURRENT anonymous session to a
                 // Google-backed one — same uid, same Firestore doc, so every
@@ -1933,7 +1994,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 // the actual bug this replaced.
                 await linkWithPopup(currentUser, new GoogleAuthProvider());
                 alert("Account linked! Your progress is now saved to this Google account.");
-                document.getElementById('main-menu-modal').style.display = 'none';
+                document.getElementById('auth-modal').style.display = 'none';
                 setTimeout(() => { window.location.reload(); }, 500);
             } catch (error) {
                 if (error.code === "auth/credential-already-in-use") {
@@ -1959,7 +2020,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     }
                     try {
                         await signInWithCredential(auth, credential);
-                        document.getElementById('main-menu-modal').style.display = 'none';
+                        document.getElementById('auth-modal').style.display = 'none';
                         setTimeout(() => { window.location.reload(); }, 500);
                     } catch (e2) { alert("Login Error: " + e2.message); }
                 } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
@@ -1970,11 +2031,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
             }
         }
 
-        window.openEmailAuthModal = function() {
+        window.openAuthModal = function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             document.getElementById('email-auth-email').value = '';
             document.getElementById('email-auth-password').value = '';
-            document.getElementById('email-auth-modal').style.display = 'flex';
+            document.getElementById('auth-modal').style.display = 'flex';
         };
 
         window.submitEmailAuth = async function() {
@@ -1989,7 +2050,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 // carries over untouched. This is the "new account" path.
                 await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
                 alert("Account created! Your progress is now saved to this email.");
-                document.getElementById('email-auth-modal').style.display = 'none';
+                document.getElementById('auth-modal').style.display = 'none';
                 setTimeout(() => { window.location.reload(); }, 500);
             } catch (error) {
                 if (error.code === "auth/email-already-in-use") {
@@ -2012,7 +2073,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     }
                     try {
                         await signInWithEmailAndPassword(auth, email, password);
-                        document.getElementById('email-auth-modal').style.display = 'none';
+                        document.getElementById('auth-modal').style.display = 'none';
                         setTimeout(() => { window.location.reload(); }, 500);
                     } catch (e2) {
                         if (e2.code === "auth/wrong-password" || e2.code === "auth/invalid-credential") {
@@ -2067,7 +2128,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
                 document.getElementById("handle-cost-text").innerText = userProfileData.handleChanges > 0 ? "Cost: 5,000 pts" : "Cost: 0 pts (First Free)";
                 if (userProfileData.isGuest) { document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`; document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block"; } 
-                else { document.getElementById("login-status-text").innerText = "Linked via Google"; document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none"; }
+                else { document.getElementById("login-status-text").innerText = "Signed in \u2014 " + authProviderLabel(); document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none"; }
     
                 const docSnap = await getDoc(doc(db, "users", currentUser.uid));
                 if(docSnap.exists()) {
@@ -4028,10 +4089,10 @@ placeholder comment below, sized to fit the existing 320x50 container.
             return {
                 mode: "ffa", hostUid, isPublic, status: "waiting",
                 maxPlayers: 4, playerCount: 1,
-                p0Uid: hostUid, p0Name: hostName, p0Equipped: hostEquipped, p0Mmr: hostMmr || 1000, p0Score: 0, p0Board: [], p0WordIndex: 1,
-                p1Uid: null, p1Name: null, p1Equipped: null, p1Mmr: 1000, p1Score: 0, p1Board: [], p1WordIndex: 1,
-                p2Uid: null, p2Name: null, p2Equipped: null, p2Mmr: 1000, p2Score: 0, p2Board: [], p2WordIndex: 1,
-                p3Uid: null, p3Name: null, p3Equipped: null, p3Mmr: 1000, p3Score: 0, p3Board: [], p3WordIndex: 1,
+                p0Uid: hostUid, p0Name: hostName, p0Equipped: hostEquipped, p0Mmr: hostMmr || 1000, p0Score: 0, p0Board: [], p0WordIndex: 1, p0Skips: CLASH_SKIPS_PER_MATCH,
+                p1Uid: null, p1Name: null, p1Equipped: null, p1Mmr: 1000, p1Score: 0, p1Board: [], p1WordIndex: 1, p1Skips: CLASH_SKIPS_PER_MATCH,
+                p2Uid: null, p2Name: null, p2Equipped: null, p2Mmr: 1000, p2Score: 0, p2Board: [], p2WordIndex: 1, p2Skips: CLASH_SKIPS_PER_MATCH,
+                p3Uid: null, p3Name: null, p3Equipped: null, p3Mmr: 1000, p3Score: 0, p3Board: [], p3WordIndex: 1, p3Skips: CLASH_SKIPS_PER_MATCH,
                 words: generateClashWords(), endTime: null, lobbyDeadline: null, chat: [],
                 winners: null, changes: null, payoutApplied: false,
             };
@@ -4110,6 +4171,44 @@ placeholder comment below, sized to fit the existing 320x50 container.
         window.startFfaMatchEarly = async function() {
             if (!currentMatchId) return;
             try { await callStartFfaMatch({ matchId: currentMatchId }); } catch (e) { alert(e.message || "Couldn't start yet."); }
+        }
+
+        // The live standings order for an FFA match. Mirrors
+        // computeFfaPlacements in functions/index.js exactly: active players
+        // by score, highest first; anyone who left mid-match ranks below all
+        // of them regardless of their frozen score, worst place to whoever
+        // left first. Active players share a place on a score tie, leavers
+        // never do (leave order is a strict tiebreaker).
+        //
+        // Both the in-match list and the end-of-match results read from this,
+        // so the order players watch during the match cannot drift from the
+        // one they are paid out on.
+        function ffaStandings(data) {
+            const players = [];
+            for (let i = 0; i < 4; i++) {
+                if (data[`p${i}Uid`]) players.push({
+                    idx: i,
+                    uid: data[`p${i}Uid`],
+                    name: data[`p${i}Name`] || "Player",
+                    score: Number(data[`p${i}Score`] || 0),
+                });
+            }
+            const leftPlayers = data.leftPlayers || [];
+            const leftSet = new Set(leftPlayers);
+            const active = players.filter(p => !leftSet.has(p.uid)).sort((a, b) => b.score - a.score);
+            const leavers = leftPlayers.filter(uid => players.some(p => p.uid === uid))
+                .map(uid => players.find(p => p.uid === uid)).reverse();
+            const ordered = [...active, ...leavers];
+
+            let place = 0;
+            ordered.forEach((p, i) => {
+                p.hasLeft = leftSet.has(p.uid);
+                const prev = ordered[i - 1];
+                const tied = i > 0 && !p.hasLeft && !prev.hasLeft && prev.score === p.score;
+                if (!tied) place = i + 1;
+                p.place = place;
+            });
+            return ordered;
         }
 
         function renderFfaLobbyWaiting(data) {
@@ -4279,21 +4378,34 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         }, 1000);
                     }
 
-                    const leftPlayers = data.leftPlayers || [];
+                    const standings = ffaStandings(data);
+                    const occupied = new Set();
+                    standings.forEach((p, i) => {
+                        occupied.add(p.idx);
+                        const eq = data[`p${p.idx}Equipped`] || { banner: "banner_default", effect: "effect_none" };
+                        const row = document.getElementById(`ffa-row-${p.idx}`);
+                        row.style.display = "grid";
+                        row.style.order = String(i);
+                        row.className = `ffa-row ${safeCosmetic(eq.banner, "banner_default")}`
+                            + (p.idx === myFfaSlot ? " ffa-me" : "")
+                            + (p.place === 1 && !p.hasLeft ? " ffa-row-leader" : "")
+                            + (p.hasLeft ? " ffa-row-left" : "");
+                        document.getElementById(`ffa-rank-${p.idx}`).innerText = p.place;
+                        const nameEl = document.getElementById(`ffa-name-${p.idx}`);
+                        nameEl.className = `lb-name ${safeCosmetic(eq.effect, "effect_none")}`;
+                        nameEl.innerText = p.name + (p.hasLeft ? " (left)" : "");
+                        document.getElementById(`ffa-word-index-${p.idx}`).innerText = data[`p${p.idx}WordIndex`] || 1;
+                        // Older match docs predate the pNSkips field; a missing
+                        // one means nobody has spent a skip yet, not zero left.
+                        const rawSkips = data[`p${p.idx}Skips`];
+                        const skipsLeft = (rawSkips === undefined || rawSkips === null) ? CLASH_SKIPS_PER_MATCH : Number(rawSkips);
+                        const skipsEl = document.getElementById(`ffa-skips-${p.idx}`);
+                        skipsEl.innerText = skipsLeft;
+                        skipsEl.className = skipsLeft > 0 ? "ffa-col" : "ffa-col ffa-col-empty";
+                        document.getElementById(`ffa-score-${p.idx}`).innerText = p.score.toLocaleString();
+                    });
                     for (let i = 0; i < 4; i++) {
-                        const card = document.getElementById(`ffa-card-${i}`);
-                        if (!data[`p${i}Uid`]) { card.style.display = "none"; continue; }
-                        card.style.display = "block";
-                        card.classList.toggle("ffa-me", i === myFfaSlot);
-                        let eq = data[`p${i}Equipped`] || { banner: "banner_default", effect: "effect_none" };
-                        document.getElementById(`ffa-banner-${i}`).className = `lb-entry ${safeCosmetic(eq.banner, "banner_default")}`;
-                        document.getElementById(`ffa-name-${i}`).className = `lb-name ${safeCosmetic(eq.effect, "effect_none")}`;
-                        const hasLeft = leftPlayers.includes(data[`p${i}Uid`]);
-                        document.getElementById(`ffa-name-${i}`).innerText = (data[`p${i}Name`] || "Player") + (hasLeft ? " (left)" : "");
-                        document.getElementById(`ffa-word-index-${i}`).innerText = data[`p${i}WordIndex`] || 1;
-                        document.getElementById(`ffa-score-${i}`).innerText = Number(data[`p${i}Score`] || 0).toLocaleString();
-                        card.style.opacity = hasLeft ? "0.5" : "1";
-                        renderMiniBoard(`ffa-board-${i}`, data[`p${i}Board`]);
+                        if (!occupied.has(i)) document.getElementById(`ffa-row-${i}`).style.display = "none";
                     }
 
                     if (data.chat && data.chat.length > 0) {
@@ -4328,21 +4440,10 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         } catch (e) { console.error(e); }
                     }
 
-                    const allPlayers = [];
-                    for (let i = 0; i < 4; i++) {
-                        if (data[`p${i}Uid`]) allPlayers.push({ uid: data[`p${i}Uid`], name: data[`p${i}Name`] || "Player", score: Number(data[`p${i}Score`] || 0) });
-                    }
-                    // Mirrors computeFfaPlacements in functions/index.js: active
-                    // players rank by score, every player who left mid-match
-                    // ranks below all of them regardless of their frozen score —
-                    // worst placement to whoever left first — so the displayed
-                    // order always matches what was actually paid out.
-                    const leftPlayers = data.leftPlayers || [];
-                    const leftSet = new Set(leftPlayers);
-                    const activeSlots = allPlayers.filter(p => !leftSet.has(p.uid)).sort((a, b) => b.score - a.score);
-                    const leaverSlots = leftPlayers.filter(uid => allPlayers.some(p => p.uid === uid))
-                        .map(uid => allPlayers.find(p => p.uid === uid)).reverse();
-                    const slots = [...activeSlots, ...leaverSlots];
+                    // Same helper the in-match standings list reads from, so
+                    // the order and place numbers here cannot disagree with
+                    // what players watched the whole match.
+                    const slots = ffaStandings(data);
 
                     const winners = data.winners || [];
                     const amIWinner = winners.includes(currentUser.uid);
@@ -4353,15 +4454,10 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     document.getElementById("ffa-end-title").style.color = amIWinner ? "#4caf50" : "#ffd700";
                     amIWinner ? SFX.clashWin() : SFX.clashLose();
 
-                    let placeNum = 0, html = "";
-                    slots.forEach((s, i) => {
-                        // Active players still share a place on a score tie;
-                        // leavers never do (leave order is a strict tiebreaker),
-                        // so only bump placeNum by score-match for the active run.
-                        const isLeaver = leftSet.has(s.uid);
-                        const prev = slots[i - 1];
-                        const tiedWithPrev = i > 0 && prev && !isLeaver && !leftSet.has(prev.uid) && prev.score === s.score;
-                        if (!tiedWithPrev) placeNum = i + 1;
+                    let html = "";
+                    slots.forEach((s) => {
+                        const placeNum = s.place;
+                        const isLeaver = s.hasLeft;
                         const mine = s.uid === currentUser.uid;
                         const change = changes[s.uid] || { payout: 0, eloChange: 0 };
                         const isWin = winners.includes(s.uid);
@@ -4884,6 +4980,11 @@ placeholder comment below, sized to fit the existing 320x50 container.
             let updatePayload = {};
             updatePayload[raceField("Board")] = [];
             updatePayload[raceField("WordIndex")] = clashWordIndex + 2;
+            // FFA only: the standings list shows everyone's remaining skips,
+            // so the count has to leave this client. 1v1's tug-of-war track
+            // has nowhere to put it, and an unread field on a 1v1 match doc
+            // is just noise.
+            if (isFfaMode) updatePayload[raceField("Skips")] = clashSkipsRemaining;
             updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error("Skip sync error:", e));
 
             clashWordIndex++;
