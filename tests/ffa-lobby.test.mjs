@@ -161,6 +161,46 @@ await never('a finished match is left alone', { ...waiting(-1, 1_000_000), statu
   ck(L.state.calls.length === 2, 'a second lobby in the same session can still start', `${L.state.calls.length} calls`);
 }
 
+// ===== the JOIN side: when does a public lobby get its deadline? =========
+// The countdown only exists once a lobby is startable, so the trigger count
+// and FFA_MIN_PLAYERS have to be the same number. They were both 2 and the
+// trigger was written as a literal, so raising the minimum to 3 would have
+// left public lobbies counting down from two players and then failing to
+// start — a countdown to a refusal.
+{
+  const fn = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
+  const MIN = Number(fn.match(/const FFA_MIN_PLAYERS = (\d+);/)[1]);
+  const MAX = Number(fn.match(/const FFA_MAX_PLAYERS = (\d+);/)[1]);
+  // Anchored on the deadline assignment, not on the first closing brace —
+  // a lazy /\n    \}/ stops at the `} else if` and silently extracts only
+  // the first branch, which is exactly how this case first passed on code
+  // it was not running.
+  const joinBlock = fn.match(
+    /    let started = false;\n[\s\S]*?lobbyDeadline\] = Date\.now\(\) \+ FFA_LOBBY_GRACE_MS;\n    \}|    let started = false;\n[\s\S]*?lobbyDeadline = Date\.now\(\) \+ FFA_LOBBY_GRACE_MS;\n    \}/)[0];
+  if (!/else if/.test(joinBlock)) throw new Error('join block extraction missed the deadline branch');
+  const decide = new Function('FFA_MAX_PLAYERS', 'FFA_MIN_PLAYERS', 'FFA_MATCH_MS',
+    'FFA_LOBBY_GRACE_MS', 'Date', 'match', 'newCount', 'update',
+    `${joinBlock}\nreturn { started, update };`);
+  const run = (newCount, isPublic, lobbyDeadline) => {
+    const update = {};
+    return decide(MAX, MIN, 420000, 20000, Date, { isPublic, lobbyDeadline }, newCount, update);
+  };
+
+  ck(MIN >= 3, 'the minimum really is above a duel', `FFA_MIN_PLAYERS=${MIN}`);
+  for (let c = 1; c < MIN; c++) {
+    ck(!('lobbyDeadline' in run(c, true).update),
+       `a public lobby of ${c} gets no countdown yet`, JSON.stringify(run(c, true).update));
+  }
+  ck('lobbyDeadline' in run(MIN, true).update,
+     `the countdown starts at exactly ${MIN}`, JSON.stringify(run(MIN, true).update));
+  ck(!('lobbyDeadline' in run(MIN, true, 123).update),
+     'an existing countdown is never restarted by a later join');
+  ck(!('lobbyDeadline' in run(MIN, false).update),
+     'a private room never gets a countdown');
+  ck(run(MAX, true).started === true, `a full lobby of ${MAX} starts immediately`);
+  ck(run(MAX - 1, true).started === false, `a lobby of ${MAX - 1} does not`);
+}
+
 let bad = 0;
 for (const [ok, name, detail] of t) {
   if (!ok) bad++;

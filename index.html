@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lexathon — Competitive Word Game</title>
-    <meta name="description" content="Lexathon is a competitive five-letter word game: endless solo runs, 1v1 Clash, a daily Gauntlet puzzle, and up to four-player Free-For-All. Free to play, no install.">
+    <meta name="description" content="Lexathon is a competitive five-letter word game: endless solo runs, 1v1 Clash, a daily Gauntlet puzzle, and up to six-player Free-For-All. Free to play, no install.">
     <!-- Google Search Console ownership verification. Must stay on the
          homepage permanently — Search Console re-checks it periodically and
          drops the property (losing the sitemap and indexing history) if it
@@ -114,7 +114,7 @@
         .track-dot { width: 14px; height: 14px; background: #222; border: 2px solid #555; border-radius: 50%; position: relative; z-index: 2; transition: all 0.3s; }
         .track-dot.puck { background: #fff; border-color: #fff; box-shadow: 0 0 15px #fff; transform: scale(1.3); }
 
-        /* FFA (FREE-FOR-ALL) UI — same Score Attack race as Versus, scaled to 2-4 players */
+        /* FFA (FREE-FOR-ALL) UI — same Score Attack race as Versus, scaled to 3-6 players */
         #ffa-track-container {
             display: none; width: 95%; max-width: 520px; z-index: 2; position: relative;
             background: #1a1a1d; padding: 15px; border-radius: 5px; border: 2px solid #ffd700; margin-bottom: 15px;
@@ -141,6 +141,8 @@
         .ffa-col-empty { color: #ff3333; }
         .ffa-row-score { font-size: 15px; font-weight: bold; color: #ffd700; text-align: right; }
         .ffa-row-left { opacity: 0.5; }
+        /* Stands in for the rows a collapsed list is not showing. */
+        .ffa-more { font-size: 11px; color: #777; text-align: center; letter-spacing: 1px; text-transform: uppercase; padding: 1px 0; }
         @media (max-width: 380px) {
             .ffa-list-head, .ffa-row { grid-template-columns: 16px minmax(0, 1fr) 34px 34px 58px; gap: 4px; }
             .ffa-row { padding: 6px 5px; }
@@ -713,6 +715,21 @@
                 <div class="ffa-col" id="ffa-skips-3">2</div>
                 <div class="ffa-row-score" id="ffa-score-3">0</div>
             </div>
+            <div class="ffa-row banner_default" id="ffa-row-4" style="display:none;">
+                <div class="ffa-rank" id="ffa-rank-4">5</div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-4" style="font-size: 14px;">P5</div></div>
+                <div class="ffa-col" id="ffa-word-index-4">1</div>
+                <div class="ffa-col" id="ffa-skips-4">2</div>
+                <div class="ffa-row-score" id="ffa-score-4">0</div>
+            </div>
+            <div class="ffa-row banner_default" id="ffa-row-5" style="display:none;">
+                <div class="ffa-rank" id="ffa-rank-5">6</div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-5" style="font-size: 14px;">P6</div></div>
+                <div class="ffa-col" id="ffa-word-index-5">1</div>
+                <div class="ffa-col" id="ffa-skips-5">2</div>
+                <div class="ffa-row-score" id="ffa-score-5">0</div>
+            </div>
+            <div class="ffa-more" id="ffa-more-note" style="display:none;"></div>
         </div>
     </div>
 
@@ -794,7 +811,7 @@
             <strong style="color:#4caf50;">Standard</strong> — endless solo runs. You have one Continue; miss twice and you lose the lot, so Cash Out before your luck does.<br>
             <strong style="color:#ff9800;">Clash</strong> — 1v1 against a real opponent, seven minutes on the same word list. Take a 1,000-point lead and it ends on the spot.<br>
             <strong style="color:#b967ff;">Gauntlet</strong> — one shared puzzle a day, ten words, no second chances. Everyone gets the same words.<br>
-            <strong style="color:#ffd700;">FFA</strong> — up to four players racing at once, with payouts by finishing position.
+            <strong style="color:#ffd700;">FFA</strong> — three to six players racing at once, with payouts by finishing position.
         </p>
         <p>Points buy cosmetics — titles, banners and name effects — and nothing else. Nothing you can buy affects scoring or matchmaking, and points have no real-world value.</p>
         <p style="margin-bottom: 4px;">New here? Read <a href="how-to-play.html" style="color:#b967ff;">the full rules</a>, or the <a href="strategy.html" style="color:#00ffff;">strategy guide</a> — it has the opening words that cover every possible answer.</p>
@@ -943,7 +960,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
             <h2 class="modal-title" style="color: #ffd700;">Free-For-All</h2>
             <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
-                2-4 players. Score Attack rules.<br>Highest score when the clock hits 0 wins!
+                3-6 players. Score Attack rules.<br>Highest score when the clock hits 0 wins!
             </div>
 
             <div id="ffa-lobby-action-view">
@@ -1156,7 +1173,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 <div class="onboarding-slide" style="display: none;">
                     <div style="font-size: 48px; margin-bottom: 10px;">👑</div>
                     <h2 class="modal-title" style="color: #ffd700;">FFA</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">The same race as Clash, but with 2-4 players at once. Highest score when time's up takes the top spot — everyone else still earns something.</p>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">The same race as Clash, but with 3-6 players at once. Highest score when time's up takes the top spot — everyone else still earns something.</p>
                 </div>
             </div>
 
@@ -1214,7 +1231,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                 <h3 style="color: #ffd700; text-transform: uppercase; margin-bottom: 6px;">👑 FFA</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
-                    <li>The same 7-minute race as Clash, scaled to 2-4 players — public queue or a private room with friends (Share Invite works here too). You get 2 skips here as well.</li>
+                    <li>The same 7-minute race as Clash, scaled to 3-6 players — public queue or a private room with friends (Share Invite works here too). You get 2 skips here as well.</li>
                     <li>No early win condition — purely whoever has the highest score when the clock runs out.</li>
                     <li>Payout scales with placement instead of a binary win/lose — 1st earns the most, last earns nothing.</li>
                     <li>Leaving mid-match doesn't end it for everyone else — you're locked into the worst remaining placement, and it's worse the earlier you leave.</li>
@@ -2718,7 +2735,14 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // isVersusMode and isFfaMode are mutually exclusive, same as every
         // other pair of modes here, so sharing those globals is safe.
         let isFfaMode = false;
-        let myFfaSlot = -1; // 0-3, this client's slot index in the match doc
+        // Must match FFA_MAX_PLAYERS / FFA_MIN_PLAYERS in functions/index.js.
+        const FFA_MAX_SLOTS = 6;
+        const FFA_MIN_SLOTS = 3;
+        // Six rows is most of a phone screen above the board you are actually
+        // playing on, so a full field collapses: the top three, then either
+        // your own row or 4th place if you are already in the top three.
+        const FFA_VISIBLE_ROWS = 4;
+        let myFfaSlot = -1; // 0-5, this client's slot index in the match doc
         let ffaLobbyDeadline = 0;
         let ffaLobbyTimerInterval = null;
 
@@ -4091,9 +4115,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
         // ============================================================================
         // CLASH: FREE-FOR-ALL — same Score Attack race as 1v1 Clash (shared word
-        // list, 7-minute clock, most points wins), scaled to 2-4 players. Mirrors
+        // list, 7-minute clock, most points wins), scaled to 3-6 players. Mirrors
         // the findRandomMatch/hostMatch/joinMatch/listenToMatch/leaveVersusMatch
-        // group above, generalized from host/guest to up to 4 flat pN* slots —
+        // group above, generalized from host/guest to up to 6 flat pN* slots —
         // see functions/index.js for the server side (joinFfaMatch/startFfaMatch/
         // finishFfaMatch/leaveFfaMatch/onFfaMatchFinished) and firestore.rules for
         // why joining/starting/finishing go through those instead of raw writes.
@@ -4159,11 +4183,13 @@ placeholder comment below, sized to fit the existing 320x50 container.
         function newFfaMatchDoc(hostUid, hostName, hostEquipped, hostMmr, isPublic) {
             return {
                 mode: "ffa", hostUid, isPublic, status: "waiting",
-                maxPlayers: 4, playerCount: 1,
-                p0Uid: hostUid, p0Name: hostName, p0Equipped: hostEquipped, p0Mmr: hostMmr || 1000, p0Score: 0, p0Board: [], p0WordIndex: 1, p0Skips: CLASH_SKIPS_PER_MATCH,
-                p1Uid: null, p1Name: null, p1Equipped: null, p1Mmr: 1000, p1Score: 0, p1Board: [], p1WordIndex: 1, p1Skips: CLASH_SKIPS_PER_MATCH,
-                p2Uid: null, p2Name: null, p2Equipped: null, p2Mmr: 1000, p2Score: 0, p2Board: [], p2WordIndex: 1, p2Skips: CLASH_SKIPS_PER_MATCH,
-                p3Uid: null, p3Name: null, p3Equipped: null, p3Mmr: 1000, p3Score: 0, p3Board: [], p3WordIndex: 1, p3Skips: CLASH_SKIPS_PER_MATCH,
+                maxPlayers: FFA_MAX_SLOTS, playerCount: 1,
+                p0Uid: hostUid, p0Name: hostName, p0Equipped: hostEquipped, p0Mmr: hostMmr || 1000, p0Score: 0, p0WordIndex: 1, p0Skips: CLASH_SKIPS_PER_MATCH,
+                p1Uid: null, p1Name: null, p1Equipped: null, p1Mmr: 1000, p1Score: 0, p1WordIndex: 1, p1Skips: CLASH_SKIPS_PER_MATCH,
+                p2Uid: null, p2Name: null, p2Equipped: null, p2Mmr: 1000, p2Score: 0, p2WordIndex: 1, p2Skips: CLASH_SKIPS_PER_MATCH,
+                p3Uid: null, p3Name: null, p3Equipped: null, p3Mmr: 1000, p3Score: 0, p3WordIndex: 1, p3Skips: CLASH_SKIPS_PER_MATCH,
+                p4Uid: null, p4Name: null, p4Equipped: null, p4Mmr: 1000, p4Score: 0, p4WordIndex: 1, p4Skips: CLASH_SKIPS_PER_MATCH,
+                p5Uid: null, p5Name: null, p5Equipped: null, p5Mmr: 1000, p5Score: 0, p5WordIndex: 1, p5Skips: CLASH_SKIPS_PER_MATCH,
                 words: generateClashWords(), endTime: null, lobbyDeadline: null, chat: [],
                 winners: null, changes: null, payoutApplied: false,
             };
@@ -4188,7 +4214,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 const q = query(collection(db, "matches"), where("status", "==", "waiting"), where("isPublic", "==", true), where("mode", "==", "ffa"), limit(10));
                 const snapshot = await getDocs(q);
                 let foundMatch = null;
-                snapshot.forEach(d => { if ((d.data().playerCount || 0) < 4 && d.data().hostUid !== currentUser.uid) foundMatch = d; });
+                snapshot.forEach(d => { if ((d.data().playerCount || 0) < FFA_MAX_SLOTS && d.data().hostUid !== currentUser.uid) foundMatch = d; });
 
                 if (foundMatch) {
                     const result = await callJoinFfaMatch({ matchId: foundMatch.id });
@@ -4256,7 +4282,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // one they are paid out on.
         function ffaStandings(data) {
             const players = [];
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < FFA_MAX_SLOTS; i++) {
                 if (data[`p${i}Uid`]) players.push({
                     idx: i,
                     uid: data[`p${i}Uid`],
@@ -4282,15 +4308,32 @@ placeholder comment below, sized to fit the existing 320x50 container.
             return ordered;
         }
 
+        // Which standings rows to actually draw, given the list only has room
+        // for FFA_VISIBLE_ROWS of them. Everyone fits up to that many. Beyond
+        // it: the top three, plus your own row if you are below them — and if
+        // you are already in the top three, 4th place instead, so you can see
+        // who is chasing you rather than a row you are already reading.
+        //
+        // Returns the rows in standings order. They keep their real place
+        // numbers, so a collapsed list reads 1, 2, 3, 5 rather than renumbering
+        // you into a position you are not in.
+        function ffaVisibleRows(standings, mySlot) {
+            if (standings.length <= FFA_VISIBLE_ROWS) return standings;
+            const shown = standings.slice(0, FFA_VISIBLE_ROWS - 1);
+            const mine = standings.find(p => p.idx === mySlot);
+            const tail = (mine && !shown.includes(mine)) ? mine : standings[FFA_VISIBLE_ROWS - 1];
+            return shown.concat(tail ? [tail] : []);
+        }
+
         function renderFfaLobbyWaiting(data) {
             const slots = [];
-            for (let i = 0; i < 4; i++) { if (data[`p${i}Uid`]) slots.push({ idx: i, name: data[`p${i}Name`] || "Guest" }); }
+            for (let i = 0; i < FFA_MAX_SLOTS; i++) { if (data[`p${i}Uid`]) slots.push({ idx: i, name: data[`p${i}Name`] || "Guest" }); }
             document.getElementById("ffa-lobby-players-list").innerHTML = slots.map(s =>
                 `<div>${s.idx === 0 ? "👑 " : "• "}${escapeHtml(s.name)}${s.idx === myFfaSlot ? " (you)" : ""}</div>`
             ).join("");
 
             const startBtn = document.getElementById("ffa-btn-start-early");
-            startBtn.style.display = (!data.isPublic && isMatchHost && slots.length >= 2) ? "inline-block" : "none";
+            startBtn.style.display = (!data.isPublic && isMatchHost && slots.length >= FFA_MIN_SLOTS) ? "inline-block" : "none";
 
             // Driven by live match data rather than set once at whichever
             // entry point got you here — findRandomFfaMatch/hostFfaMatch/
@@ -4311,7 +4354,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
             const subText = document.getElementById("ffa-lobby-sub-text");
             if (data.isPublic) {
-                if (slots.length >= 4) {
+                if (slots.length >= FFA_MAX_SLOTS) {
                     subText.innerText = "Lobby full — starting now...";
                 } else if (data.lobbyDeadline) {
                     let remain = Math.max(0, Math.ceil((data.lobbyDeadline - Date.now()) / 1000));
@@ -4326,10 +4369,13 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         subText.innerText = `Starting in ${remain}s with ${slots.length} player(s)... more may still join!`;
                     }
                 } else {
-                    subText.innerText = `Waiting for a 2nd player... (${slots.length}/4)`;
+                    const need = FFA_MIN_SLOTS - slots.length;
+                    subText.innerText = `Waiting for ${need} more player${need === 1 ? "" : "s"}... (${slots.length}/${FFA_MAX_SLOTS})`;
                 }
             } else {
-                subText.innerText = slots.length >= 2 ? "Ready! Start anytime, or wait for more (up to 4)." : "Share the room code — need at least 2 to start.";
+                subText.innerText = slots.length >= FFA_MIN_SLOTS
+                    ? `Ready! Start anytime, or wait for more (up to ${FFA_MAX_SLOTS}).`
+                    : `Share the room code — need at least ${FFA_MIN_SLOTS} to start.`;
             }
         }
 
@@ -4412,7 +4458,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 let data = docSnap.data();
                 lastFfaMatchData = data;
                 // Confirm/refresh which slot is mine (covers a reload mid-lobby).
-                for (let i = 0; i < 4; i++) { if (data[`p${i}Uid`] === currentUser.uid) { myFfaSlot = i; isMatchHost = (i === 0); break; } }
+                for (let i = 0; i < FFA_MAX_SLOTS; i++) { if (data[`p${i}Uid`] === currentUser.uid) { myFfaSlot = i; isMatchHost = (i === 0); break; } }
 
                 if (data.status === "waiting") {
                     renderFfaLobbyWaiting(data);
@@ -4450,8 +4496,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     }
 
                     const standings = ffaStandings(data);
+                    const visible = ffaVisibleRows(standings, myFfaSlot);
                     const occupied = new Set();
-                    standings.forEach((p, i) => {
+                    visible.forEach((p, i) => {
                         occupied.add(p.idx);
                         const eq = data[`p${p.idx}Equipped`] || { banner: "banner_default", effect: "effect_none" };
                         const row = document.getElementById(`ffa-row-${p.idx}`);
@@ -4475,8 +4522,28 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         skipsEl.className = skipsLeft > 0 ? "ffa-col" : "ffa-col ffa-col-empty";
                         document.getElementById(`ffa-score-${p.idx}`).innerText = p.score.toLocaleString();
                     });
-                    for (let i = 0; i < 4; i++) {
+                    for (let i = 0; i < FFA_MAX_SLOTS; i++) {
                         if (!occupied.has(i)) document.getElementById(`ffa-row-${i}`).style.display = "none";
+                    }
+
+                    // Stands in for the rows this list is not showing, placed
+                    // where they actually are. When you are below the top three
+                    // the place numbers jump (1, 2, 3, 5) and the note belongs
+                    // in that gap; when you are leading, the last row is 4th and
+                    // the omitted players are below it, so the note goes under.
+                    // Putting it in the gap either way would claim a break in
+                    // the standings that isn't there.
+                    const hiddenCount = standings.length - visible.length;
+                    const moreEl = document.getElementById("ffa-more-note");
+                    moreEl.style.display = hiddenCount > 0 ? "block" : "none";
+                    if (hiddenCount > 0) {
+                        const last = visible[visible.length - 1];
+                        const prev = visible[visible.length - 2];
+                        const gap = prev && last.place > prev.place + 1;
+                        moreEl.innerText = `+${hiddenCount} more`;
+                        moreEl.style.order = String(gap ? FFA_VISIBLE_ROWS - 1 : FFA_VISIBLE_ROWS);
+                        document.getElementById(`ffa-row-${last.idx}`).style.order =
+                            String(gap ? FFA_VISIBLE_ROWS : FFA_VISIBLE_ROWS - 1);
                     }
 
                     if (data.chat && data.chat.length > 0) {
@@ -5096,8 +5163,18 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         // FIX: Join the array into a string so Firebase doesn't block it!
                         let colorCodes = tileColors.map(c => c === 'correct' ? 2 : c === 'present' ? 1 : 0).join("");
                         myMiniBoard.push(colorCodes);
-                        let updatePayload = {}; updatePayload[raceField("Board")] = myMiniBoard;
-                        updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error("Mini-board sync error:", e));
+                        // 1v1 only. Its tug-of-war track draws both mini-boards;
+                        // FFA's standings list does not show one, so in FFA this
+                        // was a write per guess that rendered nothing. Every
+                        // player shares ONE match document and Firestore wants
+                        // no more than ~1 sustained write/sec on it, so that
+                        // write rate — not the schema — was the cap on how many
+                        // players the mode could hold. Without it FFA writes
+                        // about once per word solved instead of once per guess.
+                        if (!isFfaMode) {
+                            let updatePayload = {}; updatePayload[raceField("Board")] = myMiniBoard;
+                            updateDoc(doc(db, "matches", currentMatchId), updatePayload).catch(e => console.error("Mini-board sync error:", e));
+                        }
                     } catch(e) { console.error(e); }
                 }
 

@@ -174,14 +174,30 @@ const DAILY_GAUNTLET_MAX_GUESSES = 5;
 const SUDDEN_DEATH_ROUND_MS = 90000; // a full 5-guess board per side, not one quick guess — needs real thinking time
 const SUDDEN_DEATH_MAX_ROUNDS = 1; // one word decides it — if neither side solves it, the match is a genuine tie rather than dragging a drawn 7-minute match out by another 90s per extra round
 
-const FFA_MAX_PLAYERS = 4;
-const FFA_MIN_PLAYERS = 2;
-const FFA_LOBBY_GRACE_MS = 20000; // once a public lobby has 2+, give it this long to fill further before auto-starting
+const FFA_MAX_PLAYERS = 6;
+// Three, not two. A 2-player FFA is a Clash duel wearing a different payout
+// table — same word list, same 7-minute clock, same two people — so it made
+// the mode indistinguishable from the one next to it. Applies to private
+// rooms too: two friends who want a head-to-head already have Clash, which
+// has its own room codes.
+const FFA_MIN_PLAYERS = 3;
+const FFA_LOBBY_GRACE_MS = 20000; // once a public lobby reaches FFA_MIN_PLAYERS, give it this long to fill further before auto-starting
 const FFA_MATCH_MS = 420000; // same 7-minute race as 1v1 Clash
-// 1st/2nd/3rd/4th split of the same 1,000-point pool 1v1 pays its winner —
-// keyed by player count so a 2p FFA lobby degenerates to exactly duel's
-// win/lose payout, and a 3p lobby drops the "200" tier rather than the "500".
-const FFA_PAYOUT_CURVES = { 2: [1000, 0], 3: [1000, 500, 0], 4: [1000, 500, 200, 0] };
+// Placement split of the same 1,000-point pool 1v1 pays its winner, keyed by
+// player count. Every curve is a prefix of the longest one plus a trailing
+// zero, so moving from a 4p lobby to a 6p one never changes what 1st through
+// 4th are worth — a bigger room only adds tiers underneath. Last place always
+// takes nothing, and at six that is one player rather than a crowd.
+//
+// 2 is unreachable while FFA_MIN_PLAYERS is 3 and is kept only as the
+// fallback computeFfaOutcome indexes into for an unexpected count.
+const FFA_PAYOUT_CURVES = {
+  2: [1000, 0],
+  3: [1000, 500, 0],
+  4: [1000, 500, 200, 0],
+  5: [1000, 500, 200, 100, 0],
+  6: [1000, 500, 200, 100, 50, 0],
+};
 
 // Eastern-time calendar-day string (YYYY-MM-DD) — the sole source of truth
 // for when the Gauntlet puzzle, daily challenges/stats, and login streaks
@@ -1274,9 +1290,9 @@ exports.resolveSuddenDeathTimeout = onCall(async (request) => {
 // inflate their own score client-side (same pre-existing limitation as 1v1),
 // but can no longer just skip to a self-declared win.
 //
-// Schema (matches/{matchId}, mode:'ffa'): up to 4 flat player slots —
-// p0Uid/p0Name/p0Equipped/p0Mmr/p0Score/p0Board/p0WordIndex/p0Skips, same for
-// p1-p3 — rather than a nested players map or array, so each player's
+// Schema (matches/{matchId}, mode:'ffa'): up to 6 flat player slots —
+// p0Uid/p0Name/p0Equipped/p0Mmr/p0Score/p0WordIndex/p0Skips, same for
+// p1-p5 — rather than a nested players map or array, so each player's
 // client can update its own slot's gameplay fields independently via a
 // plain updateDoc (mirrors hostScore/guestScore in 1v1) without any
 // read-modify-write race. Joining a slot, however, DOES have a real race
@@ -1284,11 +1300,23 @@ exports.resolveSuddenDeathTimeout = onCall(async (request) => {
 // match creation, joining/starting/finishing all go through callables
 // (Admin SDK, transactional) instead of raw client writes; see
 // firestore.rules, which denies clients write access to every field below
-// except pNScore/pNBoard/pNWordIndex/pNSkips/chat for exactly that reason.
+// except pNScore/pNWordIndex/pNSkips/chat for exactly that reason.
+//
+// There is no pNBoard. FFA's standings list shows rank/name/word/skips/score
+// and no mini-boards, so syncing a 5x5 grid on every guess was writing data
+// nothing rendered — and since all players share ONE document, that write
+// rate is the ceiling on how many players the mode can hold. Dropping it took
+// FFA from ~1 write per guess to ~1 per word solved, which is what makes six
+// cost less than four used to. 1v1 keeps hostBoard/guestBoard: its
+// tug-of-war track actually draws them.
 // pNMmr holds the player's FFA rating (ffaMmr), not their Clash one.
 // ============================================================================
 
-// Returns the occupied slots (2-4 of them) as a normalized array, in slot
+// Every slot index a match can have, derived from FFA_MAX_PLAYERS so raising
+// the cap never leaves a hardcoded list behind.
+const FFA_SLOT_INDEXES = Array.from({ length: FFA_MAX_PLAYERS }, (_, i) => i);
+
+// Returns the occupied slots (3-6 of them) as a normalized array, in slot
 // order. Never includes empty slots (pNUid === null).
 function ffaSlots(match) {
   const slots = [];
@@ -1435,7 +1463,7 @@ exports.joinFfaMatch = onCall(async (request) => {
     if (already) return { matchId, slotIndex: already.idx, playerCount: slots.length, started: false }; // retried call — no-op
     if (slots.length >= FFA_MAX_PLAYERS) throw new HttpsError("failed-precondition", "That match is full.");
 
-    const openIdx = [0, 1, 2, 3].find((i) => !match[`p${i}Uid`]);
+    const openIdx = FFA_SLOT_INDEXES.find((i) => !match[`p${i}Uid`]);
     const userData = userSnap.data();
     const newCount = slots.length + 1;
     const update = {
@@ -1451,7 +1479,7 @@ exports.joinFfaMatch = onCall(async (request) => {
       update.status = "playing";
       update.endTime = Date.now() + FFA_MATCH_MS;
       started = true;
-    } else if (match.isPublic && newCount === 2 && !match.lobbyDeadline) {
+    } else if (match.isPublic && newCount === FFA_MIN_PLAYERS && !match.lobbyDeadline) {
       update.lobbyDeadline = Date.now() + FFA_LOBBY_GRACE_MS;
     }
 
@@ -1540,7 +1568,7 @@ exports.startFfaMatch = onCall(async (request) => {
       if (match.status !== "waiting") return { ok: true, alreadyStarted: true }; // idempotent no-op
 
       const count = match.playerCount || 0;
-      if (count < FFA_MIN_PLAYERS) throw new HttpsError("failed-precondition", "Need at least 2 players.");
+      if (count < FFA_MIN_PLAYERS) throw new HttpsError("failed-precondition", `Need at least ${FFA_MIN_PLAYERS} players.`);
 
       if (match.isPublic) {
         if (!match.lobbyDeadline || Date.now() < match.lobbyDeadline) {

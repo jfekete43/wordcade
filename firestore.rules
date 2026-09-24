@@ -173,26 +173,27 @@ service cloud.firestore {
         && (request.resource.data.status == resource.data.status
             || (resource.data.status == 'waiting' && request.resource.data.status == 'playing'));
 
-      // Clash: Free-For-All (2-4 players, see functions/index.js). Unlike
+      // Clash: Free-For-All (3-6 players, see functions/index.js). Unlike
       // the 1v1 rule above, joining/starting/finishing a match ALL go
       // through callables (joinFfaMatch/startFfaMatch/finishFfaMatch) —
       // there's a real race in claiming one of a fixed number of open
       // slots that a plain client updateDoc can't safely resolve, the way
       // 1v1's single guest slot gets away with. So a client here may only
-      // ever touch its own live gameplay fields (pNScore/pNBoard/
-      // pNWordIndex) and chat — every identity, roster, timing, and payout
+      // ever touch its own live gameplay fields (pNScore/pNWordIndex/
+      // pNSkips) and chat — every identity, roster, timing, and payout
       // field is Admin-SDK-only.
       allow update: if isSignedIn() && matchMode(resource.data) == 'ffa'
         && (request.auth.uid == resource.data.p0Uid || request.auth.uid == resource.data.p1Uid
-            || request.auth.uid == resource.data.p2Uid || request.auth.uid == resource.data.p3Uid)
+            || request.auth.uid == resource.data.p2Uid || request.auth.uid == resource.data.p3Uid
+            || request.auth.uid == resource.data.p4Uid || request.auth.uid == resource.data.p5Uid)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
              'mode', 'hostUid', 'isPublic', 'status', 'maxPlayers', 'playerCount',
              'words', 'endTime', 'lobbyDeadline', 'winners', 'changes', 'payoutApplied',
              'leftPlayers',
-             'p0Uid', 'p1Uid', 'p2Uid', 'p3Uid',
-             'p0Name', 'p1Name', 'p2Name', 'p3Name',
-             'p0Equipped', 'p1Equipped', 'p2Equipped', 'p3Equipped',
-             'p0Mmr', 'p1Mmr', 'p2Mmr', 'p3Mmr'
+             'p0Uid', 'p1Uid', 'p2Uid', 'p3Uid', 'p4Uid', 'p5Uid',
+             'p0Name', 'p1Name', 'p2Name', 'p3Name', 'p4Name', 'p5Name',
+             'p0Equipped', 'p1Equipped', 'p2Equipped', 'p3Equipped', 'p4Equipped', 'p5Equipped',
+             'p0Mmr', 'p1Mmr', 'p2Mmr', 'p3Mmr', 'p4Mmr', 'p5Mmr'
            ]);
 
       // A 1v1 host may delete their match at any time (mirrors the client's

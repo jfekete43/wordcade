@@ -29,8 +29,8 @@ const grab = (src, re, what) => { const m = src.match(re); if (!m) throw new Err
 // The payout/rating body of onFfaMatchFinished, verbatim.
 const payoutBody = grab(fn, /    const players = slots\.map\(\(s, i\) => \(\{ uid: s\.uid[\s\S]*?\n    tx\.update\(matchRef, \{ changes, payoutApplied: true \}\);/, 'payout body');
 const deps = [
-  grab(fn, /const FFA_MAX_PLAYERS = 4;/, 'FFA_MAX_PLAYERS'),
-  grab(fn, /const FFA_PAYOUT_CURVES = .*;/, 'payout curves'),
+  grab(fn, /const FFA_MAX_PLAYERS = \d+;/, 'FFA_MAX_PLAYERS'),
+  grab(fn, /const FFA_PAYOUT_CURVES = \{[\s\S]*?\n\};/, 'payout curves'),
   grab(fn, /const FFA_BASE_MMR = \d+;/, 'FFA_BASE_MMR'),
   grab(fn, /function ffaRating\(userData\) \{\n[\s\S]*?\n\}/, 'ffaRating'),
   grab(fn, /function ffaSlots\(match\) \{\n[\s\S]*?\n\}/, 'ffaSlots'),
@@ -65,6 +65,10 @@ const runPayout = (match, userDocs) => {
 
 const t = [];
 const ok = (name, cond, detail = '') => t.push({ name, cond, detail });
+// Reading a field off a player the code never wrote should report a failed
+// case, not throw a stack trace three assertions early.
+const paid = (w, uid) => (w[uid] && w[uid].wallet) ? w[uid].wallet.__increment : 0;
+const rated = (w, uid) => (w[uid] && typeof w[uid].ffaMmr === 'number') ? w[uid].ffaMmr : null;
 
 const publicMatch = {
   mode: 'ffa', isPublic: true, leftPlayers: [],
@@ -119,6 +123,35 @@ ok('nobody gets an mmr write', ['a', 'b', 'c', 'd'].every(u => !('mmr' in r.writ
 ok('the leaver loses most despite the top score', r.writes.d.ffaMmr === Math.min(...['a','b','c','d'].map(u => r.writes[u].ffaMmr)),
    ['a','b','c','d'].map(u => `${u}:${r.writes[u].ffaMmr}`).join(' '));
 ok('the match doc is marked applied', r.matchWrite.payoutApplied === true);
+
+// --- 6b. a six-player match: every slot rated, nobody's mmr touched -------
+r = runPayout({
+  mode: 'ffa', isPublic: true, leftPlayers: [],
+  p0Uid: 'a', p0Score: 600, p1Uid: 'b', p1Score: 500, p2Uid: 'c', p2Score: 400,
+  p3Uid: 'd', p3Score: 300, p4Uid: 'e', p4Score: 200, p5Uid: 'f', p5Score: 100,
+}, Object.fromEntries('abcdef'.split('').map(u => [u, { ffaMmr: 1000, mmr: 1500 }])));
+const six = 'abcdef'.split('');
+ok('all six slots are read and written', six.every(u => rated(r.writes, u) !== null),
+   six.map(u => rated(r.writes, u)).join(','));
+ok('no sixth-slot write leaks into mmr', six.every(u => r.writes[u] && !('mmr' in r.writes[u])));
+// The whole point of the field-size question: placement in a big field has
+// to be worth more than the same placement in a small one.
+const secondOfSix = (rated(r.writes, 'b') ?? 1000) - 1000;
+const three = runPayout({ mode: 'ffa', isPublic: true, leftPlayers: [],
+  p0Uid: 'a', p0Score: 300, p1Uid: 'b', p1Score: 200, p2Uid: 'c', p2Score: 100 },
+  { a: { ffaMmr: 1000 }, b: { ffaMmr: 1000 }, c: { ffaMmr: 1000 } });
+const secondOfThree = (rated(three.writes, 'b') ?? 1000) - 1000;
+ok('2nd of 6 gains, 2nd of 3 does not', secondOfSix > 0 && secondOfThree === 0,
+   `2nd/6 = ${secondOfSix >= 0 ? '+' : ''}${secondOfSix}, 2nd/3 = ${secondOfThree >= 0 ? '+' : ''}${secondOfThree}`);
+ok('last place loses the most in both', rated(r.writes, 'f') < rated(r.writes, 'e')
+   && rated(three.writes, 'c') < rated(three.writes, 'b'),
+   `6p ${rated(r.writes,'f')}<${rated(r.writes,'e')}, 3p ${rated(three.writes,'c')}<${rated(three.writes,'b')}`);
+// Only last place earns nothing at six, rather than a crowd of them.
+ok('five of six are paid at 6p', six.filter(u => paid(r.writes, u) > 0).length === 5,
+   six.map(u => paid(r.writes, u)).join(','));
+ok('1st-4th pay the same at 6p as at 4p',
+   [1000, 500, 200, 100].every((v, i) => paid(r.writes, six[i]) === v),
+   six.slice(0, 4).map(u => paid(r.writes, u)).join(','));
 
 // --- 7. 1v1 Clash is untouched by all of this ------------------------------
 const clashPayout = grab(fn, /    const hostUpdate = \{ mmr: newHostMmr \};\n    const guestUpdate = \{ mmr: newGuestMmr \};/, 'clash update');
