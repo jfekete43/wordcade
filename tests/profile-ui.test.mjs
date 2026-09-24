@@ -65,7 +65,11 @@ const ids = Object.values(PLACE_BADGES).flatMap((s) => [...s.matchAll(/id="([^"]
 ck(new Set(ids).size === ids.length, 'no gradient or filter id is reused across badges', ids.join(','));
 
 // ---- profile tabs --------------------------------------------------------
-const TABS = ['standard', 'clash', 'gauntlet'];
+// Read the tab list out of setProfileTab itself rather than hard-coding it:
+// a hard-coded copy went stale the moment a fourth tab was added, and the
+// new tab would then have escaped every case below instead of failing one.
+const TABS = JSON.parse(tabSrc.match(/for \(const tab of (\[[^\]]*\])\)/)[1].replace(/'/g, '"'));
+ck(TABS.length >= 3, 'the tab list was read out of the source', TABS.join(','));
 const els = {};
 for (const tab of TABS) {
   els['profile-' + tab] = { style: { display: 'none' } };

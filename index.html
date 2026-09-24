@@ -343,6 +343,13 @@
         .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .tab-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
         .tab-btn.active { background: #ff00ff; color: white; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
+        /* Four profile tabs overflow a 360px phone at the default size and
+           wrap to a lonely second row. They wrap rather than clip either way,
+           so this is only about fitting the common case on one line. */
+        @media (max-width: 400px) {
+            .tabs { gap: 5px; }
+            .tab-btn { padding: 8px 7px; font-size: 11px; }
+        }
 
         #leaderboard-list { background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         
@@ -1311,6 +1318,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             <div class="tabs">
                 <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Standard</button>
                 <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
+                <button class="tab-btn" id="tab-prof-ffa" onclick="window.setProfileTab('ffa')">FFA</button>
                 <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Gauntlet</button>
             </div>
 
@@ -1340,6 +1348,22 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
                     <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:white; font-size: 18px;">0</span></div>
                 </div>
+            </div>
+
+            <!-- FFA STATS — its own rating ladder, separate from Clash's.
+                 Wins live here rather than on the leaderboard, which ranks on
+                 ffaMmr now: a win count rewards volume over skill, so it is a
+                 personal stat, not a ranking. -->
+            <div id="profile-ffa" class="modal-stats" style="text-align: left; display: none;">
+                <div style="text-align: center; margin-bottom: 4px;">FFA Rating: <br><span id="stat-ffa-mmr" style="color: #ffd700; font-size: 28px;">—</span></div>
+                <div id="stat-ffa-rank-title" style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;">Unranked</div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">Wins<br><span id="stat-ffa-wins" style="color:white; font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">Played<br><span id="stat-ffa-played" style="color:white; font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-ffa-winrate" style="color:white; font-size: 18px;">0%</span></div>
+                </div>
+                <div id="stat-ffa-note" style="text-align: center; font-size: 12px; color: #888; line-height: 1.5;">&nbsp;</div>
             </div>
 
             <!-- GAUNTLET STATS -->
@@ -2113,13 +2137,18 @@ placeholder comment below, sized to fit the existing 320x50 container.
             else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
         }
         
-        let cachedRanks = { host: null, guest: null, lastMMR: { host: 0, guest: 0 } };
-        async function getPlayerRank(mmr, type) {
-            if (cachedRanks.lastMMR[type] === mmr && cachedRanks[type]) return cachedRanks[type];
+        // Global position on a rating ladder: count everyone above you, add
+        // one. `field` is which ladder — Clash's mmr or FFA's ffaMmr — and
+        // used to be hard-coded to mmr while the caller passed a `type` that
+        // only ever picked a cache slot, which would have quietly ranked FFA
+        // players against the Clash board.
+        let cachedRanks = { host: null, guest: null, clash: null, ffa: null, lastMMR: { host: 0, guest: 0, clash: 0, ffa: 0 } };
+        async function getPlayerRank(rating, type, field) {
+            if (cachedRanks.lastMMR[type] === rating && cachedRanks[type]) return cachedRanks[type];
             try {
-                const rankSnap = await getCountFromServer(query(collection(db, "users"), where("mmr", ">", mmr)));
+                const rankSnap = await getCountFromServer(query(collection(db, "users"), where(field, ">", rating)));
                 cachedRanks[type] = rankSnap.data().count + 1;
-                cachedRanks.lastMMR[type] = mmr;
+                cachedRanks.lastMMR[type] = rating;
                 return cachedRanks[type];
             } catch(e) { return "?"; }
         }
@@ -2162,7 +2191,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     let rankObj = getRankDetails(currentMMR);
         
                     document.getElementById("stat-rank-title").innerText = `${rankObj.name} (Loading Rank...)`;
-                    getPlayerRank(currentMMR, 'host').then(r => {
+                    getPlayerRank(currentMMR, 'clash', 'mmr').then(r => {
                         document.getElementById("stat-rank-title").innerText = `${rankObj.name} (#${r})`;
                     });
 
@@ -2171,6 +2200,35 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses} - ${cTies}`;
                     document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
                     document.getElementById("stat-clash-streak").innerText = data.currentClashWinStreak || 0;
+
+                    // ffa — its own ladder. An unset ffaMmr means no ranked FFA
+                    // match has ever paid out for this player, which is not the
+                    // same as sitting at the base rating: they are absent from
+                    // the board entirely, so say Unranked rather than invent a
+                    // position. Private matches never move it, same rule 1v1
+                    // follows, which is what the note explains.
+                    const fWins = data.ffaWins || 0; const fPlayed = data.ffaMatchesPlayed || 0;
+                    const fWinRate = fPlayed > 0 ? Math.round((fWins / fPlayed) * 100) : 0;
+                    document.getElementById("stat-ffa-wins").innerText = fWins;
+                    document.getElementById("stat-ffa-played").innerText = fPlayed;
+                    document.getElementById("stat-ffa-winrate").innerText = fWinRate + "%";
+
+                    const rawFfaMmr = Number(data.ffaMmr);
+                    if (Number.isFinite(rawFfaMmr)) {
+                        const fRankObj = getRankDetails(rawFfaMmr);
+                        document.getElementById("stat-ffa-mmr").innerText = rawFfaMmr;
+                        document.getElementById("stat-ffa-rank-title").innerText = `${fRankObj.name} (Loading Rank...)`;
+                        document.getElementById("stat-ffa-rank-title").className = fRankObj.class;
+                        document.getElementById("stat-ffa-note").innerText = "Private matches are unranked \u2014 only public FFA moves this.";
+                        getPlayerRank(rawFfaMmr, 'ffa', 'ffaMmr').then(r => {
+                            document.getElementById("stat-ffa-rank-title").innerText = `${fRankObj.name} (#${r})`;
+                        });
+                    } else {
+                        document.getElementById("stat-ffa-mmr").innerText = "\u2014";
+                        document.getElementById("stat-ffa-rank-title").innerText = "Unranked";
+                        document.getElementById("stat-ffa-rank-title").className = "";
+                        document.getElementById("stat-ffa-note").innerText = "Finish a public FFA match to get a rating. Private matches stay unranked.";
+                    }
                             }
     
                 // default to standard tab
@@ -2182,7 +2240,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
         // original handlers each had to know about the other panel by name,
         // which does not survive a third tab.
         window.setProfileTab = function(name) {
-            for (const tab of ["standard", "clash", "gauntlet"]) {
+            for (const tab of ["standard", "clash", "ffa", "gauntlet"]) {
                 document.getElementById("profile-" + tab).style.display = tab === name ? "block" : "none";
                 document.getElementById("tab-prof-" + tab).classList.toggle("active", tab === name);
             }
@@ -2435,9 +2493,9 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 // live on the play screen and in Past Gauntlets, where they
                 // reset nightly and a scouted run ages out.
                 const USERS_BOARD = {
-                    all:   { field: "bestRunScore",      fallback: 0,    empty: "No runs yet — play a game to get on the board" },
-                    clash: { field: "mmr",               fallback: 1000, empty: "" },
-                    ffa:   { field: "ffaWins",           fallback: 0,    empty: "Win an FFA match to climb" },
+                    all:   { field: "bestRunScore", fallback: 0,    excludesUnset: true,  empty: "No runs yet — play a game to get on the board" },
+                    clash: { field: "mmr",          fallback: 1000, excludesUnset: false, empty: "" },
+                    ffa:   { field: "ffaMmr",       fallback: 1000, excludesUnset: true,  empty: "Finish a public FFA match to get a rating" },
                 };
                 const board = USERS_BOARD[mode];
                 if (board) {
@@ -2454,10 +2512,13 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                     const raw = Number(live[board.field]);
                     const mine = Number.isFinite(raw) ? raw : board.fallback;
-                    // An unset best means no qualifying run, which is not the
-                    // same as a zero — the board itself excludes those players,
-                    // so claiming a position on it would be a lie.
-                    if (!Number.isFinite(raw) && board.fallback === 0) { paint("#–", "—", board.empty); return; }
+                    // An unset field means no qualifying run/match, which is not
+                    // the same as a low value — orderBy leaves those docs out of
+                    // the index, so the board above genuinely does not contain
+                    // this player and claiming a position on it would be a lie.
+                    // Clash is the exception: every profile is created with an
+                    // mmr, so unset there only ever means a doc mid-migration.
+                    if (!Number.isFinite(raw) && board.excludesUnset) { paint("#–", "—", board.empty); return; }
 
                     const ahead = await getCountFromServer(query(collection(db, "users"), where(board.field, ">", mine)));
                     paint(`#${(ahead.data().count + 1).toLocaleString()}`, mine.toLocaleString(),
@@ -2514,11 +2575,16 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); });
                         }
                         else if (currentLbTime === 'ffa') {
-                            // Ranked by total FFA wins, not MMR — FFA already feeds the
-                            // same MMR pool the Clash tab shows, so ranking by MMR again
-                            // here would just be a second copy of that tab.
-                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("ffaWins", "desc"), limit(100)));
-                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().ffaWins || 0, equipped: doc.data().equipped }); });
+                            // Ranked by FFA's own rating. This used to rank by raw
+                            // ffaWins — volume, not skill: 25 wins from 100 matches
+                            // beat 8 from 10 — because FFA fed the same mmr field the
+                            // Clash tab shows and ranking by it would have been a
+                            // second copy of that tab. FFA has ffaMmr of its own now.
+                            // Players who have never finished a ranked FFA match have
+                            // no ffaMmr and so are absent from this index entirely,
+                            // which is the right answer: they are not on this ladder.
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("ffaMmr", "desc"), limit(100)));
+                            snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().ffaMmr || 1000, equipped: doc.data().equipped }); });
                         }
                         else if (currentLbTime === 'all') {
                             // Each player's best single run, read off their own
@@ -2605,14 +2671,19 @@ placeholder comment below, sized to fit the existing 320x50 container.
                             let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
             
                             let titleStr = tObj && tObj.display ? tObj.display : "";
-                            if (currentLbTime === 'clash') {
+                            // Both rating boards show the tier the number puts
+                            // you in, in place of the equipped title.
+                            if (currentLbTime === 'clash' || currentLbTime === 'ffa') {
                                 let rankObj = getRankDetails(entry.score);
                                 titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
                             }
             
                             html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${Number(entry.score || 0).toLocaleString()}</div></div>`;
                         }); 
-                        listDiv.innerHTML = html;
+                        // A rating board only indexes players who have earned a
+                        // rating, so a brand-new one really is empty rather than
+                        // broken — say so instead of showing a blank panel.
+                        listDiv.innerHTML = html || `<div class="lb-loading">No one has made this board yet.</div>`;
                         // finalData is the deduped, rendered list, so the
                         // "am I on this board" check below agrees with what
                         // the player is actually looking at.
@@ -3838,12 +3909,12 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                     // Update Ranks & Banners with Global Positioning
                     setPlayerBanner(true, data.hostName, data.hostEquipped);
-                    getPlayerRank(data.hostMMR || 1000, 'host').then(r => {
+                    getPlayerRank(data.hostMMR || 1000, 'host', 'mmr').then(r => {
                         document.getElementById('vs-host-title').innerText = `${getRankDetails(data.hostMMR || 1000).name} (#${r})`;
                     });
                     
                     setPlayerBanner(false, data.guestName, data.guestEquipped);
-                    getPlayerRank(data.guestMMR || 1000, 'guest').then(r => {
+                    getPlayerRank(data.guestMMR || 1000, 'guest', 'mmr').then(r => {
                         document.getElementById('vs-guest-title').innerText = `${getRankDetails(data.guestMMR || 1000).name} (#${r})`;
                     });
                     
@@ -4125,7 +4196,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                     listenToFfaMatch();
                 } else {
                     currentMatchId = generateRoomCode(); isMatchHost = true; myFfaSlot = 0;
-                    await setDoc(doc(db, "matches", currentMatchId), newFfaMatchDoc(currentUser.uid, userProfileData.username, userProfileData.equipped, userProfileData.mmr, true));
+                    await setDoc(doc(db, "matches", currentMatchId), newFfaMatchDoc(currentUser.uid, userProfileData.username, userProfileData.equipped, userProfileData.ffaMmr, true));
                     listenToFfaMatch();
                 }
             } catch (e) {
@@ -4140,7 +4211,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
             window.matchFinishedProcessed = false;
             currentMatchId = generateRoomCode(); isMatchHost = true; myFfaSlot = 0;
 
-            await setDoc(doc(db, "matches", currentMatchId), newFfaMatchDoc(currentUser.uid, userProfileData.username, userProfileData.equipped, userProfileData.mmr, false));
+            await setDoc(doc(db, "matches", currentMatchId), newFfaMatchDoc(currentUser.uid, userProfileData.username, userProfileData.equipped, userProfileData.ffaMmr, false));
 
             document.getElementById("ffa-lobby-action-view").style.display = "none";
             document.getElementById("ffa-lobby-waiting-view").style.display = "block";
@@ -4461,7 +4532,7 @@ placeholder comment below, sized to fit the existing 320x50 container.
                         const mine = s.uid === currentUser.uid;
                         const change = changes[s.uid] || { payout: 0, eloChange: 0 };
                         const isWin = winners.includes(s.uid);
-                        let mmrText = isPublicMatch ? (change.eloChange >= 0 ? `+${change.eloChange} MMR` : `${change.eloChange} MMR`) : "Unranked";
+                        let mmrText = isPublicMatch ? (change.eloChange >= 0 ? `+${change.eloChange} FFA MMR` : `${change.eloChange} FFA MMR`) : "Unranked";
                         html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "#332b00" : "#222"}; border:1px solid ${isWin ? "#ffd700" : "#444"};">
                             <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}${isLeaver ? " <span style=\"color:#ff3333;\">(left)</span>" : ""}</div>
                             <div style="text-align:right;"><div>${s.score.toLocaleString()} pts</div><div style="font-size:11px; color:${change.payout > 0 ? "#4caf50" : "#aaa"};">+${change.payout.toLocaleString()} pts &nbsp; ${mmrText}</div></div>

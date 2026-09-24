@@ -1275,7 +1275,7 @@ exports.resolveSuddenDeathTimeout = onCall(async (request) => {
 // but can no longer just skip to a self-declared win.
 //
 // Schema (matches/{matchId}, mode:'ffa'): up to 4 flat player slots —
-// p0Uid/p0Name/p0Equipped/p0Mmr/p0Score/p0Board/p0WordIndex, same for
+// p0Uid/p0Name/p0Equipped/p0Mmr/p0Score/p0Board/p0WordIndex/p0Skips, same for
 // p1-p3 — rather than a nested players map or array, so each player's
 // client can update its own slot's gameplay fields independently via a
 // plain updateDoc (mirrors hostScore/guestScore in 1v1) without any
@@ -1284,7 +1284,8 @@ exports.resolveSuddenDeathTimeout = onCall(async (request) => {
 // match creation, joining/starting/finishing all go through callables
 // (Admin SDK, transactional) instead of raw client writes; see
 // firestore.rules, which denies clients write access to every field below
-// except pNScore/pNBoard/pNWordIndex/chat for exactly that reason.
+// except pNScore/pNBoard/pNWordIndex/pNSkips/chat for exactly that reason.
+// pNMmr holds the player's FFA rating (ffaMmr), not their Clash one.
 // ============================================================================
 
 // Returns the occupied slots (2-4 of them) as a normalized array, in slot
@@ -1339,6 +1340,25 @@ function computeFfaPlacements(players, leftPlayers = []) {
   }
   leavers.forEach((p) => groups.push([p]));
   return groups;
+}
+
+// FFA carries its own rating, separate from 1v1 Clash's `mmr`. It used to
+// write straight into `mmr`, which made the two modes one pooled number and
+// left the FFA leaderboard with nothing of its own to rank on — ranking it by
+// `mmr` would have been a literal second copy of the Clash tab, so it ranked
+// by raw ffaWins instead, i.e. by volume: 25 wins from 100 matches outranked
+// 8 from 10. A 4-way score race and a head-to-head duel are different skills
+// and a single number was always a small lie about both.
+//
+// Unset means "never finished a ranked FFA match", and is deliberately NOT
+// backfilled: the field appears the first time a public match pays out, so
+// the FFA board lists exactly the players with FFA history and a Clash-only
+// grinder is not handed a rating they never played for. Everyone starts at
+// FFA_BASE_MMR, same as Clash does.
+const FFA_BASE_MMR = 1000;
+function ffaRating(userData) {
+  const v = Number(userData && userData.ffaMmr);
+  return Number.isFinite(v) ? v : FFA_BASE_MMR;
 }
 
 // Multiplayer Elo: for each player, average their pairwise Elo delta against
@@ -1422,7 +1442,7 @@ exports.joinFfaMatch = onCall(async (request) => {
       [`p${openIdx}Uid`]: uid,
       [`p${openIdx}Name`]: userData.username || "Guest",
       [`p${openIdx}Equipped`]: userData.equipped || DEFAULT_EQUIPPED,
-      [`p${openIdx}Mmr`]: userData.mmr || 1000,
+      [`p${openIdx}Mmr`]: ffaRating(userData),
       playerCount: newCount,
     };
 
@@ -1479,7 +1499,7 @@ exports.leaveFfaMatch = onCall(async (request) => {
         [`p${mine.idx}Uid`]: null,
         [`p${mine.idx}Name`]: null,
         [`p${mine.idx}Equipped`]: null,
-        [`p${mine.idx}Mmr`]: 1000,
+        [`p${mine.idx}Mmr`]: FFA_BASE_MMR,
         playerCount: slots.length - 1,
       });
       return { ok: true };
@@ -1590,7 +1610,8 @@ exports.finishFfaMatch = onCall(async (request) => {
 // touch MMR, same rule 1v1 already follows. clashWins/clashLosses/clashTies
 // stay 1v1-only (a 3-way placement doesn't map cleanly onto a win/loss
 // counter) — FFA gets its own lightweight ffaMatchesPlayed/ffaWins counters
-// instead, for future FFA-specific challenges.
+// instead, for future FFA-specific challenges. Rating goes to ffaMmr, which
+// is FFA's alone; `mmr` is 1v1 Clash's and this never touches it.
 exports.onFfaMatchFinished = onDocumentUpdated("matches/{matchId}", async (event) => {
   const after = event.data.after.data();
   const before = event.data.before.data();
@@ -1609,7 +1630,7 @@ exports.onFfaMatchFinished = onDocumentUpdated("matches/{matchId}", async (event
     const userSnaps = await Promise.all(userRefs.map((r) => tx.get(r)));
     if (userSnaps.some((s) => !s.exists)) return;
 
-    const players = slots.map((s, i) => ({ uid: s.uid, score: s.score, mmr: userSnaps[i].data().mmr || 1000 }));
+    const players = slots.map((s, i) => ({ uid: s.uid, score: s.score, mmr: ffaRating(userSnaps[i].data()) }));
     const leftPlayers = after.leftPlayers || [];
     const { payoutByUid, winners } = computeFfaOutcome(players, leftPlayers);
     const isPublicMatch = after.isPublic === true;
@@ -1620,7 +1641,7 @@ exports.onFfaMatchFinished = onDocumentUpdated("matches/{matchId}", async (event
       const payout = payoutByUid[p.uid] || 0;
       const eloChange = eloDeltas[p.uid] || 0;
       const newMmr = Math.max(0, p.mmr + eloChange);
-      const update = { mmr: newMmr, ffaMatchesPlayed: FieldValue.increment(1) };
+      const update = { ffaMmr: newMmr, ffaMatchesPlayed: FieldValue.increment(1) };
       if (payout > 0) {
         update.wallet = FieldValue.increment(payout);
         update.careerBank = FieldValue.increment(payout);
