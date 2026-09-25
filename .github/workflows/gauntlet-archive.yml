@@ -1,0 +1,65 @@
+# Builds the static Gauntlet archive under /gauntlet/ once a day and commits
+# whatever changed, which GitHub Pages then serves.
+#
+# 07:30 UTC is 02:30 or 03:30 Eastern depending on the season — comfortably
+# after the midnight ET rollover either way, so the day it publishes is
+# always finished. The generator refuses to publish an unfinished day
+# regardless (see isPublishable), so a mistimed run produces nothing rather
+# than leaking today's answers.
+name: Build Gauntlet archive
+
+on:
+  schedule:
+    - cron: "30 7 * * *"
+  workflow_dispatch:
+    inputs:
+      all:
+        description: "Rebuild every past day instead of just yesterday"
+        type: boolean
+        default: false
+
+concurrency:
+  group: gauntlet-archive
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install firebase-admin
+        run: npm install --no-save firebase-admin
+
+      # Written to the runner's temp dir, never inside the checkout, so it
+      # cannot be picked up by the commit step below.
+      - name: Write service-account key
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$KEY" ]; then echo "FIREBASE_SERVICE_ACCOUNT secret is not set"; exit 1; fi
+          printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
+
+      - name: Build
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: node tools/build-gauntlet-archive.mjs ${{ inputs.all && '--all' || '' }}
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gauntlet sitemap.xml
+          if git diff --cached --quiet; then
+            echo "archive already up to date"
+            exit 0
+          fi
+          git commit -m "Publish Gauntlet archive through $(date -u -d 'yesterday' +%Y-%m-%d)"
+          git push

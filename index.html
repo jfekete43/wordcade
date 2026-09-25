@@ -809,6 +809,12 @@
         </p>
         <p>Points buy cosmetics — titles, banners and name effects — and nothing else. Nothing you can buy affects scoring or matchmaking, and points have no real-world value.</p>
         <p style="margin-bottom: 4px;">New here? Read <a href="how-to-play.html" style="color:#b967ff;">the full rules</a>, or the <a href="strategy.html" style="color:#00ffff;">strategy guide</a> — it has the opening words that cover every possible answer.</p>
+
+        <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Every past Gauntlet</h2>
+        <p style="margin-top: 0;">Once a day is over, its ten words go into the archive along with the final standings, how many guesses each word took, and which one ended the most runs. <a href="/gauntlet/" style="color:#b967ff;">Browse past Gauntlets</a> — today's is never listed, so nothing there can spoil the puzzle you haven't played.</p>
+
+        <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Support the project</h2>
+        <p style="margin-top: 0;">Lexathon is a small project and it's entirely free — no ads, no paywall, and nothing in the shop that makes anyone score higher. Running the multiplayer and the leaderboards does cost something, though, so if you're enjoying it and want to chip in, <a href="https://ko-fi.com/lexathon" target="_blank" rel="noopener" style="color:#4caf50;">a donation on Ko-fi</a> is hugely appreciated. It goes straight into keeping this running and building the next thing. Play a few rounds first — only chip in if it earned it.</p>
     </section>
 
     <!-- Always-visible footer (outside every modal, unlike the identical pair
@@ -994,6 +1000,11 @@
             <div id="gauntlet-archive-detail" style="display:none;">
                 <div id="gauntlet-archive-standing" style="font-size: 13px; color: #e8d5ff; margin-bottom: 10px; text-align: center;"></div>
                 <div id="gauntlet-archive-board"></div>
+                <!-- The static page carries what this panel deliberately does
+                     not: the ten words themselves, per-word difficulty, and
+                     the full spread of results. It is also a flat file, so
+                     reading it there costs no Firestore reads at all. -->
+                <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:#b967ff; text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
                 <button class="btn-dark" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
             </div>
 
@@ -3224,6 +3235,7 @@
             document.getElementById("gauntlet-archive-browse").style.display = "none";
             document.getElementById("gauntlet-archive-detail").style.display = "block";
             document.getElementById("gauntlet-archive-title").innerText = num ? `Gauntlet #${num}` : "Past Gauntlet";
+            document.getElementById("gauntlet-archive-full").href = `/gauntlet/${dateStr}/`;
             standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
             boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
 

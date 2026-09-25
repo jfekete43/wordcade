@@ -203,3 +203,48 @@ rules. There's no equivalent "roll back" for functions other than
 re-deploying an older commit's `functions/` the same way; Cloud Functions
 also keeps its own version history in the Console under each function if
 you need to roll back without touching git.
+
+## The Gauntlet archive (`/gauntlet/`)
+
+Static pages, one per finished Gauntlet, built from Firestore and committed
+to the repo. GitHub Pages serves them — **no Firebase deploy is involved**.
+
+### One-time setup
+
+1. Create a service-account key in Firebase Console → Project Settings →
+   Service accounts → **Generate new private key**.
+2. Paste the whole JSON into a GitHub repo secret named
+   `FIREBASE_SERVICE_ACCOUNT` (Settings → Secrets and variables → Actions).
+3. Settings → Actions → General → Workflow permissions → **Read and write**,
+   so the daily job can commit what it builds.
+
+### The first backfill
+
+Run it once by hand from Cloud Shell, where you are already authenticated:
+
+```bash
+cd ~/wordcade && git pull origin main
+npm install --no-save firebase-admin
+node tools/build-gauntlet-archive.mjs --all --dry-run   # look first
+node tools/build-gauntlet-archive.mjs --all
+git add gauntlet sitemap.xml && git commit -m "Backfill Gauntlet archive" && git push
+```
+
+After that the `Build Gauntlet archive` workflow runs daily at 07:30 UTC and
+commits yesterday's page by itself. `--all` is also available from the
+Actions tab (Run workflow → tick "Rebuild every past day") if a template
+change means every page needs regenerating.
+
+### The rule that matters
+
+The generator will not publish a date unless it is strictly before today in
+**Eastern** time, because today's answers are still live. That check is in
+`tools/gauntlet-archive-render.mjs` (`isPublishable`) and is covered on both
+DST transition days by `tests/gauntlet-archive-pages.test.mjs`. If you ever
+change the scheduling, do not weaken it — a mistimed run should produce
+nothing, which it does.
+
+### Cost
+
+Per day: one `dailyPuzzles` read, one `runs` query, and one `dailyAttempts`
+read per player who finished. No collection-group query, so no extra index.
