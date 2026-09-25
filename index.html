@@ -10,12 +10,6 @@
          drops the property (losing the sitemap and indexing history) if it
          ever disappears. -->
     <meta name="google-site-verification" content="-XgEOwTu7tbcPiqB0Js7g-jbsjstC0JoVpAZDutNiAI" />
-    <!-- Google AdSense site-verification/loader script — required in <head>
-         before Google will review the site for approval. The actual ad
-         units (see the AD SLOT placeholders further down) get added once
-         the site is approved; this alone doesn't render any ads yet. -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8930711990683620"
-     crossorigin="anonymous"></script>
     <!-- Favicon: a "correct guess" tile in the app's own signature cyan
          (#00ffff, same as .correct / #legend-correct below — not Wordle's
          green, which this game doesn't use) carrying the L initial, leaned
@@ -845,24 +839,6 @@
                 <button class="btn-dark" id="btn-new-run" onclick="window.startNewRun()">New Run</button>
             </div>
             
-            <!--
-AD SLOTS: each ".ad-container" below is an empty placeholder where a
-Google AdSense unit will go once the site is approved (was Adsterra
-banner ads previously — pulled after user reports of adult creatives
-slipping through Adsterra's category filtering; AdSense's ad-quality
-enforcement is far stricter, so this should resolve that outright).
-
-To activate: after AdSense approval, paste the standard
-<ins class="adsbygoogle">...</ins> unit snippet (plus the one-time
-<script async src="...adsbygoogle.js?client=...">> in <head>) into each
-placeholder comment below, sized to fit the existing 320x50 container.
--->
-<!-- AD SLOT (320x50) -->
-            <div class="ad-container" style="text-align: center; margin-top: 15px; min-height: 50px;">
-                <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-
-            </div>
-            
         </div>
     </div>
 
@@ -918,11 +894,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
                 <!-- SUB-TEXT BLOCK -->
                 <div id="waiting-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 20px; font-style: italic;"></div>
                 
-                <!-- AD SLOT (320x50) -->
-                <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
-                    <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-                </div>
-                
                 <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">
                     First player to 1,000 points wins! <br>
                     If time expires, the highest score takes the victory.<br>
@@ -942,11 +913,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
             <h2 class="modal-title" id="vs-end-title">You Win!</h2>
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
             
-            <!-- AD SLOT (320x50) -->
-            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
-                <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-            </div>
-
             <div class="modal-buttons">
                 <button class="btn-cyan" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
                 <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: #aaa; font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
@@ -990,11 +956,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
 
                 <div id="ffa-lobby-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 15px; font-style: italic;"></div>
 
-                <!-- AD SLOT (320x50) -->
-                <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
-                    <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-                </div>
-
                 <div class="modal-buttons">
                     <button class="btn-gold" id="ffa-btn-start-early" style="display: none;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
                     <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelFfaLobby()">Cancel</button>
@@ -1010,11 +971,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
         <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
             <h2 class="modal-title" id="ffa-end-title" style="color: #ffd700;">Match Complete!</h2>
             <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: 14px;"></div>
-
-            <!-- AD SLOT (320x50) -->
-            <div class="ad-container" style="text-align: center; margin: 15px 0; min-height: 50px;">
-                <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-            </div>
 
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="window.leaveFfaMatch()">Leave Match</button>
@@ -1052,11 +1008,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
         <div class="modal-box" style="border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
             <h2 class="modal-title" id="daily-end-title" style="color: #b967ff;">Gauntlet Complete!</h2>
             <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:#4caf50; font-size: 24px;">0</span></div>
-
-            <!-- AD SLOT (320x50) -->
-            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
-                <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-            </div>
 
             <div id="daily-end-standing" style="display:none; font-size: 13px; color: #e8d5ff; margin-bottom: 12px;"></div>
 
@@ -1292,11 +1243,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
             <h2 class="modal-title" style="color: #ff9800;">Item Shop</h2>
             <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">Wallet: <span id="shop-bank-display" style="color: #ff00ff;">0</span> pts</div>
             
-            <!-- AD SLOT (320x50) -->
-            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
-                <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-            </div>
-
             <div id="shop-preview-monitor">
                 <div class="preview-label">Preview</div>
                 <div id="preview-banner-box" class="lb-entry banner_default" style="margin-bottom: 0; padding: 10px;">
@@ -1431,11 +1377,6 @@ placeholder comment below, sized to fit the existing 320x50 container.
         <div class="modal-box">
             <h2 class="modal-title">Hall of Fame</h2>
             
-            <!-- AD SLOT (320x50) -->
-            <div class="ad-container" style="text-align: center; margin-bottom: 15px; min-height: 50px;">
-                <!-- AdSense unit goes here (see "AD SLOTS" note near the first ad-container above) -->
-            </div>
-
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
