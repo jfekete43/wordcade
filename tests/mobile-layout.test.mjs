@@ -123,7 +123,60 @@ ok('390, 414 and 428 are untouched by the narrow-screen rules',
 ok('the narrow rules are bounded, not global',
    /@media \(max-width: 385px\)/.test(home) && !/\.key \{[^}]*min-width: 0[^}]*\}\s*\n\s*\.key:active/.test(home));
 
-// ---- 3. the root cause, pinned -------------------------------------------
+// ---- 3. the quick-chat chips ---------------------------------------------
+// The chat box is display:none until a match starts, so the sweep above never
+// sees it. The chips are the ONLY way to talk in a public match and they are
+// tapped one-handed mid-race, so they need a real tap target, and a row of six
+// of them must not widen the page on the narrowest phone.
+const chatAt = async (width) => {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  await page.setContent(home);
+  const m = await page.evaluate(() => {
+    document.getElementById('clash-chat-container').style.display = 'block';
+    const row = document.getElementById('chat-presets');
+    // Same phrases the app builds; the count is what decides the row width.
+    ['Good luck!', 'Nice!', 'Wow!', 'So close!', 'gg', 'Thanks!'].forEach((phrase) => {
+      const b = document.createElement('button');
+      b.className = 'chat-chip';
+      b.textContent = phrase;
+      row.appendChild(b);
+    });
+    const chips = [...row.querySelectorAll('.chat-chip')];
+    return {
+      viewport: window.innerWidth,
+      doc: document.documentElement.scrollWidth,
+      minH: Math.min(...chips.map((c) => Math.round(c.getBoundingClientRect().height))),
+      minW: Math.min(...chips.map((c) => Math.round(c.getBoundingClientRect().width))),
+      scrolls: row.scrollWidth > row.clientWidth + 1,
+      clipped: chips.some((c) => c.getBoundingClientRect().right > row.getBoundingClientRect().right + 1),
+    };
+  });
+  await page.close();
+  return m;
+};
+const chat = {};
+for (const w of WIDTHS) chat[w] = await chatAt(w);
+
+ok('the chat box never widens the page at any phone width',
+   WIDTHS.every((w) => chat[w].doc <= chat[w].viewport + 1),
+   WIDTHS.map((w) => `${w}:+${chat[w].doc - chat[w].viewport}`).join(' '));
+// 34px is not the 44px guideline, but it is a deliberate floor: the box sits
+// above the board mid-match, so every pixel of chip height costs board.
+ok('every chip is a tappable height, even at 280px',
+   WIDTHS.every((w) => chat[w].minH >= 34),
+   WIDTHS.map((w) => `${w}:${chat[w].minH}px`).join(' '));
+ok('and a tappable width',
+   WIDTHS.every((w) => chat[w].minW >= 30),
+   WIDTHS.map((w) => `${w}:${chat[w].minW}px`).join(' '));
+// Chips that do not fit must be reachable by scrolling the row, never simply
+// cut off — which is what would happen without overflow-x on #chat-presets.
+ok('where the chips do not all fit, the row scrolls rather than clipping them',
+   WIDTHS.every((w) => !chat[w].clipped || chat[w].scrolls),
+   WIDTHS.map((w) => `${w}:${chat[w].clipped ? 'clipped' : 'fits'}/${chat[w].scrolls ? 'scrolls' : 'static'}`).join(' '));
+ok('#chat-presets is a scrolling row, not a wrapping grid',
+   /#chat-presets \{[^}]*overflow-x: auto/.test(home) && !/#chat-presets \{[^}]*flex-wrap/.test(home));
+
+// ---- 4. the root cause, pinned -------------------------------------------
 ok('min-width:0 is what lets a key shrink at all', /\.key \{ min-width: 0;/.test(home));
 for (const f of ['about.html', 'faq.html', 'how-to-play.html', 'privacy.html', 'strategy.html', 'terms.html']) {
   ok(`${f}: has box-sizing, the cause of the 404px container`,

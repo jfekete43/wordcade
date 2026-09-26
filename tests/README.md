@@ -16,11 +16,11 @@ npm install     # first time only
 npm test
 ```
 
-That runs the twelve suites that need no emulator, then boots the emulator for
-the other five, and shuts the emulator down
+That runs the thirteen suites that need no emulator, then boots the emulator for
+the other six, and shuts the emulator down
 again. A non-zero exit means something failed.
 
-Three suites drive a real browser instead of the emulator, so they are not part
+Six suites drive a real browser instead of the emulator, so they are not part
 of `npm test`:
 
 ```
@@ -118,6 +118,44 @@ receiving app join the two however it likes — in practice with a space — so 
 URL ran onto the end of the last line in Discord. The URL now travels inside the
 shared text, and the suite asserts the native-sheet and clipboard paths produce
 byte-for-byte the same string. Pure, so it needs no emulator.
+
+**`chat-rules.test.mjs`** — match chat, against the real `firestore.rules`. Chat
+used to be an array of HTML strings the client built and the rules never
+inspected. `escapeHtml()` ran in the *sender's* browser, which protects nobody,
+because the attacker is the sender: a participant could `updateDoc` an
+`<img src=x onerror=...>` straight into the array, and both renderers dropped it
+into `innerHTML` on the opponent's page — at the origin holding their Firebase ID
+token. Public matchmaking put that one "Find Match" click from any stranger. The
+array was unbounded too: 60,000-character lines and 500-element writes were both
+accepted, on the same document that takes every score write. Chat is data now,
+validated line by line, and free text is private matches only — a public match
+may send only one of a closed set of phrases, which is why the game needs no
+profanity filter. Every case here is either an attack that used to work
+(impersonating another player, wiping the history, smuggling a payout field in
+beside a chat line) or legitimate traffic that must keep working. The preset list
+is read out of the rules file, so a phrase added to only one of the two copies
+fails. Needs the emulator.
+
+**`chat-safety.test.mjs`** — the chat invariants that span `index.html` and
+`firestore.rules`: the preset list identical in both (a phrase in the UI but not
+the rules is a dead button; the reverse is an unreachable capability), the length
+and line caps matching, and the "a match with no `isPublic` field counts as
+public" default matching — get that backwards on one side and the client offers a
+free-text box whose writes the server rejects. Also pins the shape of the fix:
+`renderChat` never touches `innerHTML`, nothing anywhere assigns
+`chat-messages.innerHTML` again, and all five match-creation sites send
+`chat: []`, which the create rule now requires — miss it at one site and that
+mode simply cannot start a match. Pure.
+
+**`chat-render.test.mjs`** — the render, in a real browser: the half of the fix
+the rules cannot cover. It feeds the original payload through the shipped
+renderer and asserts nothing executes. The payload choice matters —
+`innerHTML` does *not* run `<script>`, so a test that only looked for script tags
+would have passed against the vulnerable code; this one uses the handler-based
+payloads (`img onerror`, `svg animate onbegin`, `iframe srcdoc`) that actually
+fired. It also drives the public/private split from the UI side, the per-match
+line ceiling, the send cooldown, and that leaving a private match closes the
+free-text box behind it. Needs a browser.
 
 **`standard-share.test.mjs`** — the Standard-mode share, and the bug that one
 shared modal caused. `showCashOutModal()` and `triggerGameOver()` write into the

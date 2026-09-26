@@ -38,6 +38,73 @@ service cloud.firestore {
     // field that may not exist.
     function matchMode(m) { return m.get('mode', 'duel'); }
 
+    // ---- MATCH CHAT ---------------------------------------------------------
+    // Chat used to be an array of HTML STRINGS that the client built and these
+    // rules never looked at. escapeHtml() ran in the sender's own browser,
+    // which protects nobody — the attacker is the sender. A participant could
+    // updateDoc `<img src=x onerror=...>` into the array and both renderers
+    // dropped it into innerHTML, so it executed on the opponent's page at the
+    // lexathon.gg origin, where their ID token lives. Public matchmaking put
+    // that one "Find Match" click from any stranger. It was also unbounded:
+    // 60,000-char lines and 500-element writes were both accepted, on the same
+    // document that takes every score write.
+    //
+    // So: chat is data now, each line is validated here, and free text is
+    // PRIVATE MATCHES ONLY. A public match may only send one of a closed set of
+    // phrases, which is why the game needs no profanity filter — a phrase off
+    // this list is rejected by the server, not merely absent from the UI.
+    // index.html holds the same list in CHAT_PRESETS; tests/chat-safety pins
+    // the two together.
+    function chatPresets() {
+      return ['Good luck!', 'Nice!', 'Wow!', 'So close!', 'gg', 'Thanks!'];
+    }
+
+    // Absent or null counts as PUBLIC — the restrictive side — so a malformed
+    // match doc cannot unlock free text. index.html's chatMatchIsPublic()
+    // defaults identically.
+    function matchIsPublic(m) { return m.get('isPublic', true) != false; }
+
+    function validChatLine(line, isPublic) {
+      return line is map
+        && line.keys().hasOnly(['u', 'n', 't', 'p', 'at'])
+        && line.keys().hasAll(['u', 'n', 't', 'p', 'at'])
+        // You may only ever speak as yourself. Without this, any participant
+        // could post a line attributed to an opponent — "i forfeit, you win"
+        // under their name, indistinguishable from the real thing.
+        && line.u == request.auth.uid
+        && line.n is string && line.n.size() > 0 && line.n.size() <= 20
+        && line.n.matches('^[^<>]*$')
+        && line.t is string
+        && line.p is bool
+        && line.at is int
+        && (line.p
+              ? line.t in chatPresets()
+              : (!isPublic && line.t.size() > 0 && line.t.size() <= 50));
+    }
+
+    // Exactly one line per write, appended, with the history intact and a hard
+    // ceiling on the whole match. That ceiling is the spam bound: rules cannot
+    // express a per-player rate limit without per-slot timestamp fields, but a
+    // match that can hold 40 lines total and lasts seven minutes at the outside
+    // is not a spam surface worth more machinery.
+    function validChatAppend(isPublic) {
+      return request.resource.data.chat is list
+        && request.resource.data.chat.size() == resource.data.chat.size() + 1
+        && request.resource.data.chat.size() <= 40
+        && request.resource.data.chat.hasAll(resource.data.chat)
+        && validChatLine(request.resource.data.chat[resource.data.chat.size()], isPublic);
+    }
+
+    function chatUntouched() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['chat']);
+    }
+
+    // Every gameplay write must either leave chat alone or be one valid
+    // appended line. Applied to the 1v1 and FFA update rules alike.
+    function chatOk() {
+      return chatUntouched() || validChatAppend(matchIsPublic(resource.data));
+    }
+
     // Cosmetic ids get rendered straight into class="..." on the leaderboard,
     // live feed, and race cards. `equipped` is the one profile field a client
     // may write directly, and a run doc carries its own copy — so without
@@ -153,7 +220,12 @@ service cloud.firestore {
     match /matches/{matchId} {
       allow read: if isSignedIn();
 
-      allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid;
+      // A new room starts silent. Without this a host could create a match
+      // whose chat array already held a payload, side-stepping the per-line
+      // validation below entirely (all four client creation sites already
+      // send chat: []).
+      allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.chat == [];
 
       // Either participant can update live gameplay fields (scores, mini-
       // boards, chat, endTime) and a guest can claim the open slot (status
@@ -171,7 +243,8 @@ service cloud.firestore {
             || (resource.data.guestUid == null && request.resource.data.guestUid == request.auth.uid))
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostChange', 'guestChange', 'payoutApplied', 'winner', 'endReason'])
         && (request.resource.data.status == resource.data.status
-            || (resource.data.status == 'waiting' && request.resource.data.status == 'playing'));
+            || (resource.data.status == 'waiting' && request.resource.data.status == 'playing'))
+        && chatOk();
 
       // Clash: Free-For-All (3-6 players, see functions/index.js). Unlike
       // the 1v1 rule above, joining/starting/finishing a match ALL go
@@ -194,7 +267,8 @@ service cloud.firestore {
              'p0Name', 'p1Name', 'p2Name', 'p3Name', 'p4Name', 'p5Name',
              'p0Equipped', 'p1Equipped', 'p2Equipped', 'p3Equipped', 'p4Equipped', 'p5Equipped',
              'p0Mmr', 'p1Mmr', 'p2Mmr', 'p3Mmr', 'p4Mmr', 'p5Mmr'
-           ]);
+           ])
+        && chatOk();
 
       // A 1v1 host may delete their match at any time (mirrors the client's
       // existing leaveVersusMatch behavior). An FFA host may only delete

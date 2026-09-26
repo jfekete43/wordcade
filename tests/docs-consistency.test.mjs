@@ -33,6 +33,8 @@ const pages = {
   'faq.html': read('faq.html'),
   'strategy.html': read('strategy.html'),
   'about.html': read('about.html'),
+  'privacy.html': read('privacy.html'),
+  'terms.html': read('terms.html'),
 };
 // Only the human-readable parts: a rule about player counts can't be broken
 // by a hex colour or a slot id, and matching those produces noise instead of
@@ -157,6 +159,42 @@ for (const [bound, name] of tiers) {
        .test(text['how-to-play.html']) || text['how-to-play.html'].includes(bound.toLocaleString('en-US')),
      name);
 }
+
+// --- match chat: the policy pages describe a rule the code enforces --------
+// Chat was added to privacy.html and terms.html when the public/private split
+// shipped. The 50-character limit is a number in index.html and in
+// firestore.rules, so the prose stating it can go stale exactly the way the FFA
+// player counts did.
+const CHAT_TEXT_MAX = Number(read('index.html').match(/const CHAT_TEXT_MAX = (\d+);/)[1]);
+const CHAT_PRESETS = JSON.parse(read('index.html').match(/const CHAT_PRESETS = (\[[^\]]*\]);/)[1]);
+for (const page of ['privacy.html', 'terms.html']) {
+  ok(`${page} covers match chat at all`, /chat/i.test(text[page]));
+  ok(`${page} states the free-text limit as ${CHAT_TEXT_MAX} characters`,
+     text[page].includes(`${CHAT_TEXT_MAX} characters`),
+     (text[page].match(/\d+ characters/g) || []).join(' / '));
+  // The whole point of P1: a stranger in a public match cannot type at you.
+  ok(`${page} says free text is private matches only`,
+     /preset/i.test(text[page]) && /private match/i.test(text[page]));
+  // Neither page may promise confidentiality the storage does not provide.
+  ok(`${page} does not call chat private or confidential`,
+     !/chat (is|are) (private|confidential)\b/i.test(text[page]),
+     (text[page].match(/chat (is|are) (private|confidential)[^.]*/i) || [''])[0]);
+}
+// A policy change means a new effective date, and the two pages move together.
+const effective = (page) => (pages[page].match(/Effective Date: ([^<]+)</) || [])[1];
+ok('privacy.html and terms.html carry the same effective date',
+   effective('privacy.html') === effective('terms.html'),
+   `${effective('privacy.html')} vs ${effective('terms.html')}`);
+ok('and it is no longer the pre-chat date',
+   effective('privacy.html') !== 'August 22nd, 2026', effective('privacy.html'));
+// An age statement is the other thing public chat brings with it.
+ok('terms.html states a minimum age', /at least 13 years old/i.test(text['terms.html']));
+ok('privacy.html has a children section', /under 13/i.test(text['privacy.html']));
+// Every preset must be a phrase the pages' description actually fits: no
+// free-text-only punctuation smuggled into the "fixed list".
+ok('no preset phrase is longer than the free-text limit',
+   CHAT_PRESETS.every((p) => p.length <= CHAT_TEXT_MAX),
+   JSON.stringify(CHAT_PRESETS.filter((p) => p.length > CHAT_TEXT_MAX)));
 
 let failed = 0;
 for (const c of t) { if (!c.cond) failed++; console.log(`${c.cond ? 'PASS' : 'FAIL'}  ${c.name}${c.detail ? '   [' + c.detail + ']' : ''}`); }

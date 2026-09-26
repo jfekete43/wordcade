@@ -150,6 +150,24 @@
         .mini-2 { background: #00ffff; border-color: #00ffff; box-shadow: 0 0 5px #00ffff;}
 
         #message { height: 20px; margin-bottom: 4px; color: #ff9800; font-weight: bold; font-size: 18px; position: relative; z-index: 2; text-align: center;}
+
+        /* Quick-chat chips. One scrolling row rather than a wrapped grid: the
+           chat box sits above the board mid-match, and a second row of chips
+           costs ~34px of board on a phone. Six phrases at ~500px show all six;
+           at 320px you see four and scroll. */
+        #chat-presets { display: flex; gap: 5px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+        #chat-presets::-webkit-scrollbar { display: none; }
+        /* Sized for a thumb, not for tidiness: this is the only way to talk in
+           a public match, and it is tapped mid-race with one hand. 11px of
+           vertical padding puts it at ~40px, near the 44px guideline, and the
+           row is measured at seven widths in tests/chat-render. */
+        .chat-chip { flex: 0 0 auto; background: #2a2a2e; color: #00ffff; border: 1px solid #00ffff; border-radius: 16px;
+                     padding: 13px 13px; font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer; white-space: nowrap; }
+        .chat-chip:disabled { color: #888; border-color: #555; cursor: default; }
+        #chat-freetext { display: none; gap: 5px; margin-top: 6px; }
+        @media (max-width: 385px) {
+            .chat-chip { padding: 12px 10px; font-size: 11px; }
+        }
         
         #legend {
             display: flex; gap: 15px; margin-bottom: 15px; font-size: 12px;
@@ -778,7 +796,13 @@
         <div id="chat-messages" style="height: 100px; overflow-y: auto; font-size: 12px; margin-bottom: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 5px;">
             <div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>
         </div>
-        <div style="display: flex; gap: 5px;">
+        <!-- Quick chat. The chips are the only way to talk in a PUBLIC match;
+             the free-text row below is revealed only in private (invite-code)
+             matches, where you already know who you are playing. Both are
+             enforced in firestore.rules, not just here. The chips are built
+             from CHAT_PRESETS so the phrase list lives in exactly one place. -->
+        <div id="chat-presets"></div>
+        <div id="chat-freetext">
             <input type="text" id="chat-input" class="input-field" maxlength="50" placeholder="Type message..." style="font-size: 12px; padding: 8px; margin: 0; text-transform: none; letter-spacing: normal;">
             <button class="action-btn" style="border-color: #00ffff; color: #00ffff;" onclick="window.sendChatMessage()">Send</button>
         </div>
@@ -2724,7 +2748,12 @@
         let ffaLobbyDeadline = 0;
         let ffaLobbyTimerInterval = null;
 
-        // --- HTML ESCAPER (prevents chat/message injection) ---
+        // --- HTML ESCAPER ---
+        // For the places that legitimately BUILD html strings (leaderboard
+        // rows, the live feed, standings). Match chat does not use it: chat is
+        // stored as data and rendered with textContent instead, because
+        // escaping in the sender's own browser protects nobody — the attacker
+        // IS the sender. See renderChat/sendChatLine.
         function escapeHtml(str) {
             return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
         }
@@ -2869,6 +2898,7 @@
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("clash-chat-container").style.display = "none"; // HIDE CHAT
+            resetChatState();
             window.startNewRun();
             showStandardPanels(true);
         }
@@ -3581,16 +3611,142 @@
             if (isDailyMode) { window.leaveDailyGauntlet(); } else { window.openDailyGauntlet(); }
         }
 
-        window.sendChatMessage = async function() {
-            let input = document.getElementById("chat-input");
-            let text = input.value.trim();
-            if (!text || !currentMatchId) return;
-            input.value = "";
+        // --- MATCH CHAT ------------------------------------------------------
+        //
+        // Public matches get a closed set of phrases; free text is private
+        // matches only. The reason is that a public lobby is one "Find Match"
+        // click away from a stranger, there is nobody moderating, and the box
+        // is 50 characters inside a two-minute race — "gg" and "nice" is what
+        // it is actually for. A closed set cannot be a slur, so it needs no
+        // filter, and it is one tap instead of typing, which matters when
+        // typing is how you score.
+        //
+        // Both halves are enforced in firestore.rules, which holds this same
+        // phrase list. The UI is a convenience, not the control: a hand-rolled
+        // updateDoc with off-list text is rejected by the server. Chat is also
+        // stored as DATA ({u,n,t,p,at}) and rendered with textContent — it used
+        // to be an HTML string built client-side, which meant a participant
+        // could write `<img onerror=...>` straight into the opponent's page.
+        const CHAT_PRESETS = ["Good luck!", "Nice!", "Wow!", "So close!", "gg", "Thanks!"];
+        const CHAT_TEXT_MAX = 50;
+        // Hard per-match ceiling, also in the rules. There is no per-player
+        // rate limit on the server (rules can't express one without per-slot
+        // timestamp fields), so this is what bounds spam: a match cannot hold
+        // more than this many lines no matter who sends them, and a match
+        // lasts seven minutes at the outside.
+        const CHAT_MAX_LINES = 40;
+        const CHAT_COOLDOWN_MS = 1200;
+
+        let chatAllowsFreeText = false;
+        let chatLastSentAt = 0;
+        let chatLineCount = 0;
+
+        // A match counts as public unless it says otherwise. firestore.rules
+        // defaults the same way, so a doc with the field missing gets presets
+        // only in both places rather than the client offering a free-text box
+        // whose writes the server then rejects.
+        function chatMatchIsPublic(data) { return !data || data.isPublic !== false; }
+
+        function setupChatUi(isPublic) {
+            chatAllowsFreeText = !isPublic;
+            chatLastSentAt = 0;
+            const row = document.getElementById("chat-presets");
+            if (row && !row.dataset.built) {
+                CHAT_PRESETS.forEach((phrase) => {
+                    const chip = document.createElement("button");
+                    chip.type = "button";
+                    chip.className = "chat-chip";
+                    chip.textContent = phrase;
+                    chip.addEventListener("click", () => sendChatLine(phrase, true));
+                    row.appendChild(chip);
+                });
+                row.dataset.built = "1";
+            }
+            document.getElementById("chat-freetext").style.display = isPublic ? "none" : "flex";
+        }
+
+        async function sendChatLine(text, isPreset) {
+            if (!currentMatchId || !currentUser || !userProfileData) return;
+            // Both of these are re-checked server-side; failing here just saves
+            // a doomed round trip and keeps the button honest.
+            if (isPreset ? !CHAT_PRESETS.includes(text) : !chatAllowsFreeText) return;
+            if (chatLineCount >= CHAT_MAX_LINES) { showMessage("CHAT IS FULL FOR THIS MATCH"); return; }
+            const now = Date.now();
+            if (now - chatLastSentAt < CHAT_COOLDOWN_MS) return;
+            const t = isPreset ? text : text.substring(0, CHAT_TEXT_MAX);
+            if (!t) return;
+            chatLastSentAt = now;
             try {
-                let safeText = escapeHtml(text.substring(0, 50));
-                let msg = `<span style="color:#00ffff; font-weight:bold;">${userProfileData.username}</span>: ${safeText}`;
-                await updateDoc(doc(db, "matches", currentMatchId), { chat: arrayUnion(msg) });
-            } catch(e) { console.error("Chat error", e); }
+                await updateDoc(doc(db, "matches", currentMatchId), {
+                    chat: arrayUnion({
+                        u: currentUser.uid,
+                        n: String(userProfileData.username || "Player").substring(0, 20),
+                        t: t,
+                        p: !!isPreset,
+                        // Not a clock anyone trusts — it is what keeps two
+                        // identical phrases from colliding, since arrayUnion
+                        // silently drops an element equal to one already there.
+                        // Sending "gg" twice used to show up once.
+                        at: now
+                    })
+                });
+            } catch (e) { console.error("Chat error", e); chatLastSentAt = 0; }
+        }
+
+        // Rebuilt from the match doc on every snapshot. textContent throughout:
+        // nothing here interpolates a player-supplied string into markup.
+        function renderChat(chat) {
+            const box = document.getElementById("chat-messages");
+            if (!box) return;
+            const lines = Array.isArray(chat) ? chat : [];
+            chatLineCount = lines.length;
+            box.textContent = "";
+            const intro = document.createElement("div");
+            intro.style.color = "#aaa";
+            intro.style.fontStyle = "italic";
+            intro.textContent = "Match started. GLHF!";
+            box.appendChild(intro);
+            lines.forEach((line) => {
+                // Matches from before this change hold HTML strings. Skipping
+                // them is deliberate: rendering one as text would show the
+                // reader a wall of markup, and rendering it as markup is the
+                // bug. Nothing is lost — a match lasts minutes.
+                if (!line || typeof line !== "object") return;
+                const row = document.createElement("div");
+                const who = document.createElement("span");
+                who.style.color = "#00ffff";
+                who.style.fontWeight = "bold";
+                who.textContent = String(line.n || "Player");
+                row.appendChild(who);
+                row.appendChild(document.createTextNode(": " + String(line.t || "")));
+                box.appendChild(row);
+            });
+            box.scrollTop = box.scrollHeight;
+            const full = chatLineCount >= CHAT_MAX_LINES;
+            document.querySelectorAll(".chat-chip").forEach((c) => { c.disabled = full; });
+        }
+
+        // Leaving a match must not carry its chat permissions into the next
+        // one: a private match's free-text box stays open otherwise, and the
+        // next public match would offer a box whose writes the server denies.
+        function resetChatState() {
+            chatAllowsFreeText = false;
+            chatLastSentAt = 0;
+            chatLineCount = 0;
+            const freetext = document.getElementById("chat-freetext");
+            if (freetext) freetext.style.display = "none";
+            const input = document.getElementById("chat-input");
+            if (input) input.value = "";
+        }
+
+        window.sendChatMessage = function() {
+            const input = document.getElementById("chat-input");
+            const text = input.value.trim();
+            // Cleared either way. Bailing out before this left a box that still
+            // looked full after you pressed Send on nothing but spaces.
+            input.value = "";
+            if (!text) return;
+            sendChatLine(text, false);
         }
 
         // Listen for "Enter" key in chat input
@@ -3836,7 +3992,8 @@
                         isRematchTransition = false;
                         document.getElementById("versus-lobby-modal").style.display = "none";
                         clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0; clashSkipsRemaining = CLASH_SKIPS_PER_MATCH;
-                        document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
+                        setupChatUi(chatMatchIsPublic(data));
+                        renderChat([]);
 
                         if (!data.endTime && isMatchHost) { updateDoc(doc(db, "matches", currentMatchId), { endTime: Date.now() + 420000 }); }
                         startRound();
@@ -3945,13 +4102,7 @@
                     if (tugFill) tugFill.style.width = fillPct + "%";
                     
                     // Render Live Chat
-                    if (data.chat && data.chat.length > 0) {
-                        const chatBox = document.getElementById("chat-messages");
-                        let chatHtml = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
-                        data.chat.forEach(msg => { chatHtml += `<div>${msg}</div>`; });
-                        chatBox.innerHTML = chatHtml;
-                        chatBox.scrollTop = chatBox.scrollHeight; 
-                    }
+                    renderChat(data.chat);
 
                     // TUG-OF-WAR TARGET SCORE REACHED! (1,000 Point Lead)
                     if (Math.abs(scoreDiff) >= winTarget) {
@@ -4456,7 +4607,8 @@
                         document.getElementById("ffa-lobby-modal").style.display = "none";
                         document.getElementById("ffa-track-container").style.display = "block";
                         document.getElementById("clash-chat-container").style.display = "block";
-                        document.getElementById("chat-messages").innerHTML = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
+                        setupChatUi(chatMatchIsPublic(data));
+                        renderChat([]);
                         clashWords = data.words || []; clashWordIndex = 0; clashMyScore = 0; clashSkipsRemaining = CLASH_SKIPS_PER_MATCH;
                         startRound();
                     }
@@ -4525,13 +4677,7 @@
                             String(gap ? FFA_VISIBLE_ROWS : FFA_VISIBLE_ROWS - 1);
                     }
 
-                    if (data.chat && data.chat.length > 0) {
-                        const chatBox = document.getElementById("chat-messages");
-                        let chatHtml = `<div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>`;
-                        data.chat.forEach(msg => { chatHtml += `<div>${msg}</div>`; });
-                        chatBox.innerHTML = chatHtml;
-                        chatBox.scrollTop = chatBox.scrollHeight;
-                    }
+                    renderChat(data.chat);
                 }
 
                 if (data.status === "finished" && !window.matchFinishedProcessed) {
@@ -4623,6 +4769,7 @@
             document.getElementById("ffa-lobby-waiting-view").style.display = "none";
             document.getElementById("ffa-join-code-input").value = "";
             document.getElementById("clash-chat-container").style.display = "none";
+            resetChatState();
             window.cancelFfaLobby();
         }
 
