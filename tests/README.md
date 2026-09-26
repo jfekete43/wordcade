@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the eight suites that need no emulator, then boots the emulator for
+That runs the twelve suites that need no emulator, then boots the emulator for
 the other five, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -118,6 +118,21 @@ receiving app join the two however it likes — in practice with a space — so 
 URL ran onto the end of the last line in Discord. The URL now travels inside the
 shared text, and the suite asserts the native-sheet and clipboard paths produce
 byte-for-byte the same string. Pure, so it needs no emulator.
+
+**`standard-share.test.mjs`** — the Standard-mode share, and the bug that one
+shared modal caused. `showCashOutModal()` and `triggerGameOver()` write into the
+same end-of-run modal, and the Share Score button on it is never hidden, so it is
+live after a wipeout too — but the share read the live `score`, and the wipeout
+call site zeroes that *before* opening the modal. A run that reached 12,400
+points and lost the lot therefore shared "Cashed Out: 0 pts": wrong about the
+ending, and it discarded the only interesting thing about the run. The outcome is
+now snapshotted when the modal opens, and the suite drives the real sequence —
+save the total, zero the score, open the modal, click Share — rather than calling
+the share with hand-fed numbers, so a regression to reading live state fails. It
+also pins the three endings (cashed out, wiped out holding points, wiped out with
+nothing banked, where "lost 0 pts" would be wrong), that one run's outcome cannot
+leak into the next one's share, and that the modal and cloud save behind it are
+unchanged. Pure, so it needs no emulator.
 
 **`gauntlet-done-surface.test.mjs`** — the screen you get when today's Gauntlet
 is already finished. There is nothing left to type, but dismissing the end modal

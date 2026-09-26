@@ -4751,15 +4751,30 @@
             if (currentRow > 0 || currentGuess.length > 0) { isAnimating = true; showMessage(`CASHING OUT... WORD WAS ${targetWord}`); setTimeout(showCashOutModal, 1500); } else { showCashOutModal(); }
         }
 
+        // What the run ended as, captured the moment the modal opens.
+        //
+        // The share button lives on ONE modal that both endings reuse, and its
+        // onclick passes no arguments, so the share has to read this rather
+        // than the live run state. Reading the live state was the bug: the
+        // wipeout path zeroes `score` before it shows the modal (so the loser
+        // could not see a stale total on the board behind it), and
+        // startNewRun() clears everything, so a share fired from a wipeout
+        // announced "Cashed Out: 0 pts" — a cash-out that never happened, with
+        // the actual story (a big total, lost) thrown away. Snapshotting here
+        // is what makes both endings shareable and neither one a lie.
+        let lastRunOutcome = null;
+
         function showCashOutModal() {
             isAnimating = false;
             SFX.cashOut();
+            lastRunOutcome = { cashedOut: true, points: score, words: wordsGuessed };
             document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff";
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
             modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(); 
         }
 
         function triggerGameOver(lostScore = 0) {
+            lastRunOutcome = { cashedOut: false, points: lostScore, words: wordsGuessed };
             document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "#ff3333"; 
             // Update the modal to show them exactly what they lost!
             document.getElementById("modal-score").innerText = `0 (Lost ${lostScore.toLocaleString()})`; 
@@ -4837,7 +4852,26 @@
         }
 
         window.shareStats = function() {
-            const shareMessage = `🕹️ Lexathon\n💰 Cashed Out: ${score.toLocaleString()} pts\n🧠 Words Guessed: ${wordsGuessed}\n\nCan you beat my score?`;
+            // Shape matches the Gauntlet share on purpose: heading, one result
+            // line, one hook, then the bare link on its own line. No run bar
+            // here — a Standard run has no fixed length, so a row of blocks
+            // would have nothing to measure itself against.
+            const o = lastRunOutcome || { cashedOut: true, points: score, words: wordsGuessed };
+            const words = `${o.words} ${o.words === 1 ? "word" : "words"}`;
+            let resultLine, hook;
+            if (o.cashedOut) {
+                resultLine = `💰 Cashed out ${o.points.toLocaleString()} pts · ${words}`;
+                hook = "Can you beat it?";
+            } else if (o.points > 0) {
+                // A wipeout is worth sharing; it just has to say what happened.
+                resultLine = `💀 Wiped out — lost ${o.points.toLocaleString()} pts · ${words}`;
+                hook = "Cash out sooner than I did.";
+            } else {
+                // Nothing banked, so "lost 0 pts" would be both sad and wrong.
+                resultLine = "💀 Wiped out with nothing banked";
+                hook = "Think you can do better?";
+            }
+            const shareMessage = `🕹️ Lexathon\n${resultLine}\n${hook}`;
             shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score");
         }
 
