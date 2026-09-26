@@ -241,6 +241,44 @@ ok('pruning only ever happens on a full rebuild',
    /if \(has\("--all"\) && fs\.existsSync\(OUT\)\)[\s\S]{0,900}?plan\.remove/.test(gen));
 ok('a dry run deletes nothing', /DRY[\s\S]{0,60}would remove/.test(gen));
 
+// ---- 9d. it has to survive a phone ---------------------------------------
+// Every page here inherits a .container that is width:100% PLUS padding and
+// a border, which on a 390px screen renders 404px wide inside a 350px slot
+// and pushes the whole document sideways. The hand-written pages shipped
+// that way for months; these must not.
+const style = R.renderDayPage(day) + R.renderHubPage(days);
+ok('the generated pages set box-sizing', /\*, \*::before, \*::after \{ box-sizing: border-box; \}/.test(style));
+ok('a table too wide to fit scrolls inside itself', /table \{[^}]*overflow-x: auto/.test(style));
+ok('there is a narrow-screen breakpoint', /@media \(max-width: 480px\)/.test(style));
+ok('the stat row reflows instead of cramming four across', /@media[^}]*\{[\s\S]*?\.stat-row \{ flex-wrap: wrap; \}/.test(style));
+
+// The base rule must come BEFORE the media query. At equal specificity the
+// later rule wins, so declaring it after silently defeats the override —
+// which is exactly what happened, and the short label never rendered.
+const css = style.slice(style.indexOf('.only-sm'), style.indexOf('</style>'));
+const basePos = style.indexOf('.only-sm { display: none; }');
+const mediaPos = style.indexOf('@media (max-width: 480px)');
+ok('.only-sm is declared before the breakpoint that overrides it',
+   basePos !== -1 && mediaPos !== -1 && basePos < mediaPos, `base ${basePos}, media ${mediaPos}`);
+ok('the wide header has a short alternative',
+   /<span class="hide-sm">Avg guesses<\/span><span class="only-sm">Avg<\/span>/.test(style));
+ok('one column per table is dropped on a phone',
+   /<th class="hide-sm">Tier<\/th>/.test(style) && /<th class="n hide-sm">Perfect<\/th>/.test(style));
+
+// Long dates wrapped the hub's date column onto three lines, which was most
+// of why that table could not fit.
+ok('the hub uses a short date', R.renderHubPage(days).includes('24 Sept 2026'), R.shortDate('2026-09-24'));
+ok('the day page keeps the long one', R.renderDayPage(day).includes('24 September 2026'));
+ok('the short date really is shorter',
+   R.shortDate('2026-09-24').length < R.prettyDate('2026-09-24').length);
+
+// The same fix had to go onto the hand-written pages, which had the bug first.
+for (const f of ['about.html', 'faq.html', 'how-to-play.html', 'privacy.html', 'strategy.html', 'terms.html']) {
+  const page = fs.readFileSync(REPO(f), 'utf8');
+  ok(`${f}: sets box-sizing`, /box-sizing: border-box/.test(page));
+  ok(`${f}: has the narrow-screen breakpoint`, /@media \(max-width: 480px\)/.test(page));
+}
+
 // ---- 10. the homepage actually points at the archive --------------------
 // The reason this is pinned: a link inside a modal is behind an interaction,
 // and content behind interaction is discounted by crawlers. The archive only
@@ -259,6 +297,15 @@ ok('...and it is repointed when a day is opened',
    /gauntlet-archive-full"\)\.href = `\/gauntlet\/\$\{dateStr\}\/`/.test(home));
 // Nothing on the site may link to a day that has not finished.
 ok('no hardcoded link to a specific Gauntlet day', !/href="\/gauntlet\/\d{4}-\d{2}-\d{2}\//.test(home));
+// site-intro is below the fold. The footer strip is always visible with no
+// interaction at all, which is where "seems a bit hard to find" gets fixed.
+const footer = (home.match(/Always-visible footer[\s\S]*?<\/div>/) || [''])[0];
+ok('the always-visible footer links to the archive', footer.includes('href="/gauntlet/"'), `${footer.length} chars`);
+ok('the archive modal browse view links to the hub too',
+   /gauntlet-archive-more[\s\S]{0,400}?href="\/gauntlet\/"/.test(home));
+ok('the archive is reachable from at least three places',
+   (home.match(/href="\/gauntlet\/"/g) || []).length >= 3,
+   String((home.match(/href="\/gauntlet\/"/g) || []).length));
 
 let failed = 0;
 for (const c of t) { if (!c.cond) failed++; console.log(`${c.cond ? 'PASS' : 'FAIL'}  ${c.name}${c.detail ? '   [' + c.detail + ']' : ''}`); }

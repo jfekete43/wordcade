@@ -64,6 +64,13 @@ export function isPublishable(dateStr, now, epoch = GAUNTLET_EPOCH) {
   return dateStr >= epoch && dateStr < etDateStr(now);
 }
 
+export function shortDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC", day: "numeric", month: "short", year: "numeric",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
 export function prettyDate(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Intl.DateTimeFormat("en-GB", {
@@ -183,6 +190,10 @@ const pct = (v) => v === null ? "—" : `${Math.round(v * 100)}%`;
 const avg = (v) => v === null ? "—" : v.toFixed(1);
 
 const STYLE = `
+        /* .container is width:100% PLUS padding and border, which on a 390px
+           phone rendered 404px inside a 350px slot and pushed the document
+           sideways. The hand-written pages carry the identical fix. */
+        *, *::before, *::after { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121213; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
         .container { background-color: #1a1a1d; border: 2px solid #b967ff; border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: 0 0 15px #b967ff; line-height: 1.7; font-size: 15px; }
         h1 { color: #b967ff; text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
@@ -190,8 +201,11 @@ const STYLE = `
         h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed #555; padding-bottom: 6px; }
         a { color: #4caf50; text-decoration: none; font-weight: bold; }
         a:hover { color: #00ffff; }
-        table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
-        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #333; }
+        /* display:block so a table too wide for the screen scrolls inside
+           itself instead of stretching the page. The word table is six
+           columns and does not fit a phone at full size. */
+        table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #333; white-space: nowrap; }
         th { color: #b967ff; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
         td.n, th.n { text-align: right; }
         .word { font-weight: bold; color: #00ffff; letter-spacing: 2px; }
@@ -207,6 +221,33 @@ const STYLE = `
         .back-btn { background-color: #333; color: white; border: 2px solid #777; padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
         .back-btn:hover { background-color: #555; }
         .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: #666; line-height: 2; }
+        /* Declared before the media query below: at equal specificity the
+           later rule wins, so putting this after it silently defeated the
+           override and the short label never rendered. */
+        .only-sm { display: none; }
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .container { padding: 16px; }
+            table { font-size: 13px; }
+            th, td { padding: 6px; }
+            h1 { font-size: 23px; letter-spacing: 1px; }
+            /* Four across cramped "Top score" and "Avg solved" onto two lines
+               while the other two stayed on one, so the numbers no longer
+               lined up. Two by two gives every label a full line. */
+            .stat-row { flex-wrap: wrap; }
+            .stat-row div { flex: 1 1 42%; margin-bottom: 8px; }
+            .stat-row b { font-size: 19px; }
+            /* One column per table earns its place least on a phone, and
+               dropping it is what lets the rest fit without a sideways
+               scroll: the word list's Tier (the easiest-first ordering and
+               the sentence above the table already say it) and the hub's
+               Perfect count. */
+            .hide-sm { display: none; }
+            .only-sm { display: inline; }
+            /* 2px between letters over ten five-letter words is real width
+               on a 334px table, and the word is legible without it. */
+            .word { letter-spacing: 1px; }
+        }
         .support { margin-top: 26px; padding: 14px 16px; border: 1px solid #333; border-radius: 6px; background: #151517; font-size: 13px; color: #999; line-height: 1.6; }`;
 
 const NAV = `        <div class="nav-links">
@@ -290,11 +331,11 @@ export function renderDayPage(day) {
         <h2>The Ten Words</h2>
         <p>Drawn easiest-first: three from the easy third of the word list, four from the middle, three from the hardest.</p>
         <table>
-            <tr><th>#</th><th>Word</th><th>Tier</th><th class="n">Reached</th><th class="n">Solved</th><th class="n">Avg guesses</th></tr>
+            <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Reached</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
 `;
   for (const s of stats) {
     html += `            <tr><td>${s.index + 1}</td><td class="word">${escapeHtml(s.word)}</td>`
-      + `<td class="tier">${s.tier}</td><td class="n">${num(s.reached)}</td>`
+      + `<td class="tier hide-sm">${s.tier}</td><td class="n">${num(s.reached)}</td>`
       + `<td class="n">${pct(s.solveRate)}</td><td class="n">${avg(s.avgGuesses)}</td></tr>\n`;
   }
   html += `        </table>\n`;
@@ -361,12 +402,12 @@ export function renderHubPage(days) {
         <p>Today's puzzle is never listed — <a href="/">play it first</a>.</p>
 
         <table>
-            <tr><th>Puzzle</th><th>Date</th><th class="n">Players</th><th class="n">Perfect</th><th class="n">Top score</th></tr>
+            <tr><th>Puzzle</th><th>Date</th><th class="n">Players</th><th class="n hide-sm">Perfect</th><th class="n">Top score</th></tr>
 `;
   for (const d of days) {
     html += `            <tr><td><a href="/gauntlet/${d.date}/">#${gauntletNumber(d.date)}</a></td>`
-      + `<td>${escapeHtml(prettyDate(d.date))}</td><td class="n">${num(d.players)}</td>`
-      + `<td class="n">${num(d.perfect)}</td><td class="n">${num(d.topScore)}</td></tr>\n`;
+      + `<td>${escapeHtml(shortDate(d.date))}</td><td class="n">${num(d.players)}</td>`
+      + `<td class="n hide-sm">${num(d.perfect)}</td><td class="n">${num(d.topScore)}</td></tr>\n`;
   }
   html += `        </table>
 `;
