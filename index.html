@@ -238,6 +238,28 @@
         .key:active { transform: scale(0.95); } 
         .key.wide { max-width: 65px; font-size: 14px; }
         .key.absent { opacity: 0.25; background-color: #000; color: #555; border-color: #111; }
+        /* A flex item defaults to min-width:auto, which floors it at its own
+           content width — so .key never shrank below ~36px however narrow the
+           screen got, and ten of them plus gaps overflowed the page on every
+           phone at 375px or under (iPhone SE 2/3, 6/7/8 included, by 6px;
+           320px by 34px). min-width:0 lets them shrink, and the tighter
+           padding keeps the letter inside the smaller box rather than
+           spilling into the gap.
+           Scoped to 385px and below on purpose: at 386px and up every
+           measurement — key size, row width, spill — is byte-identical to
+           before, so nothing changes on a phone where it already fit. */
+        @media (max-width: 385px) {
+            #keyboard { padding: 0 2px; gap: 5px; }
+            .key-row { gap: 3px; }
+            .key { min-width: 0; padding: 13px 3px; font-size: 15px; }
+            .key.wide { flex: 1.9; font-size: 10px; letter-spacing: -0.3px; }
+        }
+        /* Fold cover screens and the like. ENTER still does not fit at the
+           sizes above once the row is this narrow. */
+        @media (max-width: 319px) {
+            .key { padding: 12px 2px; font-size: 13px; }
+            .key.wide { flex: 2.1; font-size: 8px; }
+        }
 
         /* THEMES CSS */
         body.theme-8bit { background-color: #000; font-family: 'Courier New', Courier, monospace; }
