@@ -1,3 +1,8 @@
+# Root-level too, not just the two subdirectories. The archive backfill
+# is documented as `npm install --no-save firebase-admin` from the repo
+# root, which creates this one — and a `git add -A` after it swept 5,780
+# files and 1.1M lines onto a branch.
+node_modules/
 functions/node_modules/
 firebase-debug.log
 .firebase/
