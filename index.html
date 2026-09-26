@@ -4814,8 +4814,11 @@
             } catch (e) { return false; }
         }
 
-        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
-            const payload = `${message}\n${url}`;
+        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, linkLabel) {
+            // A bare URL on its own line reads as a footnote. A label in front
+            // of it reads as an invitation, and unfurling is unaffected —
+            // apps that preview links find the URL anywhere in the body.
+            const payload = `${message}\n${linkLabel ? linkLabel + " " : ""}${url}`;
             const copyInstead = () => copyToClipboard(payload).then((ok) => flashButtonLabel(buttonEl, ok ? "COPIED!" : "COPY FAILED", defaultLabel));
 
             if (prefersNativeShare()) {
@@ -4881,10 +4884,6 @@
             const totalGuesses = played.reduce((sum, h) => sum + h.guesses.length, 0);
             const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
 
-            // A solved count rather than a per-word emoji grid. The grid took
-            // a whole line to say something the count says in four characters,
-            // and at ten words it wrapped on narrow clients.
-            //
             // "8/10" carries everything the old three-branch result line
             // spelled out, because missing a word ends the run on the spot:
             // solving 8 means you went out on word 9. There is no such thing
@@ -4892,6 +4891,25 @@
             // "solved N of 10" and "out on word N" cases were the same case.
             const solvedLine = `${solvedCount}/${dailyAttempt.wordCount}`;
             const isPerfect = solvedCount === dailyAttempt.wordCount;
+
+            // A run bar, on its own line.
+            //
+            // This restores a picture to the share, but not the grid that was
+            // here before. That one coloured each word by GUESS COUNT — five
+            // meanings a reader has no way to infer, and the thing that makes
+            // Wordle's grid work is that its colours are feedback the reader
+            // already knows from playing the same puzzle. So this carries one
+            // dimension instead: solved, the word that ended you, never
+            // reached. Nobody needs a legend for that, and it says the thing
+            // "8/10" states but does not dramatise — eight in a row, then out
+            // on nine.
+            //
+            // Its own line, too. The old grid shared a line with the result
+            // and wrapped on narrow clients at ten words, which is why it was
+            // dropped; ten characters alone do not.
+            const bar = "\u{1F7E9}".repeat(solvedCount)
+                + (isPerfect ? "" : "\u274C")
+                + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - solvedCount - (isPerfect ? 0 : 1)));
             // A clean sweep gets said outright — the whole point of a share is
             // to make a great run look like one.
             const resultLine = isPerfect
@@ -4900,8 +4918,8 @@
 
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Gauntlet #${num}` : "🕹️ Lexathon Gauntlet";
-            const shareMessage = `${heading}\n${resultLine}`;
-            shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
+            const shareMessage = `${heading}\n${bar}\n${resultLine}`;
+            shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result", "Play today's:");
         }
 
         // Clash/FFA don't have a shared daily puzzle to compare results
