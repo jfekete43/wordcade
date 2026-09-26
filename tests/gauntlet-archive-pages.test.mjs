@@ -177,15 +177,25 @@ ok('the hub has a canonical url', hub.includes('<link rel="canonical" href="http
 
 // ---- 9. the sitemap rewrite ---------------------------------------------
 const existing = fs.readFileSync(REPO('sitemap.xml'), 'utf8');
-const before = (existing.match(/<url>/g) || []).length;
+// Count only the hand-written urls. This used to count every <url> and
+// assert "old total + hub + days", which quietly encoded "sitemap.xml has
+// no archive entries yet" — true when it was written, false the moment the
+// first backfill landed. The real invariant is that a rewrite replaces the
+// archive block and leaves everything else alone, whatever is in there now.
+const beforeAll = (existing.match(/<url>/g) || []).length;
+const before = [...existing.matchAll(/<url>[\s\S]*?<\/url>/g)]
+  .filter((m) => !/\/gauntlet\//.test(m[0])).length;
 const sm = R.renderSitemap(existing, days);
 ok('hand-written urls survive', sm.includes('https://lexathon.gg/how-to-play.html') && sm.includes('https://lexathon.gg/strategy.html'));
 ok('the hub is listed', sm.includes('<loc>https://lexathon.gg/gauntlet/</loc>'));
 ok('every day is listed', days.every((d) => sm.includes(`<loc>https://lexathon.gg/gauntlet/${d.date}/</loc>`)));
 ok('each day carries its own lastmod', sm.includes('<lastmod>2026-09-24</lastmod>'));
-ok('the url count is the old set plus hub plus days',
+ok('the result is the hand-written urls plus hub plus days',
    (sm.match(/<url>/g) || []).length === before + 1 + days.length,
-   `${before} -> ${(sm.match(/<url>/g) || []).length}`);
+   `${before} hand-written (+${beforeAll - before} archive already there) -> ${(sm.match(/<url>/g) || []).length}`);
+ok('an archive entry already in the file is replaced, not added to',
+   (sm.match(/\/gauntlet\//g) || []).length === 1 + days.length,
+   String((sm.match(/\/gauntlet\//g) || []).length));
 // Re-running must not stack duplicates.
 const twice = R.renderSitemap(sm, days);
 ok('re-running the rewrite is idempotent',
@@ -194,6 +204,42 @@ ok('re-running the rewrite is idempotent',
 ok('a day dropped from the set is dropped from the sitemap',
    !R.renderSitemap(sm, [days[0]]).includes('/gauntlet/2026-09-23/'));
 ok('the sitemap is well-formed xml', sm.startsWith('<?xml') && sm.trimEnd().endsWith('</urlset>'));
+
+// ---- 9b. which days get a page, and what a rebuild deletes --------------
+ok('a day with players is published', R.shouldPublish(1) && R.shouldPublish(47));
+ok('a day nobody finished is not', !R.shouldPublish(0));
+ok('the default threshold is 1, not 0', R.shouldPublish(1) && !R.shouldPublish(0));
+ok('the threshold is adjustable', R.shouldPublish(3, 3) && !R.shouldPublish(2, 3));
+ok('a threshold of 0 publishes empty days', R.shouldPublish(0, 0));
+
+const ex = ['2026-09-20', '2026-09-21', '2026-09-22', '2026-09-23'];
+let plan = R.planPrune(ex, ['2026-09-21', '2026-09-23']);
+ok('a rebuild removes the days it did not produce',
+   plan.remove.join(',') === '2026-09-20,2026-09-22', plan.remove.join(','));
+ok('...and keeps the ones it did', !plan.refuse && !plan.remove.includes('2026-09-21'));
+ok('a rebuild that produced everything removes nothing',
+   R.planPrune(ex, ex).remove.length === 0);
+ok('a rebuild of an empty archive is fine', !R.planPrune([], []).refuse);
+ok('a rebuild that adds to an empty archive is fine',
+   !R.planPrune([], ['2026-09-21']).refuse);
+// The one that matters: a read failure returns no days, which is
+// indistinguishable from "no day qualifies" and would delete everything.
+plan = R.planPrune(ex, []);
+ok('building nothing against a non-empty archive REFUSES', plan.refuse, JSON.stringify(plan));
+ok('...and removes nothing when it refuses', plan.remove.length === 0, plan.remove.join(','));
+ok('...and says why', /built none of the 4/.test(plan.reason), plan.reason);
+
+// ---- 9c. the generator wires those decisions up -------------------------
+const gen = fs.readFileSync(REPO('tools/build-gauntlet-archive.mjs'), 'utf8');
+ok('the generator defaults to a threshold of 1',
+   /val\("--min-players"\) === null \? 1 :/.test(gen));
+ok('the generator filters through shouldPublish', gen.includes('R.shouldPublish(day.runs.length, MIN_PLAYERS)'));
+ok('the generator prunes through planPrune', gen.includes('R.planPrune(existing'));
+ok('it honours the refusal rather than deleting anyway',
+   /plan\.refuse[\s\S]{0,220}process\.exit\(1\)/.test(gen));
+ok('pruning only ever happens on a full rebuild',
+   /if \(has\("--all"\) && fs\.existsSync\(OUT\)\)[\s\S]{0,900}?plan\.remove/.test(gen));
+ok('a dry run deletes nothing', /DRY[\s\S]{0,60}would remove/.test(gen));
 
 // ---- 10. the homepage actually points at the archive --------------------
 // The reason this is pinned: a link inside a modal is behind an interaction,

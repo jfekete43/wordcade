@@ -230,6 +230,27 @@ node tools/build-gauntlet-archive.mjs --all
 git add gauntlet sitemap.xml && git commit -m "Backfill Gauntlet archive" && git push
 ```
 
+### Which days get a page
+
+A day nobody finished renders as ten words and "Nobody finished this one",
+and it can never improve — a past Gauntlet cannot be played retroactively,
+so its run count is final once the day ends. Those pages stay thin forever,
+so **days with no finishers are skipped by default**.
+
+`--min-players=N` changes the bar; `--min-players=0` publishes everything.
+Raising it later and re-running with `--all` deletes the pages that no
+longer qualify, so the hub and sitemap stay in step:
+
+```bash
+node tools/build-gauntlet-archive.mjs --all --min-players=3 --dry-run
+```
+
+Pruning only happens on `--all`, because only a full run knows the whole
+set. And a full run that built *nothing* against a non-empty archive
+refuses rather than deleting it — a transient Firestore failure looks
+exactly like "no day qualifies", and only one of those should wipe the
+archive.
+
 After that the `Build Gauntlet archive` workflow runs daily at 07:30 UTC and
 commits yesterday's page by itself. `--all` is also available from the
 Actions tab (Run workflow → tick "Rebuild every past day") if a template

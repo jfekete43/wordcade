@@ -135,6 +135,42 @@ export function computeDistribution(runs) {
   return counts;
 }
 
+// ----------------------------------------------------------- publishing ---
+
+/*
+ * Whether a finished day is worth a page.
+ *
+ * A day nobody completed renders as ten words and "Nobody finished this
+ * one", and unlike the rest of the archive it can never improve: a past
+ * Gauntlet cannot be played retroactively, so its run count is final the
+ * moment the day ends. Those pages stay thin forever, which is why the
+ * default threshold is 1 rather than 0.
+ */
+export function shouldPublish(runCount, minPlayers = 1) {
+  return runCount >= minPlayers;
+}
+
+/*
+ * What a full rebuild should delete: days on disk that the rebuild did not
+ * produce, because they no longer meet the threshold (or their puzzle is
+ * gone).
+ *
+ * The refusal is the point of this being a function. A rebuild that read
+ * nothing — a transient Firestore failure, expired credentials — looks
+ * exactly like a rebuild where no day qualifies, and the second is a
+ * legitimate outcome. Deleting the whole archive on the first is not
+ * recoverable from the runner, so an empty build against a non-empty
+ * archive refuses instead of pruning.
+ */
+export function planPrune(existingDates, builtDates) {
+  const keep = new Set(builtDates);
+  const remove = existingDates.filter((d) => !keep.has(d));
+  if (!builtDates.length && existingDates.length) {
+    return { refuse: true, remove: [], reason: `this run built none of the ${existingDates.length} existing day(s)` };
+  }
+  return { refuse: false, remove, reason: "" };
+}
+
 // -------------------------------------------------------------- render ----
 
 export function escapeHtml(s) {

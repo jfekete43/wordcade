@@ -31,6 +31,13 @@ const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const val = (f) => { const a = args.find((x) => x.startsWith(f + "=")); return a ? a.slice(f.length + 1) : null; };
 const DRY = has("--dry-run");
+// A day nobody finished renders as ten words and "Nobody finished this one",
+// and unlike the rest of the archive it can never improve — a past Gauntlet
+// cannot be played retroactively, so its run count is final the moment the
+// day ends. Those pages are permanently thin, so they are skipped by default.
+// --min-players=0 publishes them anyway.
+const MIN_PLAYERS = val("--min-players") === null ? 1 : Math.max(0, Number(val("--min-players")));
+if (!Number.isFinite(MIN_PLAYERS)) { console.error("--min-players must be a number"); process.exit(1); }
 
 const { initializeApp, applicationDefault, getApps } = await import("firebase-admin/app");
 const { getFirestore } = await import("firebase-admin/firestore");
@@ -54,7 +61,7 @@ if (one) {
   const yesterday = R.shiftDate(R.etDateStr(now), -1);
   dates = R.isPublishable(yesterday, now) ? [yesterday] : [];
 }
-console.log(`today in ET is ${R.etDateStr(now)}; building ${dates.length} day(s)`);
+console.log(`today in ET is ${R.etDateStr(now)}; building ${dates.length} day(s), minimum ${MIN_PLAYERS} player(s)`);
 
 async function loadDay(date) {
   const puzzle = await db.collection("dailyPuzzles").doc(date).get();
@@ -90,11 +97,15 @@ for (const date of dates) {
   if (!R.isPublishable(date, now)) { console.log(`  skip ${date} (not finished)`); continue; }
   const day = await loadDay(date);
   if (!day) { console.log(`  skip ${date} (no puzzle stored)`); continue; }
+  if (!R.shouldPublish(day.runs.length, MIN_PLAYERS)) {
+    console.log(`  skip ${date}  #${R.gauntletNumber(date)}  ${day.runs.length} runs (below ${MIN_PLAYERS})`);
+    continue;
+  }
   built.push(day);
   console.log(`  ${date}  #${R.gauntletNumber(date)}  ${day.runs.length} runs, ${day.attempts.length} attempts`);
 }
 
-if (!built.length) { console.log("nothing to build"); process.exit(0); }
+if (!built.length && !has("--all")) { console.log("nothing to build"); process.exit(0); }
 
 // Newest first for the hub; prev/next wired across the whole built set.
 built.sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -112,6 +123,25 @@ const write = (rel, body) => {
 };
 
 for (const day of built) write(path.join("gauntlet", day.date, "index.html"), R.renderDayPage(day));
+
+// Pages written under an older, lower threshold would otherwise linger:
+// absent from the hub but still reachable and still in the sitemap. Only a
+// full run prunes, because only a full run knows the whole set — a
+// single-day run cannot tell whether the other days on disk still qualify.
+if (has("--all") && fs.existsSync(OUT)) {
+  const existing = fs.readdirSync(OUT).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const plan = R.planPrune(existing, built.map((d) => d.date));
+  if (plan.refuse) {
+    console.error(`refusing to prune: ${plan.reason}.`);
+    console.error("If that is really intended, delete gauntlet/ by hand and re-run.");
+    process.exit(1);
+  }
+  for (const dir of plan.remove) {
+    if (DRY) { console.log(`  [dry-run] would remove gauntlet/${dir}/`); continue; }
+    fs.rmSync(path.join(OUT, dir), { recursive: true, force: true });
+    console.log(`  removed gauntlet/${dir}/ (no longer qualifies)`);
+  }
+}
 
 // The hub covers everything on disk, not just what this run rebuilt, so a
 // single-day run does not shrink it back to one row.
