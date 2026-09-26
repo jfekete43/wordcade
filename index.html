@@ -607,8 +607,8 @@
     
     <nav class="arcade-menu">
         <button onclick="window.showMainMenu()">Menu</button>
-        <button id="btn-mode" onclick="window.toggleMode()">CLASH</button>
         <button class="daily-btn" id="btn-daily" onclick="window.toggleDailyMode()">GAUNTLET</button>
+        <button id="btn-mode" onclick="window.toggleMode()">CLASH</button>
         <button class="ffa-btn" id="btn-ffa" onclick="window.toggleFfaMode()">FFA</button>
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
     </nav>
@@ -4814,11 +4814,8 @@
             } catch (e) { return false; }
         }
 
-        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, linkLabel) {
-            // A bare URL on its own line reads as a footnote. A label in front
-            // of it reads as an invitation, and unfurling is unaffected —
-            // apps that preview links find the URL anywhere in the body.
-            const payload = `${message}\n${linkLabel ? linkLabel + " " : ""}${url}`;
+        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
+            const payload = `${message}\n${url}`;
             const copyInstead = () => copyToClipboard(payload).then((ok) => flashButtonLabel(buttonEl, ok ? "COPIED!" : "COPY FAILED", defaultLabel));
 
             if (prefersNativeShare()) {
@@ -4919,7 +4916,7 @@
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Gauntlet #${num}` : "🕹️ Lexathon Gauntlet";
             const shareMessage = `${heading}\n${bar}\n${resultLine}`;
-            shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result", "Play today's:");
+            shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
         }
 
         // Clash/FFA don't have a shared daily puzzle to compare results

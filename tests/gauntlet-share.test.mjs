@@ -90,10 +90,10 @@ ck(out.message.includes('2.3 avg'), 'the average counts the missed word and igno
 out = buildShare(attempt(solvedRun([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), 5000));
 ck(out.message.includes('5,000 pts'), 'scores are thousands-separated', JSON.stringify(out.message));
 
-// The daily share must actually ASK for the label. Testing the helper with a
-// label proves the helper works, not that this caller passes one — dropping
-// it from the call site slipped through exactly that gap.
-ck(out.linkLabel === "Play today's:", 'the daily share labels its link', JSON.stringify(out.linkLabel));
+// The link is bare on purpose. A label in front of it was tried and dropped:
+// the heading already names the game, and every app that matters unfurls the
+// URL into a card that names it again, so the label said it a third time.
+ck(out.linkLabel === undefined, 'the daily share adds no label to its link', JSON.stringify(out.linkLabel));
 ck(out.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.url));
 
 // --- the bar, in its own right -------------------------------------------
@@ -137,31 +137,18 @@ const shareRun = (native) => new Function('NATIVE', `
   function copyToClipboard(text) { copied = text; return Promise.resolve(true); }
   function flashButtonLabel() {}
   ${grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/)}
-  shareViaSheetOrClipboard('T', 'line one\\nline two', 'https://lexathon.gg', {}, 'Share', "Play today's:");
+  shareViaSheetOrClipboard('T', 'line one\\nline two', 'https://lexathon.gg', {}, 'Share');
   return { shared, copied };
 `)(native);
 
 const viaSheet = shareRun(true);
 const viaClip = shareRun(false);
-ck(viaSheet.shared.text === "line one\nline two\nPlay today's: https://lexathon.gg",
-   'the native sheet gets the labelled link on its own line', JSON.stringify(viaSheet.shared.text));
+ck(viaSheet.shared.text === 'line one\nline two\nhttps://lexathon.gg',
+   'the native sheet gets the link on its own line', JSON.stringify(viaSheet.shared.text));
 ck(viaSheet.shared.url === undefined,
    'no separate url field, which is what let apps join it onto the last line');
-ck(viaClip.copied === "line one\nline two\nPlay today's: https://lexathon.gg",
-   'the clipboard gets the labelled link on its own line', JSON.stringify(viaClip.copied));
-// The label is optional — the three invite shares pass no label and must
-// still get a bare URL, not the string "undefined".
-const noLabel = new Function('', `
-  let copied = null;
-  function prefersNativeShare() { return false; }
-  function copyToClipboard(text) { copied = text; return Promise.resolve(true); }
-  function flashButtonLabel() {}
-  ${grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/)}
-  shareViaSheetOrClipboard('T', 'body', 'https://lexathon.gg/?join=ABCDE', {}, 'Share');
-  return copied;
-`)();
-ck(noLabel === 'body\nhttps://lexathon.gg/?join=ABCDE',
-   'a share with no label still gets a bare url', JSON.stringify(noLabel));
+ck(viaClip.copied === 'line one\nline two\nhttps://lexathon.gg',
+   'the clipboard gets the link on its own line', JSON.stringify(viaClip.copied));
 ck(viaSheet.shared.text === viaClip.copied, 'both paths produce identical text');
 
 let bad = 0;
