@@ -273,6 +273,12 @@ function head(title, description, canonical) {
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>${STYLE}
     </style>
+    <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
+         NOT LIVE YET. Get a token at dash.cloudflare.com -> Analytics & Logs ->
+         Web Analytics, then stamp it into every page at once with:
+             node tools/set-analytics-token.mjs <token>
+         Doing it by hand means eight files, and the one you miss is the page
+         that quietly reports no traffic. -->
 </head>
 <body>
 `;

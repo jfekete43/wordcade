@@ -204,6 +204,64 @@ re-deploying an older commit's `functions/` the same way; Cloud Functions
 also keeps its own version history in the Console under each function if
 you need to roll back without touching git.
 
+## Analytics
+
+Cloudflare Web Analytics, chosen over Google Analytics because it is cookieless:
+it sets no cookies and stores no personal data, so the site needs **no consent
+banner**. GA would have meant a cookie wall on the landing page of a game whose
+pitch is "click and play".
+
+**No deploy is involved** — these are static pages, live within a minute of the
+push.
+
+### Turning it on
+
+1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com) (free; you do
+   **not** need to move your DNS).
+2. **Analytics & Logs → Web Analytics → Add a site**, enter `lexathon.gg`.
+3. Copy the token out of the snippet it shows you (the value inside
+   `data-cf-beacon='{"token":"…"}'`).
+4. Stamp it into every page at once:
+
+```bash
+node tools/set-analytics-token.mjs <token>
+node tools/set-analytics-token.mjs --status    # confirm 8 live, 0 pending
+git add -A && git commit -m "Turn on analytics" && git push
+```
+
+5. Give it ~30 minutes.
+
+`--off` puts every page back to the pending comment; `--status` says what each
+one currently has.
+
+### Why a tool rather than find-and-replace
+
+Eight files carry the block: the seven static pages, plus the shared `head()` in
+`tools/gauntlet-archive-render.mjs`, which covers **every generated Gauntlet
+archive page**. Those archive pages are the ones in `sitemap.xml`, so they are a
+real way in — and because they come out of a renderer rather than the repo, they
+are exactly the ones a manual edit misses. The failure is silent: the page just
+reports no traffic. `tests/docs-consistency` fails if any file is missing the
+block, if only some are live, or if two tokens are in use.
+
+The archive pages pick up a token change on the next daily rebuild, or
+immediately with `node tools/build-gauntlet-archive.mjs --all`.
+
+### What it does not cover
+
+Gameplay. How many people finished the Gauntlet, how far runs get, which modes
+get played — all of that is already in Firestore, and a query over your own data
+answers it better than event tracking would. This is only for acquisition: how
+many people arrived, and from where.
+
+### If you ever add AdSense
+
+AdSense and Analytics are separate products; AdSense has never required GA. But
+personalised ads need a certified consent platform for EEA/UK traffic, so the
+cookie banner arrives **with AdSense**, not with analytics. At that point adding
+GA is a marginal extra. Nothing here locks you out. Re-check Google's current
+publisher requirements when you actually apply.
+
 ## Arcade Handle screening
 
 A handle is the last free text a stranger can put in front of you, and the most

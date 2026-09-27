@@ -56,6 +56,7 @@
             <li>Show your chat messages to the other players in that match.</li>
             <li>Look into reports of abuse or cheating, which may involve reading the chat from a specific match.</li>
             <li>Ensure the technical stability of the game.</li>
+            <li>Count visits, so we can tell whether the game is reaching anyone. This is done without cookies and without tracking individuals.</li>
             <li>Serve advertisements, if and when advertising is enabled (see "Third-Party Services" below).</li>
         </ul>
 
@@ -70,7 +71,8 @@
         <h2>Third-Party Services</h2>
         <p>Lexathon utilizes third-party services that may collect information used to identify you. These include:</p>
         <ul>
-            <li><strong>Google Analytics & Firebase:</strong> Used for hosting, database management, and tracking game performance.</li>
+            <li><strong>Firebase (Google):</strong> Hosting, sign-in, and the database that stores your progress and the leaderboards.</li>
+            <li><strong>Cloudflare Web Analytics:</strong> Counts visits so we know whether anyone is finding the game. It sets no cookies, stores no personal data, and cannot follow you to other sites &mdash; which is why Lexathon has no cookie banner. It records only the page visited, the site that linked you here, and coarse details like country and device type.</li>
             <li><strong>Advertising Partners:</strong> Lexathon does not currently serve ads, and no advertising network is loaded on the site. Should that change, third-party ad networks may use cookies to serve ads based on your prior visits to this or other websites, and this policy will say so before any such network is enabled.</li>
         </ul>
 
@@ -84,5 +86,11 @@
 
     </div>
 
+    <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
+         NOT LIVE YET. Get a token at dash.cloudflare.com -> Analytics & Logs ->
+         Web Analytics, then stamp it into every page at once with:
+             node tools/set-analytics-token.mjs <token>
+         Doing it by hand means eight files, and the one you miss is the page
+         that quietly reports no traffic. -->
 </body>
 </html>

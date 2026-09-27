@@ -204,6 +204,42 @@ ok('and does so without --legacy, which is the hand-run sweep',
    !/cleanup-matches\.mjs[^\n]*--legacy/.test(wf));
 ok('and runs it even when the archive build fails', /if: always\(\)/.test(wf));
 
+// --- analytics: every page, or none of them -------------------------------
+// The failure mode is silent. Miss one file and it reports no traffic, and
+// nothing anywhere says so — which is exactly what would have happened to the
+// generated archive pages, since they come out of a renderer rather than the
+// repo, and they are the ones in sitemap.xml.
+const ANALYTICS_FILES = ['about.html', 'faq.html', 'how-to-play.html', 'index.html',
+                         'privacy.html', 'strategy.html', 'terms.html',
+                         'tools/gauntlet-archive-render.mjs'];
+const analytics = ANALYTICS_FILES.map((f) => {
+  const src = read(f);
+  return { f, has: /analytics:cloudflare/.test(src),
+           token: (src.match(/data-cf-beacon='\{"token":"([^"]*)"\}'/) || [])[1] || null };
+});
+ok('every page carries the analytics block',
+   analytics.every((a) => a.has), analytics.filter((a) => !a.has).map((a) => a.f).join(', '));
+// Half-applied is worse than off: the stats look real and are wrong.
+const liveCount = analytics.filter((a) => a.token).length;
+ok('and they are all in the same state, live or pending',
+   liveCount === 0 || liveCount === analytics.length,
+   `${liveCount} of ${analytics.length} live — run tools/set-analytics-token.mjs`);
+ok('with one token between them',
+   new Set(analytics.map((a) => a.token)).size === 1,
+   JSON.stringify([...new Set(analytics.map((a) => a.token))]));
+if (liveCount === 0) console.log('NOTE  analytics is present but not live yet — tools/set-analytics-token.mjs <token>');
+// The privacy policy has to describe what is actually loaded, in both states.
+ok('privacy.html does not claim Google Analytics, which the site does not load',
+   !/Google Analytics/i.test(text['privacy.html']) && !/gtag|googletagmanager/i.test(read('index.html')),
+   (text['privacy.html'].match(/Google Analytics[^.]*/) || [''])[0]);
+ok('and names the analytics that IS loaded',
+   /Cloudflare Web Analytics/i.test(text['privacy.html']));
+// The no-banner claim is only true while the thing is cookieless. If a
+// cookie-setting tracker is ever added, this sentence has to go with it.
+ok('the no-cookie-banner claim matches a cookieless tracker',
+   !/cookie banner/i.test(text['privacy.html']) || /sets no cookies/i.test(text['privacy.html']),
+   'privacy.html claims no banner is needed');
+
 // A policy change means a new effective date, and the two pages move together.
 const effective = (page) => (pages[page].match(/Effective Date: ([^<]+)</) || [])[1];
 ok('privacy.html and terms.html carry the same effective date',
