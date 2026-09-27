@@ -539,6 +539,30 @@
         .banner_nero { background: linear-gradient(63deg, transparent 39.9%, rgba(212,175,55,0.5) 40.05%, rgba(255,240,190,0.9) 40.2%, rgba(212,175,55,0.45) 40.35%, transparent 40.5%), linear-gradient(104deg, transparent 61.9%, rgba(255,240,190,0.6) 62.1%, rgba(212,175,55,0.3) 62.3%, transparent 62.5%), linear-gradient(141deg, transparent 24.9%, rgba(212,175,55,0.4) 25.1%, transparent 25.35%), linear-gradient(81deg, transparent 78.9%, rgba(255,240,190,0.35) 79.08%, transparent 79.3%), radial-gradient(ellipse at 28% 38%, #1d1f26 0%, #0a0b0f 65%), linear-gradient(135deg, #101118 0%, #040409 100%); background-size: 240% 100%, 240% 100%, 240% 100%, 240% 100%, 100% 100%, 100% 100%; animation: nero-veins 11s ease-in-out infinite alternate; border-left: 3px solid #d4af37; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,240,190,0.16), inset 0 -4px 16px rgba(0,0,0,0.85); }
         @keyframes nero-veins { 0% { background-position: 0% 0, 0% 0, 0% 0, 0% 0, 0 0, 0 0; } 100% { background-position: 26% 0, -20% 0, 16% 0, -11% 0, 0 0, 0 0; } }
 
+        /* The rest of the marble set. Same construction as Nero Marquina above
+           — hard-stopped vein gradients at four different angles, each drifting
+           at its own rate over a radial base — with a different stone and a
+           different metal in each. All four stay DARK on purpose: a banner is a
+           backdrop for a player's name on an already-dark board, and a pale
+           marble would take the text with it. The veins are what vary; the
+           luminance does not. */
+
+        /* Nero Argento — the same black marble, cut with silver instead. */
+        .banner_argento { background: linear-gradient(57deg, transparent 41.9%, rgba(200,208,220,0.5) 42.05%, rgba(248,251,255,0.92) 42.2%, rgba(200,208,220,0.45) 42.35%, transparent 42.5%), linear-gradient(112deg, transparent 58.9%, rgba(248,251,255,0.6) 59.1%, rgba(200,208,220,0.3) 59.3%, transparent 59.5%), linear-gradient(134deg, transparent 27.9%, rgba(200,208,220,0.4) 28.1%, transparent 28.35%), linear-gradient(88deg, transparent 75.9%, rgba(248,251,255,0.35) 76.08%, transparent 76.3%), radial-gradient(ellipse at 32% 40%, #1b1e25 0%, #08090d 65%), linear-gradient(135deg, #0d0f15 0%, #030408 100%); background-size: 240% 100%, 240% 100%, 240% 100%, 240% 100%, 100% 100%, 100% 100%; animation: argento-veins 10s ease-in-out infinite alternate; border-left: 3px solid #c8d0dc; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(248,251,255,0.17), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        @keyframes argento-veins { 0% { background-position: 0% 0, 0% 0, 0% 0, 0% 0, 0 0, 0 0; } 100% { background-position: -22% 0, 18% 0, -14% 0, 9% 0, 0 0, 0 0; } }
+
+        /* Lapis Aurum — deep lapis with pyrite running through it. */
+        .banner_lapis { background: linear-gradient(70deg, transparent 37.9%, rgba(212,175,55,0.5) 38.05%, rgba(255,238,178,0.88) 38.2%, rgba(212,175,55,0.42) 38.35%, transparent 38.5%), linear-gradient(118deg, transparent 64.9%, rgba(255,238,178,0.55) 65.1%, rgba(212,175,55,0.3) 65.3%, transparent 65.5%), linear-gradient(145deg, transparent 22.9%, rgba(212,175,55,0.38) 23.1%, transparent 23.35%), linear-gradient(95deg, transparent 81.9%, rgba(255,238,178,0.33) 82.08%, transparent 82.3%), radial-gradient(ellipse at 35% 42%, #16205a 0%, #070c24 68%), linear-gradient(135deg, #0a1233 0%, #04071a 100%); background-size: 240% 100%, 240% 100%, 240% 100%, 240% 100%, 100% 100%, 100% 100%; animation: lapis-veins 12s ease-in-out infinite alternate; border-left: 3px solid #d4af37; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,238,178,0.15), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        @keyframes lapis-veins { 0% { background-position: 0% 0, 0% 0, 0% 0, 0% 0, 0 0, 0 0; } 100% { background-position: 21% 0, -24% 0, 13% 0, -16% 0, 0 0, 0 0; } }
+
+        /* Rosso Levanto — oxblood marble, veined in pale gold. */
+        .banner_rosso { background: linear-gradient(59deg, transparent 43.9%, rgba(198,160,74,0.5) 44.05%, rgba(255,243,214,0.9) 44.2%, rgba(198,160,74,0.44) 44.35%, transparent 44.5%), linear-gradient(108deg, transparent 56.9%, rgba(255,243,214,0.58) 57.1%, rgba(198,160,74,0.3) 57.3%, transparent 57.5%), linear-gradient(137deg, transparent 29.9%, rgba(198,160,74,0.4) 30.1%, transparent 30.35%), linear-gradient(84deg, transparent 73.9%, rgba(255,243,214,0.34) 74.08%, transparent 74.3%), radial-gradient(ellipse at 30% 44%, #2c0e13 0%, #0d0305 66%), linear-gradient(135deg, #1a0709 0%, #070203 100%); background-size: 240% 100%, 240% 100%, 240% 100%, 240% 100%, 100% 100%, 100% 100%; animation: rosso-veins 12.5s ease-in-out infinite alternate; border-left: 3px solid #c8a04a; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,243,214,0.15), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        @keyframes rosso-veins { 0% { background-position: 0% 0, 0% 0, 0% 0, 0% 0, 0 0, 0 0; } 100% { background-position: -18% 0, 23% 0, -12% 0, 14% 0, 0 0, 0 0; } }
+
+        /* Verde Antico — serpentine green, threaded with gold. */
+        .banner_verde { background: linear-gradient(66deg, transparent 40.9%, rgba(201,180,106,0.5) 41.05%, rgba(252,246,206,0.88) 41.2%, rgba(201,180,106,0.43) 41.35%, transparent 41.5%), linear-gradient(115deg, transparent 60.9%, rgba(252,246,206,0.56) 61.1%, rgba(201,180,106,0.3) 61.3%, transparent 61.5%), linear-gradient(139deg, transparent 26.9%, rgba(201,180,106,0.38) 27.1%, transparent 27.35%), linear-gradient(92deg, transparent 77.9%, rgba(252,246,206,0.33) 78.08%, transparent 78.3%), radial-gradient(ellipse at 34% 39%, #0d2e22 0%, #03100b 67%), linear-gradient(135deg, #061711 0%, #010806 100%); background-size: 240% 100%, 240% 100%, 240% 100%, 240% 100%, 100% 100%, 100% 100%; animation: verde-veins 11.5s ease-in-out infinite alternate; border-left: 3px solid #c9b46a; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(252,246,206,0.15), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        @keyframes verde-veins { 0% { background-position: 0% 0, 0% 0, 0% 0, 0% 0, 0 0, 0 0; } 100% { background-position: 24% 0, -19% 0, 15% 0, -10% 0, 0 0, 0 0; } }
+
         /* Text side. drop-shadow rather than text-shadow on all three: with
            -webkit-text-fill-color transparent the glow has to follow the
            glyph's alpha, which is what drop-shadow does and text-shadow
@@ -1681,78 +1705,82 @@
         const SHOP_ITEMS = {
                 titles: [
                     { id: "title_none", name: "No Title", desc: "Keep it clean.", cost: 0, display: "" },
-                    { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 500, display: "Rookie" },
-                    { id: "title_nightowl", name: "Night Owl", desc: "Grinding past midnight.", cost: 750, display: "Night Owl" },
-                    { id: "title_debugger", name: "Debugger", desc: "Squashing every bug.", cost: 1500, display: "Debugger" },
-                    { id: "title_hacker", name: "Cyber Hacker", desc: "Infiltrating the mainframe.", cost: 2500, display: "Cyber Hacker" },
-                    { id: "title_speedrunner", name: "Speedrunner", desc: "Gotta go fast.", cost: 3000, display: "Speedrunner" },
-                    { id: "title_combobreaker", name: "Combo Breaker", desc: "Chaining wins together.", cost: 3500, display: "Combo Breaker" },
-                    { id: "title_grid", name: "Grid Runner", desc: "Navigating the neon.", cost: 4000, display: "Grid Runner" },
-                    { id: "title_pixel", name: "Pixel Pioneer", desc: "8-bit legendary status.", cost: 5000, display: "Pixel Pioneer" },
-                    { id: "title_synth", name: "Synthwave Surfer", desc: "Riding the retro waves.", cost: 6000, display: "Synthwave Surfer" },
-                    { id: "title_wizard", name: "Word Wizard", desc: "A magical vocabulary.", cost: 7500, display: "Word Wizard" },
-                    { id: "title_overclocked", name: "Overclocked", desc: "Running at max capacity.", cost: 8000, display: "Overclocked" },
-                    { id: "title_glitch", name: "Glitch Hunter", desc: "Finding the bugs.", cost: 8500, display: "Glitch Hunter" },
-                    { id: "title_lex", name: "Lexicographer", desc: "You write the dictionary.", cost: 10000, display: "Lexicographer" },
-                    { id: "title_algorithm", name: "The Algorithm", desc: "Machine precision.", cost: 12500, display: "The Algorithm" },
-                    { id: "title_finalboss", name: "Final Boss", desc: "The ultimate challenge.", cost: 15000, display: "Final Boss" },
-                    { id: "title_sentient", name: "Sentient", desc: "The AI has awoken.", cost: 25000, display: "Sentient" },
-                    { id: "title_architect", name: "The Architect", desc: "Building the perfect run.", cost: 35000, display: "The Architect" },
-                    { id: "title_oracle", name: "Oracle", desc: "Sees the word before it's guessed.", cost: 45000, display: "Oracle" },
-                    { id: "title_missingno", name: "Ghost in the Machine", desc: "Anomalous entity.", cost: 50000, display: "Ghost in the Machine" },
-                    { id: "title_singularity", name: "Singularity", desc: "Beyond sentient. Beyond the game.", cost: 125000, display: "Singularity" }
+                    { id: "title_rookie", name: "Rookie", desc: "Just getting started.", cost: 450, display: "Rookie" },
+                    { id: "title_nightowl", name: "Night Owl", desc: "Grinding past midnight.", cost: 650, display: "Night Owl" },
+                    { id: "title_debugger", name: "Debugger", desc: "Squashing every bug.", cost: 1100, display: "Debugger" },
+                    { id: "title_hacker", name: "Cyber Hacker", desc: "Infiltrating the mainframe.", cost: 1700, display: "Cyber Hacker" },
+                    { id: "title_speedrunner", name: "Speedrunner", desc: "Gotta go fast.", cost: 2000, display: "Speedrunner" },
+                    { id: "title_combobreaker", name: "Combo Breaker", desc: "Chaining wins together.", cost: 2300, display: "Combo Breaker" },
+                    { id: "title_grid", name: "Grid Runner", desc: "Navigating the neon.", cost: 2600, display: "Grid Runner" },
+                    { id: "title_pixel", name: "Pixel Pioneer", desc: "8-bit legendary status.", cost: 3100, display: "Pixel Pioneer" },
+                    { id: "title_synth", name: "Synthwave Surfer", desc: "Riding the retro waves.", cost: 3600, display: "Synthwave Surfer" },
+                    { id: "title_wizard", name: "Word Wizard", desc: "A magical vocabulary.", cost: 4400, display: "Word Wizard" },
+                    { id: "title_overclocked", name: "Overclocked", desc: "Running at max capacity.", cost: 4600, display: "Overclocked" },
+                    { id: "title_glitch", name: "Glitch Hunter", desc: "Finding the bugs.", cost: 4800, display: "Glitch Hunter" },
+                    { id: "title_lex", name: "Lexicographer", desc: "You write the dictionary.", cost: 5500, display: "Lexicographer" },
+                    { id: "title_algorithm", name: "The Algorithm", desc: "Machine precision.", cost: 6750, display: "The Algorithm" },
+                    { id: "title_finalboss", name: "Final Boss", desc: "The ultimate challenge.", cost: 7750, display: "Final Boss" },
+                    { id: "title_sentient", name: "Sentient", desc: "The AI has awoken.", cost: 12000, display: "Sentient" },
+                    { id: "title_architect", name: "The Architect", desc: "Building the perfect run.", cost: 15750, display: "The Architect" },
+                    { id: "title_oracle", name: "Oracle", desc: "Sees the word before it's guessed.", cost: 19250, display: "Oracle" },
+                    { id: "title_missingno", name: "Ghost in the Machine", desc: "Anomalous entity.", cost: 21000, display: "Ghost in the Machine" },
+                    { id: "title_singularity", name: "Singularity", desc: "Beyond sentient. Beyond the game.", cost: 45500, display: "Singularity" }
                 ],
                 banners: [
                     { id: "banner_default", name: "Basic Slate", desc: "Standard Background", cost: 0 },
-                    { id: "banner_diamond", name: "Emerald Cut", desc: "Understated. Still sharp.", cost: 1200 },
-                    { id: "banner_foil", name: "Foil Pack", desc: "Diagonal shine, mint condition.", cost: 1800 },
-                    { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 2500 },
-                    { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 2500 },
-                    { id: "banner_8bit", name: "8-Bit Sunset", desc: "Retro horizon.", cost: 5000 },
-                    { id: "banner_scanline", name: "CRT Scanlines", desc: "Old school tube TV vibes.", cost: 7500 },
-                    { id: "banner_grid", name: "Cyber Grid", desc: "Digital landscape.", cost: 10000 },
-                    { id: "banner_matrix", name: "The Matrix", desc: "Digital rain effect.", cost: 12500 },
-                    { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 15000 },
-                    { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 17500 },
-                    { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 20000 },
-                    { id: "banner_neoncity", name: "Neon City", desc: "Midnight skyline.", cost: 22500 },
-                    { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 25000 },
-                    { id: "banner_prism", name: "Prism Drift", desc: "A slow-shifting spectrum sweep.", cost: 30000 },
-                    { id: "banner_toxic", name: "Toxic Spill", desc: "Handle with care.", cost: 35000 },
-                    { id: "banner_flux", name: "Quantum Flux", desc: "Two currents, never still.", cost: 45000 },
-                    { id: "banner_aurora", name: "Aurora", desc: "Lights dancing overhead.", cost: 55000 },
-                    { id: "banner_solaris", name: "Solaris", desc: "A pulsing solar flare.", cost: 65000 },
-                    { id: "banner_bloodmoon", name: "Blood Moon", desc: "Something's different tonight.", cost: 90000 },
-                    { id: "banner_frostbite", name: "Frostbite", desc: "Winter event exclusive — Dec 1 to Jan 5.", cost: 8000, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
-                    { id: "banner_celestial", name: "Celestial Throne", desc: "Amongst the stars.", cost: 100000 },
-                    { id: "banner_titanium", name: "Liquid Titanium", desc: "Brushed gunmetal, machined to a mirror.", cost: 40000 },
-                    { id: "banner_circuit", name: "Gilded Circuit", desc: "Gold traces on a live board.", cost: 60000 },
-                    { id: "banner_obsidian", name: "Obsidian", desc: "Volcanic glass with an oil-on-water sheen.", cost: 85000 },
-                    { id: "banner_singularity", name: "Event Horizon", desc: "Past this point, nothing escapes.", cost: 150000 },
-                    { id: "banner_nero", name: "Nero Gold", desc: "Black marble, veined in molten gold. The pinnacle.", cost: 175000 }
+                    { id: "banner_diamond", name: "Emerald Cut", desc: "Understated. Still sharp.", cost: 950 },
+                    { id: "banner_foil", name: "Foil Pack", desc: "Diagonal shine, mint condition.", cost: 1300 },
+                    { id: "banner_cyan", name: "Neon Cyan", desc: "Bright and loud.", cost: 1700 },
+                    { id: "banner_magenta", name: "Neon Magenta", desc: "Hot pink styling.", cost: 1700 },
+                    { id: "banner_8bit", name: "8-Bit Sunset", desc: "Retro horizon.", cost: 3100 },
+                    { id: "banner_scanline", name: "CRT Scanlines", desc: "Old school tube TV vibes.", cost: 4400 },
+                    { id: "banner_grid", name: "Cyber Grid", desc: "Digital landscape.", cost: 5500 },
+                    { id: "banner_matrix", name: "The Matrix", desc: "Digital rain effect.", cost: 6750 },
+                    { id: "banner_vaporwave", name: "Vaporwave", desc: "Aesthetic sunset gradient.", cost: 7750 },
+                    { id: "banner_galactic", name: "Deep Space", desc: "Lost in the cosmos.", cost: 8750 },
+                    { id: "banner_carbon", name: "Carbon Fiber", desc: "Sleek tactical weave.", cost: 9750 },
+                    { id: "banner_neoncity", name: "Neon City", desc: "Midnight skyline.", cost: 11000 },
+                    { id: "banner_champ", name: "Championship Gold", desc: "For the heavy hitters.", cost: 12000 },
+                    { id: "banner_prism", name: "Prism Drift", desc: "A slow-shifting spectrum sweep.", cost: 13750 },
+                    { id: "banner_toxic", name: "Toxic Spill", desc: "Handle with care.", cost: 15750 },
+                    { id: "banner_flux", name: "Quantum Flux", desc: "Two currents, never still.", cost: 19250 },
+                    { id: "banner_aurora", name: "Aurora", desc: "Lights dancing overhead.", cost: 23000 },
+                    { id: "banner_solaris", name: "Solaris", desc: "A pulsing solar flare.", cost: 26500 },
+                    { id: "banner_bloodmoon", name: "Blood Moon", desc: "Something's different tonight.", cost: 34500 },
+                    { id: "banner_frostbite", name: "Frostbite", desc: "Winter event exclusive — Dec 1 to Jan 5.", cost: 4600, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
+                    { id: "banner_celestial", name: "Celestial Throne", desc: "Amongst the stars.", cost: 37500 },
+                    { id: "banner_titanium", name: "Liquid Titanium", desc: "Brushed gunmetal, machined to a mirror.", cost: 17500 },
+                    { id: "banner_circuit", name: "Gilded Circuit", desc: "Gold traces on a live board.", cost: 24500 },
+                    { id: "banner_obsidian", name: "Obsidian", desc: "Volcanic glass with an oil-on-water sheen.", cost: 33000 },
+                    { id: "banner_singularity", name: "Event Horizon", desc: "Past this point, nothing escapes.", cost: 53000 },
+                    { id: "banner_nero", name: "Nero Gold", desc: "Black marble, veined in molten gold. The pinnacle.", cost: 60000 },
+                    { id: "banner_verde", name: "Verde Antico", desc: "Serpentine green, threaded with gold.", cost: 39000 },
+                    { id: "banner_rosso", name: "Rosso Levanto", desc: "Oxblood marble, veined in pale gold.", cost: 43000 },
+                    { id: "banner_lapis", name: "Lapis Aurum", desc: "Deep lapis, flecked with pyrite.", cost: 48000 },
+                    { id: "banner_argento", name: "Nero Argento", desc: "The same stone, cut with silver.", cost: 56000 }
                 ],
                 effects: [
                     { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
-                    { id: "effect_neon_outline", name: "Neon Outline", desc: "A crisp double-color glow.", cost: 3000 },
-                    { id: "effect_pulse", name: "Neon Pulse", desc: "A gentle glowing rhythm.", cost: 5000 },
-                    { id: "effect_static", name: "Static Noise", desc: "Bad reception, good looks.", cost: 7000 },
-                    { id: "effect_glitch", name: "Arcade Glitch", desc: "Corrupted system text.", cost: 10000 },
-                    { id: "effect_electric", name: "High Voltage", desc: "Shocking blue aura.", cost: 12500 },
-                    { id: "effect_hologram", name: "Hologram", desc: "Flickering projection.", cost: 15000 },
-                    { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 20000 },
-                    { id: "effect_void", name: "Void Black", desc: "Absorbs all light.", cost: 22500 },
-                    { id: "effect_toxic", name: "Toxic Text", desc: "Radioactive and proud of it.", cost: 35000 },
-                    { id: "effect_chromatic", name: "Chromatic Drift", desc: "A restless RGB split.", cost: 40000 },
-                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 50000 },
-                    { id: "effect_aurora", name: "Aurora Text", desc: "Green and violet, always shifting.", cost: 55000 },
-                    { id: "effect_prism", name: "Prism Text", desc: "The full spectrum, cycling.", cost: 60000 },
-                    { id: "effect_supernova", name: "Supernova", desc: "Burning brighter than fire.", cost: 80000 },
-                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 8000, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
-                    { id: "effect_celestial", name: "Celestial Crown", desc: "Gold amongst the stars.", cost: 100000 },
-                    { id: "effect_permafrost", name: "Permafrost", desc: "Cut from glacial ice.", cost: 30000 },
-                    { id: "effect_chrome", name: "Liquid Chrome", desc: "Polished metal, still cooling.", cost: 45000 },
-                    { id: "effect_oilslick", name: "Oil Slick", desc: "Pearlescent, never the same colour twice.", cost: 75000 },
-                    { id: "effect_singularity", name: "Event Horizon", desc: "Where the light stops. The true pinnacle.", cost: 150000 }
+                    { id: "effect_neon_outline", name: "Neon Outline", desc: "A crisp double-color glow.", cost: 2000 },
+                    { id: "effect_pulse", name: "Neon Pulse", desc: "A gentle glowing rhythm.", cost: 3100 },
+                    { id: "effect_static", name: "Static Noise", desc: "Bad reception, good looks.", cost: 4100 },
+                    { id: "effect_glitch", name: "Arcade Glitch", desc: "Corrupted system text.", cost: 5500 },
+                    { id: "effect_electric", name: "High Voltage", desc: "Shocking blue aura.", cost: 6750 },
+                    { id: "effect_hologram", name: "Hologram", desc: "Flickering projection.", cost: 7750 },
+                    { id: "effect_fire", name: "On Fire", desc: "Heating up the arcade.", cost: 9750 },
+                    { id: "effect_void", name: "Void Black", desc: "Absorbs all light.", cost: 11000 },
+                    { id: "effect_toxic", name: "Toxic Text", desc: "Radioactive and proud of it.", cost: 15750 },
+                    { id: "effect_chromatic", name: "Chromatic Drift", desc: "A restless RGB split.", cost: 17500 },
+                    { id: "effect_golden", name: "Golden Aura", desc: "Top tier status.", cost: 21000 },
+                    { id: "effect_aurora", name: "Aurora Text", desc: "Green and violet, always shifting.", cost: 23000 },
+                    { id: "effect_prism", name: "Prism Text", desc: "The full spectrum, cycling.", cost: 24500 },
+                    { id: "effect_supernova", name: "Supernova", desc: "Burning brighter than fire.", cost: 31500 },
+                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 4600, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+                    { id: "effect_celestial", name: "Celestial Crown", desc: "Gold amongst the stars.", cost: 37500 },
+                    { id: "effect_permafrost", name: "Permafrost", desc: "Cut from glacial ice.", cost: 13750 },
+                    { id: "effect_chrome", name: "Liquid Chrome", desc: "Polished metal, still cooling.", cost: 19250 },
+                    { id: "effect_oilslick", name: "Oil Slick", desc: "Pearlescent, never the same colour twice.", cost: 29500 },
+                    { id: "effect_singularity", name: "Event Horizon", desc: "Where the light stops. The true pinnacle.", cost: 53000 }
                 ]
             };
 
