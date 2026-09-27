@@ -246,6 +246,17 @@
         body.reduce-motion .banner_circuit,
         body.reduce-motion .banner_obsidian,
         body.reduce-motion .banner_nero,
+        body.reduce-motion .banner_argento,
+        body.reduce-motion .banner_lapis,
+        body.reduce-motion .banner_rosso,
+        body.reduce-motion .banner_verde,
+        body.reduce-motion .banner_caustic,
+        body.reduce-motion .banner_ember::after,
+        body.reduce-motion .banner_depth::before,
+        body.reduce-motion .banner_depth::after,
+        body.reduce-motion .banner_moire,
+        body.reduce-motion .banner_mercury::after,
+        body.reduce-motion .effect_foil,
         body.reduce-motion .effect_chrome,
         body.reduce-motion .effect_oilslick,
         body.reduce-motion .effect_permafrost { animation: none !important; }
@@ -563,6 +574,49 @@
         .banner_verde { background: linear-gradient(66deg, transparent 40.9%, rgba(201,180,106,0.5) 41.05%, rgba(252,246,206,0.88) 41.2%, rgba(201,180,106,0.43) 41.35%, transparent 41.5%), linear-gradient(115deg, transparent 60.9%, rgba(252,246,206,0.56) 61.1%, rgba(201,180,106,0.3) 61.3%, transparent 61.5%), linear-gradient(139deg, transparent 26.9%, rgba(201,180,106,0.38) 27.1%, transparent 27.35%), linear-gradient(92deg, transparent 77.9%, rgba(252,246,206,0.33) 78.08%, transparent 78.3%), radial-gradient(ellipse at 34% 39%, #0d2e22 0%, #03100b 67%), linear-gradient(135deg, #061711 0%, #010806 100%); background-size: 240% 100%, 240% 100%, 240% 100%, 240% 100%, 100% 100%, 100% 100%; animation: verde-veins 11.5s ease-in-out infinite alternate; border-left: 3px solid #c9b46a; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(252,246,206,0.15), inset 0 -4px 16px rgba(0,0,0,0.85); }
         @keyframes verde-veins { 0% { background-position: 0% 0, 0% 0, 0% 0, 0% 0, 0 0, 0 0; } 100% { background-position: 24% 0, -19% 0, 15% 0, -10% 0, 0 0, 0 0; } }
 
+        /* --- Six that are not more marble ---------------------------------
+           Each of these is a different MECHANISM, not a different palette.
+           The constraint they all share is that a banner is a backdrop for a
+           player's name on an already-dark board, so brightness is the binding
+           limit: every one of them was dialled down until the name won. */
+
+        /* Caustics — the rippling light on the bottom of a pool. Three radial
+           gradients on different phases AND different scales; the ripples are
+           the interference between them, not something drawn. */
+        .banner_caustic { background: radial-gradient(ellipse 60% 140% at 20% 40%, rgba(94,234,212,0.30), transparent 60%), radial-gradient(ellipse 80% 120% at 65% 70%, rgba(56,189,248,0.26), transparent 62%), radial-gradient(ellipse 50% 160% at 88% 25%, rgba(167,139,250,0.22), transparent 58%), linear-gradient(135deg, #041018 0%, #01060b 100%); background-size: 180% 300%, 220% 260%, 160% 340%, 100% 100%; animation: caustic-drift 9s ease-in-out infinite alternate; border-left: 3px solid #5eead4; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(94,234,212,0.14), inset 0 -4px 16px rgba(0,0,0,0.8); }
+        @keyframes caustic-drift { 0% { background-position: 0% 30%, 100% 70%, 40% 10%, 0 0; } 100% { background-position: 60% 80%, 20% 20%, 90% 90%, 0 0; } }
+
+        /* Embers — discrete particles rather than a field. Everything else in
+           the set is a gradient; this is separate objects, stacked into one
+           pseudo-element's box-shadow, drifting up and fading out. */
+        .banner_ember { background: linear-gradient(135deg, #1a0a04 0%, #070202 100%); border-left: 3px solid #ff7a29; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,157,77,0.14), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        .banner_ember::after { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 2px; border-radius: 50%; z-index: -1; box-shadow: 20px 54px 0 0 #ff9d4d, 60px 48px 0 0 #ffb066, 110px 58px 0 0 #ff7a29, 150px 44px 0 0 #ffd0a0, 195px 56px 0 0 #ff9d4d, 240px 50px 0 0 #ff7a29, 285px 46px 0 0 #ffb066, 320px 58px 0 0 #ffd0a0, 45px 52px 0 0 #ff7a29, 135px 50px 0 0 #ff9d4d, 215px 42px 0 0 #ffd0a0, 300px 54px 0 0 #ff9d4d; animation: ember-rise 5.5s linear infinite; }
+        @keyframes ember-rise { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 80% { opacity: 0.7; } 100% { transform: translateY(-58px); opacity: 0; } }
+
+        /* Depth — three starfields at three speeds. Parallax reads as actual
+           distance, which nothing else here has; every other banner is flat. */
+        .banner_depth { background: linear-gradient(135deg, #070a18 0%, #02030a 100%); border-left: 3px solid #9db4ff; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(157,180,255,0.13), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        .banner_depth::before, .banner_depth::after { content: ""; position: absolute; inset: 0; z-index: -1; }
+        .banner_depth::before { background: radial-gradient(1px 1px at 30px 18px, #fff, transparent), radial-gradient(1px 1px at 120px 40px, #cfe0ff, transparent), radial-gradient(1px 1px at 210px 12px, #fff, transparent), radial-gradient(1px 1px at 300px 46px, #cfe0ff, transparent); background-size: 340px 60px; animation: star-far 26s linear infinite; opacity: 0.55; }
+        .banner_depth::after { background: radial-gradient(1.6px 1.6px at 70px 34px, #fff, transparent), radial-gradient(1.6px 1.6px at 180px 20px, #e8f0ff, transparent), radial-gradient(1.6px 1.6px at 265px 50px, #fff, transparent); background-size: 340px 60px; animation: star-near 11s linear infinite; }
+        @keyframes star-far { to { background-position: -340px 0; } }
+        @keyframes star-near { to { background-position: -340px 0; } }
+
+        /* Moire — two line gratings 1.4 degrees apart. The big slow bands are
+           EMERGENT: nothing draws them, they fall out of the interference
+           between two patterns that are each just straight lines. */
+        .banner_moire { background: repeating-linear-gradient(45deg, rgba(0,255,200,0.20) 0 1px, transparent 1px 5px), repeating-linear-gradient(46.4deg, rgba(255,0,140,0.17) 0 1px, transparent 1px 5px), linear-gradient(135deg, #06090f 0%, #02040a 100%); animation: moire-drift 18s linear infinite; border-left: 3px solid #00ffc8; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(0,255,200,0.12), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        @keyframes moire-drift { to { background-position: 60px 0, -60px 0, 0 0; } }
+
+        /* Mercury — blurred volumes instead of hard edges. filter:blur on a
+           child is a different tool from every gradient in this file. The veil
+           over the top is not decoration: without it the blobs wash out pale
+           and take the player's name with them. */
+        .banner_mercury { isolation: isolate; background: linear-gradient(135deg, #0c0e12 0%, #04050a 100%); border-left: 3px solid #cfd8e3; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(207,216,227,0.13), inset 0 -4px 16px rgba(0,0,0,0.85); }
+        .banner_mercury::after { content: ""; position: absolute; inset: -30%; z-index: -2; background: radial-gradient(circle at 25% 40%, #4a5a70, transparent 45%), radial-gradient(circle at 60% 65%, #2b3340, transparent 42%), radial-gradient(circle at 85% 30%, #5d6e85, transparent 40%); filter: blur(16px); opacity: 0.42; animation: mercury-roll 12s ease-in-out infinite alternate; }
+        .banner_mercury::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(4,6,10,0.82) 0%, rgba(4,6,10,0.35) 55%, rgba(4,6,10,0.7) 100%); }
+        @keyframes mercury-roll { 0% { transform: translate(-6%, 0) scale(1); } 100% { transform: translate(6%, -4%) scale(1.15); } }
+
         /* Text side. drop-shadow rather than text-shadow on all three: with
            -webkit-text-fill-color transparent the glow has to follow the
            glyph's alpha, which is what drop-shadow does and text-shadow
@@ -574,6 +628,15 @@
         /* Pearlescent rather than saturated — the pastel/iridescent read is
            what separates this from Prism Text sitting a tier below it. */
         .effect_oilslick { background: linear-gradient(100deg, #5eead4 0%, #818cf8 18%, #f0abfc 34%, #22d3ee 50%, #a78bfa 66%, #f472b6 82%, #5eead4 100%); background-size: 320% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 4.5s linear infinite; font-weight: 900; filter: drop-shadow(0 0 7px rgba(150,110,235,0.55)) drop-shadow(0 0 2px rgba(0,255,220,0.45)); }
+
+        /* Lenticular foil. Tried first as a BANNER and abandoned there: a
+           full-width rainbow fights whatever text sits on it, and the mask
+           that makes it lenticular masks the player's name into stripes along
+           with it. On the name itself it has nothing to fight, so it can be as
+           loud as it likes — two layers clipped to the glyphs, fine ridges over
+           a broad spectrum, sliding at different rates. */
+        .effect_foil { background: repeating-linear-gradient(72deg, rgba(255,255,255,0.55) 0 1px, transparent 1px 4px), linear-gradient(100deg, #ff2f6e 0%, #ffd166 18%, #06d6a0 36%, #4cc9f0 54%, #b57bff 72%, #ff2f6e 100%); background-size: 200% auto, 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: foil-ridge 3.4s linear infinite, shine 5s linear infinite; font-weight: 900; filter: drop-shadow(0 0 6px rgba(180,140,255,0.5)) drop-shadow(0 1px 0 rgba(0,0,0,0.7)); }
+        @keyframes foil-ridge { to { background-position: 200% 0, 0 0; } }
 
         /* Glacial ice — white-blue crystal with a cold double halo. */
         .effect_permafrost { background: linear-gradient(100deg, #dff6ff 0%, #ffffff 18%, #9fd8f5 34%, #e8fbff 50%, #7fc6ea 66%, #ffffff 82%, #dff6ff 100%); background-size: 280% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3.2s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(140,220,255,0.78)) drop-shadow(0 0 13px rgba(60,160,220,0.45)); }
@@ -1757,7 +1820,12 @@
                     { id: "banner_verde", name: "Verde Antico", desc: "Serpentine green, threaded with gold.", cost: 39000 },
                     { id: "banner_rosso", name: "Rosso Levanto", desc: "Oxblood marble, veined in pale gold.", cost: 43000 },
                     { id: "banner_lapis", name: "Lapis Aurum", desc: "Deep lapis, flecked with pyrite.", cost: 48000 },
-                    { id: "banner_argento", name: "Nero Argento", desc: "The same stone, cut with silver.", cost: 56000 }
+                    { id: "banner_argento", name: "Nero Argento", desc: "The same stone, cut with silver.", cost: 56000 },
+                    { id: "banner_ember", name: "Ember Drift", desc: "Sparks off a fire you can't see.", cost: 27500 },
+                    { id: "banner_depth", name: "Parallax", desc: "Three starfields, three distances.", cost: 29000 },
+                    { id: "banner_caustic", name: "Caustics", desc: "Light rippling on the bottom of a pool.", cost: 31500 },
+                    { id: "banner_mercury", name: "Mercury", desc: "Something heavy, moving slowly.", cost: 35500 },
+                    { id: "banner_moire", name: "Interference", desc: "Two patterns, and the one they make together.", cost: 41000 }
                 ],
                 effects: [
                     { id: "effect_none", name: "Standard Font", desc: "Normal text rendering.", cost: 0 },
@@ -1780,6 +1848,7 @@
                     { id: "effect_permafrost", name: "Permafrost", desc: "Cut from glacial ice.", cost: 13750 },
                     { id: "effect_chrome", name: "Liquid Chrome", desc: "Polished metal, still cooling.", cost: 19250 },
                     { id: "effect_oilslick", name: "Oil Slick", desc: "Pearlescent, never the same colour twice.", cost: 29500 },
+                    { id: "effect_foil", name: "Lenticular Foil", desc: "Holographic. Tilt it in your head.", cost: 46000 },
                     { id: "effect_singularity", name: "Event Horizon", desc: "Where the light stops. The true pinnacle.", cost: 53000 }
                 ]
             };

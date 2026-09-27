@@ -99,6 +99,11 @@ const SHOP_ITEMS = {
     { id: "banner_rosso", cost: 43000 },
     { id: "banner_lapis", cost: 48000 },
     { id: "banner_argento", cost: 56000 },
+    { id: "banner_ember", cost: 27500 },
+    { id: "banner_depth", cost: 29000 },
+    { id: "banner_caustic", cost: 31500 },
+    { id: "banner_mercury", cost: 35500 },
+    { id: "banner_moire", cost: 41000 },
   ],
   effects: [
     { id: "effect_none", cost: 0 },
@@ -121,6 +126,7 @@ const SHOP_ITEMS = {
     { id: "effect_permafrost", cost: 13750 },
     { id: "effect_chrome", cost: 19250 },
     { id: "effect_oilslick", cost: 29500 },
+    { id: "effect_foil", cost: 46000 },
     { id: "effect_singularity", cost: 53000 },
   ],
 };

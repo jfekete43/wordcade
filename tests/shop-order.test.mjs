@@ -125,6 +125,24 @@ const ugly = clientAll.filter(([, i]) => i.cost > 0 && i.cost % 50 !== 0).map(([
 ck(ugly.length === 0, 'and lands on a round number', ugly.join(', '));
 ck(new Set(clientAll.map(([, i]) => i.id)).size === clientAll.length, 'no duplicate item ids');
 
+// --- every animated cosmetic must honour reduce-motion -------------------
+// The site has a body.reduce-motion opt-out and most cosmetics were in it, but
+// nothing enforced that — so the four marble banners added in the previous
+// change animated straight through it, and nobody would have found out except
+// a player who needs that setting.
+const reduceMotion = new Set([...html.matchAll(/body\.reduce-motion \.([a-z0-9_]+)/g)].map((m) => m[1]));
+const animated = new Set();
+for (const m of html.matchAll(/\.((?:banner|effect)_[a-z0-9]+)(?:::[a-z-]+)?\s*\{([^}]*)\}/g)) {
+  if (/animation:/.test(m[2])) animated.add(m[1]);
+}
+ck(animated.size > 20, 'found the animated cosmetics', String(animated.size));
+const unmuted = [...animated].filter((a) => !reduceMotion.has(a));
+ck(unmuted.length === 0, 'every animated cosmetic is in the reduce-motion opt-out', unmuted.join(', '));
+// And the opt-out must not list classes that no longer exist, or it reads as
+// covering more than it does.
+const stale = [...reduceMotion].filter((c) => /^(banner|effect)_/.test(c) && !new RegExp(`\\.${c}\\b[^{;]*\\{`).test(html));
+ck(stale.length === 0, 'and lists nothing that no longer exists', stale.join(', '));
+
 let bad = 0;
 for (const [ok, name, detail] of t) {
   if (!ok) bad++;
