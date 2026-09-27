@@ -3810,6 +3810,11 @@
                         status: 'waiting', isPublic: true,
                         // NEW SCORE ATTACK & CHAT INITIALIZERS
                         hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                        // Server-stamped, and firestore.rules pins it to request.time.
+                        // It is what lets a finished match be cleaned up later
+                        // (tools/match-cleanup.mjs); a client clock could be wrong in
+                        // the direction that deletes a match still being played.
+                        createdAt: serverTimestamp(),
                         hostWordIndex: 1, guestWordIndex: 1, chat: [] 
                     });
                     listenToMatch();
@@ -3832,6 +3837,11 @@
                 status: 'waiting', isPublic: false,
                 // NEW SCORE ATTACK & CHAT INITIALIZERS
                 hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                // Server-stamped, and firestore.rules pins it to request.time.
+                // It is what lets a finished match be cleaned up later
+                // (tools/match-cleanup.mjs); a client clock could be wrong in
+                // the direction that deletes a match still being played.
+                createdAt: serverTimestamp(),
                 hostWordIndex: 1, guestWordIndex: 1, chat: [] 
             });
 
@@ -3864,6 +3874,11 @@
                 guestUid: oldData.guestUid, guestName: oldData.guestName, guestEquipped: oldData.guestEquipped, guestBoard: [], guestMMR: oldData.guestMMR || 1000,
                 status: 'playing', isPublic: false,
                 hostScore: 0, guestScore: 0, words: generateClashWords(), endTime: null,
+                // Server-stamped, and firestore.rules pins it to request.time.
+                // It is what lets a finished match be cleaned up later
+                // (tools/match-cleanup.mjs); a client clock could be wrong in
+                // the direction that deletes a match still being played.
+                createdAt: serverTimestamp(),
                 hostWordIndex: 1, guestWordIndex: 1, chat: []
             });
 
@@ -4320,6 +4335,11 @@
                 p3Uid: null, p3Name: null, p3Equipped: null, p3Mmr: 1000, p3Score: 0, p3WordIndex: 1, p3Skips: CLASH_SKIPS_PER_MATCH,
                 p4Uid: null, p4Name: null, p4Equipped: null, p4Mmr: 1000, p4Score: 0, p4WordIndex: 1, p4Skips: CLASH_SKIPS_PER_MATCH,
                 p5Uid: null, p5Name: null, p5Equipped: null, p5Mmr: 1000, p5Score: 0, p5WordIndex: 1, p5Skips: CLASH_SKIPS_PER_MATCH,
+                // Server-stamped, and firestore.rules pins it to request.time.
+                // It is what lets a finished match be cleaned up later
+                // (tools/match-cleanup.mjs); a client clock could be wrong in
+                // the direction that deletes a match still being played.
+                createdAt: serverTimestamp(),
                 words: generateClashWords(), endTime: null, lobbyDeadline: null, chat: [],
                 winners: null, changes: null, payoutApplied: false,
             };

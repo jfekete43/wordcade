@@ -180,6 +180,23 @@ for (const page of ['privacy.html', 'terms.html']) {
      !/chat (is|are) (private|confidential)\b/i.test(text[page]),
      (text[page].match(/chat (is|are) (private|confidential)[^.]*/i) || [''])[0]);
 }
+// Match records are deleted on a schedule now, and privacy.html states the
+// window. The number lives in tools/match-cleanup.mjs, so the sentence can go
+// stale exactly the way the FFA player counts did.
+const RETENTION_H = Number(read('tools/match-cleanup.mjs').match(/DEFAULT_RETENTION_HOURS = (\d+);/)[1]);
+ok(`privacy.html states the ${RETENTION_H}-hour match retention window`,
+   text['privacy.html'].includes(`${RETENTION_H} hours`),
+   (text['privacy.html'].match(/\d+ hours?/g) || []).join(' / '));
+ok('and says the records are deleted, not merely kept',
+   /deleted automatically/i.test(text['privacy.html']));
+// The workflow must actually run the cleanup, or the sentence is a promise
+// nothing keeps.
+const wf = read('.github/workflows/gauntlet-archive.yml');
+ok('the daily workflow runs the match cleanup', /node tools\/cleanup-matches\.mjs/.test(wf));
+ok('and does so without --legacy, which is the hand-run sweep',
+   !/cleanup-matches\.mjs[^\n]*--legacy/.test(wf));
+ok('and runs it even when the archive build fails', /if: always\(\)/.test(wf));
+
 // A policy change means a new effective date, and the two pages move together.
 const effective = (page) => (pages[page].match(/Effective Date: ([^<]+)</) || [])[1];
 ok('privacy.html and terms.html carry the same effective date',

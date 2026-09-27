@@ -88,8 +88,11 @@ const matchUpdates = updateRules.filter((r) => /matchMode\(resource\.data\)/.tes
 ck(matchUpdates.length === 2, 'there are two match update rules (1v1 and FFA)', String(matchUpdates.length));
 ck(matchUpdates.every((r) => /chatOk\(\)/.test(r)), 'and both of them gate chat',
    matchUpdates.map((r) => /chatOk\(\)/.test(r)).join(','));
-ck(/allow create: if isSignedIn\(\) && request\.resource\.data\.hostUid == request\.auth\.uid\s*\n\s*&& request\.resource\.data\.chat == \[\];/.test(rules),
-   'and a new match must be created silent');
+// Anchored on the hostUid clause: there are three `allow create` rules in the
+// file and a lazy match lands on the wrong collection's.
+const createRule = (rules.match(/allow create: if isSignedIn\(\) && request\.resource\.data\.hostUid == request\.auth\.uid[\s\S]*?;/) || [''])[0];
+ck(/request\.resource\.data\.chat == \[\]/.test(createRule),
+   'and a new match must be created silent', createRule);
 
 // --- every creation site must send chat: [] ------------------------------
 // The create rule requires it, so a site that omits it cannot create a match at
@@ -102,6 +105,27 @@ sites.forEach((chunk, i) => {
      `creation site ${i + 1} sends chat: []`, payload.split('\n').slice(0, 3).join(' / '));
 });
 ck(/function newFfaMatchDoc\([\s\S]*?chat: \[\]/.test(html), 'newFfaMatchDoc sends chat: [] too');
+
+// --- and every creation site must stamp createdAt -------------------------
+// The create rule requires createdAt == request.time, so a site that omits it
+// cannot create a match at all. Same sharp edge as chat: [], same check.
+sites.forEach((chunk, i) => {
+  const payload = chunk.slice(0, 1600);
+  ck(/createdAt: serverTimestamp\(\)/.test(payload) || /newFfaMatchDoc\(/.test(payload),
+     `creation site ${i + 1} stamps createdAt`, payload.split('\n').slice(0, 3).join(' / '));
+});
+ck(/function newFfaMatchDoc\([\s\S]*?createdAt: serverTimestamp\(\)/.test(html), 'newFfaMatchDoc stamps createdAt too');
+// It must be the SERVER's clock. Date.now() here would let a skewed or hostile
+// client pick its match's age, in both directions.
+ck(!/createdAt: Date\.now\(\)/.test(html), 'and never from the client clock');
+ck(/&& request\.resource\.data\.createdAt == request\.time;/.test(rules),
+   'the rules pin createdAt to request.time');
+ck(/function createdAtPinned\(\)/.test(rules) && matchUpdates.every((r) => /createdAtPinned\(\)/.test(r)),
+   'and both update rules stop it being moved afterwards');
+// The retention window and the field it reads must be the same story.
+const cleanup = fs.readFileSync(REPO('tools/match-cleanup.mjs'), 'utf8');
+ck(/toMillis\(m\.createdAt\)/.test(cleanup), 'the cleanup ages matches by createdAt', '');
+ck(/DEFAULT_RETENTION_HOURS = \d+;/.test(cleanup), 'with a stated retention window');
 
 let bad = 0;
 for (const [ok, name, detail] of t) {

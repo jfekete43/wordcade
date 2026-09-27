@@ -105,6 +105,13 @@ service cloud.firestore {
       return chatUntouched() || validChatAppend(matchIsPublic(resource.data));
     }
 
+    // An update may never touch createdAt. Pushing it forward would make a
+    // match outlive cleanup indefinitely, which is the whole thing this is
+    // meant to stop.
+    function createdAtPinned() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt']);
+    }
+
     // Cosmetic ids get rendered straight into class="..." on the leaderboard,
     // live feed, and race cards. `equipped` is the one profile field a client
     // may write directly, and a run doc carries its own copy — so without
@@ -224,8 +231,15 @@ service cloud.firestore {
       // whose chat array already held a payload, side-stepping the per-line
       // validation below entirely (all four client creation sites already
       // send chat: []).
+      // createdAt is how a match can be cleaned up later. Pinning it to
+      // request.time makes it a SERVER timestamp that the client cannot choose:
+      // a client-supplied age could be wrong in the direction that deletes a
+      // match still being played, and an immortal match is the other failure.
+      // Match docs carried no creation time at all before this, which is why
+      // every match ever played was still sitting in Firestore.
       allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid
-        && request.resource.data.chat == [];
+        && request.resource.data.chat == []
+        && request.resource.data.createdAt == request.time;
 
       // Either participant can update live gameplay fields (scores, mini-
       // boards, chat, endTime) and a guest can claim the open slot (status
@@ -244,7 +258,7 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostChange', 'guestChange', 'payoutApplied', 'winner', 'endReason'])
         && (request.resource.data.status == resource.data.status
             || (resource.data.status == 'waiting' && request.resource.data.status == 'playing'))
-        && chatOk();
+        && chatOk() && createdAtPinned();
 
       // Clash: Free-For-All (3-6 players, see functions/index.js). Unlike
       // the 1v1 rule above, joining/starting/finishing a match ALL go
@@ -268,7 +282,7 @@ service cloud.firestore {
              'p0Equipped', 'p1Equipped', 'p2Equipped', 'p3Equipped', 'p4Equipped', 'p5Equipped',
              'p0Mmr', 'p1Mmr', 'p2Mmr', 'p3Mmr', 'p4Mmr', 'p5Mmr'
            ])
-        && chatOk();
+        && chatOk() && createdAtPinned();
 
       // A 1v1 host may delete their match at any time (mirrors the client's
       // existing leaveVersusMatch behavior). An FFA host may only delete

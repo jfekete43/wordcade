@@ -1,12 +1,21 @@
-# Builds the static Gauntlet archive under /gauntlet/ once a day and commits
-# whatever changed, which GitHub Pages then serves.
+# Daily Firestore housekeeping. Two independent things on one schedule:
+#
+#   1. Builds the static Gauntlet archive under /gauntlet/ and commits whatever
+#      changed, which GitHub Pages then serves.
+#   2. Deletes match documents that are finished with. Nothing ever cleaned
+#      these up, so every match that was played stayed in Firestore for good
+#      with its chat inside it, in a collection any signed-in account can read.
+#
+# The cleanup runs even when the archive build fails: they share nothing but a
+# service-account key, and an archive that cannot build is no reason to let
+# match records accumulate for another day.
 #
 # 07:30 UTC is 02:30 or 03:30 Eastern depending on the season — comfortably
 # after the midnight ET rollover either way, so the day it publishes is
 # always finished. The generator refuses to publish an unfinished day
 # regardless (see isPublishable), so a mistimed run produces nothing rather
 # than leaking today's answers.
-name: Build Gauntlet archive
+name: Daily maintenance
 
 on:
   schedule:
@@ -17,9 +26,13 @@ on:
         description: "Rebuild every past day instead of just yesterday"
         type: boolean
         default: false
+      cleanup_dry_run:
+        description: "Report which matches would be deleted without deleting them"
+        type: boolean
+        default: false
 
 concurrency:
-  group: gauntlet-archive
+  group: daily-maintenance
   cancel-in-progress: false
 
 permissions:
@@ -63,3 +76,13 @@ jobs:
           fi
           git commit -m "Publish Gauntlet archive through $(date -u -d 'yesterday' +%Y-%m-%d)"
           git push
+
+      # Runs regardless of the archive's outcome, and without --legacy: the
+      # recurring path only ever deletes matches with a server-stamped
+      # createdAt, so it can never guess wrong about a match still in play. The
+      # one-off sweep of pre-createdAt documents is run by hand.
+      - name: Delete matches that are finished with
+        if: always()
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: node tools/cleanup-matches.mjs ${{ inputs.cleanup_dry_run && '--dry-run' || '' }}

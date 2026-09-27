@@ -204,6 +204,69 @@ re-deploying an older commit's `functions/` the same way; Cloud Functions
 also keeps its own version history in the Console under each function if
 you need to roll back without touching git.
 
+## Match cleanup (`matches`)
+
+Match documents were never cleaned up. Only two things ever deleted one — a
+host abandoning a lobby, and the client clearing its own stale `waiting` rooms
+on the way into matchmaking — so every match that was actually **played** stayed
+in Firestore for good, with its chat inside it, in a collection any signed-in
+account can read (matchmaking has to query for open lobbies).
+
+The daily **Daily maintenance** workflow now deletes matches older than 24
+hours, in the same job as the Gauntlet archive and using the same
+`FIREBASE_SERVICE_ACCOUNT` secret. **No Firebase deploy is involved** — but the
+`createdAt` field it ages matches by does need the rules deployed, see below.
+
+### Why 24 hours
+
+A match's useful life is minutes: the lobby wait, a race of at most seven
+minutes, the end modal, and the rematch hop (the guest follows `rematchMatchId`
+off the *finished* doc, so the doc has to outlive the match). 24 hours leaves
+room for all of that and for looking into a same-day complaint, and it is the
+number `privacy.html` states. It lives in `tools/match-cleanup.mjs` as
+`DEFAULT_RETENTION_HOURS`; `tests/docs-consistency` fails if the two drift.
+
+### What it ages matches by
+
+`createdAt`, which the client writes as a `serverTimestamp()` and
+`firestore.rules` pins to `request.time`. That pin is the point: an age taken
+from a client clock could be wrong in the direction that deletes a match
+somebody is still playing, and a client that writes the far future would get a
+match that never expires. The rules also stop either participant moving it
+afterwards.
+
+**This means the rules must be deployed before the cleanup does anything
+useful**, and after they are, a match cannot be created without it:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+### The one-off legacy sweep
+
+Matches created before `createdAt` existed have no timestamp, so the recurring
+job leaves them alone — it never guesses at a live match's age. Clear the
+backlog once, by hand, from Cloud Shell:
+
+```bash
+cd ~/wordcade && git pull origin main
+npm install --no-save firebase-admin
+node tools/cleanup-matches.mjs --legacy --dry-run   # look first
+node tools/cleanup-matches.mjs --legacy
+```
+
+`--legacy` deletes timestampless docs that are `finished` or still `waiting`,
+and `playing` ones whose deadline is more than the retention window past. A
+`playing` doc with no deadline at all is left alone rather than guessed at, so a
+handful may survive the sweep; they will be the last of them, since every match
+created from now on carries a `createdAt`.
+
+### Cost
+
+One `matches` read per document per day, and one delete per expired match.
+Deletes go out in batches of 500, which is Firestore's cap on a write batch.
+
+
 ## The Gauntlet archive (`/gauntlet/`)
 
 Static pages, one per finished Gauntlet, built from Firestore and committed

@@ -18,7 +18,7 @@
  * Needs the Firestore emulator (run via `npm test`).
  */
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, arrayUnion, setLogLevel } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, arrayUnion, serverTimestamp, setLogLevel } from 'firebase/firestore';
 setLogLevel('silent');
 import fs from 'fs';
 import path from 'path';
@@ -83,7 +83,9 @@ await check('chat emptied', false, { chat: [] }, { chat: [line({ at: 1 })] });
 const created = async (name, shouldPass, data) => {
   const id = 'c' + (++seq);
   let denied = false, why = '';
-  try { await setDoc(doc(db, 'matches', id), { hostUid: ME, guestUid: null, status: 'waiting', isPublic: true, ...data }); }
+  const body = { hostUid: ME, guestUid: null, status: 'waiting', isPublic: true, createdAt: serverTimestamp(), ...data };
+  Object.keys(body).forEach((k) => { if (body[k] === ABSENT) delete body[k]; });
+  try { await setDoc(doc(db, 'matches', id), body); }
   catch (e) { denied = true; why = e.code || String(e); }
   results.push([denied !== shouldPass ? 'PASS' : 'FAIL',
                  name + (denied === shouldPass ? `  :: got ${denied ? 'DENIED ' + why : 'ALLOWED'}` : '')]);
@@ -92,6 +94,28 @@ await created('a match created with an HTML payload in chat', false, { chat: [XS
 await created('a match created with a valid line pre-loaded', false, { chat: [line()] });
 await created('a match created with no chat field at all', false, {});
 await created('a match created silent (chat: [])', true, { chat: [] });
+
+// --- createdAt: the field the cleanup job ages a match by ------------------
+// Match docs carried no creation time at all, which is why every match ever
+// played was still in Firestore. It has to be a SERVER timestamp: a
+// client-chosen age could be wrong in the direction that deletes a match still
+// being played, and a client that writes the far future gets an immortal match.
+await created('a match created with no createdAt', false, { chat: [], createdAt: ABSENT });
+await created('a match created with a client-chosen createdAt', false, { chat: [], createdAt: new Date('2020-01-01') });
+await created('a match created with createdAt in the future', false, { chat: [], createdAt: new Date(Date.now() + 864e5) });
+await created('a match created with createdAt as a number', false, { chat: [], createdAt: Date.now() });
+await created('a match created with createdAt null', false, { chat: [], createdAt: null });
+
+// And nobody may move it afterwards, or the match outlives cleanup for good.
+await check('createdAt pushed forward by a participant', false, { createdAt: new Date(Date.now() + 864e5) });
+await check('createdAt overwritten with a server timestamp', false, { createdAt: serverTimestamp() });
+await check('createdAt deleted by a participant', false, { createdAt: null });
+await check('createdAt changed alongside a legitimate chat line', false,
+  { createdAt: serverTimestamp(), chat: arrayUnion(line()) });
+await check('a gameplay update that leaves createdAt alone', true, { guestScore: 500 },
+  { createdAt: new Date('2026-09-01') });
+await check('a chat line on a match that has a createdAt', true, { chat: arrayUnion(line()) },
+  { createdAt: new Date('2026-09-01') });
 
 // --- P1: free text is private matches only --------------------------------
 await check('free text in a PUBLIC duel', false, { chat: arrayUnion(line({ t: 'hey there', p: false })) });

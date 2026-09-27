@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the thirteen suites that need no emulator, then boots the emulator for
+That runs the fourteen suites that need no emulator, then boots the emulator for
 the other six, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -146,6 +146,19 @@ free-text box whose writes the server rejects. Also pins the shape of the fix:
 `chat-messages.innerHTML` again, and all five match-creation sites send
 `chat: []`, which the create rule now requires — miss it at one site and that
 mode simply cannot start a match. Pure.
+
+**`match-cleanup.test.mjs`** — which match documents get deleted. Nothing ever
+cleaned these up: only a host abandoning a lobby and the client clearing its own
+stale `waiting` rooms removed one, so every match that was actually *played*
+stayed in Firestore for good with its chat inside it. The dangerous direction
+here is deleting a match somebody is still playing, so the cases lean on that:
+age comes from `createdAt`, a server timestamp the rules pin to `request.time`,
+and the client-written `endTime` is only consulted for legacy docs with no
+`createdAt` — and then only to confirm a match is long over. Also covers the
+timestamp shapes Firestore and older docs can hold (a `Timestamp`, a `Date`, a
+number, `{seconds}`), that junk reads as *absent* rather than epoch zero (which
+would make every malformed doc look infinitely old and delete it), and the
+500-operation write-batch cap. Pure.
 
 **`chat-render.test.mjs`** — the render, in a real browser: the half of the fix
 the rules cannot cover. It feeds the original payload through the shipped
