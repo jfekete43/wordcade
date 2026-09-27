@@ -1254,7 +1254,7 @@
                     <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
                     <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
                     <li><b>Challenges:</b> Daily (3 rotate each day) and Career (one-time milestones) — both pay out in points.</li>
-                    <li><b>Leaderboards:</b> All Time, Monthly, Clash (Clash rating) and FFA (FFA rating). The Gauntlet has its own board on its play screen, which resets nightly.</li>
+                    <li><b>Leaderboards:</b> All Time, Weekly (resets Monday), Clash (Clash rating) and FFA (FFA rating). The Gauntlet has its own board on its play screen, which resets nightly.</li>
                 </ul>
             </div>
 
@@ -1438,7 +1438,7 @@
             
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
-                <button class="tab-btn" id="tab-monthly" onclick="window.setLbTime('monthly')">Monthly</button>
+                <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
                 <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
             </div>
@@ -1455,7 +1455,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, linkWithCredential, EmailAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer, documentId } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
         const firebaseConfig = {
@@ -2457,6 +2457,56 @@
 }
 
         // LEADERBOARD LOGIC
+        // The recurring board's window. MUST match LEADERBOARD_PERIOD and
+        // periodKeyFor() in functions/index.js — the client picks which key to
+        // ask for, the server decides which key a run is filed under, and a
+        // disagreement shows an empty board. tests/leaderboard-period pins them
+        // together. Eastern, so the boundary matches the Gauntlet's rather than
+        // each viewer's own timezone; the old board windowed on the VIEWER's
+        // local month, so two players in different zones saw different boards.
+        const LEADERBOARD_PERIOD = "weekly"; // "weekly" | "monthly"
+
+        function etParts(when) {
+            const [y, m, d] = new Intl.DateTimeFormat("en-CA", {
+                timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+            }).format(when).split("-").map(Number);
+            return { y, m, d };
+        }
+
+        // Weekly is that week's Monday as an Eastern date, not an ISO week
+        // number — week numbering has awkward year-boundary and 53-week cases
+        // that three separate implementations would all have to agree on.
+        function periodKeyFor(when, period) {
+            const { y, m, d } = etParts(when);
+            if ((period || LEADERBOARD_PERIOD) === "monthly") {
+                return `${y}-${String(m).padStart(2, "0")}`;
+            }
+            const utc = new Date(Date.UTC(y, m - 1, d));
+            const back = (utc.getUTCDay() + 6) % 7; // 0 = Monday
+            utc.setUTCDate(utc.getUTCDate() - back);
+            return utc.toISOString().slice(0, 10);
+        }
+
+        // "Week of Sep 21" / "September 2026", for the board's own heading.
+        function periodLabel(when, period) {
+            const p = period || LEADERBOARD_PERIOD;
+            const key = periodKeyFor(when, p);
+            if (p === "monthly") {
+                const [y, m] = key.split("-").map(Number);
+                return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+            }
+            const [y, m, d] = key.split("-").map(Number);
+            return "Week of " + new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+        }
+
+        // Only the recurring board needs one: every other tab is all-time, so
+        // saying so would be noise. Without it a weekly #1 of 4,000 sits under
+        // the same heading as an all-time #1 of 40,000 and reads as a worse score.
+        function periodCaption() {
+            if (currentLbTime !== 'weekly') return "";
+            return `<div style="text-align:center; font-size:11px; color:#888; margin-bottom:8px;">${escapeHtml(periodLabel(new Date()))} · resets Monday</div>`;
+        }
+
         let currentLbTime = 'all'; 
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
@@ -2472,13 +2522,11 @@
         //                  index Firestore maintains automatically. Denormalising
         //                  bestRunScore/bestGauntletScore onto the user doc is
         //                  what bought the first two of those.
-        //   monthly      — still reads /runs and dedups to one row per player,
-        //                  because it is time-windowed and so can't be answered
-        //                  from a single stored best. Counting runs above you
-        //                  would overcount anyone holding several good runs in
-        //                  the month, so this reports your position when you are
-        //                  on the visible board and plainly says you are not
-        //                  when you aren't, rather than a confident wrong number.
+        //   weekly       — the same, with one equality filter in front: count
+        //                  the players whose best THIS WINDOW beats mine. It
+        //                  used to read /runs and dedup, and could only report a
+        //                  position for someone already on the visible board;
+        //                  denormalising periodBestScore made it exact too.
         async function renderYourRank(mode, finalData, maxLimit) {
             const el = document.getElementById("lb-you");
             if (!currentUser || !userProfileData) { el.style.display = "none"; return; }
@@ -2503,7 +2551,8 @@
             paint("#–", "…", "");
 
             try {
-                // Every board but monthly is /users ordered by one field.
+                // Every board is /users ordered by one field; weekly adds an
+                // equality on the window in front of it.
                 //
                 // No Gauntlet entry here on purpose. The Gauntlet is a fixed
                 // daily puzzle, so its answers can be scouted with a throwaway
@@ -2515,6 +2564,11 @@
                     all:   { field: "bestRunScore", fallback: 0,    excludesUnset: true,  empty: "No runs yet — play a game to get on the board" },
                     clash: { field: "mmr",          fallback: 1000, excludesUnset: false, empty: "" },
                     ffa:   { field: "ffaMmr",       fallback: 1000, excludesUnset: true,  empty: "Finish a public FFA match to get a rating" },
+                    // periodKey narrows the same count to this window. A stored
+                    // best from an EARLIER window is not a score on this board,
+                    // so it reads as unset rather than as a low one.
+                    weekly: { field: "periodBestScore", fallback: 0, excludesUnset: true, periodKey: true,
+                              empty: "No runs this week — play a game to get on the board" },
                 };
                 const board = USERS_BOARD[mode];
                 if (board) {
@@ -2537,48 +2591,34 @@
                     // this player and claiming a position on it would be a lie.
                     // Clash is the exception: every profile is created with an
                     // mmr, so unset there only ever means a doc mid-migration.
-                    if (!Number.isFinite(raw) && board.excludesUnset) { paint("#–", "—", board.empty); return; }
+                    // On the windowed board, a best filed under a previous key
+                    // is not on this board at all.
+                    const staleWindow = board.periodKey && live.periodBestKey !== periodKeyFor(new Date());
+                    if ((!Number.isFinite(raw) && board.excludesUnset) || staleWindow) { paint("#–", "—", board.empty); return; }
 
-                    const ahead = await getCountFromServer(query(collection(db, "users"), where(board.field, ">", mine)));
+                    const constraints = board.periodKey
+                        ? [where("periodBestKey", "==", periodKeyFor(new Date())), where(board.field, ">", mine)]
+                        : [where(board.field, ">", mine)];
+                    const ahead = await getCountFromServer(query(collection(db, "users"), ...constraints));
                     paint(`#${(ahead.data().count + 1).toLocaleString()}`, mine.toLocaleString(),
                         mine === 0 ? board.empty : "");
                     return;
                 }
 
-                // monthly — position within the list actually on screen.
-                const meIndex = finalData.findIndex((entry) => entry.uid === currentUser.uid);
-                if (meIndex >= 0) {
-                    paint(`#${meIndex + 1}`, Number(finalData[meIndex].score || 0).toLocaleString(), "");
-                } else {
-                    paint("#–", "—", `Not in the top ${maxLimit} — keep playing`);
-                }
+                // Every board is in USERS_BOARD now; this is the guard for a
+                // mode that somehow is not, rather than a second code path.
+                paint("#–", "—", "");
             } catch (e) {
                 console.error("Your-rank lookup failed", e);
                 el.style.display = "none";
             }
         }
 
-        // Batched lookup of many user docs by id. Firestore's `in` filter takes
-        // up to 30 values per query, so a 100-row leaderboard costs ~4 queries
-        // instead of 100 getDoc round-trips waited on one at a time — the same
-        // billed reads, but the difference between "instant" and several
-        // seconds of "Fetching scores...". Chunks are issued in parallel, and
-        // a chunk that fails degrades to "no live data" for those uids (they
-        // keep their run doc's stored name) rather than failing the whole
-        // leaderboard.
-        const USER_LOOKUP_CHUNK = 30; // Firestore's max values per `in` filter
-        async function fetchUsersByIds(uids) {
-            const out = {};
-            const chunks = [];
-            for (let i = 0; i < uids.length; i += USER_LOOKUP_CHUNK) chunks.push(uids.slice(i, i + USER_LOOKUP_CHUNK));
-            await Promise.all(chunks.map(async (chunk) => {
-                try {
-                    const snap = await getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)));
-                    snap.forEach((d) => { out[d.id] = { name: d.data().username, equipped: d.data().equipped }; });
-                } catch (e) { console.error("Leaderboard name lookup failed for a chunk of", chunk.length, "players", e); }
-            }));
-            return out;
-        }
+        // fetchUsersByIds() lived here: a chunked lookup of many user docs by
+        // id, used to swap each /runs row's stored username for the player's
+        // live one before deduping. The weekly board was its only caller, and
+        // that board reads /users directly now, so both it and the dedup pass
+        // are gone along with the bug class they existed to patch.
 
         window.loadLeaderboardData = async function() {
                     const listDiv = document.getElementById("leaderboard-list"); 
@@ -2616,69 +2656,40 @@
                             snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestRunScore || 0, ts: d.bestRunAt, equipped: d.equipped }); });
                         }
                         else {
-                            // Monthly is the one board still built from /runs: it
-                            // is time-windowed, so it can't be answered from a
-                            // single stored best. It keeps the name-resolution and
-                            // dedup pipeline below.
-                            const now = new Date(); let start = new Date();
-                            start.setDate(1); start.setHours(0,0,0,0);
-                            const snapshot = await getDocs(query(collection(db, "runs"), where("timestamp", ">=", start)));
-                            snapshot.forEach(doc => { rawData.push({ uid: doc.data().uid, name: doc.data().username, score: doc.data().score, ts: doc.data().timestamp }); });
-                            rawData.sort((a, b) => b.score - a.score);
+                            // The recurring board. This used to be the one tab
+                            // built by downloading every run in the window —
+                            // no limit, no pagination, on every open — which
+                            // costs (opens x runs-so-far) and so grows
+                            // quadratically with the playerbase: fine at 200
+                            // players, ~250M reads a day at 5,000. It is a
+                            // denormalised field now, like every other tab, so
+                            // it reads 100 documents flat.
+                            //
+                            // It also windowed on the VIEWER's local month,
+                            // which meant two players in different timezones
+                            // were looking at different boards. The key is
+                            // Eastern and server-assigned.
+                            const snapshot = await getDocs(query(collection(db, "users"),
+                                where("periodBestKey", "==", periodKeyFor(new Date())),
+                                orderBy("periodBestScore", "desc"), limit(100)));
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.periodBestScore || 0, ts: d.periodBestAt, equipped: d.equipped }); });
                         }
 
-                        // Resolve each run to its player's LIVE username/cosmetics before
-                        // deduping, not after. A "runs" doc's own name/equipped fields are
-                        // just a snapshot from whenever that run was saved — if a player has
-                        // changed their handle since, their older runs can be stored under a
-                        // different name than their newest one. Deduping on those stale,
-                        // mismatched names (the old order) let the same player's runs slip
-                        // past the "one entry per name" check, only for all of them to then
-                        // get overwritten with today's identical live name afterward —
-                        // exactly the "SODA" showing up 3 times bug. This ordering is load-
-                        // bearing: resolve first, THEN dedup on the resolved name.
-                        // Monthly alone still needs this: its rows come from
-                        // /runs, whose stored username is a snapshot from
-                        // whenever the run was saved. Every other board now
-                        // reads /users directly, so its names are already live.
-                        if (currentLbTime === 'monthly') {
-                            const uids = [...new Set(rawData.map((i) => i.uid).filter(Boolean))];
-                            const liveCache = await fetchUsersByIds(uids);
-                            for (let item of rawData) {
-                                let live = item.uid ? liveCache[item.uid] : null;
-                                if (live) { item.name = live.name; item.equipped = live.equipped; }
-                            }
-                        }
-
-                        // DEDUPLICATION (by name, to prevent "SODA" duplicates).
-                        // Runs in score order, so the entry kept for a given name is that
-                        // player's best. Must stay AFTER the live-name resolution above.
-                        //
-                        // Monthly only. Deduping a /users-backed board could never
-                        // remove a real duplicate — there is one row per player by
-                        // construction — and could only collapse two DIFFERENT
-                        // players who happen to share a handle, deleting one of
-                        // them from the board outright.
-                        maxLimit = (currentLbTime === 'monthly') ? 25 : 100;
-                        if (currentLbTime === 'monthly') {
-                            let seenNames = new Set();
-                            for (let item of rawData) {
-                                let upperName = item.name ? item.name.toUpperCase() : "GUEST";
-                                if (!seenNames.has(upperName)) {
-                                    seenNames.add(upperName);
-                                    finalData.push(item);
-                                    if (finalData.length === maxLimit) break;
-                                }
-                            }
-                        } else {
-                            finalData = rawData.slice(0, maxLimit);
-                        }
+                        // No name-resolution pass and no dedup any more. Every
+                        // board reads /users directly, so names are already live
+                        // and there is exactly one row per player BY
+                        // CONSTRUCTION — which is what the old dedup was
+                        // patching up after the fact, and what caused it to
+                        // collapse two different players who shared a handle.
+                        // The weekly board was the last tab built from /runs;
+                        // with it converted, the whole pipeline is gone.
+                        finalData = rawData.slice(0, maxLimit);
 
                         // Still render your own line on an empty board — an
                         // early return here would leave whatever the PREVIOUS
                         // tab put there sitting under "No scores yet".
                         if (finalData.length === 0) {
-                            listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>';
+                            listDiv.innerHTML = periodCaption() + '<div class="lb-loading">No scores yet!</div>';
                             renderYourRank(currentLbTime, finalData, maxLimit);
                             return;
                         }
@@ -2702,7 +2713,7 @@
                         // A rating board only indexes players who have earned a
                         // rating, so a brand-new one really is empty rather than
                         // broken — say so instead of showing a blank panel.
-                        listDiv.innerHTML = html || `<div class="lb-loading">No one has made this board yet.</div>`;
+                        listDiv.innerHTML = periodCaption() + (html || `<div class="lb-loading">No one has made this board yet.</div>`);
                         // finalData is the deduped, rendered list, so the
                         // "am I on this board" check below agrees with what
                         // the player is actually looking at.

@@ -128,12 +128,19 @@ ok('the split is stated somewhere', /separate ratings?|its own rating|own FFA ra
 ok('onFfaMatchFinished really does write a separate field', /ffaMmr: newMmr/.test(fn));
 
 // ---- 4. leaderboard tabs: documented set === actual set ------------------
-const actualTabs = [...pages['index.html'].matchAll(/setLbTime\('(\w+)'\)/g)].map((m) => m[1]);
+// Both the tab ids AND their visible labels come out of the markup. A hardcoded
+// id->label map lived here and went stale the moment Monthly became Weekly: the
+// map had no entry, the id fell through as the label, and the case mismatch
+// failed a check that was actually satisfied.
+const tabButtons = [...pages['index.html'].matchAll(/onclick="window\.setLbTime\('(\w+)'\)"[^>]*>([^<]+)</g)]
+  .map((m) => ({ id: m[1], label: m[2].trim() }));
+const actualTabs = tabButtons.map((t) => t.id);
 ok('the app has the tabs we think it has', actualTabs.length > 0, actualTabs.join(','));
+ok('and a visible label for every one of them',
+   tabButtons.every((t) => t.label.length > 0), JSON.stringify(tabButtons));
 const lbLine = (text['index.html'].match(/Leaderboards:[^.]*\./) || [''])[0];
 ok('the in-app list names a leaderboard line at all', !!lbLine, lbLine);
-for (const tab of actualTabs) {
-  const label = { all: 'All Time', monthly: 'Monthly', clash: 'Clash', ffa: 'FFA' }[tab] || tab;
+for (const { label } of tabButtons) {
   ok(`the documented leaderboards include ${label}`, lbLine.includes(label), lbLine);
 }
 ok('no Gauntlet leaderboard tab is documented, because none exists',

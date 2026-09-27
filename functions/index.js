@@ -213,6 +213,51 @@ function getTodayDateStr() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
+/*
+ * The recurring Standard leaderboard's window.
+ *
+ * "weekly" resets every Monday, "monthly" on the 1st, both in Eastern so the
+ * boundary matches the Gauntlet's rather than each viewer's own timezone. The
+ * board it feeds used to be built by downloading every run in the window on
+ * every open, which is quadratic in playercount; it is a denormalised field on
+ * the user doc now, exactly like bestRunScore.
+ *
+ * Changing this constant changes the board. index.html has the same pair of
+ * functions and tests/leaderboard-period pins the two copies together; a change
+ * here needs the same change there, plus tools/backfill-period-best.mjs.
+ */
+const LEADERBOARD_PERIOD = "weekly"; // "weekly" | "monthly"
+
+// The Eastern calendar date of `when`, as {y, m, d} numbers.
+function etParts(when) {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(when).split("-").map(Number);
+  return { y, m, d };
+}
+
+/*
+ * The key every run in the same window shares.
+ *
+ * Weekly is the Eastern date of that week's Monday ("2026-09-21"), NOT an ISO
+ * week number: week numbering has genuinely awkward year-boundary and
+ * 53-week cases, and three separate implementations of it (here, the client,
+ * the backfill) would have to agree on all of them. A Monday's date has none of
+ * that and sorts correctly as a string.
+ */
+function periodKeyFor(when, period) {
+  const { y, m, d } = etParts(when);
+  if ((period || LEADERBOARD_PERIOD) === "monthly") {
+    return `${y}-${String(m).padStart(2, "0")}`;
+  }
+  // Day-of-week for that Eastern date, via a UTC date built from its parts so
+  // the host machine's own zone cannot shift it.
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  const back = (utc.getUTCDay() + 6) % 7; // 0 = Monday
+  utc.setUTCDate(utc.getUTCDate() - back);
+  return utc.toISOString().slice(0, 10);
+}
+
 function freshDailyStats(today) {
   const shuffled = [...CHALLENGES.daily_pool].sort(() => 0.5 - Math.random());
   return {
@@ -336,6 +381,20 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       // Which Gauntlet it was, so the all-time board can cite the puzzle
       // number rather than a bare date.
       update.bestGauntletDate = run.puzzleDate;
+    }
+
+    // The recurring board. Same shape as bestRunScore, with one extra move: a
+    // stored best from a PREVIOUS window does not count against this one, so
+    // the comparison floor drops back to 0 when the key changes. That is what
+    // makes the board reset without anything having to sweep it.
+    const periodKey = periodKeyFor(new Date());
+    const priorInWindow = user.periodBestKey === periodKey
+      ? Math.max(0, Number(user.periodBestScore) || 0)
+      : 0;
+    if (score > priorInWindow) {
+      update.periodBestKey = periodKey;
+      update.periodBestScore = score;
+      update.periodBestAt = run.timestamp || FieldValue.serverTimestamp();
     }
 
     // Gauntlet-only: did this run land in today's top 10? The query above

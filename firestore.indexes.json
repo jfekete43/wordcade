@@ -49,6 +49,34 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "periodBestKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "periodBestScore",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "periodBestKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "periodBestScore",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

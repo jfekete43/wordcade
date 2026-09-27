@@ -16,8 +16,8 @@ npm install     # first time only
 npm test
 ```
 
-That runs the fifteen suites that need no emulator, then boots the emulator for
-the other six, and shuts the emulator down
+That runs the sixteen suites that need no emulator, then boots the emulator for
+the other four, and shuts the emulator down
 again. A non-zero exit means something failed.
 
 Six suites drive a real browser instead of the emulator, so they are not part
@@ -39,18 +39,6 @@ still works: equipping a real cosmetic, a legacy profile whose loadout is
 missing keys, a normal run save, and an accented display name from Google
 sign-in. Also re-checks the standing rule that a client can't write `wallet`
 directly.
-
-**`leaderboard.test.mjs`** — the duplicate-name bug. Seeds the exact scenario
-that produced "SODA" three times on the board: one player with several runs
-saved under *different* historical names, plus two separate accounts that
-currently share one display name, plus a run whose account has been deleted.
-Asserts each player appears exactly once, at their best score, in score order.
-
-**`leaderboard-chunking.test.mjs`** — the same pipeline at 75 players, which
-forces the batched lookup to split into multiple queries (Firestore allows at
-most 30 ids per `in` filter). If a chunk were ever silently dropped, those
-players would fall back to stale names and reappear as duplicates — this is
-the test that would catch it.
 
 **`gauntlet-standing.test.mjs`** — the placement math behind the "you finished
 12th of 47" callout. Placement is counted (runs scoring above you, plus one)
@@ -146,6 +134,31 @@ free-text box whose writes the server rejects. Also pins the shape of the fix:
 `chat-messages.innerHTML` again, and all five match-creation sites send
 `chat: []`, which the create rule now requires — miss it at one site and that
 mode simply cannot start a match. Pure.
+
+**`leaderboard-period.test.mjs`** — the recurring board's window. That board
+used to be built by downloading *every* run in the window on every open — no
+limit, no pagination — which costs `opens x runs-so-far` and so grows
+quadratically with the playerbase: fine at 200 players, roughly 250M reads a day
+at 5,000. It is a denormalised field on the user doc now, like `bestRunScore`, so
+it reads 100 documents flat. It also windowed on `new Date()` in the *browser*,
+so two players in different timezones saw different boards and neither matched
+the Gauntlet.
+
+The key function exists in three copies — `functions/index.js` writes it,
+`index.html` asks for it, `tools/backfill-period-best.mjs` seeds it — because
+`functions/` is CommonJS and deployed separately, so they cannot import one
+another. This suite lifts all three (by counting braces, not matching
+indentation: the same function is nested at three different depths, and any
+indentation anchor lifts half of it from at least one file) and runs them over a
+year of timestamps at five times of day. A drift shows up in production as a
+permanently empty board, which is the kind of thing nobody notices for a week.
+Also pins the Eastern boundary (Monday 03:30 UTC is still Sunday in New York),
+that a week is always exactly 7 days, that year-spanning weeks work (which is why
+the key is a Monday's *date* and not an ISO week number), that a previous
+window's best does not block this window's first score, and that both composite
+indexes the queries need are declared — Firestore serves an index and its exact
+reverse, and the reverse of `(key asc, score desc)` is not the range query
+"your rank" runs, so it needs its own. Pure.
 
 **`handle-filter.test.mjs`** — Arcade Handle screening. A handle was the last
 free text a stranger could put in front of you: `changeUsername` only stripped
