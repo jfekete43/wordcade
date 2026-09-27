@@ -204,6 +204,69 @@ re-deploying an older commit's `functions/` the same way; Cloud Functions
 also keeps its own version history in the Console under each function if
 you need to roll back without touching git.
 
+## Arcade Handle screening
+
+A handle is the last free text a stranger can put in front of you, and the most
+exposed text in the game: leaderboard, live feed, match cards, FFA standings,
+and the **static Gauntlet archive pages**, which are committed to the repo and
+listed in `sitemap.xml`. `runs` documents also store `username` denormalised, and
+both the leaderboard and the archive read it from there — so a slur that gets
+through is published to a page search engines index, and **a rename does not
+retract it**. That is why this screens at the door rather than relying on reports.
+
+Two doors, both covered, and they are the complete set (firestore.rules lets a
+client update nothing but `equipped` on its own profile):
+
+| door | what happens |
+| --- | --- |
+| `changeUsername` | rejected outright, and the player is told to choose another |
+| `onUserProfileCreated` | the seeded handle is replaced with `PLAYER####` |
+
+The second exists because a new profile's handle is written by the client, derived
+from the Google display name, so it never passes through `changeUsername`.
+
+**Both are Cloud Functions, so this needs a functions deploy:**
+
+```bash
+firebase deploy --only functions
+```
+
+The filter is server-side only, deliberately: the term list never ships to a
+browser.
+
+### Adding terms
+
+Terms live base64-encoded in `functions/handle-terms.json`. That is obfuscation,
+not security — the point is that a public repository should not contain a
+greppable list of slurs, which is unpleasant in itself and doubles as a list of
+what to work around. You never need the original terms to add more:
+
+```bash
+printf 'newterm\n' | node tools/hash-handle-terms.mjs --add
+node tools/hash-handle-terms.mjs --list     # review what is stored, decoded
+node tools/hash-handle-terms.mjs --audit    # dictionary words the screen refuses
+```
+
+**Run `--audit` after any change.** It screens the game's own 12,972-word
+dictionary and prints every word refused. Anything innocent in that list belongs
+in `EXCEPTIONS` in `functions/handle-filter.js`. `tests/handle-filter` asserts the
+count, so a new term will fail the suite until you have looked.
+
+### How matching works
+
+A handle is lowercased, leetspeak is mapped (`n1gg3r`), and everything but a-z is
+dropped (`s.l.u.r`). Each term becomes a regex whose every letter may repeat, so
+`niiiggerrr` matches while a word one letter short does not. Terms of four
+letters or more match anywhere (`xXslurXx` is how one is usually built); shorter
+terms match only the whole handle, so three letters cannot ban every handle
+containing them. `EXCEPTIONS` masks innocent words that still collide, so `spicy`
+passes while `spicyspic` does not.
+
+The first version collapsed repeated letters and matched substrings instead. That
+refused 17 dictionary words, six of them innocent, and merged the slur with the
+**country Niger** — which no exception list can separate, since both collapse to
+the same string. Do not reintroduce collapsing.
+
 ## Match cleanup (`matches`)
 
 Match documents were never cleaned up. Only two things ever deleted one — a

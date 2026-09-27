@@ -33,6 +33,7 @@ const DAILY_TARGET_SET = new Set(DAILY_TARGET_WORDS.map((w) => w.toUpperCase()))
 // repeated letters, letter rarity and vowel count — so it needs no player data
 // and costs nothing at runtime. See tools/build-word-difficulty.mjs.
 const WORD_DIFFICULTY = require("./word-difficulty.json");
+const HANDLE = require("./handle-filter.js");
 
 initializeApp();
 const db = getFirestore();
@@ -619,6 +620,16 @@ exports.changeUsername = onCall(async (request) => {
     .substring(0, 12);
   if (name.length < 3) throw new HttpsError("invalid-argument", "Arcade Handle must be at least 3 valid characters long.");
 
+  // Screened here because a handle is the last free text a stranger can put in
+  // front of you, and because it outlives them: `runs` documents store
+  // `username` denormalised, and the leaderboard and the static Gauntlet
+  // archive pages both read it from there, so a slur that gets through is
+  // published to a page in sitemap.xml and cannot be retracted by a rename.
+  // Rejected rather than mangled — asterisks would just teach the bypass.
+  if (HANDLE.isBlockedHandle(name)) {
+    throw new HttpsError("invalid-argument", "That Arcade Handle isn't allowed. Please choose another.");
+  }
+
   // Best-effort uniqueness check. Firestore transactions can't safely query
   // *other* documents by field value, so this narrows the collision window
   // rather than eliminating it outright — a true guarantee would need a
@@ -645,6 +656,28 @@ exports.changeUsername = onCall(async (request) => {
     });
     return { username: name, cost };
   });
+});
+
+/*
+ * The other door. A new profile's handle is written by the client (index.html),
+ * derived from the Google display name, so changeUsername never sees it — and
+ * firestore.rules cannot screen it, since rules have no wordlist. This replaces
+ * a refused seeded handle with a safe generated one the moment the profile
+ * appears. Silent on purpose: the player is choosing their real handle in the
+ * next breath anyway, and nothing is lost but a name they did not pick.
+ *
+ * Creation is the only other way a username is ever set — rules let a client
+ * update nothing but `equipped` on its own profile — so these two doors are the
+ * complete set.
+ */
+exports.onUserProfileCreated = onDocumentCreated("users/{userId}", async (event) => {
+  const snap = event.data;
+  if (!snap) return;
+  const name = snap.get("username");
+  if (typeof name !== "string" || !HANDLE.isBlockedHandle(name)) return;
+  const replacement = HANDLE.safeFallbackHandle();
+  console.warn(`replaced a screened handle on new profile ${event.params.userId}`);
+  await snap.ref.update({ username: replacement });
 });
 
 // Legacy-field backfill + daily-challenge rollover. Called on every sign-in

@@ -16,7 +16,7 @@ npm install     # first time only
 npm test
 ```
 
-That runs the fourteen suites that need no emulator, then boots the emulator for
+That runs the fifteen suites that need no emulator, then boots the emulator for
 the other six, and shuts the emulator down
 again. A non-zero exit means something failed.
 
@@ -146,6 +146,33 @@ free-text box whose writes the server rejects. Also pins the shape of the fix:
 `chat-messages.innerHTML` again, and all five match-creation sites send
 `chat: []`, which the create rule now requires — miss it at one site and that
 mode simply cannot start a match. Pure.
+
+**`handle-filter.test.mjs`** — Arcade Handle screening. A handle was the last
+free text a stranger could put in front of you: `changeUsername` only stripped
+characters outside `[a-zA-Z0-9_\s-]`, so any slur spelled in letters went
+through. It is also the most exposed text in the game — leaderboard, live feed,
+match cards, FFA standings, and the *static* Gauntlet archive pages, which are
+committed to the repo and listed in `sitemap.xml` — and `runs` store `username`
+denormalised, so a rename does not retract what has already been published.
+
+The case that shaped the design is **`niger`**. The first version collapsed
+repeated letters (`niiigger` → `niger`) and matched terms as substrings; run
+across the game's own 12,972-word dictionary that gave 17 hits, six of them
+innocent, and it made the *country* and the slur normalise identically — which no
+exception list can separate. Collapsing is gone; each term is a repeat-tolerant
+regex (`/n+i+g+g+e+r+/`) so the doubled g distinguishes them, and the dictionary
+count is down to 10, all inflections of screened terms. That count is asserted
+here, so adding a term makes this fail until you have run
+`node tools/hash-handle-terms.mjs --audit` and checked the new hits are meant to
+be refused.
+
+The mechanism is tested with **invented** terms, which keeps the file readable
+and stops it depending on the real list; the real list is checked structurally
+(base64, normalised, no term that is also an exception, every stored term
+actually caught). Also pins that both doors are wired — `changeUsername` rejects
+*after* the strip and truncate, and `onUserProfileCreated` replaces a bad seeded
+handle, since the signup handle comes from the Google display name and never
+passes through `changeUsername`. Pure.
 
 **`match-cleanup.test.mjs`** — which match documents get deleted. Nothing ever
 cleaned these up: only a host abandoning a lobby and the client clearing its own
