@@ -176,6 +176,65 @@ ok('where the chips do not all fit, the row scrolls rather than clipping them',
 ok('#chat-presets is a scrolling row, not a wrapping grid',
    /#chat-presets \{[^}]*overflow-x: auto/.test(home) && !/#chat-presets \{[^}]*flex-wrap/.test(home));
 
+// ---- 3b. Cash Out must not move while you play ---------------------------
+// It started as a third item in a wrapping row, which fitted beside the score
+// while the score was short and dropped below once it grew — so the button
+// relocated MID-RUN, at a threshold that differed per width (past 999 points at
+// 390px, past 99,999 at 414px). A control that moves while you are deciding
+// whether to press it is worse than either position. It is a column now: the
+// score keeps its own row, the button is always centred beneath it.
+const SCORES = ['0', '250', '1,500', '12,400', '128,750', '1,284,300'];
+const cashOutAt = async (width) => {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  await page.setContent(home);
+  await page.waitForTimeout(120);
+  const m = await page.evaluate((scores) => {
+    document.getElementById('score-board').style.display = 'flex';
+    const c = document.getElementById('btn-cash-out');
+    c.style.display = 'inline-block';
+    return scores.map((v) => {
+      document.getElementById('score').innerText = v;
+      const row = document.querySelector('.score-row').getBoundingClientRect();
+      const b = c.getBoundingClientRect();
+      const score = document.querySelector('.score-text').getBoundingClientRect();
+      const lives = document.querySelector('.lives-text').getBoundingClientRect();
+      return {
+        v,
+        offBelowRow: Math.round(b.top - row.bottom),
+        offCentre: Math.round((b.left + b.width / 2) - document.documentElement.clientWidth / 2),
+        // The row must have a real box. `display: contents` removes it, which
+        // makes every measurement above read zero — consistently, so the two
+        // checks below passed against a score and continues stacked vertically.
+        rowHeight: Math.round(row.height),
+        // And the pair belongs side by side; they are one reading.
+        pairSideBySide: Math.abs(score.top - lives.top) < 4,
+      };
+    });
+  }, SCORES);
+  await page.close();
+  return m;
+};
+for (const w of WIDTHS) {
+  const m = await cashOutAt(w);
+  // Same gap under the score row whatever the score reads. The row itself may
+  // get taller when a seven-digit score wraps at 280px — that is the text
+  // reflowing, not the button moving.
+  ok(`${w}px: Cash Out keeps the same gap below the score at every score`,
+     new Set(m.map((x) => x.offBelowRow)).size === 1,
+     m.map((x) => `${x.v}:${x.offBelowRow}px`).join(' '));
+  ok(`${w}px: and stays centred`,
+     m.every((x) => Math.abs(x.offCentre) <= 2),
+     m.map((x) => `${x.v}:${x.offCentre}`).join(' '));
+  ok(`${w}px: the score row is a real row, not a phantom box`,
+     m.every((x) => x.rowHeight > 0), m.map((x) => `${x.v}:${x.rowHeight}px`).join(' '));
+  // At 280px a seven-digit score legitimately wraps the pair; anywhere else
+  // score and continues read as one line.
+  if (w >= 320) {
+    ok(`${w}px: score and continues stay side by side`,
+       m.every((x) => x.pairSideBySide), m.map((x) => `${x.v}:${x.pairSideBySide}`).join(' '));
+  }
+}
+
 // ---- 4. the root cause, pinned -------------------------------------------
 ok('min-width:0 is what lets a key shrink at all', /\.key \{ min-width: 0;/.test(home));
 for (const f of ['about.html', 'faq.html', 'how-to-play.html', 'privacy.html', 'strategy.html', 'terms.html']) {

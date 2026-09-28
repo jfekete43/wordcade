@@ -101,6 +101,15 @@
             display: flex; gap: 20px; position: relative; z-index: 2;
             align-items: center; justify-content: center; flex-wrap: wrap;
         }
+        /* A COLUMN, not a wrapping row. As one row it fitted beside the score
+           while the score was short and wrapped underneath once it grew — so
+           the button moved, mid-run, at a threshold that differed per screen
+           width (past 999 points at 390px, past 99,999 at 414px). A control
+           that relocates while you are deciding whether to press it is worse
+           than either position. The score and continues keep their own row;
+           the button is always centred beneath them. */
+        #score-board { flex-direction: column; gap: 8px; }
+        .score-row { display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap; }
         /* Green because green is Standard's colour and the score it banks is
            already green — not decoration. It is the same HEIGHT as a nav button
            on purpose (this banks a whole run; 31px was too small a target) but
@@ -757,8 +766,10 @@
          still run and still work, they just happen inside a parent that was
          already being hidden with them. -->
     <div id="score-board">
-        <div class="score-text">SCORE: <span id="score">0</span></div>
-        <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
+        <div class="score-row">
+            <div class="score-text">SCORE: <span id="score">0</span></div>
+            <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
+        </div>
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
     </div>
 

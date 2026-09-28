@@ -125,7 +125,13 @@ const nav = (html.match(/<nav class="arcade-menu">[\s\S]*?<\/nav>/) || [''])[0];
 ck(!/btn-cash-out/.test(nav), 'Cash Out is not in the mode nav', nav);
 ck((nav.match(/<button/g) || []).length === 4, 'which now holds exactly the four modes',
    String((nav.match(/<button/g) || []).length));
-const scoreBoard = (html.match(/<div id="score-board">[\s\S]*?<\/div>\s*<\/div>|<div id="score-board">[\s\S]*?\n    <\/div>/) || [''])[0];
+// Positional, not a nested-div match. `<div id="score-board">[\s\S]*?</div>`
+// stops at the first closing tag it meets, which is the inner .score-row's —
+// so the button fell outside the extract the moment the markup gained a level.
+const sbStart = html.indexOf('<div id="score-board">');
+const sbEnd = html.indexOf('<!-- DAILY GAUNTLET UI -->', sbStart);
+ck(sbStart !== -1 && sbEnd > sbStart, 'found the score board', `${sbStart}..${sbEnd}`);
+const scoreBoard = html.slice(sbStart, sbEnd);
 ck(/btn-cash-out/.test(scoreBoard), 'it sits with the score it banks', scoreBoard.slice(0, 160));
 // It lost its only styling when it left .arcade-menu; without a standalone rule
 // it renders as a default browser button.
