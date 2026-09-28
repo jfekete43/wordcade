@@ -95,6 +95,42 @@ try {
   fs.unlinkSync(tmp);
 }
 
+// --- the menu stays monochrome ------------------------------------------
+// It used to give all eight items a different accent on identical plates, so
+// the colour encoded nothing and nothing read as primary. Worse, it spent the
+// four MODE colours on things that are not modes, which is what stopped those
+// colours meaning anything elsewhere. Hierarchy is brightness now; hue is
+// reserved for modes.
+// Scoped to the main menu. .menu-list-btn is reused elsewhere — the lobby's
+// Cancel is red, which is red doing its actual job and must not fail this.
+const mainMenu = (html.match(/<div id="main-menu-modal"[\s\S]*?\n    <\/div>/) || [''])[0];
+ck(mainMenu.length > 500, 'found the main-menu modal', String(mainMenu.length));
+const menuBtns = [...mainMenu.matchAll(/<button[^>]*class="menu-list-btn[^"]*"[^>]*>/g)].map((m) => m[0]);
+ck(menuBtns.length >= 8, 'found the main-menu buttons', String(menuBtns.length));
+const coloured = menuBtns.filter((b) => /style="[^"]*\bcolor:/.test(b));
+ck(coloured.length === 0, 'no main-menu item carries its own accent colour',
+   coloured.join(' | ').slice(0, 200));
+// Exactly one primary, or the hierarchy is back to flat.
+ck(menuBtns.filter((b) => /is-primary/.test(b)).length === 1,
+   'exactly one menu item is the primary one',
+   String(menuBtns.filter((b) => /is-primary/.test(b)).length));
+// Red means error or danger everywhere else; it was on the sign-in button.
+const authBtn = (mainMenu.match(/<button[^>]*id="auth-action-btn"[^>]*>/) || [''])[0];
+ck(!/#ff3333|red/i.test(authBtn), 'and the sign-in button is not styled as a warning', authBtn);
+
+// --- Cash Out belongs to Standard, not to the mode nav -------------------
+// In the nav it read as a fifth MODE beside Gauntlet/Clash/FFA. It is an action
+// on the score, and only Standard has one.
+const nav = (html.match(/<nav class="arcade-menu">[\s\S]*?<\/nav>/) || [''])[0];
+ck(!/btn-cash-out/.test(nav), 'Cash Out is not in the mode nav', nav);
+ck((nav.match(/<button/g) || []).length === 4, 'which now holds exactly the four modes',
+   String((nav.match(/<button/g) || []).length));
+const scoreBoard = (html.match(/<div id="score-board">[\s\S]*?<\/div>\s*<\/div>|<div id="score-board">[\s\S]*?\n    <\/div>/) || [''])[0];
+ck(/btn-cash-out/.test(scoreBoard), 'it sits with the score it banks', scoreBoard.slice(0, 160));
+// It lost its only styling when it left .arcade-menu; without a standalone rule
+// it renders as a default browser button.
+ck(/\n\s*\.cash-out-btn \{/.test(html), 'and has a rule of its own outside the nav');
+
 let bad = 0;
 for (const [ok, name, detail] of t) {
   if (!ok) bad++;

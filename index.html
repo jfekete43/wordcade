@@ -65,8 +65,15 @@
             text-transform: uppercase; transition: all 0.2s; font-size: 14px;
         }
         .arcade-menu button:hover { background-color: #00ffff; color: #000; }
-        .arcade-menu .cash-out-btn { color: #4caf50; border-color: #4caf50; }
-        .arcade-menu .cash-out-btn:hover { background-color: #4caf50; color: #000; }
+        /* Four modes, one row. With Cash Out gone the nav is exactly the four
+           modes, and it should read as one group rather than three-and-a-
+           straggler. Trimmed just enough to fit four across at 320px; 280px
+           still wraps 3+1, which is the fold-cover case and not worth
+           distorting the other seven widths for. */
+        @media (max-width: 385px) {
+            .arcade-menu { gap: 6px; }
+            .arcade-menu button { padding: 8px 9px; font-size: 13px; }
+        }
         
         #btn-mode { color: #ff9800; border-color: #ff9800; }
         #btn-mode:hover { background-color: #ff9800; color: #000; }
@@ -92,7 +99,18 @@
         #score-board, #daily-header {
             font-size: 18px; margin: 0 0 10px 0; font-weight: bold;
             display: flex; gap: 20px; position: relative; z-index: 2;
+            align-items: center; justify-content: center; flex-wrap: wrap;
         }
+        /* Green because green is Standard's colour and the score it banks is
+           already green — not decoration. It is the same HEIGHT as a nav button
+           on purpose (this banks a whole run; 31px was too small a target) but
+           lighter: smaller type, no fill, sitting under the score rather than
+           among the modes. Subordinate by weight, not by size. */
+        .cash-out-btn { background: transparent; border: 2px solid #4caf50; color: #4caf50;
+            font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase;
+            letter-spacing: 0.5px; padding: 9px 16px; border-radius: 5px; cursor: pointer;
+            transition: all 0.2s; }
+        .cash-out-btn:hover { background-color: #4caf50; color: #000; }
         .score-text { color: #4caf50; }
         .arcade-menu .daily-btn { color: #b967ff; border-color: #b967ff; }
         .arcade-menu .daily-btn:hover { background-color: #b967ff; color: #000; }
@@ -659,8 +677,21 @@
         .stat-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-out; display: flex; align-items: center; font-weight: bold; font-size: 12px;}
         hr { border: 0; border-top: 1px dashed #555; margin: 25px 0; }
 
-        .menu-list-btn { background: #222; border: 2px solid; color: white; padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
-        .menu-list-btn:hover { background: #333; }
+        /* The menu is monochrome on purpose. It used to give all eight items a
+           different accent — green, purple, yellow, cyan, orange, magenta, grey,
+           red — on identical plates, so the colour encoded nothing and no item
+           read as more important than any other. Worse, it spent the four MODE
+           colours (Standard green, Gauntlet purple, Clash orange, FFA yellow)
+           on things that are not modes, which is what stopped those colours
+           meaning anything anywhere else. Hierarchy here is brightness instead:
+           one primary, the rest even, the two housekeeping items quiet. Hue is
+           reserved for modes. */
+        .menu-list-btn { background: #222; border: 2px solid #3d3d3d; color: #ccc; padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
+        .menu-list-btn:hover { background: #333; border-color: #5a5a5a; color: #fff; }
+        .menu-list-btn.is-primary { color: #fff; border-color: #8a8a8a; }
+        .menu-list-btn.is-primary:hover { background: #2e2e2e; border-color: #fff; }
+        .menu-list-btn.is-quiet { color: #888; border-color: #333; }
+        .menu-list-btn.is-quiet:hover { color: #ccc; border-color: #4a4a4a; }
         
         .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
         .grid-item { background: #111; border: 1px solid #444; border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;}
@@ -715,13 +746,20 @@
         <button class="daily-btn" id="btn-daily" onclick="window.toggleDailyMode()">GAUNTLET</button>
         <button id="btn-mode" onclick="window.toggleMode()">CLASH</button>
         <button class="ffa-btn" id="btn-ffa" onclick="window.toggleFfaMode()">FFA</button>
-        <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
     </nav>
 
     <!-- STANDARD UI -->
+    <!-- Cash Out lives here, not in the mode nav. Up there it read as a fifth
+         MODE sitting beside Gauntlet/Clash/FFA, when it is an action on the
+         score directly above it — and it is only ever Standard's. It is also
+         shown and hidden at exactly the same six places as #score-board, so
+         nesting it costs no JS: the existing display toggles on #btn-cash-out
+         still run and still work, they just happen inside a parent that was
+         already being hidden with them. -->
     <div id="score-board">
         <div class="score-text">SCORE: <span id="score">0</span></div>
         <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
+        <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
     </div>
 
     <!-- DAILY GAUNTLET UI -->
@@ -1175,14 +1213,14 @@
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
-                <button class="menu-list-btn" style="color: #4caf50; border-color: #4caf50;" onclick="window.confirmNewGame()">New Game</button>
-                <button class="menu-list-btn" style="color: #b967ff; border-color: #b967ff;" onclick="window.openHowToPlay()">How To Play</button>
-                <button class="menu-list-btn" style="color: #ffff00; border-color: #ffff00;" onclick="window.showLeaderboard()">Leaderboard</button>
-                <button class="menu-list-btn" style="color: #00ffff; border-color: #00ffff;" onclick="window.openProfileMenu()">Profile & Stats</button>
-                <button class="menu-list-btn" style="color: #ff9800; border-color: #ff9800;" onclick="window.openShopMenu()">Item Shop</button>
-                <button class="menu-list-btn" style="color: #ff00ff; border-color: #ff00ff;" onclick="window.openChallengesMenu()">Challenges</button>
-                <button class="menu-list-btn" style="color: #aaa; border-color: #aaa;" onclick="window.openSettingsMenu()">Settings</button>
-                <button id="auth-action-btn" class="menu-list-btn" style="color: #ff3333; border-color: #ff3333;" onclick="window.handleAuthAction()">Sign Up / Log In</button>
+                <button class="menu-list-btn is-primary" onclick="window.confirmNewGame()">New Game</button>
+                <button class="menu-list-btn" onclick="window.openHowToPlay()">How To Play</button>
+                <button class="menu-list-btn" onclick="window.showLeaderboard()">Leaderboard</button>
+                <button class="menu-list-btn" onclick="window.openProfileMenu()">Profile &amp; Stats</button>
+                <button class="menu-list-btn" onclick="window.openShopMenu()">Item Shop</button>
+                <button class="menu-list-btn" onclick="window.openChallengesMenu()">Challenges</button>
+                <button class="menu-list-btn is-quiet" onclick="window.openSettingsMenu()">Settings</button>
+                <button id="auth-action-btn" class="menu-list-btn" onclick="window.handleAuthAction()">Sign Up / Log In</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
                     <button class="btn-dark" style="border-color: #fff !important; padding: 8px 12px;" onclick="window.open('https://x.com/playlexathon', '_blank', 'noopener')">
@@ -1204,7 +1242,7 @@
                     <a href="terms.html" style="color: #777; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ff9800'" onmouseout="this.style.color='#777'">Terms of Service</a>
                 </div>
 
-                <button class="menu-list-btn" style="color: #777; border-color: #777; margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
+                <button class="menu-list-btn is-quiet" style="margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
             </div>
         </div>
     </div>
