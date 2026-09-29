@@ -204,6 +204,41 @@ ok('and does so without --legacy, which is the hand-run sweep',
    !/cleanup-matches\.mjs[^\n]*--legacy/.test(wf));
 ok('and runs it even when the archive build fails', /if: always\(\)/.test(wf));
 
+// --- the one-command deploy -----------------------------------------------
+// The order in here is the part that matters and the part that looks
+// arbitrary, so it is worth pinning rather than trusting.
+const deploySh = read('tools/deploy.sh');
+ok('there is a one-command deploy script', deploySh.length > 500, String(deploySh.length));
+// Indexes before functions: an index builds asynchronously and a query fails
+// with FAILED_PRECONDITION until it is green, so deploying functions first
+// leaves a window where the new code queries an index that does not exist yet.
+ok('it deploys indexes before functions',
+   /--only firestore:indexes,functions/.test(deploySh),
+   (deploySh.match(/--only [^\s]*/) || [''])[0]);
+// Nothing that deletes or rewrites runs without showing you a dry run first.
+// Matched per LINE, not by literal string: cleanup-matches carries --legacy,
+// so `${tool}.mjs --dry-run` finds nothing and the check passed vacuously on
+// two -1s comparing equal.
+const shLines = deploySh.split('\n');
+for (const tool of ['backfill-period-best', 'cleanup-matches']) {
+  const calls = shLines
+    .map((l, i) => ({ i, l: l.trim() }))
+    .filter((x) => x.l.startsWith(`node tools/${tool}.mjs`));
+  const dry = calls.filter((x) => x.l.includes('--dry-run'));
+  const real = calls.filter((x) => !x.l.includes('--dry-run'));
+  ok(`${tool} is called both ways`, dry.length === 1 && real.length === 1,
+     calls.map((x) => x.l).join(' | '));
+  ok(`${tool} is dry-run before it is run for real`,
+     dry.length && real.length && dry[0].i < real[0].i,
+     calls.map((x) => `line ${x.i}: ${x.l}`).join(' | '));
+}
+ok('and the real run is behind a confirmation',
+   (deploySh.match(/if ask "/g) || []).length >= 2,
+   String((deploySh.match(/if ask "/g) || []).length));
+// set -e, or a failed deploy carries on into the data steps.
+ok('it stops at the first failure', /set -euo pipefail/.test(deploySh));
+ok('DEPLOY.md documents it', /bash tools\/deploy\.sh/.test(read('DEPLOY.md')));
+
 // --- analytics: every page, or none of them -------------------------------
 // The failure mode is silent. Miss one file and it reports no traffic, and
 // nothing anywhere says so — which is exactly what would have happened to the

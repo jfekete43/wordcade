@@ -204,6 +204,47 @@ re-deploying an older commit's `functions/` the same way; Cloud Functions
 also keeps its own version history in the Console under each function if
 you need to roll back without touching git.
 
+## One command (and deploying from a phone)
+
+```bash
+cd ~/wordcade && bash tools/deploy.sh
+```
+
+That pulls, deploys indexes then functions, and then offers the weekly-board
+backfill and the old-match sweep one at a time, showing you a dry run of each
+before it asks. It stops at the first failure and nothing destructive happens
+without a y.
+
+```bash
+bash tools/deploy.sh --deploy   # deploy only, skip the data steps
+bash tools/deploy.sh --yes      # no prompts
+```
+
+**On a phone this is the only practical route**, because Cloud Shell's web
+terminal will not let you paste — it reads keystrokes through a hidden textarea
+the browser refuses to let scripts read from the clipboard. The script exists so
+that a full deploy is one short line you can thumb in rather than five long ones.
+
+The first time (the script has to exist in your clone before you can run it):
+
+```bash
+cd ~/wordcade && git pull origin main && bash tools/deploy.sh
+```
+
+Every time after, the script does its own pull.
+
+**Keep the tab in the foreground.** Cloud Shell drops the session when a mobile
+browser backgrounds it, and the functions step takes a few minutes. If it does
+drop, nothing is broken — run it again; anything already current is skipped.
+
+To save typing it at all, once:
+
+```bash
+echo "alias dep='cd ~/wordcade && bash tools/deploy.sh'" >> ~/.bashrc
+```
+
+Then it is just `dep`. Cloud Shell's home directory persists, so that survives.
+
 ## Analytics
 
 Cloudflare Web Analytics, chosen over Google Analytics because it is cookieless:
