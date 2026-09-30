@@ -69,8 +69,8 @@ await check('cannot write wallet directly', false, () => updateDoc(doc(db, 'user
 // --- dailyBoards: a finished day's Standard board ---
 // Written only by the daily job through the Admin SDK, which bypasses rules
 // entirely. A client that could write here could put itself on any past day's
-// board — a record nothing else can contradict, since the runs behind it are
-// deleted after 24 hours.
+// board, and nothing in the app would contradict it: once a day is
+// snapshotted, this document IS that day as far as every reader is concerned.
 await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(ctx.firestore(), 'dailyBoards', '2026-09-28'),
     { date: '2026-09-28', top: [{ place: 1, uid: 'someone', name: 'SODA', score: 5000 }], players: 3 });
