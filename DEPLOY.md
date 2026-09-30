@@ -204,6 +204,30 @@ re-deploying an older commit's `functions/` the same way; Cloud Functions
 also keeps its own version history in the Console under each function if
 you need to roll back without touching git.
 
+### The functions runtime
+
+`functions/package.json` pins which Node version Google runs the Cloud
+Functions on:
+
+```json
+"engines": { "node": "22" }
+```
+
+Google retires runtimes on a schedule, and once one is decommissioned you
+**cannot deploy functions at all** — which is a bad thing to find out when you
+urgently need to ship a fix. The Firebase Console shows a deprecation banner on
+the Functions page with the current date; check it occasionally rather than
+trusting a note in here.
+
+Bumping it is a one-line change plus `firebase deploy --only functions`. The
+failure mode is safe: Firebase rejects an unsupported runtime at deploy time,
+before changing anything, so a wrong version cannot half-deploy.
+
+Before bumping, grep the functions for APIs the new major removed — Node 22
+dropped `crypto.createCipher`/`createDecipher` among others. This codebase is
+plain CommonJS requiring only the Firebase SDKs and local files, so there was
+nothing to change for 20 -> 22.
+
 ## One command (and deploying from a phone)
 
 ```bash
