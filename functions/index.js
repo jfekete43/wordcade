@@ -407,6 +407,26 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       update.periodBestAt = run.timestamp || FieldValue.serverTimestamp();
     }
 
+    // Today's board, the one on the home screen. Same denormalisation again,
+    // for the same reason: built from /runs it would read every run of the day
+    // on every page load.
+    //
+    // Gauntlet runs are excluded. They have their own board on their own
+    // screen, and their scores are on a different scale entirely — ten words
+    // against an endless run — so mixing them would make the number on this
+    // board mean two different things.
+    if (run.mode !== "daily") {
+      const dayKey = getTodayDateStr();
+      const priorToday = user.dayBestKey === dayKey
+        ? Math.max(0, Number(user.dayBestScore) || 0)
+        : 0;
+      if (score > priorToday) {
+        update.dayBestKey = dayKey;
+        update.dayBestScore = score;
+        update.dayBestAt = run.timestamp || FieldValue.serverTimestamp();
+      }
+    }
+
     // Gauntlet-only: did this run land in today's top 10? The query above
     // returns the top 10 including this run's own doc (already written by
     // guessDailyWord before this trigger fired), so it has to be filtered

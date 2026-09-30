@@ -77,6 +77,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dayBestKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dayBestScore",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dayBestKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dayBestScore",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

@@ -1,5 +1,5 @@
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, addDoc, collection, serverTimestamp, setLogLevel } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, addDoc, collection, serverTimestamp, setLogLevel } from 'firebase/firestore';
 // The denial tests below deliberately trigger PERMISSION_DENIED; without
 // this the SDK logs a wall of red for every expected failure.
 setLogLevel('silent');
@@ -65,6 +65,24 @@ await check('equipped value not a string', false, () => updateDoc(doc(db, 'users
 await check('run w/ 200-char username', false, () => addDoc(collection(db, 'runs'), run({ username: 'A'.repeat(200) })));
 // --- pre-existing protections must not have regressed ---
 await check('cannot write wallet directly', false, () => updateDoc(doc(db, 'users', UID), { wallet: 999999 }));
+
+// --- dailyBoards: a finished day's Standard board ---
+// Written only by the daily job through the Admin SDK, which bypasses rules
+// entirely. A client that could write here could put itself on any past day's
+// board — a record nothing else can contradict, since the runs behind it are
+// deleted after 24 hours.
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'dailyBoards', '2026-09-28'),
+    { date: '2026-09-28', top: [{ place: 1, uid: 'someone', name: 'SODA', score: 5000 }], players: 3 });
+});
+await check('dailyBoards: a signed-in player can read a past board', true,
+  () => getDoc(doc(db, 'dailyBoards', '2026-09-28')));
+await check('dailyBoards: but cannot create one', false,
+  () => setDoc(doc(db, 'dailyBoards', '2026-09-27'), { date: '2026-09-27', top: [], players: 0 }));
+await check('dailyBoards: nor write itself onto an existing one', false,
+  () => updateDoc(doc(db, 'dailyBoards', '2026-09-28'),
+    { top: [{ place: 1, uid: UID, name: 'SODA', score: 999999 }] }));
+await check('dailyBoards: nor delete one', false, () => deleteDoc(doc(db, 'dailyBoards', '2026-09-28')));
 
 for (const [s, n] of results) console.log(s.padEnd(5), n);
 console.log('\n' + results.filter(r => r[0] === 'PASS').length + '/' + results.length + ' checks passed');

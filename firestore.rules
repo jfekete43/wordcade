@@ -294,6 +294,15 @@ service cloud.firestore {
         && (matchMode(resource.data) != 'ffa' || resource.data.status == 'waiting');
     }
 
+    // A finished day's Standard board, snapshotted once by the daily job so
+    // the home screen can show past days without re-reading every run of that
+    // day. TODAY's board is deliberately not here: it is read live off /users,
+    // which is what lets it reorder as people play.
+    match /dailyBoards/{date} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // Daily Gauntlet's target words — NEVER readable by any client. The
     // client only ever learns them one guess's color feedback at a time via
     // the guessDailyWord Cloud Function; a readable rule here would let

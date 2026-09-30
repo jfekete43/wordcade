@@ -369,17 +369,28 @@
         .gf-me { outline: 2px solid #b967ff; outline-offset: -2px; border-radius: 3px; }
         .gauntlet-empty { color: #888; font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
 
-        #live-feed-container { width: 90%; max-width: 320px; background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
-        .live-feed-item { margin-bottom: 6px; padding: 4px; border-radius: 3px; position: relative; z-index: 1;}
-        /* Default look for a player's name in the feed. Deliberately a class
-           and deliberately declared ABOVE the .effect_* rules: those are also
+        #daily-board-container { width: 90%; max-width: 340px; background: #111; border: 1px solid #333; border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
+        #daily-board-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+        #daily-board-title { flex: 1; color: #00ffff; font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        #daily-board-head button { background: transparent; border: 1px solid #333; color: #888; border-radius: 4px;
+            font-family: inherit; font-size: 15px; line-height: 1; padding: 5px 9px; cursor: pointer; transition: all 0.2s; }
+        #daily-board-head button:hover:not(:disabled) { border-color: #00ffff; color: #00ffff; }
+        #daily-board-head button:disabled { opacity: 0.25; cursor: default; }
+        .daily-board-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 4px 6px; border-radius: 3px; position: relative; z-index: 1; font-style: normal; text-align: left; }
+        .daily-board-place { color: #666; font-size: 12px; font-weight: bold; min-width: 22px; }
+        .daily-board-score { margin-left: auto; color: #4caf50; font-weight: bold; }
+        /* Your own line under the board, for when you are not on it. */
+        #daily-board-you { margin-top: 6px; padding-top: 6px; border-top: 1px solid #262626; font-size: 12px; color: #888; }
+        #daily-board-you:empty { display: none; }
+        /* Default look for a player's name here. Deliberately a class and
+           deliberately declared ABOVE the .effect_* rules: those are also
            single-class selectors, so the later declaration wins and a player's
            equipped effect colours their name here exactly as it does on the
            leaderboard. This used to be an inline style:color on the span,
            which no class can outrank — so every name rendered magenta no
            matter what effect was equipped, while the effect's text-shadow
            still applied (pink text wearing someone else's glow). */
-        .live-feed-name { color: #fff; font-weight: bold; }
+        .daily-board-name { color: #fff; font-weight: bold; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
         .modal-box { background-color: #1a1a1d; border: 3px solid #ff00ff; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px #ff00ff; min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
@@ -959,9 +970,21 @@
         <button id="gauntlet-card-btn" onclick="window.openDailyGauntlet()">Play Today's Gauntlet</button>
     </div>
 
-    <div id="live-feed-container">
-        <div style="color: #00ffff; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;">Live Arcade Feed</div>
-        <div id="live-feed-list" style="font-size: 14px; color: #aaa; font-style: italic;">Connecting to server...</div>
+    <!-- Today's Standard board. This slot used to hold a three-line "Live
+         Arcade Feed" of the most recent runs, which at low traffic mostly
+         advertised how quiet it was. A board is always worth reading, it is
+         the most winnable ladder in the game because it resets nightly, and
+         because today's rows come from a live query it still does the feed's
+         job — the order visibly changes as people play.
+         Arrows step back through finished days. -->
+    <div id="daily-board-container">
+        <div id="daily-board-head">
+            <button id="daily-board-prev" onclick="window.stepDailyBoard(-1)" title="Earlier day">&lsaquo;</button>
+            <div id="daily-board-title">Today's Best Runs</div>
+            <button id="daily-board-next" onclick="window.stepDailyBoard(1)" title="Later day">&rsaquo;</button>
+        </div>
+        <div id="daily-board-list" style="font-size: 14px; color: #aaa; font-style: italic;">Loading…</div>
+        <div id="daily-board-you"></div>
     </div>
 
     <!-- Today's Gauntlet board. Shown only in Gauntlet mode, in place of the
@@ -1978,25 +2001,136 @@
         // onMatchFinished Cloud Function (functions/index.js), which the client
         // reads back from the match doc — see the "finished" handler below.
 
-        const liveFeedQuery = query(collection(db, "runs"), orderBy("timestamp", "desc"), limit(3));
-        onSnapshot(liveFeedQuery, (snapshot) => {
-            let html = "";
-            snapshot.forEach(doc => {
-                let data = doc.data();
-                let eq = data.equipped || { banner: 'banner_default', effect: 'effect_none' };
-                // username/equipped here come off a `runs` doc, written by the
-                // client that played the run — never render either unescaped.
-                let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
-                let feedName = escapeHtml(data.username || "Guest");
+        // --- TODAY'S STANDARD BOARD ------------------------------------------
+        //
+        // Replaced the three-line "Live Arcade Feed" that used to sit here. The
+        // feed read the last three runs, which at low traffic mostly announced
+        // how quiet it was; a board always has something to read, and resetting
+        // nightly makes it the most winnable ladder in the game. It still does
+        // the feed's job, because TODAY is a live query — rows reorder as
+        // people play.
+        //
+        // Two sources, on purpose:
+        //   today — a live query over /users on dayBestScore, which
+        //           onRunCreated maintains. Built from /runs it would read
+        //           every run of the day on every page load.
+        //   past  — one dailyBoards/{date} document, snapshotted by the daily
+        //           job. dayBestScore only ever holds TODAY (tomorrow's first
+        //           run overwrites it), so history has to live somewhere else,
+        //           and one document per day is one read however busy that day
+        //           was.
+        const DAILY_BOARD_SIZE = 10;
+        const DAILY_BOARD_MAX_BACK = 7;   // how far the arrows go
+        let dailyBoardOffset = 0;         // 0 = today, 1 = yesterday, ...
+        let dailyBoardUnsub = null;
 
-                if (data.isWipeout && data.lostScore > 0) {
-                    html += `<div class="live-feed-item ${bannerClass}"><span class="live-feed-name ${nameClass}">${feedName}</span> wiped out & lost <span style="color:#ff3333; font-weight:bold;">${Number(data.lostScore || 0).toLocaleString()}</span> pts</div>`;
-                } else if (data.score > 0) {
-                    html += `<div class="live-feed-item ${bannerClass}"><span class="live-feed-name ${nameClass}">${feedName}</span> cashed out <span style="color:#4caf50; font-weight:bold;">${Number(data.score || 0).toLocaleString()}</span> pts</div>`;
-                }
-            });
-            document.getElementById("live-feed-list").innerHTML = html || "No recent activity.";
-        });
+        function dailyBoardDateKey(offset) {
+            const [y, m, d] = getTodayDateStr().split("-").map(Number);
+            const utc = new Date(Date.UTC(y, m - 1, d));
+            utc.setUTCDate(utc.getUTCDate() - offset);
+            return utc.toISOString().slice(0, 10);
+        }
+
+        function dailyBoardLabel(offset) {
+            if (offset === 0) return "Today's Best Runs";
+            if (offset === 1) return "Yesterday's Best Runs";
+            const [y, m, d] = dailyBoardDateKey(offset).split("-").map(Number);
+            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined,
+                { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+        }
+
+        // One row. `equipped` comes off a user doc or a stored board — both are
+        // player-supplied, so both go through safeCosmetic/escapeHtml.
+        function dailyBoardRow(place, name, score, equipped) {
+            const eq = equipped || {};
+            const bannerClass = safeCosmetic(eq.banner, "banner_default");
+            const nameClass = safeCosmetic(eq.effect, "effect_none");
+            return `<div class="daily-board-row ${bannerClass}">`
+                + `<span class="daily-board-place">#${place}</span>`
+                + `<span class="daily-board-name ${nameClass}">${escapeHtml(name || "Player")}</span>`
+                + `<span class="daily-board-score">${Number(score || 0).toLocaleString()}</span></div>`;
+        }
+
+        function renderDailyBoardRows(rows, emptyText) {
+            document.getElementById("daily-board-list").innerHTML =
+                rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.score, r.equipped)).join("")
+                || `<div style="color:#666;">${escapeHtml(emptyText)}</div>`;
+        }
+
+        // Your own line, for when you are playing but not on the board. Only
+        // meaningful for today: a past day's document holds its top ten and
+        // nothing else, so there is no honest way to say where you placed.
+        async function renderDailyBoardYou(rows) {
+            const el = document.getElementById("daily-board-you");
+            el.innerHTML = "";
+            if (dailyBoardOffset !== 0 || !currentUser || !userProfileData) return;
+            const key = dailyBoardDateKey(0);
+            try {
+                const snap = await getDoc(doc(db, "users", currentUser.uid));
+                const me = snap.exists() ? snap.data() : null;
+                if (!me || me.dayBestKey !== key) return;          // nothing today
+                if (rows.some((r) => r.uid === currentUser.uid)) return;  // already shown
+                const mine = Math.max(0, Number(me.dayBestScore) || 0);
+                if (mine <= 0) return;
+                const ahead = await getCountFromServer(query(collection(db, "users"),
+                    where("dayBestKey", "==", key), where("dayBestScore", ">", mine)));
+                el.innerHTML = `You: <b style="color:#fff;">#${(ahead.data().count + 1).toLocaleString()}</b>`
+                    + ` &middot; <b style="color:#4caf50;">${mine.toLocaleString()}</b> pts`;
+            } catch (e) { console.error("Daily board rank lookup failed", e); }
+        }
+
+        function renderDailyBoardChrome() {
+            document.getElementById("daily-board-title").innerText = dailyBoardLabel(dailyBoardOffset);
+            document.getElementById("daily-board-prev").disabled = dailyBoardOffset >= DAILY_BOARD_MAX_BACK;
+            document.getElementById("daily-board-next").disabled = dailyBoardOffset <= 0;
+        }
+
+        async function loadDailyBoard() {
+            renderDailyBoardChrome();
+            if (dailyBoardUnsub) { dailyBoardUnsub(); dailyBoardUnsub = null; }
+            const key = dailyBoardDateKey(dailyBoardOffset);
+
+            if (dailyBoardOffset === 0) {
+                dailyBoardUnsub = onSnapshot(
+                    query(collection(db, "users"), where("dayBestKey", "==", key),
+                          orderBy("dayBestScore", "desc"), limit(DAILY_BOARD_SIZE)),
+                    (snap) => {
+                        const rows = snap.docs.map((d) => {
+                            const u = d.data();
+                            return { uid: d.id, name: u.username, score: u.dayBestScore, equipped: u.equipped };
+                        });
+                        renderDailyBoardRows(rows, "No runs yet today — be first.");
+                        renderDailyBoardYou(rows);
+                    },
+                    (e) => {
+                        console.error("Daily board listen failed", e);
+                        renderDailyBoardRows([], "Board unavailable right now.");
+                    });
+                return;
+            }
+
+            try {
+                const snap = await getDoc(doc(db, "dailyBoards", key));
+                // A day is only written after it ends, so the most recent one
+                // is missing for a few hours after midnight Eastern.
+                renderDailyBoardRows(snap.exists() ? (snap.data().top || []) : [],
+                    snap.exists() ? "Nobody played this day." : "Not published yet.");
+                document.getElementById("daily-board-you").innerHTML = "";
+            } catch (e) {
+                console.error("Daily board load failed", e);
+                renderDailyBoardRows([], "Board unavailable right now.");
+            }
+        }
+
+        window.stepDailyBoard = function(dir) {
+            // dir -1 steps BACK in time, which is +1 on the offset.
+            const next = dailyBoardOffset - dir;
+            if (next < 0 || next > DAILY_BOARD_MAX_BACK) return;
+            dailyBoardOffset = next;
+            loadDailyBoard();
+        };
+
+        loadDailyBoard();
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -3374,7 +3508,7 @@
         // The Live Arcade Feed and the Gauntlet card both belong to a Standard
         // run, so every mode switch shows or hides them together.
         function showStandardPanels(visible) {
-            document.getElementById("live-feed-container").style.display = visible ? "block" : "none";
+            document.getElementById("daily-board-container").style.display = visible ? "block" : "none";
             document.getElementById("gauntlet-card").style.display = visible ? "block" : "none";
             if (visible) refreshGauntletCard(); else stopGauntletCardTimer();
         }

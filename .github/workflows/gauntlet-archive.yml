@@ -77,6 +77,20 @@ jobs:
           git commit -m "Publish Gauntlet archive through $(date -u -d 'yesterday' +%Y-%m-%d)"
           git push
 
+      # Yesterday's Standard board, snapshotted into dailyBoards/{date} so the
+      # home screen can step back through history at one read per day. Writes
+      # nothing to the repo, so it sits after the commit step. Runs even if the
+      # archive failed — the two share only a service-account key.
+      #
+      # 07:30 UTC is 02:30/03:30 Eastern, comfortably after the midnight ET
+      # rollover, so "yesterday" is always a finished day. The tool refuses to
+      # build today regardless.
+      - name: Snapshot yesterday's Standard board
+        if: always()
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: node tools/build-daily-boards.mjs
+
       # Runs regardless of the archive's outcome, and without --legacy: the
       # recurring path only ever deletes matches with a server-stamped
       # createdAt, so it can never guess wrong about a match still in play. The
