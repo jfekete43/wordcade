@@ -82,10 +82,8 @@
     </div>
 
     <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
-         NOT LIVE YET. Get a token at dash.cloudflare.com -> Analytics & Logs ->
-         Web Analytics, then stamp it into every page at once with:
-             node tools/set-analytics-token.mjs <token>
-         Doing it by hand means eight files, and the one you miss is the page
-         that quietly reports no traffic. -->
+         Change the token or turn it off everywhere at once with:
+             node tools/set-analytics-token.mjs <token|--off> -->
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"21957ededacf4e538abc5a0c42767ce7"}'></script>
 </body>
 </html>
