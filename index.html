@@ -91,6 +91,10 @@
            as a whole and reads at the size of the text around it. */
         #stat-gauntlet-today span { font-size: 13px; color: #e8d5ff; font-weight: normal; }
         #stat-gauntlet-today .gs-strong { color: #fff; font-weight: bold; }
+        /* Same opt-out, same reason: the handle prompt's first half is the
+           opening of a sentence whose second half is plain text beside it, so
+           the blanket rule rendered one sentence as two different things. */
+        #handle-setup-blurb { font-size: inherit; color: inherit; font-weight: inherit; }
 
         .arcade-menu .ffa-btn { color: #ffd700; border-color: #ffd700; }
         .arcade-menu .ffa-btn:hover { background-color: #ffd700; color: #000; }
@@ -1315,6 +1319,29 @@
         </div>
     </div>
 
+    <!-- HANDLE SETUP (once, straight after signing up — see showHandleSetup).
+         Signing up is the first moment a player is allowed to pick a handle at
+         all: the Profile modal hides that field for guests. Until this existed
+         the generated guest name simply carried over, so leaderboards filled up
+         with G_Crane_4821 and the one place that mentioned a custom handle was
+         the guest promo, which stops being shown the moment you sign up.
+         Skippable, because the free change is still sitting in the Profile
+         afterwards — a name is a bad thing to make someone hurry over. -->
+    <div id="handle-setup-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff; max-width: 360px;">
+            <h2 class="modal-title">Pick Your Handle</h2>
+            <div class="modal-stats" style="font-size: 13px; color: #bbb; margin-bottom: 15px; line-height: 1.5; text-align: center;">
+                <span id="handle-setup-blurb">Your progress is saved.</span> This is the name that shows on the leaderboards — your first change is free.
+            </div>
+            <input type="text" id="handle-setup-input" class="input-field" maxlength="12" placeholder="ENTER NAME" autocomplete="off">
+            <div id="handle-setup-error" style="font-size: 12px; color: #ff6b6b; line-height: 1.4; min-height: 17px;"></div>
+            <div class="modal-buttons" style="margin-top: 5px;">
+                <button class="btn-cyan" id="handle-setup-save" onclick="window.saveHandleSetup()">Save Handle</button>
+                <button class="btn-dark" id="handle-setup-skip" style="font-size: 15px;" onclick="window.skipHandleSetup()">Skip For Now</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ONBOARDING MODAL (first visit only — see maybeShowOnboarding) -->
     <div id="onboarding-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff; max-width: 380px;">
@@ -2316,9 +2343,7 @@
                 // silently abandoning the guest profile — that used to be
                 // the actual bug this replaced.
                 await linkWithPopup(currentUser, new GoogleAuthProvider());
-                alert("Account linked! Your progress is now saved to this Google account.");
-                document.getElementById('auth-modal').style.display = 'none';
-                setTimeout(() => { window.location.reload(); }, 500);
+                showHandleSetup("this Google account");
             } catch (error) {
                 if (error.code === "auth/credential-already-in-use") {
                     // This Google account already has its own Lexathon profile
@@ -2354,6 +2379,59 @@
             }
         }
 
+        /*
+         * The one moment a handle is worth asking for: the account is saved, the
+         * field has just become available, and the first change is free. Only
+         * the two LINK paths above call this — not the two
+         * already-in-use branches, which are a returning player signing in to a
+         * profile that already has a name they picked.
+         *
+         * `label` names what the account was just saved to, so the reassurance
+         * the old alert() gave is still given.
+         */
+        function showHandleSetup(label) {
+            document.getElementById('auth-modal').style.display = 'none';
+            const current = (userProfileData && userProfileData.username) || "";
+            document.getElementById("handle-setup-blurb").textContent = "Your progress is now saved to " + label + ".";
+            document.getElementById("handle-setup-error").textContent = "";
+            // Naming the name in the skip button is the only thing that tells a
+            // player what declining actually leaves them with.
+            document.getElementById("handle-setup-skip").textContent = current ? "Keep " + current : "Skip For Now";
+            const input = document.getElementById("handle-setup-input");
+            input.value = current;
+            document.getElementById("handle-setup-modal").style.display = "flex";
+            // Selected, not merely focused: the field is pre-filled with a name
+            // nobody chose, so typing should replace it rather than append to it.
+            input.focus(); input.select();
+        }
+
+        // Both exits reload for the reason the old alert() path did: the page was
+        // painted for a guest, and every guest-only affordance on it is now wrong.
+        window.skipHandleSetup = function() {
+            document.getElementById("handle-setup-modal").style.display = "none";
+            window.location.reload();
+        };
+
+        window.saveHandleSetup = async function() {
+            const err = document.getElementById("handle-setup-error");
+            const name = sanitizeUsername(document.getElementById("handle-setup-input").value.trim().toUpperCase());
+            if (name.length < 3) { err.textContent = "At least 3 letters or numbers, please."; return; }
+            const save = document.getElementById("handle-setup-save");
+            save.disabled = true; save.textContent = "Saving\u2026"; err.textContent = "";
+            try {
+                // The same callable the Profile uses: it screens the name, checks
+                // it is not taken, and charges a player nothing for their first.
+                await callChangeUsername({ username: name });
+                window.location.reload();
+            } catch (e) {
+                // Taken, refused by the handle screen, or offline — all fixable by
+                // typing something else, so stay open and say so instead of
+                // reloading and losing the attempt.
+                err.textContent = e.message || "Could not save that handle. Try another.";
+                save.disabled = false; save.textContent = "Save Handle";
+            }
+        };
+
         window.openAuthModal = function() {
             document.getElementById('main-menu-modal').style.display = 'none';
             document.getElementById('email-auth-email').value = '';
@@ -2372,9 +2450,7 @@
                 // creating a separate account — every bit of guest progress
                 // carries over untouched. This is the "new account" path.
                 await linkWithCredential(currentUser, EmailAuthProvider.credential(email, password));
-                alert("Account created! Your progress is now saved to this email.");
-                document.getElementById('auth-modal').style.display = 'none';
-                setTimeout(() => { window.location.reload(); }, 500);
+                showHandleSetup("this email");
             } catch (error) {
                 if (error.code === "auth/email-already-in-use") {
                     // This email already has its own Lexathon profile elsewhere.
@@ -3062,12 +3138,24 @@
         }
 
         // --- USERNAME SANITIZER ---
+        /*
+         * A handle the player is typing for themselves, reduced to what the
+         * server will accept — same rule, same order, same 12-character cut as
+         * changeUsername, so nothing comes back silently different from what
+         * they typed.
+         *
+         * It returns whatever survives, including nothing, and leaves "too
+         * short" to the caller. It used to HTML-escape first and fall back to
+         * "Guest", which produced two things a player could actually hit:
+         * typing <b>HI</b> made your handle ltBgtHIltBgt, and clearing the
+         * field and pressing Update renamed you to Guest — spending your one
+         * free change, or 5,000 pts, to do it. The escaping was dead weight
+         * either way: the very next rule strips < and > along with everything
+         * else that is not a letter, digit, underscore, space or hyphen.
+         */
         function sanitizeUsername(name) {
-            if (!name) return "Guest";
-            let safeName = name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            safeName = safeName.replace(/[^a-zA-Z0-9_\s-]/g, ""); 
-            safeName = safeName.trim().substring(0, 12);
-            return safeName === "" ? "Guest" : safeName;
+            if (!name) return "";
+            return String(name).replace(/[^a-zA-Z0-9_\s-]/g, "").trim().substring(0, 12);
         }
 
         // --- NEW: LOBBY COUNTER LOGIC ---
