@@ -5,6 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lexathon — Competitive Word Game</title>
     <meta name="description" content="Lexathon is a competitive five-letter word game: endless solo runs, 1v1 Clash, a daily Gauntlet puzzle, and up to six-player Free-For-All. Free to play, no install.">
+    <!-- How a shared link looks when it unfurls. Every share path in the
+         game ends in a link to this site - the Standard and Gauntlet
+         results, and both invite links - so without these a share is a
+         bare blue URL in Discord, iMessage, Slack or WhatsApp. One card
+         serves every page; only the title and description differ.
+    
+         og:title is written separately from <title> because <title> is a
+         browser tab and carries the brand, while this sits under a card
+         that already shows the wordmark. The absolute URLs are required:
+         scrapers do not resolve relative paths. -->
+    <link rel="canonical" href="https://lexathon.gg/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Lexathon">
+    <meta property="og:url" content="https://lexathon.gg/">
+    <meta property="og:title" content="Lexathon — Competitive Word Game">
+    <meta property="og:description" content="Lexathon is a competitive five-letter word game: endless solo runs, 1v1 Clash, a daily Gauntlet puzzle, and up to six-player Free-For-All. Free to play, no install.">
+    <meta property="og:image" content="https://lexathon.gg/og-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two cyan, one magenta.">
+    <meta property="og:locale" content="en_US">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Lexathon — Competitive Word Game">
+    <meta name="twitter:description" content="Lexathon is a competitive five-letter word game: endless solo runs, 1v1 Clash, a daily Gauntlet puzzle, and up to six-player Free-For-All. Free to play, no install.">
+    <meta name="twitter:image" content="https://lexathon.gg/og-card.png">
+
     <!-- Google Search Console ownership verification. Must stay on the
          homepage permanently — Search Console re-checks it periodically and
          drops the property (losing the sitemap and indexing history) if it

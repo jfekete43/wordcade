@@ -28,8 +28,10 @@ const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..'
 // 280 fold cover · 320 iPhone SE 1 · 360 common Android · 375 iPhone SE 2/3,
 // 6/7/8 · 390 iPhone 12-15 · 414 Plus/XR · 428 Pro Max.
 const WIDTHS = [280, 320, 360, 375, 390, 414, 428];
-const PAGES = ['index.html', 'how-to-play.html', 'strategy.html', 'faq.html',
-               'about.html', 'privacy.html', 'terms.html'];
+// Found on disk, so a page added later is covered without anyone remembering.
+const STATIC_PAGES = fs.readdirSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
+  .filter((f) => f.endsWith('.html') && f !== 'index.html').sort();
+const PAGES = ['index.html', ...STATIC_PAGES];
 
 let chromium;
 try { ({ chromium } = await import('playwright')); }
@@ -237,7 +239,7 @@ for (const w of WIDTHS) {
 
 // ---- 4. the root cause, pinned -------------------------------------------
 ok('min-width:0 is what lets a key shrink at all', /\.key \{ min-width: 0;/.test(home));
-for (const f of ['about.html', 'faq.html', 'how-to-play.html', 'privacy.html', 'strategy.html', 'terms.html']) {
+for (const f of STATIC_PAGES) {
   ok(`${f}: has box-sizing, the cause of the 404px container`,
      /box-sizing: border-box/.test(fs.readFileSync(REPO(f), 'utf8')));
 }

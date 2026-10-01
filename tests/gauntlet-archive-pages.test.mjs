@@ -350,7 +350,10 @@ ok('the short date really is shorter',
    R.shortDate('2026-09-24').length < R.prettyDate('2026-09-24').length);
 
 // The same fix had to go onto the hand-written pages, which had the bug first.
-for (const f of ['about.html', 'faq.html', 'how-to-play.html', 'privacy.html', 'strategy.html', 'terms.html']) {
+// Found on disk: a list written out here skips whatever was added after it.
+const STATIC_PAGES = fs.readdirSync(REPO('.')).filter((f) => f.endsWith('.html') && f !== 'index.html').sort();
+ok('found the hand-written pages', STATIC_PAGES.length >= 7, STATIC_PAGES.join(','));
+for (const f of STATIC_PAGES) {
   const page = fs.readFileSync(REPO(f), 'utf8');
   ok(`${f}: sets box-sizing`, /box-sizing: border-box/.test(page));
   ok(`${f}: has the narrow-screen breakpoint`, /@media \(max-width: 480px\)/.test(page));

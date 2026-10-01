@@ -23,7 +23,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', f);
+const REPO_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const REPO = (f) => path.join(REPO_DIR, f);
 const read = (f) => fs.readFileSync(REPO(f), 'utf8').replace(/\r\n/g, '\n');
 
 const fn = read('functions/index.js');
@@ -289,9 +290,14 @@ ok('DEPLOY.md documents it', /bash tools\/deploy\.sh/.test(read('DEPLOY.md')));
 // nothing anywhere says so — which is exactly what would have happened to the
 // generated archive pages, since they come out of a renderer rather than the
 // repo, and they are the ones in sitemap.xml.
-const ANALYTICS_FILES = ['about.html', 'faq.html', 'how-to-play.html', 'index.html',
-                         'privacy.html', 'strategy.html', 'terms.html',
-                         'tools/gauntlet-archive-render.mjs'];
+// Found on disk, not listed. A hardcoded list has the same silent failure as
+// the thing it is guarding: add a page, forget the list, and the page reports
+// no traffic while the test stays green. 404.html was added and was invisible
+// to every suite here for exactly that reason.
+const ANALYTICS_FILES = [
+  ...fs.readdirSync(REPO_DIR).filter((f) => f.endsWith('.html')).sort(),
+  'tools/gauntlet-archive-render.mjs',
+];
 const analytics = ANALYTICS_FILES.map((f) => {
   const src = read(f);
   return { f, has: /analytics:cloudflare/.test(src),

@@ -290,6 +290,24 @@ function head(title, description, canonical) {
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <link rel="canonical" href="${escapeHtml(canonical)}">
+    <!-- How a shared archive link unfurls. These pages are the ones most
+         likely to be posted on their own - "look what word beat everyone
+         yesterday" - so a bare URL costs more here than on the static pages.
+         One card for the whole site; the title and description carry the day.
+         Absolute URLs are required: scrapers do not resolve relative paths. -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Lexathon">
+    <meta property="og:url" content="${escapeHtml(canonical)}">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:image" content="${SITE}/og-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${escapeHtml(title)}">
+    <meta name="twitter:description" content="${escapeHtml(description)}">
+    <meta name="twitter:image" content="${SITE}/og-card.png">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>${STYLE}
