@@ -40,11 +40,24 @@ missing keys, a normal run save, and an accented display name from Google
 sign-in. Also re-checks the standing rule that a client can't write `wallet`
 directly.
 
+**`gauntlet-all-ten.test.mjs`** — the Gauntlet plays all ten words and the
+board breaks ties on words solved. Three things with no other home: the server's
+finish rule, extracted from `functions/index.js` and *run* rather than grepped;
+the board's shared places, which now key on score AND words solved; and the
+composite indexes. That last one cannot be caught any other way — the Firestore
+emulator creates indexes on demand, so every emulator test passes whether or not
+`firestore.indexes.json` declares them, while in production a query with no
+serving index fails outright. So the queries are read out of `index.html` and
+matched against the declared indexes. It also covers the `achievedTop10Daily`
+career challenge, whose "top 10" has to mean what the board means.
+
 **`gauntlet-standing.test.mjs`** — the placement math behind the "you finished
-12th of 47" callout. Placement is counted (runs scoring above you, plus one)
-rather than read off a list, so ties are the thing most likely to be quietly
-wrong: two players on the same score must share a place and the next player
-down must skip one. It also seeds a standard-mode run tagged with the same
+12th of 47" callout. Placement is counted rather than read off a list, so ties
+are the thing most likely to be quietly wrong. It is now two counts — a better
+score, plus the same score with more words solved — and both tie shapes are
+seeded: a pair splitting on words, and a pair level on both that must share a
+place. Legacy rows with no `wordsGuessed` at all are seeded too, because
+Firestore's range filter skips documents missing the field. It also seeds a standard-mode run tagged with the same
 date and a second Gauntlet for the same player, both of which must be excluded
 — a standard run routinely outscores a Gauntlet, so a dropped `mode` filter
 would take first place and inflate the field size. Exactness rests on daily
@@ -98,10 +111,10 @@ off the board rather than being seated at zero, and that the counted rank
 matches the row actually rendered.
 
 **`gauntlet-share.test.mjs`** — the share text. Pins the result line (a flat
-`8/10` replaced a per-word emoji grid and a three-branch result line; missing a
-word ends the run on the spot, so solving 8 *means* you went out on word 9, and
-the old "solved N of 10" branch was unreachable), and pins the link onto its own
-line. That last one was a real bug: `navigator.share({text, url})` lets the
+`8/10` replaced a per-word emoji grid and a three-branch result line; every run
+plays all ten words, so the count alone is comparable between two players) and
+the run bar (one mark per word in play order, so word 7 means word 7 to every
+reader), and pins the link onto its own line. That last one was a real bug: `navigator.share({text, url})` lets the
 receiving app join the two however it likes — in practice with a space — so the
 URL ran onto the end of the last line in Discord. The URL now travels inside the
 shared text, and the suite asserts the native-sheet and clipboard paths produce

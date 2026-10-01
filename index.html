@@ -970,7 +970,7 @@
             <span id="gauntlet-card-title">Daily Gauntlet</span>
             <span id="gauntlet-card-timer"></span>
         </div>
-        <div id="gauntlet-card-body">Ten words, one shot each.</div>
+        <div id="gauntlet-card-body">Ten words, five guesses each. Everyone plays all ten.</div>
         <button id="gauntlet-card-btn" onclick="window.openDailyGauntlet()">Play Today's Gauntlet</button>
     </div>
 
@@ -1013,14 +1013,14 @@
         <p style="margin-top: 0;">
             <strong style="color:#4caf50;">Standard</strong> — endless solo runs. You have one Continue; miss twice and you lose the lot, so Cash Out before your luck does.<br>
             <strong style="color:#ff9800;">Clash</strong> — 1v1 against a real opponent, seven minutes on the same word list. Take a 1,000-point lead and it ends on the spot.<br>
-            <strong style="color:#b967ff;">Gauntlet</strong> — one shared puzzle a day, ten words, no second chances. Everyone gets the same words.<br>
+            <strong style="color:#b967ff;">Gauntlet</strong> — one shared puzzle a day, ten words, one attempt. Everyone plays all ten and gets the same words.<br>
             <strong style="color:#ffd700;">FFA</strong> — three to six players racing at once, with payouts by finishing position.
         </p>
         <p>Points buy cosmetics — titles, banners and name effects — and nothing else. Nothing you can buy affects scoring or matchmaking, and points have no real-world value.</p>
         <p style="margin-bottom: 4px;">New here? Read <a href="how-to-play.html" style="color:#b967ff;">the full rules</a>, or the <a href="strategy.html" style="color:#00ffff;">strategy guide</a> — it has the opening words that cover every possible answer.</p>
 
         <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Every past Gauntlet</h2>
-        <p style="margin-top: 0;">Once a day is over, its ten words go into the archive along with the final standings, how many guesses each word took, and which one ended the most runs. <a href="/gauntlet/" style="color:#b967ff;">Browse past Gauntlets</a> — today's is never listed, so nothing there can spoil the puzzle you haven't played.</p>
+        <p style="margin-top: 0;">Once a day is over, its ten words go into the archive along with the final standings, how many guesses each word took, and which one caught the most people out. <a href="/gauntlet/" style="color:#b967ff;">Browse past Gauntlets</a> — today's is never listed, so nothing there can spoil the puzzle you haven't played.</p>
 
         <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Support the project</h2>
         <p style="margin-top: 0;">Lexathon is a small project and it's entirely free — no ads, no paywall, and nothing in the shop that makes anyone score higher. Running the multiplayer and the leaderboards does cost something, though, so if you're enjoying it and want to chip in, <a href="https://ko-fi.com/lexathon" target="_blank" rel="noopener" style="color:#4caf50;">a donation on Ko-fi</a> is hugely appreciated. It goes straight into keeping this running and building the next thing. Play a few rounds first — only chip in if it earned it.</p>
@@ -1364,7 +1364,7 @@
                 <div class="onboarding-slide" style="display: none;">
                     <div style="font-size: 48px; margin-bottom: 10px;">🔥</div>
                     <h2 class="modal-title" style="color: #b967ff;">Gauntlet</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">One shared puzzle, once a day. Everyone gets the same 10 words — solve as many as you can, then share your grid and see who did better.</p>
+                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">One shared puzzle, once a day. Everyone gets the same 10 words and plays all ten — solve as many as you can, then share your result and see who did better.</p>
                 </div>
                 <div class="onboarding-slide" style="display: none;">
                     <div style="font-size: 48px; margin-bottom: 10px;">👑</div>
@@ -1419,10 +1419,10 @@
                 <h3 style="color: #b967ff; text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>One shared puzzle per day — everyone gets the identical 10 words, one attempt each.</li>
-                    <li>Same 5-guess, 500/250/150/50/10 scoring as Standard — but missing a word ends the whole run immediately, no Continues.</li>
+                    <li>Same 5-guess, 500/250/150/50/10 scoring as Standard, and no Continues — but you play all ten words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
                     <li>Resets at midnight Eastern.</li>
-                    <li>Share your result as a Wordle-style grid (guess count per word, or ❌ if missed) — no spoilers, just the pattern.</li>
-                    <li>Today's standings are on the Gauntlet screen itself and yesterday's stay in Past Gauntlets. There's no all-time Gauntlet board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
+                    <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
+                    <li>Today's standings are on the Gauntlet screen itself, ordered by score and then by words solved, and yesterday's stay in Past Gauntlets. There's no all-time Gauntlet board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
                 </ul>
 
                 <h3 style="color: #ffd700; text-transform: uppercase; margin-bottom: 6px;">👑 FFA</h3>
@@ -2681,7 +2681,7 @@
                 }
                 const score = Math.max(0, Number(run.score) || 0);
                 todayEl.innerHTML = `${label} — <span class="gs-strong">${score.toLocaleString()}</span> pts`;
-                const { place, total } = await fetchGauntletStanding(today, score);
+                const { place, total } = await fetchGauntletStanding(today, score, gauntletSolvedCount(run));
                 todayEl.innerHTML = `${placeBadge(place)} ${label} — <span class="gs-strong">${score.toLocaleString()}</span> pts, ` +
                     `currently <span class="gs-strong">${ordinal(place)} of ${total}</span>`;
             } catch (e) {
@@ -3377,13 +3377,27 @@
         // pins the query to the (mode, puzzleDate, score DESC) composite index
         // the daily board already uses, so this needs no new index. Callers
         // still handle it throwing — see showPreviousGauntletCallout.
-        async function fetchGauntletStanding(dateStr, myScore) {
+        async function fetchGauntletStanding(dateStr, myScore, mySolved) {
             const scoped = [where("mode", "==", "daily"), where("puzzleDate", "==", dateStr)];
-            const [ahead, total] = await Promise.all([
+            const solved = Math.max(0, Number(mySolved) || 0);
+            // Ahead of me = a better score, OR the same score with more words
+            // solved. Two counts rather than one because Firestore has no OR
+            // across different fields; both are aggregation queries, so this
+            // stays one read each however many players there are.
+            const [better, tied, total] = await Promise.all([
                 getCountFromServer(query(collection(db, "runs"), ...scoped, where("score", ">", myScore), orderBy("score", "desc"))),
+                getCountFromServer(query(collection(db, "runs"), ...scoped, where("score", "==", myScore), where("wordsGuessed", ">", solved), orderBy("wordsGuessed", "desc"))),
                 getCountFromServer(query(collection(db, "runs"), ...scoped)),
             ]);
-            return { place: ahead.data().count + 1, total: total.data().count };
+            return { place: better.data().count + tied.data().count + 1, total: total.data().count };
+        }
+
+        // Words solved, from either shape the callers have to hand: a finished
+        // attempt (history) or the run document written from it (wordsGuessed).
+        function gauntletSolvedCount(attemptOrRun) {
+            if (!attemptOrRun) return 0;
+            if (Array.isArray(attemptOrRun.history)) return attemptOrRun.history.filter((h) => h && h.solved).length;
+            return Math.max(0, Number(attemptOrRun.wordsGuessed) || 0);
         }
 
         // Today's Gauntlet board, live, in the slot the Live Arcade Feed uses
@@ -3412,7 +3426,7 @@
             const q = query(
                 collection(db, "runs"),
                 where("mode", "==", "daily"), where("puzzleDate", "==", dateStr),
-                orderBy("score", "desc"), limit(100)
+                orderBy("score", "desc"), orderBy("wordsGuessed", "desc"), limit(100)
             );
             gauntletFeedUnsub = onSnapshot(q,
                 (snapshot) => renderGauntletBoard(snapshot, listEl, "No finished runs yet today — be the first."),
@@ -3428,17 +3442,23 @@
         // order — a live QuerySnapshot or a one-off getDocs result.
         function renderGauntletBoard(docs, listEl, emptyText) {
             let html = "";
-            let index = 0, place = 0, prevScore = null;
+            let index = 0, place = 0, prevKey = null;
 
             docs.forEach((docSnap) => {
                 const data = docSnap.data();
                 index++;
                 const score = Math.max(0, Number(data.score) || 0);
-                // Competition ranking: a tie shares a place and the next score
+                // Competition ranking: a tie shares a place and the next entry
                 // skips ahead (1, 2, 2, 4), so what this board shows agrees
                 // with the number fetchGauntletStanding reports for the same
                 // run — that function counts the runs above you and adds one.
-                if (prevScore === null || score !== prevScore) { place = index; prevScore = score; }
+                //
+                // A tie now means the same score AND the same number of words
+                // solved, because that is the order the query asks for. Keying
+                // on score alone would hand the same place to two players the
+                // board has deliberately put one above the other.
+                const key = score + ":" + Math.max(0, Number(data.wordsGuessed) || 0);
+                if (prevKey === null || key !== prevKey) { place = index; prevKey = key; }
 
                 // No dedup pass, deliberately. The all-time board collapses
                 // rows by name because one player can hold many runs; here the
@@ -3551,13 +3571,13 @@
             gauntletCardTimer = setInterval(updateGauntletCardTimer, 30000);
 
             if (!currentUser) {
-                bodyEl.innerHTML = "Ten words, one shot each. Everyone gets the same puzzle.";
+                bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten.";
                 btnEl.innerText = "Play Today's Gauntlet";
                 return;
             }
             // Say it on the card rather than letting the tap dead-end in a gate.
             if (userProfileData && userProfileData.isGuest) {
-                bodyEl.innerHTML = "Ten words, one shot each. Everyone gets the same puzzle \u2014 " +
+                bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten \u2014 " +
                     "<span class=\"gcb-strong\">free account required</span>.";
                 btnEl.innerText = "Sign In To Play";
                 return;
@@ -3570,7 +3590,7 @@
             } catch (e) { console.error("Gauntlet card lookup failed", e); }
 
             if (!attempt) {
-                bodyEl.innerHTML = "Ten words, one shot each. Everyone gets the same puzzle.";
+                bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten.";
                 btnEl.innerText = "Play Today's Gauntlet";
             } else if (attempt.status === "active") {
                 const at = Math.max(0, Number(attempt.wordIndex) || 0) + 1;
@@ -3584,7 +3604,7 @@
                 btnEl.innerText = "See Today's Board";
                 // Placement is a nice-to-have on top of the settled line above,
                 // so it is filled in after rather than delaying the card.
-                fetchGauntletStanding(today, score)
+                fetchGauntletStanding(today, score, gauntletSolvedCount(attempt))
                     .then(({ place, total }) => {
                         bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts, ` +
                             `currently <span class="gcb-strong">${ordinal(place)} of ${total}</span>.`;
@@ -3677,7 +3697,7 @@
                 const snapshot = await getDocs(query(
                     collection(db, "runs"),
                     where("mode", "==", "daily"), where("puzzleDate", "==", dateStr),
-                    orderBy("score", "desc"), limit(100)
+                    orderBy("score", "desc"), orderBy("wordsGuessed", "desc"), limit(100)
                 ));
                 renderGauntletBoard(snapshot, boardEl, "No scores were recorded for this Gauntlet.");
             } catch (e) {
@@ -3696,7 +3716,7 @@
             let line = `you scored <span style="color:#fff; font-weight:bold;">${score.toLocaleString()}</span>`;
             let badge = PLACE_BADGES.plain;
             try {
-                const { place, total } = await fetchGauntletStanding(dateStr, score);
+                const { place, total } = await fetchGauntletStanding(dateStr, score, gauntletSolvedCount(run));
                 line = `you finished <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span>`;
                 badge = placeBadge(place);
             } catch (e) { console.error("Past Gauntlet standing failed", e); }
@@ -3727,7 +3747,7 @@
             let detail = `you scored <span class="gc-place">${score.toLocaleString()}</span>`;
             let badge = PLACE_BADGES.plain;
             try {
-                const { place, total } = await fetchGauntletStanding(dateStr, score);
+                const { place, total } = await fetchGauntletStanding(dateStr, score, gauntletSolvedCount(run));
                 detail = `you finished <span class="gc-place">${ordinal(place)} of ${total}</span>`;
                 badge = placeBadge(place);
             } catch (e) {
@@ -3932,14 +3952,10 @@
             document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Gauntlet Complete!";
             const played = dailyPlayedWords(attempt);
             const solvedCount = played.filter((h) => h.solved).length;
-            // Failing a word ends the run immediately, so the only way to
-            // have "played" every word is to have solved every word —
-            // there's no such thing as reaching word 10 with a miss along
-            // the way. A short run gets its own line naming exactly where
-            // it ended instead of a solved-count that implies otherwise.
-            const wordsLine = played.length >= attempt.wordCount
-                ? `${solvedCount} / ${attempt.wordCount} words solved`
-                : `${solvedCount} word${solvedCount === 1 ? "" : "s"} solved — missed word ${played.length} of ${attempt.wordCount}`;
+            // Every finished run has played all ten, so there is one line to
+            // write. This used to carry a second branch naming the word a run
+            // ended on, which a run can no longer do.
+            const wordsLine = `${solvedCount} / ${attempt.wordCount} words solved`;
             document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:#4caf50; font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${wordsLine}`;
             document.getElementById("daily-end-modal").style.display = "flex";
 
@@ -3950,7 +3966,7 @@
             const standingEl = document.getElementById("daily-end-standing");
             standingEl.style.display = "none";
             standingEl.innerHTML = "";
-            fetchGauntletStanding(attempt.date, Math.max(0, Number(attempt.score) || 0))
+            fetchGauntletStanding(attempt.date, Math.max(0, Number(attempt.score) || 0), solvedCount)
                 .then(({ place, total }) => {
                     standingEl.innerHTML = `Currently <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span> on today's board` +
                         `<div style="font-size: 11px; color: #888; margin-top: 2px;">Final once today's Gauntlet closes at midnight ET.</div>`;
@@ -5445,12 +5461,10 @@
 
         window.shareDailyStats = function() {
             if (!dailyAttempt || !Array.isArray(dailyAttempt.history)) return;
-            // Only words actually reached — a run that ended on a miss
-            // never touches the remaining slots, and those untouched
-            // placeholders read identically to a played-and-failed word
-            // unless filtered out (see dailyPlayedWords). Otherwise a
-            // 3-word run and a 10-word run that both ended in a fail would
-            // produce the exact same "10/10 played, some missed" grid.
+            // A finished run has played every word, so this is all ten. The
+            // filter stays because an untouched slot and a played-and-missed
+            // one are indistinguishable in `history` — both are solved:false —
+            // and nothing here should quietly count a word nobody ever saw.
             const played = dailyPlayedWords(dailyAttempt);
             const solvedCount = played.filter((h) => h.solved).length;
 
@@ -5461,32 +5475,31 @@
             const totalGuesses = played.reduce((sum, h) => sum + h.guesses.length, 0);
             const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
 
-            // "8/10" carries everything the old three-branch result line
-            // spelled out, because missing a word ends the run on the spot:
-            // solving 8 means you went out on word 9. There is no such thing
-            // as reaching word 10 with a miss behind you, so the old
-            // "solved N of 10" and "out on word N" cases were the same case.
+            // Everyone plays all ten, so this is simply how many of the ten
+            // came off. It used to double as "the word you went out on, minus
+            // one", which is what the bar below used to draw.
             const solvedLine = `${solvedCount}/${dailyAttempt.wordCount}`;
             const isPerfect = solvedCount === dailyAttempt.wordCount;
 
-            // A run bar, on its own line.
+            // A run bar, on its own line: one mark per word, in the order
+            // they were played.
             //
-            // This restores a picture to the share, but not the grid that was
-            // here before. That one coloured each word by GUESS COUNT — five
-            // meanings a reader has no way to infer, and the thing that makes
-            // Wordle's grid work is that its colours are feedback the reader
-            // already knows from playing the same puzzle. So this carries one
-            // dimension instead: solved, the word that ended you, never
-            // reached. Nobody needs a legend for that, and it says the thing
-            // "8/10" states but does not dramatise — eight in a row, then out
-            // on nine.
+            // Now that every player sees all ten, position means the same
+            // thing to everyone reading it — word 7 is word 7 — which is the
+            // property that makes Wordle's grid worth looking at. It was not
+            // true before: the bar was greens, then the one word that ended
+            // you, then blanks for words you never saw.
             //
-            // Its own line, too. The old grid shared a line with the result
-            // and wrapped on narrow clients at ten words, which is why it was
-            // dropped; ten characters alone do not.
-            const bar = "\u{1F7E9}".repeat(solvedCount)
-                + (isPerfect ? "" : "\u274C")
-                + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - solvedCount - (isPerfect ? 0 : 1)));
+            // It carries one dimension, solved or not, so it needs no legend.
+            // The old grid coloured by GUESS COUNT — five meanings a reader
+            // cannot infer — and that is what got it dropped.
+            //
+            // A cross rather than a red square, deliberately: red against green
+            // is the one pairing a colour-blind reader cannot separate, and a
+            // run can now hold up to ten of them. The trailing blanks are
+            // defensive only — a finished run has played every word.
+            const bar = played.map((h) => (h.solved ? "\u{1F7E9}" : "\u274C")).join("")
+                + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - played.length));
             // A clean sweep gets said outright — the whole point of a share is
             // to make a great run look like one.
             const resultLine = isPerfect

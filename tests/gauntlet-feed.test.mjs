@@ -4,10 +4,16 @@
  *
  * Two things here are easy to get quietly wrong:
  *
- *   - Placement numbering. Ties must share a place and the next score must
+ *   - Placement numbering. Ties must share a place and the next entry must
  *     skip ahead (1, 2, 2, 4), so that what this board shows agrees with the
  *     "you finished 12th of 47" callout, which derives its number a totally
  *     different way — by counting runs above you server-side.
+ *
+ *     A tie is the same score AND the same number of words solved, because
+ *     that is the order the query asks for. Keying on score alone would give
+ *     one place to two players the query has deliberately put one above the
+ *     other — and since every finisher now plays all ten words off the same
+ *     fixed scoring table, equal scores are common rather than a curiosity.
  *   - The absence of a dedup pass. Every other board collapses rows by
  *     display name because a player can hold many runs; this one must not,
  *     because a Gauntlet caps a player at one run per day, so the only thing
@@ -61,10 +67,29 @@ render(snap([
   { uid: 'f',  username: 'FOX',     score: 100,  wordsGuessed: 1 },
 ]), { uid: 'me' });
 const places = [...out().matchAll(/lb-rank">#(\d+)</g)].map((m) => +m[1]);
-ck(JSON.stringify(places) === '[1,2,2,4,4,6]', 'ties share a place and the next score skips (1,2,2,4,4,6)', 'got ' + places);
+ck(JSON.stringify(places) === '[1,2,2,4,4,6]', 'ties share a place and the next entry skips (1,2,2,4,4,6)', 'got ' + places);
 
 let mine = rows().filter((r) => r.includes('gf-me'));
 ck(mine.length === 1 && nameOf(mine[0]) === 'ME', 'the viewer\'s own row is highlighted, exactly once', 'got ' + JSON.stringify(mine.map(nameOf)));
+
+// The same scores, split by words solved — in the order the query returns them.
+// Every row here is a distinct place, and keying the tie on score alone would
+// instead print 1,2,2,2,5,6.
+render(snap([
+  { uid: 'a', username: 'ALPHA',   score: 5000, wordsGuessed: 10 },
+  { uid: 'b', username: 'BRAVO',   score: 4000, wordsGuessed: 9 },
+  { uid: 'c', username: 'CHARLIE', score: 4000, wordsGuessed: 8 },
+  { uid: 'd', username: 'DELTA',   score: 4000, wordsGuessed: 5 },
+  { uid: 'e', username: 'ECHO',    score: 3000, wordsGuessed: 9 },
+  { uid: 'f', username: 'FOX',     score: 3000, wordsGuessed: 9 },
+]), null);
+const split = [...out().matchAll(/lb-rank">#(\d+)</g)].map((m) => +m[1]);
+ck(JSON.stringify(split) === '[1,2,3,4,5,5]', 'equal scores with different words solved each take their own place', 'got ' + split);
+ck(rows().length === 6 && nameOf(rows()[1]) === 'BRAVO' && nameOf(rows()[3]) === 'DELTA',
+   'and the rows stay in the order the query returned them', rows().map(nameOf).join(','));
+
+// Words solved is shown on every row, so a shared place has a visible reason.
+ck((out().match(/9 solved/g) || []).length === 3, 'each row states its words solved', out().match(/\d+ solved/g).join(','));
 
 render(snap([{ uid: 'a', username: 'ALPHA', score: 10, wordsGuessed: 1 }]), null);
 ck(!out().includes('gf-me'), 'a signed-out viewer highlights nobody');

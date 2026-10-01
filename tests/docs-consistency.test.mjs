@@ -148,6 +148,51 @@ ok('no Gauntlet leaderboard tab is documented, because none exists',
 ok('FFA is no longer documented as ranking on wins',
    !/FFA \(win count\)|FFA.{0,20}ranked by (?:total )?wins/i.test(allProse));
 
+// ---- 4b. the Gauntlet's finish rule, stated in one place and described in ten
+// The rule lives in one expression in functions/index.js. The last time it
+// changed, the sentence describing it had spread to seven pages — the in-app
+// How To Play, the onboarding slide, the Gauntlet card (in four separate string
+// literals that had to agree), how-to-play, faq, about, strategy, and the
+// archive generator — and a survey of the repo was the only thing that found
+// them all. So the rule is read out of the code, and the prose is held to it.
+const suddenDeath = /gauntletFinished\s*=\s*wordFinished\s*&&\s*\(/.test(fn);
+ok('the Gauntlet finish rule is readable in the server', /const gauntletFinished\s*=/.test(fn));
+ok('the server plays all ten words', !suddenDeath && /gauntletFinished = wordFinished && newWordIndex >= attempt\.wordCount/.test(fn));
+// Phrases that are only true when a miss ends the run. Scoped to sentences that
+// also mention the Gauntlet, so Standard's own wipeout rule is left alone.
+const gauntletSentences = allProse.split(/(?<=[.!?])\s+/)
+  .filter((x) => /gauntlet/i.test(x) || /ten words|all ten/i.test(x));
+const suddenDeathClaims = gauntletSentences.filter((x) =>
+  /(a |one |single )?miss(ing)? (a word )?ends? the (whole )?run/i.test(x)
+  || /no second chances/i.test(x)
+  || /one shot each/i.test(x)
+  || /staying alive/i.test(x)
+  || /the run stops there/i.test(x));
+ok('no page still says a missed word ends the Gauntlet run',
+   suddenDeath || suddenDeathClaims.length === 0, suddenDeathClaims.join(' || ').slice(0, 300));
+// And the rule is actually stated somewhere a player will read it, rather than
+// merely not contradicted.
+ok('the rules page says you play all ten',
+   /play all ten|plays all ten|all ten words whatever happens/i.test(text['how-to-play.html']),
+   text['how-to-play.html'].slice(0, 0));
+// The card's four copies of one sentence, which have to agree with each other.
+// One sentence, written out four times: once in the markup and three times as
+// string literals in the card's branches. One branch ends in an em-dash and
+// continues on the next line, so that tail is trimmed before comparing.
+const cardLines = [...pages['index.html'].matchAll(/Ten words,[^"<]{0,80}/g)]
+  .map((m) => m[0].split('\\u2014')[0].replace(/[.\s]+$/, '').trim());
+ok('the Gauntlet card sentence is written in all four places', cardLines.length === 4, JSON.stringify(cardLines));
+ok('and says the same thing in every one of them',
+   cardLines.length > 0 && new Set(cardLines).size === 1, JSON.stringify(cardLines));
+
+// ---- 4c. the board's tiebreak, documented because players can see it -----
+const boardOrders = [...pages['index.html'].matchAll(/orderBy\("score", "desc"\), orderBy\("(\w+)", "desc"\)/g)].map((m) => m[1]);
+ok('the Gauntlet board breaks ties on a second key', boardOrders.length >= 2, boardOrders.join(','));
+ok('and that key is words solved', boardOrders.every((f) => f === 'wordsGuessed'), boardOrders.join(','));
+ok('the rules page itself says what the tiebreak is, since the board shows it',
+   /solved more words|who solved more|then by words solved/i.test(text['how-to-play.html']),
+   'how-to-play.html');
+
 // ---- 5. the numbers that have never moved, pinned anyway -----------------
 ok(`scoring ${SCORE.join('/')} is what the rules print`,
    allProse.includes(SCORE.join('/')), SCORE.join('/'));

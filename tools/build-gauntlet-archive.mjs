@@ -71,6 +71,10 @@ async function loadDay(date) {
 
   const runsSnap = await db.collection("runs")
     .where("mode", "==", "daily").where("puzzleDate", "==", date)
+    // Score order only, deliberately: computeStandings re-sorts by the full
+    // (score, wordsGuessed) key in JS, so a second orderBy here would buy
+    // nothing and would make this nightly job depend on a composite index
+    // that may still be building after a deploy.
     .orderBy("score", "desc").get();
   const runs = runsSnap.docs.map((d) => {
     const r = d.data();

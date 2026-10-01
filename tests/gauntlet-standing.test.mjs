@@ -1,10 +1,12 @@
 /*
  * The Gauntlet placement math behind the "you finished 12th of 47" callout.
  *
- * Why this is worth a test: placement is computed as "count the runs that beat
- * my score, add one" rather than by reading a position off a list, so ties are
- * the thing most likely to be silently wrong — two players on the same score
- * must share a place, and the next player down must skip one. It also has to
+ * Why this is worth a test: placement is computed by COUNTING rather than by
+ * reading a position off a list, so ties are the thing most likely to be
+ * silently wrong. It is now two counts, not one — a better score, plus the same
+ * score with more words solved — because the board breaks ties on words solved
+ * and a placement that disagreed with the board it sits under is worse than no
+ * placement at all. It also has to
  * count only the one Gauntlet being asked about: a stray standard-mode run, or
  * a run from a different puzzle date, must not inflate the field size.
  *
@@ -43,18 +45,22 @@ const api = (uid) => build(db, collection, doc, getDoc, query, where, orderBy, g
 // ---- Seed one Gauntlet, plus noise that must not be counted ----
 const DATE = '2026-09-15';
 const OTHER_DATE = '2026-09-14';
+// Scores chosen so every tie case is reachable: p2/p3 tie on score and split on
+// words solved, p6/p7 tie on BOTH and must share a place.
 const field = [
-  { uid: 'p1', score: 5000 },
-  { uid: 'p2', score: 4000 },
-  { uid: 'p3', score: 4000 }, // ties p2
-  { uid: 'p4', score: 3000 },
-  { uid: 'p5', score: 0 },    // played, scored nothing — still in the field
+  { uid: 'p1', score: 5000, wordsGuessed: 10 },
+  { uid: 'p2', score: 4000, wordsGuessed: 9 },
+  { uid: 'p3', score: 4000, wordsGuessed: 7 },  // same score as p2, fewer words
+  { uid: 'p4', score: 3000, wordsGuessed: 8 },
+  { uid: 'p5', score: 0, wordsGuessed: 0 },     // played, scored nothing — still in the field
+  { uid: 'p6', score: 2000, wordsGuessed: 6 },
+  { uid: 'p7', score: 2000, wordsGuessed: 6 },  // identical to p6 on both fields
 ];
 await env.withSecurityRulesDisabled(async (ctx) => {
   const adb = ctx.firestore();
   for (const p of field) {
     await setDoc(doc(adb, 'runs', `daily_${p.uid}_${DATE}`),
-      { uid: p.uid, username: p.uid.toUpperCase(), score: p.score, mode: 'daily', puzzleDate: DATE });
+      { uid: p.uid, username: p.uid.toUpperCase(), score: p.score, wordsGuessed: p.wordsGuessed, mode: 'daily', puzzleDate: DATE });
   }
   // Noise 1: a different Gauntlet. Same players, much higher scores.
   await setDoc(doc(adb, 'runs', `daily_p1_${OTHER_DATE}`),
@@ -73,16 +79,39 @@ const { fetchGauntletStanding, fetchMyGauntletRun, dailyRunId } = api('p1');
 
 eq('deterministic run id', dailyRunId('p1', DATE), `daily_p1_${DATE}`);
 
-// Placement, including the tie.
-eq('top score is 1st',            await fetchGauntletStanding(DATE, 5000), { place: 1, total: 5 });
-eq('tied score shares 2nd',       await fetchGauntletStanding(DATE, 4000), { place: 2, total: 5 });
-eq('after a 2-way tie comes 4th', await fetchGauntletStanding(DATE, 3000), { place: 4, total: 5 });
-eq('zero still places last',      await fetchGauntletStanding(DATE, 0),    { place: 5, total: 5 });
+// Placement. Order is p1(5000/10), p2(4000/9), p3(4000/7), p4(3000/8),
+// p6(2000/6), p7(2000/6), p5(0/0).
+const N = field.length;
+eq('top score is 1st',               await fetchGauntletStanding(DATE, 5000, 10), { place: 1, total: N });
+eq('equal score, more words, is 2nd', await fetchGauntletStanding(DATE, 4000, 9),  { place: 2, total: N });
+eq('equal score, fewer words, is 3rd — not a shared 2nd',
+                                      await fetchGauntletStanding(DATE, 4000, 7),  { place: 3, total: N });
+eq('the next score down takes 4th, nothing skipped',
+                                      await fetchGauntletStanding(DATE, 3000, 8),  { place: 4, total: N });
+eq('equal on BOTH fields shares a place', await fetchGauntletStanding(DATE, 2000, 6), { place: 5, total: N });
+eq('zero still places last',          await fetchGauntletStanding(DATE, 0, 0),     { place: 7, total: N });
 
-// The field size must be this Gauntlet's alone — five players, despite the
-// standard-mode run sharing the date and p1 having a second daily run.
-eq('other dates and modes excluded', (await fetchGauntletStanding(DATE, 5000)).total, 5);
-eq('the other Gauntlet counts only itself', await fetchGauntletStanding(OTHER_DATE, 99999), { place: 1, total: 1 });
+// A run that beats everyone tied with it on words solved, without matching any
+// stored row — the count has to come from the comparison, not from a lookup.
+eq('more words than anyone on that score is ahead of all of them',
+   await fetchGauntletStanding(DATE, 4000, 10), { place: 2, total: N });
+eq('fewer words than everyone on that score is behind all of them',
+   await fetchGauntletStanding(DATE, 4000, 0), { place: 4, total: N });
+
+// Words solved must NOT leak across scores: a 3000 with ten words is still
+// behind both 4000s, however many words they solved.
+eq('words solved never beats a higher score',
+   await fetchGauntletStanding(DATE, 3000, 10), { place: 4, total: N });
+
+// A caller that forgets the third argument must not silently promote itself
+// above everyone tied with it — zero words is the safe floor, not "ignore ties".
+eq('omitting the solved count places you below every tie, not above',
+   await fetchGauntletStanding(DATE, 4000), { place: 4, total: N });
+
+// The field size must be this Gauntlet's alone, despite the standard-mode run
+// sharing the date and p1 having a second daily run.
+eq('other dates and modes excluded', (await fetchGauntletStanding(DATE, 5000, 10)).total, N);
+eq('the other Gauntlet counts only itself', await fetchGauntletStanding(OTHER_DATE, 99999, 10), { place: 1, total: 1 });
 
 // Your own run, by derivable id.
 eq('own run found',        (await api('p1').fetchMyGauntletRun(DATE)).score, 5000);
@@ -92,7 +121,26 @@ eq('signed out is null',    await api(null).fetchMyGauntletRun(DATE), null);
 
 // The callout composes these: read your run, then rank that exact score.
 const mine = await api('p4').fetchMyGauntletRun(DATE);
-eq('end-to-end placement for p4', await fetchGauntletStanding(DATE, mine.score), { place: 4, total: 5 });
+eq('end-to-end placement for p4', await fetchGauntletStanding(DATE, mine.score, mine.wordsGuessed), { place: 4, total: N });
+
+// Legacy rows: a Gauntlet played before the tiebreak existed has no
+// wordsGuessed on its run document. Firestore's range filter skips documents
+// missing the field, so those rows can never be counted as "tied and ahead" —
+// they must still be counted in the field size, and still beatable on score.
+const LEGACY = '2026-09-13';
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const adb = ctx.firestore();
+  for (const [uid, score] of [['q1', 3000], ['q2', 3000], ['q3', 1000]]) {
+    await setDoc(doc(adb, 'runs', `daily_${uid}_${LEGACY}`),
+      { uid, username: uid.toUpperCase(), score, mode: 'daily', puzzleDate: LEGACY });
+  }
+});
+eq('a legacy day still counts everyone in the field',
+   (await fetchGauntletStanding(LEGACY, 3000, 5)).total, 3);
+eq('legacy rows with no wordsGuessed never count as tied-and-ahead',
+   await fetchGauntletStanding(LEGACY, 3000, 5), { place: 1, total: 3 });
+eq('and a lower score is still behind them',
+   await fetchGauntletStanding(LEGACY, 1000, 10), { place: 3, total: 3 });
 
 await env.cleanup();
 let bad = 0;

@@ -80,7 +80,9 @@ ok('positions 8-10 are Hard', [7, 8, 9].every((i) => R.tierOf(i) === 'Hard'));
 // ---- 4. per-word stats from real attempt shapes --------------------------
 const WORDS = ['ARISE', 'HOUSE', 'MEDIA', 'GRAPE', 'TOKEN', 'FLINT', 'WRYLY', 'ABYSS', 'QUELL', 'NYMPH'];
 // history entries are { guesses: [{guess, colors}], solved }; a word never
-// reached has an empty guesses array. A miss ends the run.
+// reached has an empty guesses array. Section 4 below uses sudden-death shapes
+// (a run stops at its miss) and section 4b uses play-all-ten ones, because the
+// archive has to render both eras from the same stored data.
 const h = (spec) => WORDS.map((_, i) => {
   const s = spec[i];
   if (!s) return { guesses: [], solved: false };
@@ -115,6 +117,59 @@ ok('...and the failure is still counted as reaching it', ws[1].reached === 4 && 
 ok('a word nobody solved has no average', ws[5].solved === 1 ? true : ws[5].avgGuesses === null);
 ok('tiers are attached to each word', ws[0].tier === 'Easy' && ws[9].tier === 'Hard');
 
+// ---- 4b. the same maths on a PLAY-ALL-TEN day ---------------------------
+// Every finisher now reaches every word, so `reached` stops discriminating and
+// a miss no longer implies the run stopped. The arithmetic is unchanged, which
+// is the point: these fixtures pin what the SAME code reports for the new era,
+// and the old fixtures above pin what it reports for days already published.
+const allTen = [
+  h([[2, true], [3, true], [1, true], [4, true], [3, true], [5, true], [2, true], [4, true], [3, true], [2, true]]),
+  h([[1, true], [2, true], [5, false], [2, true], [4, true], [5, false], [3, true], [3, true], [5, false], [4, true]]),
+  h([[3, true], [5, false], [2, true], [3, true], [5, false], [4, true], [5, false], [2, true], [5, false], [5, false]]),
+  h([[2, true], [4, true], [3, true], [5, false], [2, true], [3, true], [4, true], [5, false], [3, true], [5, false]]),
+];
+const nw = R.computeWordStats(WORDS, allTen);
+ok('every word is reached by everyone', nw.every((w) => w.reached === 4), nw.map((w) => w.reached).join(','));
+ok('a miss no longer implies the run stopped — player 2 missed word 3 and played on',
+   nw[2].missedBy === 1 && nw[9].reached === 4, `${nw[2].missedBy}/${nw[9].reached}`);
+ok('missedBy counts everyone who missed it, not just the last one',
+   nw[8].missedBy === 2 && nw[8].solved === 2, `${nw[8].missedBy}/${nw[8].solved}`);
+ok('solve rate is now over the whole field', Math.abs(nw[8].solveRate - 0.5) < 1e-9, String(nw[8].solveRate));
+ok('endedRuns stays as an alias so nothing reading it gets undefined',
+   nw.every((w) => w.endedRuns === w.missedBy));
+// The page has to say something true of whichever era the day was played in,
+// and nobody stored a flag — it is inferred from whether everyone saw every word.
+// One run per attempt, so `players` matches and the inference has something to
+// go on.
+const allTenRuns = [
+  { username: 'SLIZZY', score: 4250, wordsGuessed: 10 },
+  { username: 'G_Angle', score: 2400, wordsGuessed: 7 },
+  { username: 'MOSSY', score: 1300, wordsGuessed: 5 },
+  { username: 'DRIFT', score: 1900, wordsGuessed: 7 },
+];
+const newPage = R.renderDayPage({ date: '2026-09-24', words: WORDS, runs: allTenRuns, attempts: allTen, prev: null, next: null });
+ok('a play-all-ten page says everyone saw every word',
+   /Everyone plays all ten words, so every player saw every word here/.test(newPage));
+ok('...and does not claim a miss ended the run', !/a miss ended the run/.test(newPage));
+
+// The era is read off the data, and only where the data proves it. "Everyone
+// reached every word" is NOT proof: a sudden-death day on which every finisher
+// happened to go ten-for-ten looks exactly the same. Proof of play-all-ten is
+// somebody missing a word and playing a later one anyway.
+const allPerfect = [h(Array(10).fill([3, true])), h(Array(10).fill([2, true]))];
+const perfectRuns = [{ username: 'A', score: 1500, wordsGuessed: 10 }, { username: 'B', score: 2500, wordsGuessed: 10 }];
+const ambiguous = R.renderDayPage({ date: '2026-09-24', words: WORDS, runs: perfectRuns, attempts: allPerfect, prev: null, next: null });
+ok('a day where everyone solved everything claims neither rule',
+   !/Everyone plays all ten words/.test(ambiguous) && !/a miss ended the run/.test(ambiguous));
+ok('...and still explains what the Solved column means',
+   /"Solved" is the share of the players who reached that word/.test(ambiguous),
+   (ambiguous.match(/<p style="font-size:13px[^<]*/) || [''])[0].slice(0, 120));
+// One finisher who went ten-for-ten is the same trap at n=1.
+const lone = R.renderDayPage({ date: '2026-09-24', words: WORDS, runs: [perfectRuns[0]], attempts: [allPerfect[0]], prev: null, next: null });
+ok('a single perfect finisher is not mistaken for proof of either rule',
+   !/Everyone plays all ten words/.test(lone) && !/a miss ended the run/.test(lone));
+ok('the Missed column replaced Reached', /<th class="n">Missed<\/th>/.test(newPage) && !/<th class="n">Reached<\/th>/.test(newPage));
+
 // ---- 5. standings and distribution --------------------------------------
 const runs = [
   { username: 'SLIZZY', score: 4250, wordsGuessed: 10 },
@@ -127,6 +182,25 @@ const st = R.computeStandings(runs);
 ok('standings sort by score', st.map((r) => r.name).join(',') === 'SLIZZY,G_Angle,MOSSY,DRIFT,PENUMBRA', st.map((r) => r.name).join(','));
 ok('a tie shares a place', st[1].place === 2 && st[2].place === 2, `${st[1].place},${st[2].place}`);
 ok('the player after a tie takes the skipped place', st[3].place === 4, String(st[3].place));
+
+// Equal scores are split by words solved, the same way the live board orders
+// them — a past day's page disagreeing with the board it was taken from is the
+// kind of thing nobody can explain afterwards.
+const tied = [
+  { username: 'ALPHA', score: 2000, wordsGuessed: 9 },
+  { username: 'BRAVO', score: 2000, wordsGuessed: 6 },
+  { username: 'CHARLIE', score: 2000, wordsGuessed: 9 },
+  { username: 'DELTA', score: 1900, wordsGuessed: 10 },
+];
+const ts = R.computeStandings(tied);
+ok('equal scores sort by words solved', ts.map((r) => r.name).join(',') === 'ALPHA,CHARLIE,BRAVO,DELTA',
+   ts.map((r) => r.name).join(','));
+ok('only an exact match on BOTH fields shares a place', ts[0].place === 1 && ts[1].place === 1 && ts[2].place === 3,
+   ts.map((r) => r.place).join(','));
+ok('a lower score still ranks below a tie it did not join', ts[3].place === 4, String(ts[3].place));
+ok('a higher score beats more words solved', R.computeStandings(
+     [{ username: 'X', score: 100, wordsGuessed: 1 }, { username: 'Y', score: 99, wordsGuessed: 10 }]
+   )[0].name === 'X');
 ok('standings are capped at ten', R.computeStandings(new Array(40).fill({ username: 'X', score: 1 })).length === 10);
 const dist = R.computeDistribution(runs);
 ok('distribution counts perfect runs', dist[10] === 1, String(dist[10]));
@@ -143,7 +217,10 @@ ok('there is a meta description', /<meta name="description" content="[^"]{60,}"/
 ok('there is a canonical url', page.includes('<link rel="canonical" href="https://lexathon.gg/gauntlet/2026-09-24/">'));
 for (const w of WORDS) ok(`${w} appears on the page`, page.includes(w));
 ok('the standings name every player', runs.every((r) => page.includes(r.username)));
-ok('the nemesis word is called out', /ended the most runs/.test(page));
+ok('the nemesis word is called out', /caught the most people out/.test(page));
+ok('no page still claims a single miss ends the run', !/single miss ends the run/.test(page));
+ok('the old-rule page still says the table is survivors only',
+   /a miss ended the run, so later words were only seen by players still going/.test(page));
 ok('the previous day is linked', page.includes('href="/gauntlet/2026-09-23/"'));
 ok('the newest day has no next link', !/gauntlet\/2026-09-25/.test(page) && page.includes('Newest'));
 ok('the page links back to the game', page.includes('href="/"'));

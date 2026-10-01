@@ -3,18 +3,23 @@
  *
  * Two things this pins:
  *
- *   - The result line. "8/10" carries everything the old three-branch line
- *     spelled out, because missing a word ends the run on the spot — solving 8
- *     means you went out on word 9. The old "solved N of 10" branch was
- *     unreachable for exactly that reason; these cases document the invariant
- *     rather than leave it as a comment.
- *   - The run bar. A picture is back in the share, but not the grid that was
- *     here before: that one coloured each word by GUESS COUNT, five meanings
- *     a reader cannot infer. Wordle's grid works because its colours are
- *     feedback the reader already knows from playing the same puzzle. This
- *     carries one dimension — solved, the word that ended you, never reached
- *     — which needs no legend, and sits on its own line because sharing a
- *     line with the result is what made the old grid wrap.
+ *   - The result line. "8/10" is the whole outcome, because every run plays
+ *     all ten words — so the count alone is comparable between two players,
+ *     which is the entire point of a shared daily puzzle. It replaced a
+ *     three-branch line that had to say where a run ended, back when a run
+ *     could end anywhere.
+ *   - The run bar: one mark per word, in play order. Now that everyone plays
+ *     all ten, position means the same thing to every reader — word 7 is word
+ *     7 — which is the property that makes a shared-puzzle grid worth looking
+ *     at. It carries one dimension, solved or not, so it needs no legend; the
+ *     grid that preceded it coloured by GUESS COUNT, five meanings a reader
+ *     cannot infer, which is what got it dropped. It sits on its own line
+ *     because sharing a line with the result is what made that grid wrap.
+ *
+ *     The legacy cases below still pass unchanged, and are kept deliberately:
+ *     a player who finished under the old rule and reopens the modal after the
+ *     change has a history that stops at their miss, and their share must still
+ *     read correctly rather than claiming ten words.
  *   - The link on its own line. navigator.share({text, url}) lets the
  *     receiving app join the two however it likes, which in practice is with a
  *     space, so the URL ran onto the end of the last line. The URL now lives
@@ -41,6 +46,8 @@ console.log('extracted from index.html:', src.length, 'chars');
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([ok, name, detail]);
+const barOf0 = (msg) => msg.split('\n')[1];
+const glyphs0 = (bar) => [...bar].filter((c) => c !== '\uFE0F').length;
 
 // --- the message the share builds ----------------------------------------
 const buildShare = new Function('attempt', `
@@ -67,6 +74,7 @@ ck(out.message.split('\n').length === 3, 'heading, bar, result', out.message.spl
 // The per-word GUESS-COUNT grid stays gone — this is not that.
 ck(!/[0-9]️⃣/.test(out.message), 'no per-word guess-count digits');
 
+// --- legacy: attempts recorded before everyone played all ten ------------
 // Out on word 9 after solving 8. The remaining slot is never touched.
 out = buildShare(attempt([...solvedRun([3, 4, 4, 5, 3, 4, 5, 4]), word(5, false), ...untouched(1)], 430));
 ck(out.message === '🕹️ Lexathon Gauntlet #15\n🟩🟩🟩🟩🟩🟩🟩🟩❌⬜\n💰 8/10 · 430 pts · 4.1 avg',
@@ -95,6 +103,53 @@ ck(out.message.includes('5,000 pts'), 'scores are thousands-separated', JSON.str
 // URL into a card that names it again, so the label said it a third time.
 ck(out.linkLabel === undefined, 'the daily share adds no label to its link', JSON.stringify(out.linkLabel));
 ck(out.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.url));
+
+// --- play-all-ten: a miss is a mark in place, not the end of the bar ------
+// This is the case the old shape could not express at all, and the one the old
+// fixtures cannot distinguish: every legacy run's misses are trailing, so a bar
+// built as "greens, then one cross, then blanks" and one built per word in play
+// order produce byte-identical output for all of them.
+const miss = () => word(5, false);
+const g = (n) => solvedRun(Array(n).fill(3));
+
+out = buildShare(attempt([...g(2), miss(), ...g(7)], 2350));
+ck(barOf0(out.message) === '🟩🟩❌🟩🟩🟩🟩🟩🟩🟩',
+   'a miss on word 3 is a cross in position 3, with seven greens after it', JSON.stringify(barOf0(out.message)));
+ck(out.message.includes('💰 9/10'), 'and the count is nine of ten', out.message);
+
+out = buildShare(attempt([miss(), ...g(3), miss(), ...g(2), miss(), ...g(2)], 1800));
+ck(barOf0(out.message) === '❌🟩🟩🟩❌🟩🟩❌🟩🟩',
+   'scattered misses each keep their own slot', JSON.stringify(barOf0(out.message)));
+ck(out.message.includes('💰 7/10'), 'seven of ten', out.message);
+
+out = buildShare(attempt([...g(9), miss()], 4510));
+ck(barOf0(out.message) === '🟩🟩🟩🟩🟩🟩🟩🟩🟩❌',
+   'a miss on the last word is a cross in the last slot, not a blank', JSON.stringify(barOf0(out.message)));
+
+out = buildShare(attempt(Array(10).fill(word(5, false)), 0));
+ck(barOf0(out.message) === '❌❌❌❌❌❌❌❌❌❌',
+   'missing every word is ten crosses, not one cross and nine blanks', JSON.stringify(barOf0(out.message)));
+ck(out.message.includes('💰 0/10 · 0 pts · 5.0 avg'), 'nothing solved, five guesses a word', out.message);
+// Ten crosses is the longest the result line's companion can get; it must not
+// push the result line over the width that made the old grid wrap.
+ck(!/[🟩⬜❌]/u.test(out.message.split('\n')[2]), 'a ten-miss run still keeps blocks off the result line');
+
+// Red on green is the one pairing a colour-blind reader cannot separate, and a
+// run can now carry up to ten misses — so the miss mark stays a SHAPE.
+ck(!/🟥|🔴/u.test(out.message), 'misses are marked by shape, not by a red square', JSON.stringify(out.message));
+
+// A perfect run is unchanged by any of this.
+ck(buildShare(attempt(g(10), 5000)).message.includes('🏆 PERFECT · 10/10'), 'a perfect run still reads PERFECT');
+
+// Every play-all-ten run is exactly ten marks and no blanks.
+for (const solved of [0, 1, 4, 7, 9, 10]) {
+  const history = [...g(solved), ...Array(10 - solved).fill(word(5, false))];
+  const bar = barOf0(buildShare(attempt(history, 100)).message);
+  ck(glyphs0(bar) === 10, `${solved} solved: ten marks`, `${glyphs0(bar)} in ${JSON.stringify(bar)}`);
+  ck([...bar].filter((c) => c === '🟩').length === solved, `${solved} solved: one green each`, bar);
+  ck((bar.match(/❌/g) || []).length === 10 - solved, `${solved} solved: one cross per miss`, bar);
+  ck(!bar.includes('⬜'), `${solved} solved: no blanks, because every word was played`, bar);
+}
 
 // --- the bar, in its own right -------------------------------------------
 const barOf = (msg) => msg.split('\n')[1];

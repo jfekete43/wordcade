@@ -310,7 +310,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
   // query has to be prepared here alongside the plain doc reads below
   // rather than run separately afterward.
   const top10Query = run.mode === "daily" && run.puzzleDate
-    ? db.collection("runs").where("mode", "==", "daily").where("puzzleDate", "==", run.puzzleDate).orderBy("score", "desc").limit(10)
+    ? db.collection("runs").where("mode", "==", "daily").where("puzzleDate", "==", run.puzzleDate).orderBy("score", "desc").orderBy("wordsGuessed", "desc").limit(10)
     : null;
 
   await db.runTransaction(async (tx) => {
@@ -437,8 +437,24 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // the day. Only ever set once (never re-decremented/reset) since this
     // is a one-time career challenge, not a daily-resetting one.
     if (top10Snap && !user.achievedTop10Daily) {
-      const others = top10Snap.docs.filter((d) => d.id !== runRef.id).map((d) => d.data().score || 0);
-      const madeTop10 = others.length < 10 || score > Math.min(...others);
+      // Ordered the same way the board is - score, then words solved - so
+      // "top 10" means the same thing here as it does on the screen the
+      // achievement is named after. Comparing on score alone would hand the
+      // badge to a player the board shows 11th, and withhold it from one it
+      // shows 10th, whenever a tie straddles the cut.
+      //
+      // The query is already in that order, so the weakest of the others is
+      // simply the last of them - no min() over a key that is now a pair.
+      const others = top10Snap.docs.filter((d) => d.id !== runRef.id);
+      const rank = (d) => [Math.max(0, Number(d.score) || 0), Math.max(0, Number(d.wordsGuessed) || 0)];
+      // Not strictly ahead of the cut row — level with it counts, because the
+      // board gives tied runs a SHARED place. Two runs level on both keys both
+      // read "#10" on screen, and only one of them can be inside a limit(10)
+      // that Firestore then breaks by document id. Requiring strictly-ahead
+      // here would hand the badge to one and refuse the other for a reason
+      // neither could see.
+      const notBelow = (a, b) => (a[0] !== b[0] ? a[0] > b[0] : a[1] >= b[1]);
+      const madeTop10 = others.length < 10 || notBelow([score, wordsGuessed], rank(others[others.length - 1].data()));
       if (madeTop10) update.achievedTop10Daily = 1;
     }
 
@@ -890,11 +906,12 @@ exports.refreshProfile = onCall(async (request) => {
 // ============================================================================
 // DAILY GAUNTLET — a shared, once-per-day puzzle: everyone gets the same
 // DAILY_GAUNTLET_WORD_COUNT words each Eastern-time day (see
-// getTodayDateStr), one attempt each. Failing a
-// word ends the run with whatever was earned so far (no continues/wipeout —
-// this mode is meant to be a low-stress daily ritual, not the high-stakes
-// endless mode). Feeds the "Daily" leaderboard tab, replacing what used to
-// just be arbitrary endless-mode runs filtered by timestamp.
+// getTodayDateStr), one attempt each. Everyone plays all ten: running out of
+// guesses on a word reveals the answer and moves play to the next one, scoring
+// nothing for it, and only running out of words ends the run (no
+// continues/wipeout — this mode is meant to be a low-stress daily ritual, not
+// the high-stakes endless mode). Today's board is ordered by score, then by
+// words solved.
 //
 // dailyPuzzles/{date} is never readable by the client (see firestore.rules)
 // — the client only ever learns the words one letter-color at a time via
@@ -1158,18 +1175,27 @@ exports.guessDailyWord = onCall(async (request) => {
 
     let earned = 0;
     let wordFinished = false;
-    let failedOut = false;
     if (solved) {
       earned = SCORE_POINTS[guessNumber - 1];
       wordFinished = true;
     } else if (guessNumber >= DAILY_GAUNTLET_MAX_GUESSES) {
+      // Out of guesses on this word. The answer is revealed and play moves to
+      // the next one; it is not the end of the run.
       wordFinished = true;
-      failedOut = true;
     }
 
     const newScore = attempt.score + earned;
     const newWordIndex = wordFinished ? wordIndex + 1 : wordIndex;
-    const gauntletFinished = wordFinished && (failedOut || newWordIndex >= attempt.wordCount);
+    // Everyone plays all ten words. Only running out of words ends the run.
+    //
+    // This used to stop at the first miss. pickDailyWords builds each puzzle as
+    // a ramp - three from the easy third of the list, four from the middle,
+    // three from the hardest, in that order - so stopping at the first miss put
+    // the hard tier in front of roughly a quarter of players, and made the board
+    // sort mostly by how far you survived rather than how well you guessed. It
+    // also meant the per-word difficulty numbers the archive publishes were
+    // drawn from whoever was still alive, which flattered the hardest words.
+    const gauntletFinished = wordFinished && newWordIndex >= attempt.wordCount;
     const newStatus = gauntletFinished ? "finished" : "active";
 
     tx.update(ref, { history: newHistory, score: newScore, wordIndex: newWordIndex, status: newStatus });
@@ -1182,7 +1208,7 @@ exports.guessDailyWord = onCall(async (request) => {
       // own payoutApplied guard makes any retry a no-op) lets onRunCreated
       // apply wallet/careerBank/stat counters through its existing trigger,
       // no separate payout logic needed here.
-      let wordsGuessed = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, g5 = 0, currentStreak = 0, bestStreak = 0;
+      let wordsGuessed = 0, g1 = 0, g2 = 0, g3 = 0, g4 = 0, g5 = 0, currentStreak = 0, bestStreak = 0, missed = 0;
       newHistory.forEach((entry) => {
         if (entry.guesses.length === 0) return; // word never reached
         if (entry.solved) {
@@ -1193,6 +1219,7 @@ exports.guessDailyWord = onCall(async (request) => {
           if (n === 1) g1++; else if (n === 2) g2++; else if (n === 3) g3++; else if (n === 4) g4++; else if (n === 5) g5++;
         } else {
           currentStreak = 0;
+          missed++;
         }
       });
       const wordsPlayed = newHistory.filter((entry) => entry.guesses.length > 0).length;
@@ -1210,7 +1237,11 @@ exports.guessDailyWord = onCall(async (request) => {
       tx.set(runRef, {
         uid, username, equipped, score: newScore, isWipeout: false, lostScore: 0,
         wordsGuessed, wordsPlayed, guess1: g1, guess2: g2, guess3: g3, guess4: g4, guess5: g5,
-        fails: failedOut ? 1 : 0, kobeCount: 0, bestStreak,
+        // One per missed word, not 0-or-1: a run can now miss up to ten. This
+        // is the same thing `fails` means for a standard run - words played
+        // and not guessed - which is what the Profile's win rate divides by
+        // `wordsPlayed` to get.
+        fails: missed, kobeCount: 0, bestStreak,
         mode: "daily", puzzleDate: today,
         timestamp: FieldValue.serverTimestamp(),
       });

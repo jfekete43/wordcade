@@ -94,10 +94,21 @@ export function tierOf(index) {
  *
  * `attempts` is one entry per player who FINISHED, each the `history` array
  * off dailyAttempts/{uid}/days/{date}: one { guesses:[], solved } per word,
- * in play order, with untouched words left empty. A miss ends the run, so a
- * word's `reached` count is also how many players were still alive when they
- * got to it — which is why `endedRuns` is worth reporting separately from a
- * plain fail rate.
+ * in play order, with untouched words left empty.
+ *
+ * The arithmetic here is deliberately unchanged from when a miss ended the
+ * run, because it reads the stored history either way and the archive holds
+ * both eras. What the numbers MEAN moved:
+ *
+ *   reached   — then: players still alive at that word. Now: everyone, since
+ *               everyone plays all ten. Still literally "players who got here".
+ *   endedRuns — then: runs that ended on this word. Now: players who missed it.
+ *               The same count both times; `missedBy` is the name that is true
+ *               of both, which is what the page prints.
+ *   solveRate — then: of the survivors who reached it. Now: of the whole field,
+ *               which is the number it was always trying to be.
+ *
+ * So a page rebuilt for an old day still reports exactly what it did before.
  */
 export function computeWordStats(words, attempts) {
   return words.map((word, i) => {
@@ -110,7 +121,9 @@ export function computeWordStats(words, attempts) {
       else endedRuns++;
     }
     return {
-      index: i, word, tier: tierOf(i), reached, solved, endedRuns,
+      // `missedBy` is the name used from here on; `endedRuns` stays as an alias
+      // so an older caller (or an old test) is not silently reading undefined.
+      index: i, word, tier: tierOf(i), reached, solved, missedBy: endedRuns, endedRuns,
       // Averaged over the players who SOLVED it, not everyone who reached
       // it. A failed word is always five guesses, so including failures
       // would drag this toward 5 in step with the solve rate reported
@@ -124,11 +137,19 @@ export function computeWordStats(words, attempts) {
 
 // Standings with shared places on a tie, which is how the in-app board and
 // the payout code both behave.
+//
+// Score first, then words solved — the same tiebreak the live board orders by,
+// because a past day's page and the board it was taken from disagreeing about
+// who came second is the kind of thing nobody can explain afterwards. A tie is
+// therefore both fields matching, not just the score.
 export function computeStandings(runs, limit = 10) {
-  const sorted = [...runs].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const key = (r) => [r.score || 0, r.wordsGuessed || 0];
+  const sorted = [...runs].sort((a, b) => (b.score || 0) - (a.score || 0) || (b.wordsGuessed || 0) - (a.wordsGuessed || 0));
   let place = 0;
   return sorted.slice(0, limit).map((r, i) => {
-    if (i === 0 || (sorted[i - 1].score || 0) !== (r.score || 0)) place = i + 1;
+    const prev = i > 0 ? key(sorted[i - 1]) : null;
+    const mine = key(r);
+    if (i === 0 || prev[0] !== mine[0] || prev[1] !== mine[1]) place = i + 1;
     return { place, name: r.username || "Player", score: r.score || 0, solved: r.wordsGuessed || 0 };
   });
 }
@@ -297,13 +318,34 @@ export function renderDayPage(day) {
   const perfect = dist[WORD_COUNT];
   const topScore = standings.length ? standings[0].score : 0;
   const avgSolved = players ? day.runs.reduce((a, r) => a + (r.wordsGuessed || 0), 0) / players : 0;
-  // The word that ended the most runs, which is the thing people argue about.
-  const nemesis = stats.filter((s) => s.endedRuns > 0).sort((a, b) => b.endedRuns - a.endedRuns)[0] || null;
+  // The word that caught the most people out, which is the thing people argue
+  // about. Ties broken by the later word, since a late word beating an early
+  // one by the same count is the harder scalp on a puzzle built easiest-first.
+  const nemesis = stats.filter((s) => s.missedBy > 0).sort((a, b) => b.missedBy - a.missedBy || b.index - a.index)[0] || null;
+  /*
+   * Which rule was this day played under? Nobody stored a flag, so it is read
+   * off the data - but only where the data actually proves it.
+   *
+   * Proof of play-all-ten is positive and specific: somebody missed a word and
+   * went on to play a later one, which the old rule made impossible. Proof of
+   * the old rule is equally positive: some word was reached by fewer players
+   * than finished, which the new rule makes impossible.
+   *
+   * Neither is guaranteed to be present. A day on which every finisher solved
+   * every word looks identical under both rules - and inferring from "everyone
+   * reached every word" alone would label exactly that day wrongly. So when the
+   * data cannot tell, the page says the thing that is true either way rather
+   * than guessing.
+   */
+  const playedOn = day.attempts.some((h) =>
+    h.some((e, i) => e && e.guesses.length > 0 && !e.solved && h.slice(i + 1).some((x) => x && x.guesses.length > 0)));
+  const someoneStoppedShort = players > 0 && stats.some((s) => s.reached < players);
+  const era = playedOn ? "all-ten" : someoneStoppedShort ? "sudden-death" : "unknown";
   const distMax = Math.max(1, ...dist);
 
   const title = `Lexathon Gauntlet #${n} — ${pretty}`;
   const description = players
-    ? `All ten words from Lexathon Gauntlet #${n} (${pretty}), with the final standings, how many guesses each word took, and which one ended the most runs.`
+    ? `All ten words from Lexathon Gauntlet #${n} (${pretty}), with the final standings, how many guesses each word took, and which one caught the most people out.`
     : `The ten words from Lexathon Gauntlet #${n} (${pretty}).`;
 
   let html = head(title, description, `${SITE}/gauntlet/${day.date}/`);
@@ -325,7 +367,7 @@ export function renderDayPage(day) {
     html += perfect > 0
       ? `${num(perfect)} got all ten.`
       : `Nobody got all ten.`;
-    if (nemesis) html += ` <strong>${escapeHtml(nemesis.word)}</strong> ended the most runs — ${num(nemesis.endedRuns)} of them.`;
+    if (nemesis) html += ` <strong>${escapeHtml(nemesis.word)}</strong> caught the most people out — ${num(nemesis.missedBy)} missed it.`;
     html += `</p>\n`;
   } else {
     html += `        <p class="lede">Nobody finished this one.</p>\n`;
@@ -335,15 +377,19 @@ export function renderDayPage(day) {
         <h2>The Ten Words</h2>
         <p>Drawn easiest-first: three from the easy third of the word list, four from the middle, three from the hardest.</p>
         <table>
-            <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Reached</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
+            <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Missed</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
 `;
   for (const s of stats) {
     html += `            <tr><td>${s.index + 1}</td><td class="word">${escapeHtml(s.word)}</td>`
-      + `<td class="tier hide-sm">${s.tier}</td><td class="n">${num(s.reached)}</td>`
+      + `<td class="tier hide-sm">${s.tier}</td><td class="n">${num(s.missedBy)}</td>`
       + `<td class="n">${pct(s.solveRate)}</td><td class="n">${avg(s.avgGuesses)}</td></tr>\n`;
   }
   html += `        </table>\n`;
-  if (players) html += `        <p style="font-size:13px;color:#888;">"Reached" counts players still alive when they got to that word — a miss ends the run, so later words are seen by fewer people by design.</p>\n`;
+  if (players) html += era === "all-ten"
+    ? `        <p style="font-size:13px;color:#888;">Everyone plays all ten words, so every player saw every word here \u2014 "Solved" is the share of the whole field that got it.</p>\n`
+    : era === "sudden-death"
+    ? `        <p style="font-size:13px;color:#888;">On this puzzle a miss ended the run, so later words were only seen by players still going \u2014 "Solved" is the share of those who got that far.</p>\n`
+    : `        <p style="font-size:13px;color:#888;">"Solved" is the share of the players who reached that word.</p>\n`;
 
   if (standings.length) {
     html += `
@@ -394,14 +440,14 @@ ${NAV}
 export function renderHubPage(days) {
   const newest = days[0];
   const title = "Past Gauntlets — Every Lexathon Daily Puzzle";
-  const description = `Every past Lexathon Gauntlet: all ten words from each day, the final standings, and which word ended the most runs. ${days.length} puzzles so far.`;
+  const description = `Every past Lexathon Gauntlet: all ten words from each day, the final standings, and which word caught the most people out. ${days.length} puzzles so far.`;
   let html = head(title, description, `${SITE}/gauntlet/`);
   html += `
     <div class="container">
         <h1>Past Gauntlets</h1>
         <div class="sub">${days.length} ${days.length === 1 ? "puzzle" : "puzzles"} so far</div>
 
-        <p class="lede">The Gauntlet is one shared puzzle a day: ten words, five guesses each, and a single miss ends the run. Everybody gets the same ten. Once a day is over its words go here, along with the final standings and how hard each word turned out to be.</p>
+        <p class="lede">The Gauntlet is one shared puzzle a day: ten words, five guesses each, and everybody plays all ten. Everybody gets the same ten. Once a day is over its words go here, along with the final standings and how hard each word turned out to be.</p>
 
         <p>Today's puzzle is never listed — <a href="/">play it first</a>.</p>
 
