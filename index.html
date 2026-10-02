@@ -441,6 +441,11 @@
            half of the pair inline is what broke it. */
         .btn-gold { background-color: #ffd700; color: #000; }
         .btn-gold:hover { background-color: #e6c200; }
+        /* Clash's primary action. Same reason .btn-gold exists: a filled button
+           owns its text colour, so the way to recolour one is a class, not an
+           inline override of half the pair. Black on #ff9800 measures 9.7:1. */
+        .btn-orange { background-color: #ff9800; color: #000; }
+        .btn-orange:hover { background-color: #e08600; }
         .btn-dark { background-color: #333; color: white; border: 2px solid #777 !important; }
         .btn-dark:hover { background-color: #555; }
         /* Google's own sign-in treatment rather than the arcade palette:
@@ -1106,23 +1111,28 @@
     </div>
 
     <!-- VERSUS LOBBY MODAL -->
+    <!-- Clash's own colour is #ff9800, the same as its nav button. Every other
+         mode already does this - FFA's lobby and end modal are gold like the FFA
+         button, the Gauntlet's are purple - and this one was cyan, so tapping
+         the orange button opened a blue box. The result colours inside stay as
+         they are: green for a win and red for a loss are signals, not theme. -->
     <div id="versus-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff;">
-            <h2 class="modal-title" style="color: #00ffff;">Head-to-Head</h2>
+        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
+            <h2 class="modal-title" style="color: #ff9800;">Head-to-Head</h2>
                 <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
                     Score Attack rules. No Continues. <br>First to 1,000 points or highest score when time expires wins!
                 </div>
             
             <div id="lobby-action-view">
                 <div class="modal-buttons">
-                    <button class="btn-cyan" onclick="window.findRandomMatch()">Find Random Match</button>
+                    <button class="btn-orange" onclick="window.findRandomMatch()">Find Random Match</button>
                     
                     <!-- NEW LIVE COUNTER DIV HERE -->
-                    <div id="active-searchers-text" style="color: #00ffff; font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+                    <div id="active-searchers-text" style="color: #ff9800; font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
                     
                     <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
                     
-                    <button class="btn-dark" style="border-color: #00ffff !important; color: #00ffff;" onclick="window.hostMatch()">Host Private Match</button>
+                    <button class="btn-dark" style="border-color: #ff9800 !important; color: #ff9800;" onclick="window.hostMatch()">Host Private Match</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
                         <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinMatch()">Join</button>
@@ -1135,10 +1145,10 @@
                 <h2 id="waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
                 
                 <!-- ROOM CODE DISPLAY -->
-                <div id="display-room-code" style="font-size: 32px; color: #00ffff; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
+                <div id="display-room-code" style="font-size: 32px; color: #ff9800; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
 
                 <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
-                <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: #00ffff !important; color: #00ffff; margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
+                <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: #ff9800 !important; color: #ff9800; margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
 
                 <!-- SUB-TEXT BLOCK -->
                 <div id="waiting-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 20px; font-style: italic;"></div>
@@ -1158,12 +1168,12 @@
 
     <!-- VERSUS END MODAL -->
     <div id="versus-end-modal" class="modal-overlay">
-        <div class="modal-box">
+        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
             <h2 class="modal-title" id="vs-end-title">You Win!</h2>
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
             
             <div class="modal-buttons">
-                <button class="btn-cyan" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
+                <button class="btn-orange" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
                 <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: #aaa; font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
                 <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
             </div>

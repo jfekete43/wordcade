@@ -138,6 +138,44 @@ ck(/btn-cash-out/.test(scoreBoard), 'it sits with the score it banks', scoreBoar
 ck(/\n\s*\.cash-out-btn \{/.test(html), 'and has a rule of its own outside the nav');
 
 let bad = 0;
+// ---- each mode's modals wear that mode's colour -------------------------
+// Not contrast, but the same family of mistake and nothing else was looking:
+// Clash's nav button is orange and its lobby was cyan, so tapping an orange
+// button opened a blue box. FFA and the Gauntlet already matched, which is
+// what made Clash look like an oversight rather than a choice.
+//
+// Only the chrome is checked. The colours INSIDE an end modal are signals -
+// green for a win, red for a loss, red for a destructive Cancel - and must not
+// be dragged into the theme.
+{
+  const src = fs.readFileSync(REPO('index.html'), 'utf8');
+  const colourOf = (re) => { const m = src.match(re); return m ? m[1].toLowerCase() : null; };
+  const MODES = [
+    { name: 'Clash',    button: /#btn-mode \{ color: (#[0-9a-fA-F]{6});/,                 modals: ['versus-lobby-modal', 'versus-end-modal'] },
+    { name: 'FFA',      button: /\.arcade-menu \.ffa-btn \{ color: (#[0-9a-fA-F]{6});/,   modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
+    { name: 'Gauntlet', button: /\.arcade-menu \.daily-btn \{ color: (#[0-9a-fA-F]{6});/, modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
+  ];
+  for (const mode of MODES) {
+    const want = colourOf(mode.button);
+    ck(!!want, `${mode.name}: its nav button states a colour`, String(want));
+    for (const id of mode.modals) {
+      const at = src.indexOf(`id="${id}"`);
+      const box = at < 0 ? '' : src.slice(at, at + 400);
+      const border = (box.match(/border-color: (#[0-9a-fA-F]{6})/) || [])[1];
+      ck(at > 0, `${mode.name}: ${id} exists`);
+      ck(border && border.toLowerCase() === want,
+         `${mode.name}: ${id} is bordered in the mode's own colour`, `${border} vs ${want}`);
+    }
+  }
+  // A filled button owns its text colour, which is why .btn-gold exists at all
+  // (gold text on a cyan fill measured 1.12:1). Each mode's primary action gets
+  // its own class rather than an inline override of half the pair.
+  ck(/\.btn-orange \{ background-color: #ff9800; color: #000; \}/.test(src),
+     'Clash has a filled button class rather than an inline override');
+  ck(!/class="btn-cyan"[^>]*onclick="window\.(findRandomMatch|rematchVersusMatch)\(\)"/.test(src),
+     "and Clash's primary actions no longer use the generic cyan one");
+}
+
 for (const [ok, name, detail] of t) {
   if (!ok) bad++;
   console.log((ok ? 'PASS' : 'FAIL').padEnd(6) + name + (ok ? '' : '  -> ' + detail));
