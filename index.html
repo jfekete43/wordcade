@@ -985,28 +985,16 @@
         </div>
     </div>
 
-    <!-- Gauntlet headline card. The Gauntlet is the reason to come back
-         tomorrow, but as one of five equal buttons in the nav it reads as one
-         of five things. This states today's puzzle, where you stand on it and
-         when the next one lands, without making it the mode the site boots
-         into — Standard is the forgiving, instant, offline-capable front door
-         a first-time visitor needs. -->
-    <div id="gauntlet-card" style="display:none;">
-        <div id="gauntlet-card-head">
-            <span id="gauntlet-card-title">Daily Gauntlet</span>
-            <span id="gauntlet-card-timer"></span>
-        </div>
-        <div id="gauntlet-card-body">Ten words, five guesses each. Everyone plays all ten.</div>
-        <button id="gauntlet-card-btn" onclick="window.openDailyGauntlet()">Play Today's Gauntlet</button>
-    </div>
-
     <!-- Today's Standard board. This slot used to hold a three-line "Live
          Arcade Feed" of the most recent runs, which at low traffic mostly
          advertised how quiet it was. A board is always worth reading, it is
          the most winnable ladder in the game because it resets nightly, and
          because today's rows come from a live query it still does the feed's
          job — the order visibly changes as people play.
-         Arrows step back through finished days. -->
+         Arrows step back through finished days.
+
+         First of the two panels under the keyboard, because it belongs to the
+         mode this screen IS. The Gauntlet card below it is a cross-sell. -->
     <div id="daily-board-container">
         <div id="daily-board-head">
             <button id="daily-board-prev" onclick="window.stepDailyBoard(-1)" title="Earlier day">&lsaquo;</button>
@@ -1017,8 +1005,27 @@
         <div id="daily-board-you"></div>
     </div>
 
-    <!-- Today's Gauntlet board. Shown only in Gauntlet mode, in place of the
-         Live Arcade Feed above (the two are never visible at once). -->
+    <!-- Gauntlet headline card. The Gauntlet is the reason to come back
+         tomorrow, but as one of five equal buttons in the nav it reads as one
+         of five things. This states today's puzzle, where you stand on it and
+         when the next one lands, without making it the mode the site boots
+         into — Standard is the forgiving, instant, offline-capable front door
+         a first-time visitor needs.
+
+         It sits BELOW today's Standard board, deliberately: this screen is
+         Standard, so the board for the mode you are actually playing comes
+         first, and the cross-sell to a different mode comes after it. -->
+    <div id="gauntlet-card" style="display:none;">
+        <div id="gauntlet-card-head">
+            <span id="gauntlet-card-title">Daily Gauntlet</span>
+            <span id="gauntlet-card-timer"></span>
+        </div>
+        <div id="gauntlet-card-body">Ten words, five guesses each. Everyone plays all ten.</div>
+        <button id="gauntlet-card-btn" onclick="window.openDailyGauntlet()">Play Today's Gauntlet</button>
+    </div>
+
+    <!-- Today's Gauntlet board. Shown only in Gauntlet mode, taking the slot
+         today's Standard board occupies above (the two are never both up). -->
     <div id="gauntlet-feed-container" style="display:none;">
         <div id="gauntlet-feed-head">
             <div id="gauntlet-feed-title">Today's Gauntlet Board</div>

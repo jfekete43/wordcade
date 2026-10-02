@@ -149,6 +149,28 @@ for (const today of ['2026-01-01', '2026-03-08', '2026-09-30', '2026-11-01', '20
 }
 ck(drift.length === 0, 'the client and the tool step through days identically', drift.slice(0, 3).join(' | '));
 
+// --- where the board sits on the Standard screen --------------------------
+// Two panels share the space under the keyboard, and which comes first is the
+// whole point of each: this screen IS Standard, so the board for the mode you
+// are playing leads, and the Gauntlet card below it is a cross-sell to a
+// different one. They were the other way round, which put a prompt for
+// somewhere else above the thing you had just done.
+const boardAt = html.indexOf('<div id="daily-board-container"');
+const cardAt = html.indexOf('<div id="gauntlet-card"');
+const gFeedAt = html.indexOf('<div id="gauntlet-feed-container"');
+ck(boardAt > 0 && cardAt > 0, 'both panels are in the markup', `${boardAt}/${cardAt}`);
+ck(boardAt < cardAt, "today's Standard board comes before the Gauntlet card", `board@${boardAt} card@${cardAt}`);
+// The Gauntlet board replaces the Standard one in Gauntlet mode, so it belongs
+// after both rather than between them.
+ck(cardAt < gFeedAt, 'and the Gauntlet board stays after both', `card@${cardAt} feed@${gFeedAt}`);
+// Only one of the two boards is ever up; both start hidden and are shown by
+// mode. If the Standard board ever shipped hidden by default the home screen
+// would just be missing it.
+ck(/<div id="gauntlet-feed-container" style="display:none;">/.test(html),
+   "the Gauntlet board starts hidden, since Standard is the front door");
+ck(/<div id="daily-board-container">\s/.test(html),
+   "today's Standard board is not hidden by default");
+
 // --- the write path -------------------------------------------------------
 const fn = read('functions/index.js');
 const onRun = (fn.match(/exports\.onRunCreated = onDocumentCreated\([\s\S]*?\n\}\);/) || [''])[0];
