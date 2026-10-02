@@ -89,6 +89,10 @@ const SHOP_ITEMS = {
     { id: "banner_solaris", cost: 26500 },
     { id: "banner_bloodmoon", cost: 34500 },
     { id: "banner_frostbite", cost: 4600, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
+    { id: "banner_harvest", cost: 4600, seasonal: { season: "thanksgiving" } },
+    { id: "banner_sweetheart", cost: 4600, seasonal: { season: "valentines" } },
+    { id: "banner_eggshell", cost: 4600, seasonal: { season: "easter" } },
+    { id: "banner_firework", cost: 4600, seasonal: { season: "julyfourth" } },
     { id: "banner_celestial", cost: 37500 },
     { id: "banner_titanium", cost: 17500 },
     { id: "banner_circuit", cost: 24500 },
@@ -122,6 +126,9 @@ const SHOP_ITEMS = {
     { id: "effect_prism", cost: 24500 },
     { id: "effect_supernova", cost: 31500 },
     { id: "effect_haunted", cost: 4600, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+    { id: "effect_tinsel", cost: 4600, seasonal: { season: "christmas" } },
+    { id: "effect_countdown", cost: 4600, seasonal: { season: "newyear" } },
+    { id: "effect_shamrock", cost: 4600, seasonal: { season: "stpatricks" } },
     { id: "effect_celestial", cost: 37500 },
     { id: "effect_permafrost", cost: 13750 },
     { id: "effect_chrome", cost: 19250 },
@@ -138,6 +145,72 @@ function isWithinSeasonalWindow(fromMD, toMD, now = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   const cur = `${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
   return fromMD <= toMD ? (cur >= fromMD && cur <= toMD) : (cur >= fromMD || cur <= toMD);
+}
+
+// ---------------------------------------------------------------------------
+// HOLIDAY WINDOWS — the same eight the site themes itself for, so an item is
+// buyable exactly while its holiday is on screen. Mirrored from the Seasons
+// module in index.html; this copy is the enforced one.
+//
+// A fixed "MM-DD" pair cannot express two of them: Easter moves between 22
+// March and 25 April, and Thanksgiving is the fourth Thursday of November. So
+// an item says `seasonal: { season: "easter" }` and the dates are computed on
+// both sides from the same arithmetic, rather than approximated by a window
+// wide enough to contain every possible date.
+// ---------------------------------------------------------------------------
+const utcDay = (y, m, d) => new Date(Date.UTC(y, m - 1, d));
+
+// Meeus/Jones/Butcher.
+function easterFor(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100;
+  const d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return utcDay(y, Math.floor((h + l - 7 * m + 114) / 31), ((h + l - 7 * m + 114) % 31) + 1);
+}
+function thanksgivingFor(y) {
+  const first = utcDay(y, 11, 1);
+  return utcDay(y, 11, 1 + ((4 - first.getUTCDay()) + 7) % 7 + 21);
+}
+
+// Same priority order as the client: Easter outranks St Patrick's because an
+// early Easter opens inside St Patrick's window (2027, 2032, 2035).
+const SEASON_WINDOWS = [
+  { id: "easter", lead: 10, on: easterFor },
+  { id: "stpatricks", lead: 10, on: (y) => utcDay(y, 3, 17) },
+  { id: "valentines", lead: 10, on: (y) => utcDay(y, 2, 14) },
+  { id: "julyfourth", lead: 10, on: (y) => utcDay(y, 7, 4) },
+  { id: "halloween", lead: 16, on: (y) => utcDay(y, 10, 31) },
+  { id: "thanksgiving", lead: 10, on: thanksgivingFor },
+  { id: "christmas", lead: 10, on: (y) => utcDay(y, 12, 25) },
+  { id: "newyear", lead: 2, on: (y) => utcDay(y, 1, 1) },
+];
+
+// Whole days, inclusive both ends. Adjacent years are checked because New
+// Year's window opens on 30 December of the year before it.
+function isSeasonActive(seasonId, now = new Date()) {
+  const entry = SEASON_WINDOWS.find((s) => s.id === seasonId);
+  if (!entry) return false;
+  const ymd = (date) => date.toISOString().slice(0, 10);
+  const shift = (date, days) => { const x = new Date(date); x.setUTCDate(x.getUTCDate() + days); return x; };
+  const today = ymd(now);
+  const y = now.getUTCFullYear();
+  for (const yy of [y - 1, y, y + 1]) {
+    const on = entry.on(yy);
+    if (today >= ymd(shift(on, -entry.lead)) && today <= ymd(shift(on, 1))) return true;
+  }
+  return false;
+}
+
+// One gate for both shapes: the two original items carry a fixed MM-DD window,
+// everything added since names a holiday.
+function isItemAvailable(item, now = new Date()) {
+  if (!item.seasonal) return true;
+  if (item.seasonal.season) return isSeasonActive(item.seasonal.season, now);
+  return isWithinSeasonalWindow(item.seasonal.fromMonthDay, item.seasonal.toMonthDay, now);
 }
 
 const CHALLENGES = {
@@ -691,7 +764,7 @@ exports.purchaseItem = onCall(async (request) => {
   if (!items) throw new HttpsError("invalid-argument", "Unknown category.");
   const item = items.find((i) => i.id === itemId);
   if (!item) throw new HttpsError("not-found", "Unknown item.");
-  if (item.seasonal && !isWithinSeasonalWindow(item.seasonal.fromMonthDay, item.seasonal.toMonthDay)) {
+  if (!isItemAvailable(item)) {
     // Blocks buying a seasonal item outside its window even if someone calls
     // this function directly instead of going through the (already-hidden)
     // Shop UI — an item already owned from a past window is unaffected,

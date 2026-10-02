@@ -19,8 +19,27 @@ const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const catalogueSrc = html.match(/        const SHOP_ITEMS = \{[\s\S]*?\n            \};/)[0];
-// The one line out of renderShop that does the ordering.
-const sortSrc = html.match(/^ +const items = \[\.\.\.SHOP_ITEMS\[category\]\][^\n]*$/m)[0];
+// The whole statement out of renderShop that builds the list - filter, price
+// sort, and the lift that puts a live holiday item on top. It used to be one
+// line and this matched to end-of-line; when a filter and a second sort were
+// chained onto it the match silently shrank to the bare spread, so this suite
+// went on asserting ascending prices against an UNSORTED copy. It failed
+// loudly, which is the only reason it was caught - but the shape of the bug
+// (a regex that still matches something, just less of it) is worth naming.
+const sortSrc = (() => {
+  const a = html.indexOf('const items = [...SHOP_ITEMS[category]]');
+  if (a < 0) throw new Error('could not find the renderShop list builder');
+  // To the end of the statement, which now spans several chained calls.
+  const end = html.indexOf(';', html.indexOf('.sort((a, b) => (liveSeasonal', a));
+  return html.slice(a, end + 1);
+})();
+// renderShop closes over these; the test supplies its own so the extracted
+// statement runs standalone.
+const sortPreamble = `
+  const owned = (id) => (inventory || []).includes(id);
+  const itemAvailable = (i) => !i.seasonal || !!(liveIds || []).includes(i.seasonal.season);
+  const liveSeasonal = (i) => !!i.seasonal && itemAvailable(i);
+`;
 console.log('extracted from index.html:', catalogueSrc.length + sortSrc.length, 'chars');
 
 const SHOP_ITEMS = new Function(catalogueSrc.replace('const SHOP_ITEMS', 'const S') + ' return S;')();
@@ -33,7 +52,11 @@ const SHOP_ITEMS = new Function(catalogueSrc.replace('const SHOP_ITEMS', 'const 
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
 const serverSrc = fnSrc.match(/^const SHOP_ITEMS = \{[\s\S]*?\n\};/m)[0];
 const SERVER_ITEMS = new Function(serverSrc.replace('const SHOP_ITEMS', 'const S') + ' return S;')();
-const sortFor = new Function('SHOP_ITEMS', 'category', `${sortSrc}\n return items;`);
+// By default nothing is owned and no holiday is live, which is the state the
+// grid is in for most of the year - and the one these price assertions are
+// about.
+const sortFor = new Function('SHOP_ITEMS', 'category', 'inventory', 'liveIds',
+  `${sortPreamble}${sortSrc}\n return items;`);
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([ok, name, detail]);
@@ -47,7 +70,22 @@ for (const cat of categories) {
   const firstDrop = costs.findIndex((c, i) => i > 0 && c < costs[i - 1]);
   ck(firstDrop === -1, `${cat}: every item is priced at least as high as the one above it`,
      firstDrop === -1 ? '' : `${sorted[firstDrop].name} (${costs[firstDrop]}) after ${costs[firstDrop - 1]}`);
-  ck(sorted.length === SHOP_ITEMS[cat].length, `${cat}: sorting drops nothing`, `${sorted.length} vs ${SHOP_ITEMS[cat].length}`);
+  // It used to drop nothing. It now drops exactly one thing: a seasonal item
+  // that is out of season and not owned, which is hidden rather than padlocked.
+  // Stated as "nothing ELSE is dropped" so a filter that over-reaches fails.
+  const kept = new Set(sorted.map((i) => i.id));
+  const dropped = SHOP_ITEMS[cat].filter((i) => !kept.has(i.id));
+  ck(dropped.every((i) => !!i.seasonal), `${cat}: nothing but a seasonal item is ever dropped`,
+     dropped.filter((i) => !i.seasonal).map((i) => i.id).join(', '));
+  ck(SHOP_ITEMS[cat].filter((i) => !i.seasonal).every((i) => kept.has(i.id)),
+     `${cat}: every ordinary item survives the filter`,
+     `${kept.size} kept of ${SHOP_ITEMS[cat].length}`);
+  // And with the holiday live, the item comes back.
+  for (const s of SHOP_ITEMS[cat].filter((i) => i.seasonal && i.seasonal.season)) {
+    const live = sortFor(SHOP_ITEMS, cat, [], [s.seasonal.season]);
+    ck(live.some((i) => i.id === s.id), `${cat}: ${s.id} reappears when its holiday is on`);
+    ck(live[0].id === s.id, `${cat}: ...and goes straight to the top`, live[0].id);
+  }
   ck(costs[0] === 0, `${cat}: the free default is first`, String(costs[0]));
   // The sort must not mutate the catalogue — it is looked up by id by
   // previewItem, the leaderboard's title lookup and the Cloud Function's copy.
@@ -71,7 +109,11 @@ ck(JSON.stringify(tied) === JSON.stringify(neon),
 const wereMisplaced = ['banner_frostbite', 'banner_titanium', 'effect_haunted', 'effect_permafrost'];
 for (const id of wereMisplaced) {
   const cat = id.startsWith('banner') ? 'banners' : 'effects';
-  const list = sortFor(SHOP_ITEMS, cat);
+  // Two of these four are seasonal, and the grid now hides a seasonal item
+  // that is out of season and unowned. Asked for as OWNED so the price-order
+  // question can still be put to them: an owned item is listed but not lifted,
+  // so it should sit at its own price exactly as it used to.
+  const list = sortFor(SHOP_ITEMS, cat, [id]);
   const at = list.findIndex((i) => i.id === id);
   const okBefore = at === 0 || list[at - 1].cost <= list[at].cost;
   const okAfter = at === list.length - 1 || list[at + 1].cost >= list[at].cost;

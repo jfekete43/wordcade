@@ -285,6 +285,12 @@
         body.reduce-motion .effect_supernova,
         body.reduce-motion .effect_celestial,
         body.reduce-motion .effect_haunted,
+        body.reduce-motion .effect_tinsel,
+        body.reduce-motion .effect_countdown,
+        body.reduce-motion .effect_shamrock,
+        body.reduce-motion .banner_harvest,
+        body.reduce-motion .banner_sweetheart,
+        body.reduce-motion .banner_firework,
         body.reduce-motion .effect_static,
         body.reduce-motion .effect_toxic,
         body.reduce-motion .effect_aurora,
@@ -825,6 +831,36 @@
         .effect_haunted { color: #7bff6b; text-shadow: 0 0 6px #2fff00, 0 0 12px #0a5c00; animation: haunted-flicker 2.2s steps(1) infinite; font-weight: 900; }
         @keyframes haunted-flicker { 0%, 19%, 21%, 100% { opacity: 1; } 20% { opacity: 0.4; } 60% { opacity: 0.85; } 61% { opacity: 1; } }
 
+        /* Harvest — late-autumn amber over deep russet, with a wheat-gold edge. */
+        .banner_harvest { background: linear-gradient(135deg, #2a1206 0%, #7a3b0c 48%, #b9741a 100%); background-size: 200% 200%; animation: harvest-drift 6s ease-in-out infinite; border-left: 3px solid #f0b429; border-radius: 3px; }
+        @keyframes harvest-drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+        /* Sweetheart — deep rose into blush, with a slow blooming sweep. */
+        .banner_sweetheart { background: linear-gradient(135deg, #2b0714 0%, #8e1142 45%, #d94f7f 100%); background-size: 220% 220%; animation: sweetheart-bloom 5s ease-in-out infinite; border-left: 3px solid #ff8fb8; border-radius: 3px; }
+        @keyframes sweetheart-bloom { 0%, 100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+
+        /* Eggshell — pastel bands, the only banner here that does not sweep. */
+        .banner_eggshell { background: linear-gradient(115deg, #2a2340 0%, #6d5a9c 26%, #7fbfa6 52%, #c9a2d8 76%, #e3c98f 100%); border-left: 3px solid #a8e6cf; border-radius: 3px; }
+
+        /* Firework — navy to crimson with a white burst crossing it. */
+        .banner_firework { background: linear-gradient(120deg, #0a1033 0%, #1d3fa0 34%, #f4f6f8 50%, #b3243a 66%, #0a1033 100%); background-size: 260% auto; animation: firework-burst 4.5s linear infinite; border-left: 3px solid #8fc2ff; border-radius: 3px; }
+        @keyframes firework-burst { 0% { background-position: 0% 0; } 100% { background-position: 260% 0; } }
+
+        /* Tinsel — red and green running through a silver shine. */
+        .effect_tinsel { background: linear-gradient(100deg, #e63946 0%, #f4f6f8 22%, #39ff14 44%, #f4f6f8 66%, #e63946 88%, #f4f6f8 100%); background-size: 280% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(255,255,255,0.6)); }
+
+        /* Countdown — gold that pulses like a clock coming up on midnight. */
+        .effect_countdown { color: #ffd166; text-shadow: 0 0 6px #ffb703, 0 0 14px #c77f00; animation: countdown-tick 1s steps(2) infinite; font-weight: 900; }
+        @keyframes countdown-tick { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.72; } }
+
+        /* Shamrock — clover green with a gold glint passing through. */
+        .effect_shamrock { background: linear-gradient(100deg, #1e7a3c 0%, #3ddc84 24%, #ffe08a 42%, #3ddc84 60%, #1e7a3c 84%, #3ddc84 100%); background-size: 280% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3.4s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(61,220,132,0.7)); }
+
+        /* A holiday item on sale right now. It is the only row the grid lifts
+           out of price order, so it has to look deliberate rather than like a
+           rendering slip. */
+        .grid-item.seasonal-live { border-color: #ff9800; background: linear-gradient(90deg, rgba(255,152,0,0.13), rgba(255,152,0,0.03)); }
+        .grid-item.seasonal-live:hover { border-color: #ffb547; }
         .seasonal-badge { display: inline-block; font-size: 10px; font-weight: bold; color: #ff9800; border: 1px solid #ff9800; border-radius: 3px; padding: 1px 5px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
         .grid-item.locked { opacity: 0.5; cursor: default; }
         .grid-item.locked:hover { background: #111; border-color: #444; }
@@ -1902,7 +1938,22 @@
                 return null;
             }
 
-            return { current, easterFor, thanksgivingFor, TABLE };
+            // Is this specific holiday on? Not the same question as current():
+            // an early Easter outranks St Patrick's for the THEME, but a St
+            // Patrick's item should still be on sale during its own window.
+            function isActive(id, now = new Date()) {
+                const entry = TABLE.find((s) => s.id === id);
+                if (!entry) return false;
+                const today = ymd(now);
+                const y = now.getUTCFullYear();
+                for (const yy of [y - 1, y, y + 1]) {
+                    const on = entry.on(yy);
+                    if (today >= ymd(shift(on, -entry.lead)) && today <= ymd(shift(on, 1))) return true;
+                }
+                return false;
+            }
+
+            return { current, isActive, easterFor, thanksgivingFor, TABLE };
         })();
 
         // ==========================================
@@ -2146,6 +2197,13 @@
                     { id: "banner_solaris", name: "Solaris", desc: "A pulsing solar flare.", cost: 26500 },
                     { id: "banner_bloodmoon", name: "Blood Moon", desc: "Something's different tonight.", cost: 34500 },
                     { id: "banner_frostbite", name: "Frostbite", desc: "Winter event exclusive — Dec 1 to Jan 5.", cost: 4600, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
+                    // Holiday banners. These name a season rather than a date
+                    // pair, so they are buyable exactly while the site is
+                    // wearing that holiday — see the Seasons module.
+                    { id: "banner_harvest", name: "Harvest", desc: "Thanksgiving event exclusive.", cost: 4600, seasonal: { season: "thanksgiving" } },
+                    { id: "banner_sweetheart", name: "Sweetheart", desc: "Valentine’s event exclusive.", cost: 4600, seasonal: { season: "valentines" } },
+                    { id: "banner_eggshell", name: "Eggshell", desc: "Easter event exclusive.", cost: 4600, seasonal: { season: "easter" } },
+                    { id: "banner_firework", name: "Firework", desc: "July 4th event exclusive.", cost: 4600, seasonal: { season: "julyfourth" } },
                     { id: "banner_celestial", name: "Celestial Throne", desc: "Amongst the stars.", cost: 37500 },
                     { id: "banner_titanium", name: "Liquid Titanium", desc: "Brushed gunmetal, machined to a mirror.", cost: 17500 },
                     { id: "banner_circuit", name: "Gilded Circuit", desc: "Gold traces on a live board.", cost: 24500 },
@@ -2179,6 +2237,9 @@
                     { id: "effect_prism", name: "Prism Text", desc: "The full spectrum, cycling.", cost: 24500 },
                     { id: "effect_supernova", name: "Supernova", desc: "Burning brighter than fire.", cost: 31500 },
                     { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 4600, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+                    { id: "effect_tinsel", name: "Tinsel", desc: "Christmas event exclusive.", cost: 4600, seasonal: { season: "christmas" } },
+                    { id: "effect_countdown", name: "Countdown", desc: "New Year event exclusive.", cost: 4600, seasonal: { season: "newyear" } },
+                    { id: "effect_shamrock", name: "Shamrock", desc: "St Patrick’s event exclusive.", cost: 4600, seasonal: { season: "stpatricks" } },
                     { id: "effect_celestial", name: "Celestial Crown", desc: "Gold amongst the stars.", cost: 37500 },
                     { id: "effect_permafrost", name: "Permafrost", desc: "Cut from glacial ice.", cost: 13750 },
                     { id: "effect_chrome", name: "Liquid Chrome", desc: "Polished metal, still cooling.", cost: 19250 },
@@ -2985,6 +3046,14 @@
         window.renderShop = function(category) {
             document.querySelectorAll("#shop-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-shop-${category}`).classList.add("active");
             const listDiv = document.getElementById("shop-list"); listDiv.innerHTML = "";
+            // Mirrors isItemAvailable in functions/index.js, which is the copy
+            // that actually enforces this at purchase time. The two original
+            // items carry a fixed MM-DD window; everything added since names a
+            // holiday, so it is on sale exactly while the site wears it.
+            const itemAvailable = (i) => !i.seasonal
+                || (i.seasonal.season ? Seasons.isActive(i.seasonal.season)
+                                      : isWithinSeasonalWindow(i.seasonal.fromMonthDay, i.seasonal.toMonthDay));
+            const liveSeasonal = (i) => !!i.seasonal && itemAvailable(i);
             // Sorted by price here rather than by keeping SHOP_ITEMS in price
             // order. Items get appended to that literal as they are designed,
             // so every late addition landed out of place; sorting at render
@@ -2992,20 +3061,34 @@
             // stable, so same-price items (the two 2,500 neon banners) keep
             // their declared order. A copy, because SHOP_ITEMS is looked up by
             // id everywhere else and has no business being reordered in place.
-            const items = [...SHOP_ITEMS[category]].sort((a, b) => a.cost - b.cost);
+            // Price order, except a holiday item that is live right now goes to
+            // the top. It is on sale for about a fortnight a year, so burying it
+            // at its price among forty others is the one place this grid should
+            // not simply be a price list. Both sorts are stable, so everything
+            // else keeps the order it had.
+            const owned = (id) => userProfileData.inventory.includes(id);
+            const items = [...SHOP_ITEMS[category]]
+                // Out of season and not yours: gone entirely, rather than shown
+                // behind a padlock. Still listed once owned, or you could not
+                // equip the thing you paid for.
+                .filter((i) => itemAvailable(i) || owned(i.id))
+                .sort((a, b) => a.cost - b.cost)
+                .sort((a, b) => (liveSeasonal(b) ? 1 : 0) - (liveSeasonal(a) ? 1 : 0));
             let html = "";
             items.forEach(item => {
-                let isOwned = userProfileData.inventory.includes(item.id); let eqKey = category.slice(0, -1); if (category === 'effects') eqKey = 'effect';
+                let isOwned = owned(item.id); let eqKey = category.slice(0, -1); if (category === 'effects') eqKey = 'effect';
                 let isEquipped = userProfileData.equipped[eqKey] === item.id; let btnHtml = ""; let badgeHtml = ""; let rowClass = "grid-item";
-                let inSeason = !item.seasonal || isWithinSeasonalWindow(item.seasonal.fromMonthDay, item.seasonal.toMonthDay);
+                let inSeason = itemAvailable(item);
 
                 if (isEquipped) { btnHtml = `<button class="action-btn btn-equipped" onclick="event.stopPropagation()">Equipped</button>`; }
                 else if (isOwned) { btnHtml = `<button class="action-btn btn-equip" onclick="event.stopPropagation(); window.equipItem('${item.id}', '${eqKey}')">Equip</button>`; }
                 else if (item.seasonal && !inSeason) {
+                    // Only reachable for something already owned - the filter
+                    // above dropped everything else.
                     rowClass += " locked";
-                    btnHtml = `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;" onclick="event.stopPropagation()">🔒 Not Available</button>`;
+                    btnHtml = `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;" onclick="event.stopPropagation()">🔒 Out Of Season</button>`;
                 } else {
-                    if (item.seasonal) badgeHtml = `<span class="seasonal-badge">Limited Time</span>`;
+                    if (item.seasonal) { badgeHtml = `<span class="seasonal-badge">Limited Time</span>`; rowClass += " seasonal-live"; }
                     let canAfford = userProfileData.wallet >= item.cost; let color = canAfford ? "#4caf50" : "#ff3333";
                     btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="event.stopPropagation(); window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
                 }
