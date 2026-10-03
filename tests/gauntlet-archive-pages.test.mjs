@@ -366,10 +366,30 @@ for (const f of STATIC_PAGES) {
 const home = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const intro = (home.match(/<section id="site-intro"[\s\S]*?<\/section>/) || [''])[0];
 ok('site-intro exists and was extracted', intro.length > 500, `${intro.length} chars`);
-ok('site-intro links to the archive, outside any modal', intro.includes('href="/gauntlet/"'));
-ok('site-intro explains today is never listed', /never listed|spoil/i.test(intro));
+// The requirement is an always-rendered link, not one in this particular
+// block: site-intro used to carry a whole archive paragraph and no longer
+// does, because it restated a page one tap away. The footer check below is
+// what now holds the invariant, so this asks the question the comment above
+// actually poses - is there a non-modal link at all?
+const outsideModals = home.replace(/<div [^>]*class="modal-overlay"[\s\S]*?\n    <\/div>/g, '');
+ok('something outside every modal links to the archive',
+   outsideModals.includes('href="/gauntlet/"'),
+   `${(outsideModals.match(/href="\/gauntlet\/"/g) || []).length} non-modal links`);
+// "Today is never listed" moved to the hub, which is the page that would do
+// the spoiling and so the page that should promise not to.
+const hubSrc = fs.readFileSync(REPO('tools/gauntlet-archive-render.mjs'), 'utf8');
+ok('the archive hub promises today is never listed', /never listed/i.test(hubSrc));
 ok('site-intro carries the support note', intro.includes('https://ko-fi.com/lexathon'));
-ok('the support note says it is free', /entirely free|free to play/i.test(intro));
+// The trust claim, which is the part of that note worth pinning: free, and
+// nothing purchasable changes a score.
+// Scoped to the support paragraph itself, not the whole section: the intro
+// paragraph above also says "free", so a section-wide match passed even with
+// the claim removed from the note that actually makes it.
+const supportNote = (intro.match(/Support the project<\/h2>[\s\S]*?<\/p>/) || [''])[0];
+ok('found the support note', supportNote.length > 200, `${supportNote.length} chars`);
+ok('the support note says it is free', /\bfree\b/i.test(supportNote));
+ok('...and that nothing bought affects scoring',
+   /score higher|affects? scoring/i.test(supportNote));
 // The modal link is per-day, so it has to be pointed at the day being viewed
 // rather than left on the hub href it ships with.
 ok('the in-app archive has a per-day link', home.includes('id="gauntlet-archive-full"'));
