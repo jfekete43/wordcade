@@ -573,8 +573,17 @@ exports.onMatchFinished = onDocumentUpdated("matches/{matchId}", async (event) =
     const newHostMmr = Math.max(0, hostMMR + hostChange);
     const newGuestMmr = Math.max(0, guestMMR + guestChange);
 
-    const hostUpdate = { mmr: newHostMmr };
-    const guestUpdate = { mmr: newGuestMmr };
+    // Only a public match touches `mmr`, and that is also the ONLY thing that
+    // ever creates the field. A profile starts without one, so orderBy("mmr")
+    // leaves it out of the ladder's index entirely until the player has
+    // actually played a ranked Clash match — the same shape ffaMmr already
+    // has, and what stops the Clash board being a list of everyone who ever
+    // opened the page, all tied at the base rating. Writing it on a private
+    // match would mint a rating no ranked result produced (the value is
+    // unchanged there, but the field would exist) and put that player on the
+    // board at 1000.
+    const hostUpdate = isPublicMatch ? { mmr: newHostMmr } : {};
+    const guestUpdate = isPublicMatch ? { mmr: newGuestMmr } : {};
     if (!isTie) {
       hostUpdate.clashWins = FieldValue.increment(hostWon ? 1 : 0);
       hostUpdate.clashLosses = FieldValue.increment(hostWon ? 0 : 1);
@@ -871,8 +880,20 @@ exports.refreshProfile = onCall(async (request) => {
     const data = snap.data();
     const updates = {};
 
-    if (data.mmr === undefined) { updates.mmr = 1000; updates.clashWins = 0; updates.clashLosses = 0; updates.clashPucks = 0; }
+    if (data.clashWins === undefined) { updates.clashWins = 0; updates.clashLosses = 0; updates.clashPucks = 0; }
     if (data.clashTies === undefined) updates.clashTies = 0;
+
+    // `mmr` is no longer seeded at 1000 — onMatchFinished mints it on a
+    // player's first public Clash match (see the note there). Profiles that
+    // predate that, and any created by a cached older copy of index.html that
+    // still sends the seed, get the unearned rating taken back off here so
+    // they drop out of the ladder's index instead of filling the board with
+    // base-rating rows. Only an UNTOUCHED 1000 goes: a non-zero record means
+    // the player has played, so the rating is theirs even when it happens to
+    // sit exactly on the base.
+    const clashPlayed = (data.clashWins || 0) + (data.clashLosses || 0) + (data.clashTies || 0);
+    let clearedMmr = false;
+    if (data.mmr === 1000 && clashPlayed === 0) { updates.mmr = FieldValue.delete(); clearedMmr = true; }
 
     // A guest who links a Google account (see linkWithPopup client-side)
     // keeps the exact same uid/doc — the auth token's own provider flips
@@ -972,7 +993,13 @@ exports.refreshProfile = onCall(async (request) => {
     if (walletFinal !== data.wallet) updates.wallet = walletFinal;
 
     if (Object.keys(updates).length > 0) tx.update(userRef, updates);
-    return { profile: { ...data, ...updates } };
+    // The client caches this as its live profile, so the one delete sentinel
+    // above cannot simply be spread in: it is a transform, not a value, and
+    // would reach the client as `mmr: {}` — which every `data.mmr || 1000`
+    // read would then treat as a present rating rather than an absent one.
+    const profile = { ...data, ...updates };
+    if (clearedMmr) delete profile.mmr;
+    return { profile };
   });
 });
 

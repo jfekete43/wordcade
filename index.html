@@ -1756,6 +1756,7 @@
                     <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
                     <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:white; font-size: 18px;">0</span></div>
                 </div>
+                <div id="stat-clash-note" style="text-align: center; font-size: 12px; color: #888; line-height: 1.5;">&nbsp;</div>
             </div>
 
             <!-- FFA STATS — its own rating ladder, separate from Clash's.
@@ -2502,7 +2503,16 @@
 
                     userProfileData = {
                         username: defaultUsername, isGuest: isGuest, careerBank: 0, wallet: 0, handleChanges: 0, totalWordsGuessed: 0, wordsPlayed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, achievedTop10Daily: 0, kobeCount: 0,
-                        mmr: 1000, clashWins: 0, clashLosses: 0, clashTies: 0, clashPucks: 0, // clashTies added here
+                        // No `mmr` here on purpose. The Clash ladder is keyed on that
+                        // field and orderBy leaves out documents without it, so seeding
+                        // every new profile at 1000 put everyone who had ever opened the
+                        // page on the board, tied at the base rating, with the players
+                        // who had actually played buried underneath. onMatchFinished
+                        // mints the rating on the first public match instead — the same
+                        // shape ffaMmr has always had. firestore.rules still accepts a
+                        // 1000 from a cached older copy of this file, and refreshProfile
+                        // takes that back off.
+                        clashWins: 0, clashLosses: 0, clashTies: 0, clashPucks: 0,
                         // Streak fields always start hard-zeroed (enforced by firestore.rules on
                         // create too) — they gate real challenge rewards, so day-1 credit for a
                         // new account comes from calling refreshProfile() right after this, the
@@ -2876,16 +2886,33 @@
                     // clash (UPDATED WITH GLOBAL RANK)
                     let cWins = data.clashWins || 0; let cLosses = data.clashLosses || 0; let cTies = data.clashTies || 0; let cTotal = cWins + cLosses + cTies;
                     let cWinRate = cTotal > 0 ? Math.round((cWins / cTotal) * 100) : 0;
-                    let currentMMR = data.mmr || 1000;
+                    // An unset mmr means no public Clash match has ever paid out,
+                    // which is not the same as sitting at the base rating: the player
+                    // is absent from the board entirely, so claiming a position on it
+                    // would be inventing one. Same rule the FFA panel below follows,
+                    // and the reason the Clash board is no longer a list of everyone
+                    // who ever signed up. They still PLAY at 1000 — that is what
+                    // calculateEloChange reads them as — the number just isn't a
+                    // ranking yet.
+                    const rawMmr = Number(data.mmr);
+                    const hasMmr = Number.isFinite(rawMmr);
+                    let currentMMR = hasMmr ? rawMmr : 1000;
                     let rankObj = getRankDetails(currentMMR);
-        
-                    document.getElementById("stat-rank-title").innerText = `${rankObj.name} (Loading Rank...)`;
-                    getPlayerRank(currentMMR, 'clash', 'mmr').then(r => {
-                        document.getElementById("stat-rank-title").innerText = `${rankObj.name} (#${r})`;
-                    });
 
-                    document.getElementById("stat-mmr-score").innerText = currentMMR;
-                    document.getElementById("stat-rank-title").className = rankObj.class;
+                    if (hasMmr) {
+                        document.getElementById("stat-mmr-score").innerText = currentMMR;
+                        document.getElementById("stat-rank-title").innerText = `${rankObj.name} (Loading Rank...)`;
+                        document.getElementById("stat-rank-title").className = rankObj.class;
+                        document.getElementById("stat-clash-note").innerText = "Private matches are unranked \u2014 only public Clash moves this.";
+                        getPlayerRank(currentMMR, 'clash', 'mmr').then(r => {
+                            document.getElementById("stat-rank-title").innerText = `${rankObj.name} (#${r})`;
+                        });
+                    } else {
+                        document.getElementById("stat-mmr-score").innerText = "\u2014";
+                        document.getElementById("stat-rank-title").innerText = "Unranked";
+                        document.getElementById("stat-rank-title").className = "";
+                        document.getElementById("stat-clash-note").innerText = "Finish a public Clash match to get a rating. Private matches stay unranked.";
+                    }
                     document.getElementById("stat-clash-record").innerText = `${cWins} - ${cLosses} - ${cTies}`;
                     document.getElementById("stat-clash-winrate").innerText = cWinRate + "%";
                     document.getElementById("stat-clash-streak").innerText = data.currentClashWinStreak || 0;
@@ -3254,7 +3281,7 @@
                 // reset nightly and a scouted run ages out.
                 const USERS_BOARD = {
                     all:   { field: "bestRunScore", fallback: 0,    excludesUnset: true,  empty: "No runs yet — play a game to get on the board" },
-                    clash: { field: "mmr",          fallback: 1000, excludesUnset: false, empty: "" },
+                    clash: { field: "mmr",          fallback: 1000, excludesUnset: true,  empty: "Finish a public Clash match to get a rating" },
                     ffa:   { field: "ffaMmr",       fallback: 1000, excludesUnset: true,  empty: "Finish a public FFA match to get a rating" },
                     // periodKey narrows the same count to this window. A stored
                     // best from an EARLIER window is not a score on this board,
@@ -3281,10 +3308,11 @@
                     // the same as a low value — orderBy leaves those docs out of
                     // the index, so the board above genuinely does not contain
                     // this player and claiming a position on it would be a lie.
-                    // Clash is the exception: every profile is created with an
-                    // mmr, so unset there only ever means a doc mid-migration.
-                    // On the windowed board, a best filed under a previous key
-                    // is not on this board at all.
+                    // Clash used to be the exception — every profile was
+                    // created with an mmr — and that is exactly what filled its
+                    // board with players who had never played, so it is not an
+                    // exception any more. On the windowed board, a best filed
+                    // under a previous key is not on this board at all.
                     const staleWindow = board.periodKey && live.periodBestKey !== periodKeyFor(new Date());
                     if ((!Number.isFinite(raw) && board.excludesUnset) || staleWindow) { paint("#–", "—", board.empty); return; }
 
@@ -3322,6 +3350,13 @@
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().careerBank, equipped: doc.data().equipped }); }); 
                         } 
                         else if (currentLbTime === 'clash') {
+                            // Ranked by Clash's own rating, and only for players who
+                            // have one. `mmr` is minted by the first public Clash match
+                            // and nothing seeds it, so a player who has never played is
+                            // not in this index at all — which is what makes the top 100
+                            // the real top 100. While it WAS seeded at 1000, the board
+                            // was a wall of base-rating accounts deep enough to push
+                            // anyone below 1000 off the page entirely.
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("mmr", "desc"), limit(100)));
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().mmr || 1000, equipped: doc.data().equipped }); });
                         }

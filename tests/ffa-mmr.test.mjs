@@ -154,7 +154,10 @@ ok('1st-4th pay the same at 6p as at 4p',
    six.slice(0, 4).map(u => paid(r.writes, u)).join(','));
 
 // --- 7. 1v1 Clash is untouched by all of this ------------------------------
-const clashPayout = grab(fn, /    const hostUpdate = \{ mmr: newHostMmr \};\n    const guestUpdate = \{ mmr: newGuestMmr \};/, 'clash update');
+// Not pinned to the exact expression: Clash gates the mmr write on the match
+// being public now (see clash-ladder.test.mjs), and what THIS suite cares
+// about is only that the two ladders stay separate fields.
+const clashPayout = grab(fn, /    const hostUpdate = .*\n    const guestUpdate = .*/, 'clash update');
 ok('Clash still writes mmr', clashPayout.includes('mmr: newHostMmr'), clashPayout.split('\n')[0].trim());
 ok('Clash never writes ffaMmr', !clashPayout.includes('ffaMmr'));
 ok('ffaMmr is written in exactly one place', (fn.match(/ffaMmr:/g) || []).length === 1,
@@ -165,7 +168,10 @@ ok('the FFA board orders by ffaMmr', /currentLbTime === 'ffa'[\s\S]{0,1200}?orde
 ok('the FFA board no longer orders by ffaWins', !html.includes('orderBy("ffaWins"'));
 ok('your-rank counts against ffaMmr', /ffa:\s*\{ field: "ffaMmr"/.test(html));
 ok('your-rank excludes players with no rating', /ffa:\s*\{ field: "ffaMmr",[^}]*excludesUnset: true/.test(html));
-ok('Clash your-rank does NOT exclude unset', /clash:\s*\{ field: "mmr",[^}]*excludesUnset: false/.test(html));
+// This used to assert the opposite, because every profile was created with an
+// mmr — which is precisely what filled the Clash board with players who had
+// never played. Both ladders skip unset now; clash-ladder.test.mjs covers it.
+ok('Clash your-rank excludes players with no rating too', /clash:\s*\{ field: "mmr",[^}]*excludesUnset: true/.test(html));
 ok('the rank count takes the field as an argument', /async function getPlayerRank\(rating, type, field\)[\s\S]{0,400}?where\(field, ">", rating\)/.test(html));
 ok('the Clash tab counts against mmr', html.includes("getPlayerRank(currentMMR, 'clash', 'mmr')"));
 ok('the FFA tab counts against ffaMmr', html.includes("getPlayerRank(rawFfaMmr, 'ffa', 'ffaMmr')"));

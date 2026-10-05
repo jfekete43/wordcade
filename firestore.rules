@@ -143,8 +143,32 @@ service cloud.firestore {
       allow create: if isOwner(userId)
         && request.resource.data.wallet == 0
         && request.resource.data.careerBank == 0
-        && request.resource.data.mmr == 1000
+        // Clash's rating is minted by onMatchFinished on a player's first
+        // public match, so a fresh profile carries no `mmr` at all and is
+        // absent from the ladder's index until they have played one — the
+        // shape ffaMmr already has. A cached older copy of index.html still
+        // sends the old 1000 seed, so that exact value is still accepted
+        // (refreshProfile takes it back off on the next sign-in); any OTHER
+        // starting rating is not.
+        && (!('mmr' in request.resource.data) || request.resource.data.mmr == 1000)
         && request.resource.data.handleChanges == 0
+        && request.resource.data.achievedTop10Daily == 0
+        // Every field below is written only by a Cloud Function, and none of
+        // them was constrained here. `create` is the one write a client makes
+        // to its own profile that is not narrowed to `equipped`, so a brand
+        // new account could arrive pre-seeded with a bestRunScore no run ever
+        // produced and own the All-Time board outright — same for the weekly,
+        // daily and FFA ladders. They are absent on create, full stop.
+        && !('bestRunScore' in request.resource.data)
+        && !('bestRunAt' in request.resource.data)
+        && !('periodBestScore' in request.resource.data)
+        && !('periodBestKey' in request.resource.data)
+        && !('periodBestAt' in request.resource.data)
+        && !('dayBestScore' in request.resource.data)
+        && !('dayBestKey' in request.resource.data)
+        && !('ffaMmr' in request.resource.data)
+        && !('ffaWins' in request.resource.data)
+        && !('ffaMatchesPlayed' in request.resource.data)
         && request.resource.data.totalWordsGuessed == 0
         && request.resource.data.wordsPlayed == 0
         && request.resource.data.guess1 == 0 && request.resource.data.guess2 == 0

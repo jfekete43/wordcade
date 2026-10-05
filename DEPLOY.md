@@ -453,6 +453,48 @@ One `matches` read per document per day, and one delete per expired match.
 Deletes go out in batches of 500, which is Firestore's cap on a write batch.
 
 
+## The Clash ladder (one-off)
+
+The Clash leaderboard is `users` ordered by `mmr`, and Firestore's `orderBy`
+leaves out documents that do not carry the ordered field. That is how the FFA
+board has only ever listed players holding an `ffaMmr`. Clash instead seeded
+`mmr: 1000` onto every profile at creation, so every account that had ever
+opened the page was on the ladder at the base rating — a hundred rows of ties
+with the actual players mixed in among them.
+
+Worse than cosmetic: the base-rating block fills the 100-row limit from the top
+down, so once there are more than a hundred accounts, every player who has
+dropped **below** 1000 is pushed off the board entirely.
+
+The fix is in three parts, and the first two deploy with everything else:
+
+* `onMatchFinished` writes `mmr` only for a **public** match, which makes that
+  the one thing that ever creates the field.
+* `refreshProfile` deletes an untouched `1000` from any profile with no Clash
+  record, so every returning player is cleaned up at sign-in.
+* this sweep, for the accounts that never come back.
+
+```bash
+cd ~/wordcade && git pull origin main
+npm install --no-save firebase-admin
+node tools/clear-unranked-clash-mmr.mjs --dry-run   # look first
+node tools/clear-unranked-clash-mmr.mjs
+```
+
+It only reads profiles sitting on exactly 1000, and only clears the ones whose
+Clash record is 0-0-0. A player who has played and happens to be back at the
+base rating keeps it, as does anyone whose only matches were private — those
+move the record but not the rating. It is idempotent; a second run finds
+nothing.
+
+Run it **after** the functions deploy, not before: until the new
+`onMatchFinished` is live, the old one re-mints a rating on the next private
+match.
+
+Unranked players still *play* at 1000 — that is what `calculateEloChange` reads
+them as. The Profile screen says `Unranked` rather than showing a position on a
+board they are not on, the same as the FFA panel beside it.
+
 ## The Gauntlet archive (`/gauntlet/`)
 
 Static pages, one per finished Gauntlet, built from Firestore and committed
