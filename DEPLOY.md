@@ -234,7 +234,7 @@ nothing to change for 20 -> 22.
 cd ~/wordcade && bash tools/deploy.sh
 ```
 
-That pulls, deploys indexes then functions, and then offers the weekly-board
+That pulls, deploys indexes then rules then functions, and then offers the weekly-board
 backfill and the old-match sweep one at a time, showing you a dry run of each
 before it asks. It stops at the first failure and nothing destructive happens
 without a y.

@@ -259,8 +259,19 @@ ok('there is a one-command deploy script', deploySh.length > 500, String(deployS
 // with FAILED_PRECONDITION until it is green, so deploying functions first
 // leaves a window where the new code queries an index that does not exist yet.
 ok('it deploys indexes before functions',
-   /--only firestore:indexes,functions/.test(deploySh),
+   /--only firestore:indexes,firestore:rules,functions/.test(deploySh),
    (deploySh.match(/--only [^\s]*/) || [''])[0]);
+// This check used to pin `firestore:indexes,functions` — it was asserting that
+// the script skipped the rules, which it did. index.html goes live on GitHub
+// Pages at push time without waiting for any deploy, so a client change whose
+// writes need a rules change is denied in production until the rules land.
+ok('it deploys the rules at all', /--only [^\s]*firestore:rules/.test(deploySh),
+   (deploySh.match(/--only [^\s]*/) || [''])[0]);
+// And the one-liner must deploy the same set the by-hand sequence does, or the
+// two documented routes quietly diverge again.
+const byHand = (read('DEPLOY.md').match(/firebase deploy --only (\S+) --project wordcade-387e8\n```/) || [])[1];
+ok('the script and DEPLOY.md deploy the same pieces',
+   !!byHand && deploySh.includes('--only ' + byHand), String(byHand));
 // Nothing that deletes or rewrites runs without showing you a dry run first.
 // Matched per LINE, not by literal string: cleanup-matches carries --legacy,
 // so `${tool}.mjs --dry-run` finds nothing and the check passed vacuously on

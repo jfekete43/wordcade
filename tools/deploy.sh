@@ -50,12 +50,19 @@ say "Pulling latest"
 git pull --ff-only origin main
 echo "now at: $(git log --oneline -1)"
 
-say "Deploying indexes and functions"
+say "Deploying indexes, rules and functions"
 # Indexes first on purpose: they build asynchronously, and a query whose index
 # is still building fails with FAILED_PRECONDITION until it goes green.
 # Functions take a few minutes and are the part most likely to need a retry —
 # re-running this script is safe, anything already current is skipped.
-firebase deploy --only firestore:indexes,functions --project "$PROJECT"
+#
+# Rules belong here too, and were missing: the script deployed indexes and
+# functions only, so a release whose client change needed a rules change got
+# half of itself. That is worse than it sounds, because index.html ships on
+# GitHub Pages the moment it is pushed — it does not wait for a deploy. Any
+# gap between what the live page writes and what the deployed rules allow is
+# a window where the write is simply denied in production.
+firebase deploy --only firestore:indexes,firestore:rules,functions --project "$PROJECT"
 
 if [ "$DEPLOY_ONLY" = "1" ]; then
   say "Done (--deploy: skipped the data steps)"
