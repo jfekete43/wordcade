@@ -151,9 +151,9 @@ let bad = 0;
   const src = fs.readFileSync(REPO('index.html'), 'utf8');
   const colourOf = (re) => { const m = src.match(re); return m ? m[1].toLowerCase() : null; };
   const MODES = [
-    { name: 'Clash',    button: /#btn-mode \{ color: (#[0-9a-fA-F]{6});/,                 modals: ['versus-lobby-modal', 'versus-end-modal'] },
-    { name: 'FFA',      button: /\.arcade-menu \.ffa-btn \{ color: (#[0-9a-fA-F]{6});/,   modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
-    { name: 'Gauntlet', button: /\.arcade-menu \.daily-btn \{ color: (#[0-9a-fA-F]{6});/, modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
+    { name: 'Clash',    button: /\.arcade-menu \.mode-clash \{ color: (#[0-9a-fA-F]{6});/,    modals: ['versus-lobby-modal', 'versus-end-modal'] },
+    { name: 'FFA',      button: /\.arcade-menu \.mode-ffa \{ color: (#[0-9a-fA-F]{6});/,      modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
+    { name: 'Gauntlet', button: /\.arcade-menu \.mode-gauntlet \{ color: (#[0-9a-fA-F]{6});/, modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
   ];
   for (const mode of MODES) {
     const want = colourOf(mode.button);

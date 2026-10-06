@@ -124,8 +124,18 @@
             .arcade-menu button { padding: 8px 9px; font-size: 13px; }
         }
         
-        #btn-mode { color: #ff9800; border-color: #ff9800; }
-        #btn-mode:hover { background-color: #ff9800; color: #000; }
+        /* The three mode slots. Each slot is whichever mode it currently
+           points at, so the colour has to travel with the mode rather than
+           with the button id — hence a class per mode instead of the old
+           per-id rules. renderModeNav() sets the class; nothing else does. */
+        .arcade-menu .mode-endless { color: #4caf50; border-color: #4caf50; }
+        .arcade-menu .mode-endless:hover { background-color: #4caf50; color: #000; }
+        .arcade-menu .mode-gauntlet { color: #b967ff; border-color: #b967ff; }
+        .arcade-menu .mode-gauntlet:hover { background-color: #b967ff; color: #000; }
+        .arcade-menu .mode-clash { color: #ff9800; border-color: #ff9800; }
+        .arcade-menu .mode-clash:hover { background-color: #ff9800; color: #000; }
+        .arcade-menu .mode-ffa { color: #ffd700; border-color: #ffd700; }
+        .arcade-menu .mode-ffa:hover { background-color: #ffd700; color: #000; }
         /* Yesterday's Gauntlet placement strip (see #gauntlet-callout). */
         #gauntlet-callout {
             width: 90%; max-width: 500px; margin: 0 auto 10px; padding: 8px 12px;
@@ -148,8 +158,8 @@
         .arcade-menu .ffa-btn { color: #ffd700; border-color: #ffd700; }
         .arcade-menu .ffa-btn:hover { background-color: #ffd700; color: #000; }
 
-        /* STANDARD UI */
-        #score-board, #daily-header {
+        /* ENDLESS UI */
+        #score-board, #daily-header, #endless-header {
             font-size: 18px; margin: 0 0 10px 0; font-weight: bold;
             display: flex; gap: 20px; position: relative; z-index: 2;
             align-items: center; justify-content: center; flex-wrap: wrap;
@@ -957,11 +967,23 @@
 
     <h1 class="arcade-title">Lexathon</h1>
     
+    <!-- Menu, then the three modes you are NOT in.
+         Every mode except Endless used to collapse this to a single "leave"
+         button and hide the other two, so from inside a Gauntlet there was no
+         way to see that Clash and FFA existed, let alone reach one. Worse, the
+         mode you were in was the only one never named: a new player landed on
+         an unlabelled board flanked by three buttons for the OTHER modes, and
+         had no way to tell which game they were playing.
+         The three slots are filled by renderModeNav() from the mode flags.
+         Nothing else writes to them. -->
     <nav class="arcade-menu">
         <button onclick="window.showMainMenu()">Menu</button>
-        <button class="daily-btn" id="btn-daily" onclick="window.toggleDailyMode()">GAUNTLET</button>
-        <button id="btn-mode" onclick="window.toggleMode()">CLASH</button>
-        <button class="ffa-btn" id="btn-ffa" onclick="window.toggleFfaMode()">FFA</button>
+        <!-- Markup carries the Endless-default state so the nav is correct
+             before any script runs; renderModeNav() rewrites all three the
+             moment the mode changes. -->
+        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-1" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">GAUNTLET</button>
+        <button class="mode-nav-btn mode-clash" id="btn-nav-2" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
+        <button class="mode-nav-btn mode-ffa" id="btn-nav-3" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
     </nav>
 
     <!-- STANDARD UI -->
@@ -972,12 +994,29 @@
          nesting it costs no JS: the existing display toggles on #btn-cash-out
          still run and still work, they just happen inside a parent that was
          already being hidden with them. -->
+    <!-- The mode you are in, named. The Gauntlet has had a header since it
+         shipped; Endless had none, so the default mode was the one with no
+         label anywhere on screen — which is how a player ended up complaining
+         that one of "today's words" was obscure when he was not in the daily
+         at all. Word count included because an endless run with no visible
+         progress reads as if nothing is being kept. -->
+    <div id="endless-header">
+        <div class="score-text" id="endless-mode-label" style="color:#4caf50;">ENDLESS</div>
+        <div class="score-text" id="endless-word-text" style="color:#4caf50;">WORD <span id="endless-word-index">1</span></div>
+    </div>
+
     <div id="score-board">
         <div class="score-row">
             <div class="score-text">SCORE: <span id="score">0</span></div>
             <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
         </div>
-        <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Cash Out</button>
+        <!-- "Cash Out" was a casino term for an action nobody had been told
+             they were supposed to take, on a mode that never ends by itself.
+             People played a few words and left without ever banking a score —
+             no result screen, no share, nothing to come back for. The label
+             carries the number now, so the button states its own purpose and
+             there is something visible to lose by walking away. -->
+        <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Bank 0 pts</button>
     </div>
 
     <!-- DAILY GAUNTLET UI -->
@@ -1187,7 +1226,7 @@
             <span id="gauntlet-card-timer"></span>
         </div>
         <div id="gauntlet-card-body">Ten words, five guesses each. Everyone plays all ten.</div>
-        <button id="gauntlet-card-btn" onclick="window.openDailyGauntlet()">Play Today's Gauntlet</button>
+        <button id="gauntlet-card-btn" onclick="window.goToMode('gauntlet')">Play Today's Gauntlet</button>
     </div>
 
     <!-- Today's Gauntlet board. Shown only in Gauntlet mode, taking the slot
@@ -1237,7 +1276,7 @@
     <!-- STANDARD MODALS -->
     <div id="modal-overlay" class="modal-overlay">
         <div class="modal-box">
-            <h2 class="modal-title" id="modal-title-text">Cashed Out!</h2>
+            <h2 class="modal-title" id="modal-title-text">Banked!</h2>
             <div class="modal-stats">
                 <div>Total Score: <br><span id="modal-score">0</span></div>
                 <div style="margin-top: 15px;">Words Guessed: <br><span id="modal-words">0</span></div>
@@ -1257,7 +1296,7 @@
             <div class="modal-stats" style="color: white; font-size: 18px;">
                 You have <span style="color: #ff3333;" id="warning-continues-text">0 Continues</span> left!<br><br>
                 If you fail when you reach 0, you will <span style="color: #ff3333;">lose ALL your points</span>.<br><br>
-                Cash out now, or risk it all!
+                Bank your score now, or risk it all!
             </div>
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="window.dismissWarning()">Continue Playing</button>
@@ -1317,7 +1356,7 @@
                 <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
 
-            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Standard</button>
+            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Endless</button>
         </div>
     </div>
 
@@ -1376,7 +1415,7 @@
                 </div>
             </div>
 
-            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Standard</button>
+            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Endless</button>
         </div>
     </div>
 
@@ -1540,72 +1579,44 @@
         </div>
     </div>
 
-    <!-- ONBOARDING MODAL (first visit only — see maybeShowOnboarding) -->
-    <div id="onboarding-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff; max-width: 380px;">
-            <div id="onboarding-slides">
-                <div class="onboarding-slide">
-                    <div style="font-size: 48px; margin-bottom: 10px;">🕹️</div>
-                    <h2 class="modal-title" style="color: #ff00ff;">Welcome to Lexathon</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">A neon word-guessing arcade with four ways to play. Guess 5-letter words, climb the ranks, and unlock cosmetics as you go.</p>
-                </div>
-                <div class="onboarding-slide" style="display: none;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">🎯</div>
-                    <h2 class="modal-title" style="color: #4caf50;">Standard</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">Guess words endlessly for points. Miss one with a Continue left and you keep going; miss again with none left and you lose the whole run. Cash Out anytime to lock in your points permanently.</p>
-                </div>
-                <div class="onboarding-slide" style="display: none;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">⚔️</div>
-                    <h2 class="modal-title" style="color: #ff9800;">Clash</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">Race an opponent through the same words for 7 minutes. First to a 1,000-point lead — or the higher score when time's up — wins. Tied at the buzzer? Sudden Death decides it.</p>
-                </div>
-                <div class="onboarding-slide" style="display: none;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">🔥</div>
-                    <h2 class="modal-title" style="color: #b967ff;">Gauntlet</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">One shared puzzle, once a day. Everyone gets the same 10 words and plays all ten — solve as many as you can, then share your result and see who did better.</p>
-                </div>
-                <div class="onboarding-slide" style="display: none;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">👑</div>
-                    <h2 class="modal-title" style="color: #ffd700;">FFA</h2>
-                    <p style="color: #ccc; font-size: 14px; line-height: 1.6;">The same race as Clash, but with 3-6 players at once. Highest score when time's up takes the top spot — everyone else still earns something.</p>
-                </div>
+    <!-- MODE INTRO CARD
+         One card, shown once per mode, the first time you enter that mode.
+         This replaces a five-slide welcome tour that ran before a new player
+         had touched a tile: slide 1 welcome, then one slide each for all four
+         modes, with "don't show again" pre-checked. It explained the menu
+         rather than the game, and front-loaded three modes nobody had asked
+         about yet. A description that arrives when you enter the thing it
+         describes needs four lines, not five screens. -->
+    <div id="mode-intro-modal" class="modal-overlay">
+        <div class="modal-box" id="mode-intro-box" style="max-width: 360px;">
+            <div id="mode-intro-icon" style="font-size: 44px; margin-bottom: 6px;"></div>
+            <h2 class="modal-title" id="mode-intro-title"></h2>
+            <p id="mode-intro-text" style="color: #ddd; font-size: 14px; line-height: 1.65; margin: 0 0 4px;"></p>
+            <div class="modal-buttons">
+                <button class="btn-cyan" id="mode-intro-btn" onclick="window.dismissModeIntro()">Play</button>
             </div>
-
-            <div id="onboarding-dots" style="display: flex; justify-content: center; gap: 6px; margin: 15px 0;"></div>
-
-            <div id="onboarding-final-controls" style="display: none;">
-                <label style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #aaa; margin-bottom: 15px; cursor: pointer;">
-                    <input type="checkbox" id="onboarding-dont-show" checked style="width: 16px; height: 16px;">
-                    Don't show this again
-                </label>
-            </div>
-
-            <div class="modal-buttons" style="flex-direction: row; justify-content: center; gap: 10px;">
-                <button class="btn-dark" id="onboarding-back-btn" style="display: none; flex: 1;" onclick="window.onboardingBack()">Back</button>
-                <button class="btn-cyan" id="onboarding-next-btn" style="flex: 2;" onclick="window.onboardingNext()">Next</button>
-            </div>
-            <button class="btn-dark" id="onboarding-skip-btn" style="margin-top: 10px; width: 100%; font-size: 12px; padding: 8px;" onclick="window.closeOnboarding(true)">Skip</button>
+            <a href="how-to-play.html" style="color: #777; font-size: 12px; text-decoration: none;">Full rules</a>
         </div>
     </div>
 
-    <!-- HOW TO PLAY MODAL — the full reference version of onboarding, open anytime from the Menu -->
+    <!-- HOW TO PLAY MODAL — the full reference, open anytime from the Menu -->
     <div id="howto-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 440px; text-align: left; border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
             <h2 class="modal-title" style="text-align: center; color: #b967ff;">How To Play</h2>
 
             <div style="font-size: 13px; line-height: 1.6; color: #ddd;">
-                <h3 style="color: #4caf50; text-transform: uppercase; margin-bottom: 6px;">🎯 Standard</h3>
+                <h3 style="color: #4caf50; text-transform: uppercase; margin-bottom: 6px;">♾️ Endless</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>Guess a 5-letter word in up to 5 tries, one word after another.</li>
                     <li>Correct on try 1/2/3/4/5 scores 500/250/150/50/10 points.</li>
                     <li>You start with 1 Continue. Miss a word with a Continue left, and you lose the Continue but keep playing.</li>
                     <li>Miss again with 0 Continues left and you lose your <b>entire</b> run — score and all.</li>
-                    <li><b>Cash Out</b> anytime to lock your score in for good, added to your Wallet and career total.</li>
+                    <li><b>Bank</b> your score anytime to lock it in for good, added to your Wallet and career total.</li>
                 </ul>
 
                 <h3 style="color: #ff9800; text-transform: uppercase; margin-bottom: 6px;">⚔️ Clash</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
-                    <li>Head-to-head, 7 minutes, both players racing through the same word list — same scoring as Standard, but a miss costs -50 points instead of ending your run.</li>
+                    <li>Head-to-head, 7 minutes, both players racing through the same word list — same scoring as Endless, but a miss costs -50 points instead of ending your run.</li>
                     <li>First to a 1,000-point lead wins instantly; otherwise, whoever's ahead when the clock hits 0 wins.</li>
                     <li>Tied at the buzzer: Sudden Death. One shared secret word, 5 guesses each, first to solve it wins. If neither of you gets it, it's a true tie.</li>
                     <li><b>2 skips per match</b> — bail out of a word you can't crack with no points lost, instead of taking the -50.</li>
@@ -1617,7 +1628,7 @@
                 <h3 style="color: #b967ff; text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>One shared puzzle per day — everyone gets the identical 10 words, one attempt each.</li>
-                    <li>Same 5-guess, 500/250/150/50/10 scoring as Standard, and no Continues — but you play all ten words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
+                    <li>Same 5-guess, 500/250/150/50/10 scoring as Endless, and no Continues — but you play all ten words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
                     <li>Resets at midnight Eastern.</li>
                     <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
                     <li>Today's standings are on the Gauntlet screen itself, ordered by score and then by words solved, and yesterday's stay in Past Gauntlets. There's no all-time Gauntlet board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
@@ -1724,7 +1735,7 @@
             </div>
             
             <div class="tabs">
-                <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Standard</button>
+                <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Endless</button>
                 <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
                 <button class="tab-btn" id="tab-prof-ffa" onclick="window.setProfileTab('ffa')">FFA</button>
                 <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Gauntlet</button>
@@ -2055,55 +2066,59 @@
             document.getElementById('howto-modal').style.display = 'flex';
         }
 
-        // --- ONBOARDING (first visit only) ---
-        // The condensed, slide-by-slide teaser version — How To Play (above)
-        // is the full reference, open anytime from the Menu. Purely a
-        // localStorage flag, no account/Firebase involvement, so it can run
-        // before auth even resolves.
-        const ONBOARDING_SLIDE_COUNT = 5;
-        let onboardingIndex = 0;
+        // --- MODE INTRO (once per mode) ---
+        // Purely a localStorage flag, no account/Firebase involvement, so it
+        // can run before auth even resolves. One entry per mode rather than a
+        // single "seen the tour" flag, so each description arrives the first
+        // time it is relevant and never again.
+        const MODE_INTRO = {
+            endless: { icon: "\u267E\uFE0F", color: "#4caf50", title: "Endless",
+                text: "Guess 5-letter words one after another, as long as you can keep going. Solve a word in fewer guesses to score more. Miss one and you spend a Continue \u2014 miss with none left and the run is over. Bank your score whenever you want to stop." },
+            gauntlet: { icon: "\uD83D\uDD25", color: "#b967ff", title: "Daily Gauntlet",
+                text: "Ten words, five guesses each. Everyone plays all ten \u2014 the same ten words as everybody else, once a day. Share your result at the end and see where you finished." },
+            clash: { icon: "\u2694\uFE0F", color: "#ff9800", title: "Clash",
+                text: "Race one other player through the same words for 7 minutes. First to a 1,000-point lead, or the higher score at the buzzer, wins." },
+            ffa: { icon: "\uD83D\uDC51", color: "#ffd700", title: "Free-For-All",
+                text: "The same race as Clash with 3-6 players at once. Highest score when time runs out takes first \u2014 everyone else still earns something." },
+        };
+        const modeIntroKey = (mode) => "wordcade_mode_intro_" + mode;
+        let modeIntroResolve = null;
 
-        function showOnboardingSlide(i) {
-            onboardingIndex = i;
-            document.querySelectorAll("#onboarding-slides .onboarding-slide").forEach((el, idx) => { el.style.display = idx === i ? "block" : "none"; });
+        // Resolves once the player has dismissed the card, or immediately if
+        // they have seen this mode before — so callers can simply await it in
+        // front of whatever the mode does next, with no branching.
+        function showModeIntro(mode) {
+            return new Promise((resolve) => {
+                const info = MODE_INTRO[mode];
+                let seen = true;
+                try { seen = localStorage.getItem(modeIntroKey(mode)) === "1"; } catch (e) { seen = false; }
+                // A tap-to-join invite is mid-flow already; stacking a card on
+                // top of it would just be in the way.
+                if (!info || seen || new URLSearchParams(location.search).has("join")) { resolve(); return; }
 
-            let dots = "";
-            for (let d = 0; d < ONBOARDING_SLIDE_COUNT; d++) {
-                dots += `<div style="width:8px; height:8px; border-radius:50%; background:${d === i ? "#ff00ff" : "#444"}; transition: background 0.2s;"></div>`;
-            }
-            document.getElementById("onboarding-dots").innerHTML = dots;
+                document.getElementById("mode-intro-icon").innerText = info.icon;
+                const title = document.getElementById("mode-intro-title");
+                title.innerText = info.title;
+                title.style.color = info.color;
+                document.getElementById("mode-intro-text").innerText = info.text;
+                const box = document.getElementById("mode-intro-box");
+                box.style.borderColor = info.color;
+                box.style.boxShadow = "0 0 20px " + info.color;
+                document.getElementById("mode-intro-modal").style.display = "flex";
 
-            const isLast = i === ONBOARDING_SLIDE_COUNT - 1;
-            document.getElementById("onboarding-back-btn").style.display = i === 0 ? "none" : "block";
-            document.getElementById("onboarding-next-btn").innerText = isLast ? "Let's Play!" : "Next";
-            document.getElementById("onboarding-final-controls").style.display = isLast ? "block" : "none";
-            document.getElementById("onboarding-skip-btn").style.display = isLast ? "none" : "block";
+                modeIntroResolve = () => {
+                    document.getElementById("mode-intro-modal").style.display = "none";
+                    try { localStorage.setItem(modeIntroKey(mode), "1"); } catch (e) { }
+                    resolve();
+                };
+            });
         }
 
-        window.onboardingNext = function() {
-            if (onboardingIndex >= ONBOARDING_SLIDE_COUNT - 1) {
-                window.closeOnboarding(document.getElementById("onboarding-dont-show").checked);
-            } else {
-                showOnboardingSlide(onboardingIndex + 1);
-            }
-        }
-        window.onboardingBack = function() { if (onboardingIndex > 0) showOnboardingSlide(onboardingIndex - 1); }
-
-        window.closeOnboarding = function(suppress) {
-            document.getElementById("onboarding-modal").style.display = "none";
-            if (suppress) { try { localStorage.setItem("wordcade_seen_onboarding", "1"); } catch (e) { } }
-        }
-
-        function maybeShowOnboarding() {
-            // Skip entirely if this load is actually a tap-to-join invite —
-            // finishing that flow matters more than a first-run teaser, and
-            // stacking modals on top of it would just be confusing.
-            if (new URLSearchParams(location.search).has("join")) return;
-            let seen = false;
-            try { seen = localStorage.getItem("wordcade_seen_onboarding") === "1"; } catch (e) { }
-            if (seen) return;
-            showOnboardingSlide(0);
-            document.getElementById("onboarding-modal").style.display = "flex";
+        window.dismissModeIntro = function() {
+            if (!modeIntroResolve) return;
+            const done = modeIntroResolve;
+            modeIntroResolve = null;
+            done();
         }
 
         // --- SIGN-UP NUDGE (contextual, guest-only) ---
@@ -2566,14 +2581,14 @@
 
             if (mode === "ffa") {
                 if (isVersusMode || isDailyMode) { alert("Leave your current match/mode first, then use the invite link again."); return; }
-                window.toggleFfaMode();
-                if (!isFfaMode) return; // declined the "cash out your run" confirm
+                await window.goToMode("ffa");
+                if (!isFfaMode) return; // declined the "bank your run" confirm
                 document.getElementById("ffa-join-code-input").value = code;
                 await window.joinFfaMatchByCode();
             } else {
                 if (isFfaMode || isDailyMode) { alert("Leave your current match/mode first, then use the invite link again."); return; }
-                window.toggleMode();
-                if (!isVersusMode) return; // declined the "cash out your run" confirm
+                await window.goToMode("clash");
+                if (!isVersusMode) return; // declined the "bank your run" confirm
                 document.getElementById("join-code-input").value = code;
                 await window.joinMatch();
             }
@@ -2832,7 +2847,7 @@
             if (isVersusMode) { alert("Leave the match first!"); return; }
             if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
             if (isFfaMode) { alert("Leave the FFA match first!"); return; }
-            if (score > 0 || runStats.played > 0) { let confirmSwitch = confirm("Start a new game? This will end your current run and cash out your score."); if (!confirmSwitch) return; document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun(); } 
+            if (score > 0 || runStats.played > 0) { let confirmSwitch = confirm("Start a new game? This will end your current run and bank your score."); if (!confirmSwitch) return; document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun(); } 
             else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
         }
         
@@ -3457,7 +3472,7 @@
         let isMatchHost = false;
         let isRematchTransition = false; // set right before listenToMatch() when re-entering an already-'playing' match directly (rematch), skipping the normal lobby-modal-visible check
         let myMiniBoard = [];
-        let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Standard mode
+        let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Endless mode
 
         // --- DAILY GAUNTLET STATE ---
         let isDailyMode = false;
@@ -3602,34 +3617,80 @@
         const continuesDisplay = document.getElementById("continues"); const messageDisplay = document.getElementById("message");
         const modalOverlay = document.getElementById("modal-overlay");
 
-        window.toggleMode = function() {
-            document.activeElement.blur();
-            if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
-            if (isFfaMode) { alert("Leave the FFA match first!"); return; }
-            if (isVersusMode) {
-                let confirmSwitch = confirm("Leave Head-to-Head match? If a match is in progress, this counts as a forfeit.");
-                if (!confirmSwitch) return;
-                window.leaveVersusMatch();
-            } else {
-                if (score > 0 || runStats.played > 0) {
-                    let confirmSwitch = confirm("Switching to Clash will cash out your current Standard run. Continue?");
-                    if (!confirmSwitch) return;
-                    saveRunToCloud();
-                }
-                isVersusMode = true;
-                document.getElementById("btn-mode").innerText = "STANDARD";
-                document.getElementById("btn-mode").style.color = "#ff00ff"; document.getElementById("btn-mode").style.borderColor = "#ff00ff";
-                document.getElementById("btn-daily").style.display = "none";
-                document.getElementById("btn-ffa").style.display = "none";
-                document.getElementById("score-board").style.display = "none";
-                document.getElementById("btn-cash-out").style.display = "none";
-                document.getElementById("versus-track-container").style.display = "block";
-                document.getElementById("clash-chat-container").style.display = "block"; // SHOW CHAT
-                boardDisplay.innerHTML = "";
-                document.getElementById("versus-lobby-modal").style.display = "flex";
+        // ===================== MODE NAV =====================
+        // One table, one renderer, one router. All three nav slots used to be
+        // hard-coded buttons that each toggled their own mode, with their
+        // labels and display flipped inline from six different places — which
+        // is how every mode but Endless ended up showing one "leave" button
+        // and hiding the other two.
+        const MODES = {
+            endless:  { label: "ENDLESS",  cls: "mode-endless",  color: "#4caf50" },
+            gauntlet: { label: "GAUNTLET", cls: "mode-gauntlet", color: "#b967ff" },
+            clash:    { label: "CLASH",    cls: "mode-clash",    color: "#ff9800" },
+            ffa:      { label: "FFA",      cls: "mode-ffa",      color: "#ffd700" },
+        };
+        // Derived from the flags that already drive everything else, rather
+        // than stored a second time and kept in sync by hand.
+        function currentMode() {
+            if (isDailyMode) return "gauntlet";
+            if (isVersusMode) return "clash";
+            if (isFfaMode) return "ffa";
+            return "endless";
+        }
+        function renderModeNav() {
+            const here = currentMode();
+            const others = Object.keys(MODES).filter((m) => m !== here);
+            others.forEach((m, i) => {
+                const btn = document.getElementById("btn-nav-" + (i + 1));
+                if (!btn) return;
+                btn.dataset.mode = m;
+                btn.innerText = MODES[m].label;
+                btn.className = "mode-nav-btn " + MODES[m].cls;
+            });
+        }
 
-                listenToLobbyCount();
+        // Leaving a mode is the mode's own business — each has its own
+        // confirmation and its own cleanup, and every leave path already ends
+        // up back in Endless. So this leaves, then enters, and the modes
+        // themselves are unchanged.
+        window.goToMode = async function(target) {
+            if (document.activeElement) document.activeElement.blur();
+            if (!MODES[target] || target === currentMode()) return;
+
+            if (isDailyMode) {
+                window.leaveDailyGauntlet();
+            } else if (isVersusMode) {
+                if (!confirm("Leave Head-to-Head match? If a match is in progress, this counts as a forfeit.")) return;
+                // leaveVersusMatch handles a live match; with no match yet it
+                // is the lobby that has to be torn down.
+                if (currentMatchId) window.leaveVersusMatch(); else window.cancelVersusLobby();
+            } else if (isFfaMode) {
+                if (!confirm("Leave the FFA match? If it's in progress, the match continues without you and you're locked into the lowest remaining placement.")) return;
+                if (currentMatchId) window.leaveFfaMatch(); else window.cancelFfaLobby();
+            } else if (target !== "endless" && (score > 0 || runStats.played > 0)) {
+                // Only an Endless run in progress has anything to bank.
+                if (!confirm("Switching to " + MODES[target].label + " will bank your current Endless run. Continue?")) return;
+                saveRunToCloud();
             }
+
+            if (target === "gauntlet") await window.openDailyGauntlet();
+            else if (target === "clash") await window.openClashLobby();
+            else if (target === "ffa") await window.openFfaLobby();
+            else { renderModeNav(); await showModeIntro("endless"); }
+        }
+
+        window.openClashLobby = async function() {
+            isVersusMode = true;
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "none";
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            document.getElementById("versus-track-container").style.display = "block";
+            document.getElementById("clash-chat-container").style.display = "block"; // SHOW CHAT
+            boardDisplay.innerHTML = "";
+            await showModeIntro("clash");
+            document.getElementById("versus-lobby-modal").style.display = "flex";
+            listenToLobbyCount();
             showStandardPanels(false);
         }
 
@@ -3640,10 +3701,8 @@
 
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
-            document.getElementById("btn-mode").innerText = "CLASH";
-            document.getElementById("btn-mode").style.color = "#ff9800"; document.getElementById("btn-mode").style.borderColor = "#ff9800";
-            document.getElementById("btn-daily").style.display = "inline-block";
-            document.getElementById("btn-ffa").style.display = "inline-block";
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
@@ -3963,12 +4022,14 @@
             if (!attempt) {
                 bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten.";
                 btnEl.innerText = "Play Today's Gauntlet";
+                maybeLandOnGauntlet();
             } else if (attempt.status === "active") {
                 const at = Math.max(0, Number(attempt.wordIndex) || 0) + 1;
                 const of = Math.max(1, Number(attempt.wordCount) || 10);
                 bodyEl.innerHTML = `In progress — you're on word <span class="gcb-strong">${at} of ${of}</span>, ` +
                     `<span class="gcb-strong">${(Number(attempt.score) || 0).toLocaleString()}</span> pts so far.`;
                 btnEl.innerText = "Resume Gauntlet";
+                maybeLandOnGauntlet();
             } else {
                 const score = Math.max(0, Number(attempt.score) || 0);
                 bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts.`;
@@ -3984,7 +4045,33 @@
             }
         }
 
-        // The Live Arcade Feed and the Gauntlet card both belong to a Standard
+        // Open on the Gauntlet rather than on Endless, once per page load.
+        //
+        // The Gauntlet is the mode with a stated goal and an ending: ten words,
+        // the same ten for everyone, a result and a share at the end. Endless
+        // has none of that, and opening straight into it is how people played
+        // four words and left without ever banking a score.
+        //
+        // Three conditions, and they are not negotiable:
+        //  - signed in and not a guest. The Gauntlet is account-only by design
+        //    (see openDailyGauntlet), so landing a guest here would make a
+        //    sign-in wall the first thing a new visitor ever saw. Guests open
+        //    on Endless, which now at least says so on screen.
+        //  - today's Gauntlet is not already finished. Otherwise every visit
+        //    after the first would open on a board with nothing left to play.
+        //  - the player has not already started doing something. A run with a
+        //    word in it, or any mode switch, means they made a choice; this
+        //    never overrides one.
+        let hasLanded = false;
+        function maybeLandOnGauntlet() {
+            if (hasLanded) return;
+            hasLanded = true;
+            if (currentMode() !== "endless") return;
+            if (score > 0 || runStats.played > 0 || currentGuess.length > 0) return;
+            window.goToMode("gauntlet");
+        }
+
+        // The Live Arcade Feed and the Gauntlet card both belong to an Endless
         // run, so every mode switch shows or hides them together.
         function showStandardPanels(visible) {
             document.getElementById("daily-board-container").style.display = visible ? "block" : "none";
@@ -4141,13 +4228,11 @@
                 );
                 return;
             }
-            if (isVersusMode) { alert("Leave the Clash match first!"); return; }
-            if (isFfaMode) { alert("Leave the FFA match first!"); return; }
-            if (score > 0 || runStats.played > 0) {
-                let confirmSwitch = confirm("Switching to the Daily Gauntlet will cash out your current Standard run. Continue?");
-                if (!confirmSwitch) return;
-                saveRunToCloud();
-            }
+            // Leaving whatever mode you were in, and banking an Endless run
+            // in progress, both belong to goToMode — the single way into any
+            // mode. They used to be repeated here, which is how the same
+            // confirm could fire twice on one tap.
+            await showModeIntro("gauntlet");
 
             try {
                 const result = await callStartDailyGauntlet();
@@ -4159,11 +4244,10 @@
             }
 
             isDailyMode = true;
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
-            document.getElementById("btn-mode").style.display = "none";
-            document.getElementById("btn-ffa").style.display = "none";
-            document.getElementById("btn-daily").innerText = "LEAVE GAUNTLET";
             document.getElementById("versus-track-container").style.display = "none";
             showStandardPanels(false);
             document.getElementById("daily-header").style.display = "flex";
@@ -4363,18 +4447,19 @@
             document.getElementById("daily-header").style.display = "none";
             document.getElementById("gauntlet-callout").style.display = "none";
             stopGauntletFeed();
-            document.getElementById("btn-daily").innerText = "GAUNTLET";
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
-            document.getElementById("btn-mode").style.display = "inline-block";
-            document.getElementById("btn-ffa").style.display = "inline-block";
             showStandardPanels(true);
             window.startNewRun();
         }
 
+        // Kept because the Gauntlet card on the home screen calls it. The nav
+        // no longer toggles anything — it routes through goToMode.
         window.toggleDailyMode = function() {
-            document.activeElement.blur();
-            if (isDailyMode) { window.leaveDailyGauntlet(); } else { window.openDailyGauntlet(); }
+            if (document.activeElement) document.activeElement.blur();
+            if (isDailyMode) window.leaveDailyGauntlet(); else window.goToMode("gauntlet");
         }
 
         // --- MATCH CHAT ------------------------------------------------------
@@ -5051,29 +5136,16 @@
         }
         function stopFfaLobbyCount() { if (ffaLobbyCountUnsubscribe) { ffaLobbyCountUnsubscribe(); ffaLobbyCountUnsubscribe = null; } }
 
-        window.toggleFfaMode = function() {
-            document.activeElement.blur();
-            if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
-            if (isVersusMode) { alert("Leave the Clash match first!"); return; }
-            if (isFfaMode) {
-                let confirmSwitch = confirm("Leave the FFA match? If it's in progress, the match continues without you and you're locked into the lowest remaining placement.");
-                if (!confirmSwitch) return;
-                window.leaveFfaMatch();
-            } else {
-                if (score > 0 || runStats.played > 0) {
-                    let confirmSwitch = confirm("Switching to FFA will cash out your current Standard run. Continue?");
-                    if (!confirmSwitch) return;
-                    saveRunToCloud();
-                }
-                isFfaMode = true;
-                document.getElementById("btn-mode").style.display = "none";
-                document.getElementById("btn-daily").style.display = "none";
-                document.getElementById("score-board").style.display = "none";
-                document.getElementById("btn-cash-out").style.display = "none";
-                boardDisplay.innerHTML = "";
-                document.getElementById("ffa-lobby-modal").style.display = "flex";
-                listenToFfaLobbyCount();
-            }
+        window.openFfaLobby = async function() {
+            isFfaMode = true;
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "none";
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            boardDisplay.innerHTML = "";
+            await showModeIntro("ffa");
+            document.getElementById("ffa-lobby-modal").style.display = "flex";
+            listenToFfaLobbyCount();
             showStandardPanels(false);
         }
 
@@ -5082,8 +5154,8 @@
             stopFfaLobbyCount();
             document.getElementById("ffa-lobby-modal").style.display = "none";
             isFfaMode = false;
-            document.getElementById("btn-mode").style.display = "inline-block";
-            document.getElementById("btn-daily").style.display = "inline-block";
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("ffa-track-container").style.display = "none";
@@ -5608,6 +5680,14 @@
         function updateScoreBoard() {
             if (isVersusMode || isFfaMode) return;
             scoreDisplay.innerText = score.toLocaleString(); continuesDisplay.innerText = continues;
+            // The word you are ON is one past the ones you have finished.
+            const idx = document.getElementById("endless-word-index");
+            if (idx) idx.innerText = (Math.max(0, Number(runStats.played) || 0) + 1).toLocaleString();
+            // The button says what pressing it is worth. With nothing banked
+            // yet it reads "Bank 0 pts", which still states what the control
+            // does — the old "Cash Out" never did.
+            const bank = document.getElementById("btn-cash-out");
+            if (bank) bank.innerText = "Bank " + score.toLocaleString() + " pts";
         }
 
         function checkDangerRow() {
@@ -5681,7 +5761,7 @@
 
         window.triggerCashOut = function() {
             document.activeElement.blur(); if (isAnimating) return; if (score <= 0) { showMessage("NO POINTS TO CASH OUT!"); return; }
-            if (currentRow > 0 || currentGuess.length > 0) { isAnimating = true; showMessage(`CASHING OUT... WORD WAS ${targetWord}`); setTimeout(showCashOutModal, 1500); } else { showCashOutModal(); }
+            if (currentRow > 0 || currentGuess.length > 0) { isAnimating = true; showMessage(`BANKING... WORD WAS ${targetWord}`); setTimeout(showCashOutModal, 1500); } else { showCashOutModal(); }
         }
 
         // What the run ended as, captured the moment the modal opens.
@@ -5701,7 +5781,7 @@
             isAnimating = false;
             SFX.cashOut();
             lastRunOutcome = { cashedOut: true, points: score, words: wordsGuessed };
-            document.getElementById("modal-title-text").innerText = "Cashed Out!"; document.getElementById("modal-title-text").style.color = "#00ffff";
+            document.getElementById("modal-title-text").innerText = "Banked!"; document.getElementById("modal-title-text").style.color = "#00ffff";
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
             modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(); 
         }
@@ -5793,12 +5873,12 @@
             const words = `${o.words} ${o.words === 1 ? "word" : "words"}`;
             let resultLine, hook;
             if (o.cashedOut) {
-                resultLine = `💰 Cashed out ${o.points.toLocaleString()} pts · ${words}`;
+                resultLine = `💰 Banked ${o.points.toLocaleString()} pts · ${words}`;
                 hook = "Can you beat it?";
             } else if (o.points > 0) {
                 // A wipeout is worth sharing; it just has to say what happened.
                 resultLine = `💀 Wiped out — lost ${o.points.toLocaleString()} pts · ${words}`;
-                hook = "Cash out sooner than I did.";
+                hook = "Bank your points sooner than I did.";
             } else {
                 // Nothing banked, so "lost 0 pts" would be both sad and wrong.
                 resultLine = "💀 Wiped out with nothing banked";
@@ -6259,7 +6339,8 @@
             } else {
                 startRound();
             }
-            maybeShowOnboarding();
+            renderModeNav();
+            updateScoreBoard();
         }, 300);
     </script>
 <script>

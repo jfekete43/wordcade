@@ -207,7 +207,7 @@ const block = (() => {
 })();
 ck('found the seasonal CSS rules', block.length > 2000 && (block.match(/body\.season-/g) || []).length >= 24,
    `${block.length} chars, ${(block.match(/body\.season-/g) || []).length} rules`);
-for (const sel of ['.correct', '.present', '.absent', '#btn-mode', '.ffa-btn', '.daily-btn', '.cash-out-btn']) {
+for (const sel of ['.correct', '.present', '.absent', '.mode-clash', '.mode-ffa', '.mode-gauntlet', '.cash-out-btn']) {
   ck(`no season touches ${sel}`, !block.includes(sel), sel);
 }
 // Nothing here animates, so reduce-motion has nothing to switch off. If that
@@ -252,7 +252,7 @@ const measured = await page.evaluate((ids) => {
       // Did the theme leave the gameplay colours alone?
       correct: getComputedStyle(document.querySelector('#legend-correct')).backgroundColor,
       present: getComputedStyle(document.querySelector('#legend-present')).backgroundColor,
-      clash: getComputedStyle(document.querySelector('#btn-mode')).color,
+      clash: getComputedStyle(document.querySelector('.mode-clash')).color,
     };
   }
   document.body.className = '';

@@ -198,8 +198,11 @@ const cashOutAt = async (width) => {
       document.getElementById('score').innerText = v;
       const row = document.querySelector('.score-row').getBoundingClientRect();
       const b = c.getBoundingClientRect();
-      const score = document.querySelector('.score-text').getBoundingClientRect();
-      const lives = document.querySelector('.lives-text').getBoundingClientRect();
+      // Scoped to the row. Unscoped, the first .score-text on the page is
+      // the Endless header's mode label, which sits ABOVE this row by design
+      // — so the pair read as stacked and this failed at every width.
+      const score = document.querySelector('.score-row .score-text').getBoundingClientRect();
+      const lives = document.querySelector('.score-row .lives-text').getBoundingClientRect();
       return {
         v,
         offBelowRow: Math.round(b.top - row.bottom),

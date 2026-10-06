@@ -8,7 +8,7 @@
  *     the Share Score button is live after a wipeout too.
  *   - The share cannot read live run state. The wipeout call site zeroes
  *     `score` BEFORE calling triggerGameOver(), so a share that read `score`
- *     announced "Cashed Out: 0 pts" after a run that lost twelve thousand
+ *     announced "Banked: 0 pts" after a run that lost twelve thousand
  *     points: wrong about the ending, and it threw away the only interesting
  *     fact about it. The outcome is snapshotted when the modal opens instead,
  *     and these cases drive the real sequence — assign, zero, trigger, share —
@@ -71,7 +71,7 @@ const endRunAndShare = new Function('kind', 'runScore', 'runWords', `
 
 // --- cashing out ----------------------------------------------------------
 let out = endRunAndShare('cashout', 12400, 31);
-ck(out.captured.message === '🕹️ Lexathon\n💰 Cashed out 12,400 pts · 31 words\nCan you beat it?',
+ck(out.captured.message === '🕹️ Lexathon\n💰 Banked 12,400 pts · 31 words\nCan you beat it?',
    'a cash-out says what was banked and how many words', JSON.stringify(out.captured.message));
 ck(out.captured.message.split('\n').length === 3, 'heading, result, hook', out.captured.message.split('\n').length);
 ck(out.captured.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.captured.url));
@@ -82,9 +82,11 @@ ck(out.captured.defaultLabel === 'Share Score', 'and restores its own label', JS
 // --- the bug this file exists for ----------------------------------------
 out = endRunAndShare('wipeout', 12400, 31);
 ck(out.scoreAfter === 0, 'the wipeout path really did zero the live score first', String(out.scoreAfter));
-ck(out.captured.message === '🕹️ Lexathon\n💀 Wiped out — lost 12,400 pts · 31 words\nCash out sooner than I did.',
+ck(out.captured.message === '🕹️ Lexathon\n💀 Wiped out — lost 12,400 pts · 31 words\nBank your points sooner than I did.',
    'a wipeout reports the loss, not a cash-out', JSON.stringify(out.captured.message));
-ck(!/Cashed out/i.test(out.captured.message), 'a wipeout never claims a cash-out', out.captured.message);
+// Matches the win line's verb, whatever it is called this week: the bug was a
+// wipeout announcing a payout it never made.
+ck(!/\bBanked\b/i.test(out.captured.message), 'a wipeout never claims a banked score', out.captured.message);
 ck(out.captured.message.includes('12,400'), 'and keeps the total that was lost, not the zeroed score', out.captured.message);
 ck(!/\b0 pts\b/.test(out.captured.message), 'so no "0 pts" after a twelve-thousand-point run', out.captured.message);
 
@@ -132,7 +134,7 @@ ck(endRunAndShare('wipeout', 100, 1).captured.message.includes('· 1 word\n'), '
 
 // --- the modal behind the share stays as it was ---------------------------
 out = endRunAndShare('cashout', 12400, 31);
-ck(out.els['modal-title-text'].innerText === 'Cashed Out!', 'the cash-out modal title', out.els['modal-title-text'].innerText);
+ck(out.els['modal-title-text'].innerText === 'Banked!', 'the banked-score modal title', out.els['modal-title-text'].innerText);
 ck(out.els['modal-score'].innerText === '12,400', 'the cash-out modal total', out.els['modal-score'].innerText);
 ck(out.els['modal-words'].innerText === 31, 'the cash-out modal word count', String(out.els['modal-words'].innerText));
 out = endRunAndShare('wipeout', 12400, 31);

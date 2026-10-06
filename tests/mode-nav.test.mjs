@@ -1,0 +1,261 @@
+/*
+ * The mode nav, and the mode you are in being named on screen.
+ *
+ * Every mode except Endless used to collapse the nav to a single "leave"
+ * button and hide the other two, each of the six entry/exit paths flipping
+ * innerText and display on three hard-coded buttons inline. From inside a
+ * Gauntlet there was no way to see that Clash and FFA existed. Worse, the mode
+ * you were IN was the only one never named anywhere: Endless had no header at
+ * all, so a new player landed on an unlabelled board flanked by buttons for
+ * three other modes — which is how one of them reported that "one of today's
+ * words" was obscure while playing a mode that has no daily words.
+ *
+ * The nav is a table plus one renderer now, and goToMode is the single way in
+ * or out of any mode. Both halves run as the real extracted source:
+ *   1. renderModeNav against the real markup and stylesheet, in a browser.
+ *   2. source-level checks that nothing writes the nav behind its back, that
+ *      every mode route goes through goToMode, and that the labels, the bank
+ *      button and the intro card say what they are supposed to.
+ *
+ * Needs Playwright, not the emulator.
+ */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', f);
+
+const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
+const t = [];
+const ck = (ok, name, detail = '') => t.push([ok, name, detail]);
+const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name, `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+
+// Slices between anchors that are not themselves under test.
+function between(src, startAnchor, endAnchor, label) {
+  const a = src.indexOf(startAnchor);
+  if (a === -1) throw new Error(`${label}: start anchor not found`);
+  const b = src.indexOf(endAnchor, a + startAnchor.length);
+  if (b === -1) throw new Error(`${label}: end anchor not found`);
+  return src.slice(a + startAnchor.length, b);
+}
+const grab = (re, what) => { const m = html.match(re); if (!m) throw new Error('could not extract ' + what); return m[0]; };
+
+const css = grab(/<style>[\s\S]*?<\/style>/, 'stylesheet').replace(/<\/?style>/g, '');
+const nav = grab(/    <nav class="arcade-menu">[\s\S]*?<\/nav>/, 'nav');
+const endlessHeader = grab(/    <div id="endless-header">[\s\S]*?\n    <\/div>/, 'endless header');
+const scoreBoard = grab(/    <div id="score-board">[\s\S]*?\n    <\/div>/, 'score board');
+// The table and the renderer, lifted whole.
+const modesSrc = 'const MODES = {' + between(html, 'const MODES = {', '\n        };', 'MODES') + '\n};';
+const renderSrc = 'function renderModeNav() {' + between(html, 'function renderModeNav() {', '\n        }', 'renderModeNav') + '\n}';
+console.log('extracted from index.html:', (modesSrc + renderSrc + nav).length, 'chars');
+
+// ===== 1. the renderer, in a browser, against the shipped markup ===========
+const page_html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style>
+<!-- .arcade-menu button animates all its properties over 0.2s, so a
+     getComputedStyle taken in the same tick as the class change reads a colour
+     part-way through the fade. That is the harness racing the renderer rather
+     than a bug in it. -->
+<style>* { transition: none !important; animation: none !important; }</style>
+</head><body>
+${nav}
+${endlessHeader}
+${scoreBoard}
+<script>
+let isDailyMode = false, isVersusMode = false, isFfaMode = false;
+${modesSrc}
+function currentMode() {
+  if (isDailyMode) return "gauntlet";
+  if (isVersusMode) return "clash";
+  if (isFfaMode) return "ffa";
+  return "endless";
+}
+${renderSrc}
+window.setFlags = (d, v, f) => { isDailyMode = d; isVersusMode = v; isFfaMode = f; renderModeNav(); };
+window.readNav = () => [1,2,3].map((i) => {
+  const b = document.getElementById("btn-nav-" + i);
+  const cs = getComputedStyle(b);
+  return { label: b.innerText.trim(), mode: b.dataset.mode, color: cs.color, shown: cs.display !== "none" };
+});
+window.currentModeIs = () => currentMode();
+</script></body></html>`;
+const tmp = REPO('tests/.mode-nav.tmp.html');
+fs.writeFileSync(tmp, page_html);
+
+let chromium;
+try { ({ chromium } = await import('playwright')); }
+catch { const { execSync } = await import('node:child_process');
+  ({ chromium } = await import(path.join(execSync('npm root -g', { encoding: 'utf8' }).trim(), 'playwright', 'index.mjs'))); }
+const launch = {};
+if (fs.existsSync('/opt/pw-browsers/chromium')) launch.executablePath = '/opt/pw-browsers/chromium';
+const browser = await chromium.launch(launch);
+const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await page.goto('file://' + tmp);
+await page.waitForTimeout(120);
+
+const RGB = { endless: 'rgb(76, 175, 80)', gauntlet: 'rgb(185, 103, 255)', clash: 'rgb(255, 152, 0)', ffa: 'rgb(255, 215, 0)' };
+
+// The markup alone, before renderModeNav has ever run. A nav that is only
+// correct once a script has run shows three blank buttons on a slow load.
+const atRest = await page.evaluate(() => window.readNav());
+eq('the shipped markup already reads as the Endless default',
+   atRest.map((b) => b.label), ['GAUNTLET', 'CLASH', 'FFA']);
+ck(atRest.every((b) => b.color === RGB[b.mode]), 'and is already coloured per mode',
+   atRest.map((b) => b.mode + ':' + b.color).join(' '));
+
+for (const [mode, flags] of [
+  ['endless', [false, false, false]],
+  ['gauntlet', [true, false, false]],
+  ['clash', [false, true, false]],
+  ['ffa', [false, false, true]],
+]) {
+  const nav = await page.evaluate((f) => { window.setFlags(f[0], f[1], f[2]); return window.readNav(); }, flags);
+  const here = await page.evaluate(() => window.currentModeIs());
+  eq(`in ${mode}, currentMode() agrees with the flags`, here, mode);
+  // The whole point: three slots, always filled, never the mode you are in.
+  ck(nav.length === 3 && nav.every((b) => b.shown), `in ${mode}, all three slots are shown`,
+     JSON.stringify(nav.map((b) => b.shown)));
+  ck(!nav.some((b) => b.mode === mode), `in ${mode}, the mode you are in is NOT one of the buttons`,
+     nav.map((b) => b.mode).join(','));
+  eq(`in ${mode}, the other three modes are all reachable`,
+     nav.map((b) => b.mode).sort(), ['clash', 'endless', 'ffa', 'gauntlet'].filter((m) => m !== mode).sort());
+  ck(nav.every((b) => b.label === MODE_LABEL(b.mode)), `in ${mode}, each slot is labelled with its mode`,
+     nav.map((b) => b.mode + '=' + b.label).join(' '));
+  // Colour travels with the mode, not with the button id — the thing that
+  // broke when the slots stopped being one-mode-each.
+  ck(nav.every((b) => b.color === RGB[b.mode]), `in ${mode}, each slot carries its mode's colour`,
+     nav.map((b) => b.mode + ':' + b.color).join(' '));
+  ck(new Set(nav.map((b) => b.mode)).size === 3, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
+}
+function MODE_LABEL(m) {
+  return { endless: 'ENDLESS', gauntlet: 'GAUNTLET', clash: 'CLASH', ffa: 'FFA' }[m];
+}
+
+// Order is stable, so a slot does not jump between modes as you move around.
+const orders = {};
+for (const [mode, flags] of [['endless', [false,false,false]], ['gauntlet', [true,false,false]],
+                             ['clash', [false,true,false]], ['ffa', [false,false,true]]]) {
+  orders[mode] = (await page.evaluate((f) => { window.setFlags(f[0], f[1], f[2]); return window.readNav(); }, flags))
+    .map((b) => b.mode);
+}
+eq('the slots keep one stable order across every mode', orders,
+   { endless: ['gauntlet', 'clash', 'ffa'], gauntlet: ['endless', 'clash', 'ffa'],
+     clash: ['endless', 'gauntlet', 'ffa'], ffa: ['endless', 'gauntlet', 'clash'] });
+
+// The nav must still fit on a phone now that no slot is ever hidden.
+for (const width of [320, 360, 390]) {
+  const p = await browser.newPage({ viewport: { width, height: 844 } });
+  await p.goto('file://' + tmp);
+  await p.waitForTimeout(100);
+  const r = await p.evaluate(() => ({
+    scrolls: document.documentElement.scrollWidth > window.innerWidth,
+    rows: new Set([...document.querySelectorAll('.arcade-menu button')]
+      .map((b) => Math.round(b.getBoundingClientRect().top))).size,
+  }));
+  ck(!r.scrolls, `${width}px: four nav buttons do not scroll the page sideways`, String(r.scrolls));
+  ck(r.rows <= 2, `${width}px: the nav stays within two rows`, String(r.rows));
+  await p.close();
+}
+await browser.close();
+fs.unlinkSync(tmp);
+
+// ===== 2. source-level: nothing writes the nav behind the renderer ========
+// The old bug was six places each setting innerText/display on three buttons.
+ck(!/getElementById\("btn-(mode|daily|ffa)"\)/.test(html),
+   'the three hard-coded nav button ids are gone entirely');
+const navWrites = [...html.matchAll(/getElementById\("btn-nav-"/g)].length;
+ck(navWrites === 1, 'exactly one place in the file touches a nav slot', String(navWrites));
+
+// Every way into a mode goes through goToMode, so the leave/confirm rules
+// cannot be half-applied by a second entry point.
+ck(/onclick="window\.goToMode\(this\.dataset\.mode\)"/.test(html), 'the nav routes through goToMode');
+ck(/id="gauntlet-card-btn" onclick="window\.goToMode\('gauntlet'\)"/.test(html),
+   "the home screen's Gauntlet card routes through it too (it used to call openDailyGauntlet directly, which double-confirmed)");
+ck(!/window\.toggleMode\(\)|window\.toggleFfaMode\(\)/.test(html),
+   'the old per-button toggles are gone, including from the invite-link path');
+
+// ===== 3. the mode you are in is named, and the button states its purpose ==
+ck(/<div id="endless-header">/.test(html), 'Endless has a header of its own');
+const eh = endlessHeader;
+ck(/ENDLESS/.test(eh), 'and it says ENDLESS');
+ck(/endless-word-index/.test(eh), 'and shows which word you are on');
+ck(/#score-board, #daily-header, #endless-header \{/.test(html),
+   'it shares the layout rules with the other headers rather than inventing its own');
+// Shown and hidden with the score board at every mode switch.
+const show = [...html.matchAll(/getElementById\("endless-header"\)\.style\.display = "(\w+)"/g)].map((m) => m[1]);
+ck(show.length >= 6 && show.includes('none') && show.includes('flex'),
+   'the Endless header is toggled at every mode switch', show.join(','));
+
+const bank = grab(/<button class="cash-out-btn"[^>]*>[^<]*<\/button>/, 'bank button');
+ck(/Bank/.test(bank) && !/Cash Out/.test(bank), 'the button says Bank, not Cash Out', bank);
+ck(/bank\.innerText = "Bank " \+ score\.toLocaleString\(\) \+ " pts"/.test(html),
+   'and carries the live score, so it states what pressing it is worth');
+ck(!/>Cash Out</.test(html) && !/Cashed Out!/.test(html),
+   'no player-facing surface still says Cash Out');
+
+// Standard is called Endless everywhere a player can read it — but NOT in the
+// stored mode value, which the boards, the archive and every run doc key on.
+const facing = html
+  .replace(/<!--[\s\S]*?-->/g, '')            // comments
+  .replace(/(^|\s)\/\/[^\n]*/g, '')            // line comments, trailing ones included
+  .replace(/\/\*[\s\S]*?\*\//g, '')           // block comments
+  .replace(/showStandardPanels/g, '')         // an identifier, not a label
+  .replace(/Standard (Background|Font)/g, ''); // shop cosmetics, unrelated
+const leftovers = [...facing.matchAll(/.{0,40}\bStandard\b.{0,40}/g)].map((m) => m[0].trim());
+ck(leftovers.length === 0, 'no player-facing copy still calls the mode Standard',
+   leftovers.slice(0, 3).join(' || '));
+ck(/mode: "standard"/.test(html) || /"standard"/.test(html),
+   'the STORED mode value is untouched — renaming it would orphan every run doc');
+ck(/setProfileTab\('standard'\)">Endless</.test(html),
+   "the profile tab is relabelled without moving the panel id it keys on");
+
+// ===== 4. one card per mode, replacing the five-slide tour ================
+ck(!/onboarding-slide|ONBOARDING_SLIDE_COUNT/.test(html), 'the five-slide welcome tour is gone');
+ck(/<div id="mode-intro-modal"/.test(html), 'there is a single mode intro card');
+const intro = between(html, 'const MODE_INTRO = {', '\n        };', 'MODE_INTRO');
+for (const mode of ['endless', 'gauntlet', 'clash', 'ffa']) {
+  ck(new RegExp(mode + ':\\s*\\{').test(intro), `${mode} has an intro card`);
+}
+// Short on purpose: the tour was five screens of reading before a first guess.
+const texts = [...intro.matchAll(/text: "([^"]*)"/g)].map((m) => m[1]);
+eq('all four modes have intro text', texts.length, 4);
+ck(texts.every((x) => x.length <= 260), 'each card stays to a few lines',
+   texts.map((x) => x.length).join(','));
+ck(/localStorage\.getItem\(modeIntroKey\(mode\)\)/.test(html), 'a card is shown once per mode');
+ck(/new URLSearchParams\(location\.search\)\.has\("join"\)/.test(between(html, 'function showModeIntro(mode)', '\n        }\n', 'showModeIntro')),
+   'and never on top of a tap-to-join invite, which is mid-flow already');
+for (const m of ['await showModeIntro("gauntlet")', 'await showModeIntro("clash")',
+                 'await showModeIntro("ffa")', 'await showModeIntro("endless")']) {
+  ck(html.includes(m), `entering is gated on the card: ${m}`);
+}
+
+// ===== 5. landing on the Gauntlet, only where that is possible ============
+const land = between(html, 'function maybeLandOnGauntlet() {', '\n        }', 'maybeLandOnGauntlet');
+ck(/hasLanded/.test(land), 'the landing happens at most once per page load');
+ck(/currentMode\(\) !== "endless"/.test(land), 'it never overrides a mode the player chose');
+ck(/score > 0 \|\| runStats\.played > 0/.test(land), 'nor a run already under way');
+// The Gauntlet is account-only, so landing a guest there would make a sign-in
+// wall the first thing a new visitor saw.
+const callers = [...html.matchAll(/maybeLandOnGauntlet\(\);/g)].length;
+ck(callers === 2, 'it is called from the two card branches a player can still play', String(callers));
+const cardFn = between(html, 'async function refreshGauntletCard() {', '\n        }', 'refreshGauntletCard');
+const guestReturn = cardFn.indexOf('isGuest');
+const firstLand = cardFn.indexOf('maybeLandOnGauntlet');
+ck(guestReturn !== -1 && firstLand > guestReturn,
+   'every landing site is past the guest and signed-out early returns, so a guest is never sent to an account-only mode');
+ck(!/maybeLandOnGauntlet/.test(cardFn.slice(cardFn.indexOf('Done for today'))),
+   'and a finished Gauntlet does not land you on a board with nothing left to play');
+
+// ===== 6. the donation note stays under every mode ========================
+ck(/<section id="site-intro"/.test(html), 'the support note is on the page');
+ck(/Support the project/.test(html), 'and still says what it is');
+ck(!/getElementById\("site-intro"\)/.test(html) && !/#site-intro\s*\{[^}]*display:\s*none/.test(html),
+   'nothing ever hides it, so it sits under Endless, the Gauntlet, Clash and FFA alike');
+const panels = between(html, 'function showStandardPanels(visible) {', '\n        }', 'showStandardPanels');
+ck(!/site-intro/.test(panels), 'the mode-switch panel toggle does not touch it either');
+
+let bad = 0;
+for (const [ok, name, detail] of t) {
+  if (!ok) bad++;
+  console.log((ok ? 'PASS' : 'FAIL').padEnd(6) + name + (ok ? '' : '  -> ' + detail));
+}
+console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
+process.exit(bad ? 1 : 0);

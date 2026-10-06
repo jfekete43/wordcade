@@ -176,13 +176,16 @@ ok('no page still says a missed word ends the Gauntlet run',
 ok('the rules page says you play all ten',
    /play all ten|plays all ten|all ten words whatever happens/i.test(text['how-to-play.html']),
    text['how-to-play.html'].slice(0, 0));
-// The card's four copies of one sentence, which have to agree with each other.
-// One sentence, written out four times: once in the markup and three times as
-// string literals in the card's branches. One branch ends in an em-dash and
-// continues on the next line, so that tail is trimmed before comparing.
-const cardLines = [...pages['index.html'].matchAll(/Ten words,[^"<]{0,80}/g)]
-  .map((m) => m[0].split('\\u2014')[0].replace(/[.\s]+$/, '').trim());
-ok('the Gauntlet card sentence is written in all four places', cardLines.length === 4, JSON.stringify(cardLines));
+// One sentence, written out five times: once in the card's markup, three times
+// as string literals in the card's branches, and once in the Gauntlet's intro
+// card. Two of them carry a tail after an em-dash ("free account required",
+// and the intro card's extra detail), so the comparison is of the shared
+// opening — which is the part that has to agree.
+const cardLines = [...pages['index.html'].matchAll(/Ten words,[^"<]{0,120}/g)]
+  .map((m) => m[0].split('\\u2014')[0].split('\u2014')[0])
+  .map((x) => x.slice(0, x.indexOf('all ten') + 'all ten'.length))
+  .map((x) => x.replace(/[.\s]+$/, '').trim());
+ok('the Gauntlet sentence is written in all five places', cardLines.length === 5, JSON.stringify(cardLines));
 ok('and says the same thing in every one of them',
    cardLines.length > 0 && new Set(cardLines).size === 1, JSON.stringify(cardLines));
 
