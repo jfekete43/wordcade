@@ -1252,7 +1252,21 @@
          everything above this is to a crawler. -->
     <section id="site-intro" style="width: 90%; max-width: 620px; margin: 10px auto 0; color: #999; font-size: 13px; line-height: 1.7; position: relative; z-index: 2;">
         <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>
-        <p style="margin-top: 0; margin-bottom: 4px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is that: unlimited rounds, a daily ten-word gauntlet everyone shares, and live matches against other players. Free, runs in your browser, no account needed to start — read <a href="how-to-play.html" style="color:#b967ff;">the full rules</a> or the <a href="strategy.html" style="color:#00ffff;">strategy guide</a>.</p>
+        <p style="margin-top: 0; margin-bottom: 10px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is your place. Free, runs in your browser, no account needed to start.</p>
+
+        <!-- Four lines, one per mode, each in that mode's own colour — the
+             same green/purple/orange/gold the nav buttons and the intro cards
+             use, so a name read here is recognisable as a button up there.
+             This is also the block a crawler indexes, which is why the modes
+             are described in prose rather than left to the nav. -->
+        <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
+            <li style="margin-bottom: 5px;"><strong style="color:#4caf50;">Endless</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:#b967ff;">Daily Gauntlet</strong> — Ten words, five guesses each. Everyone plays all ten — the same ten, once a day.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:#ff9800;">Clash</strong> — race one other player through the same words for seven minutes.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:#ffd700;">FFA</strong> — the same race with three to six players at once.</li>
+        </ul>
+
+        <p style="margin-top: 12px; margin-bottom: 4px;">Read <a href="how-to-play.html" style="color:#b967ff;">the full rules</a> or the <a href="strategy.html" style="color:#00ffff;">strategy guide</a>.</p>
 
         <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Support the project</h2>
         <p style="margin-top: 0;">Lexathon is free and always will be — no ads, no paywall, and nothing in the shop that makes anyone score higher. Running the multiplayer and leaderboards does cost something, so if you are enjoying it, <a href="https://ko-fi.com/lexathon" target="_blank" rel="noopener" style="color:#4caf50;">a donation on Ko-fi</a> is hugely appreciated. Play a few rounds first — only chip in if it earned it.</p>
@@ -1478,7 +1492,7 @@
                      underneath it, and the Gauntlet tab is now the all-time
                      hall of fame rather than today's standings. -->
                 <button class="btn-cyan" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
-                <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Arcade</button>
+                <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Endless</button>
             </div>
         </div>
     </div>

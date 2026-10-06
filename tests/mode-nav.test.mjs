@@ -244,7 +244,42 @@ ck(guestReturn !== -1 && firstLand > guestReturn,
 ck(!/maybeLandOnGauntlet/.test(cardFn.slice(cardFn.indexOf('Done for today'))),
    'and a finished Gauntlet does not land you on a board with nothing left to play');
 
-// ===== 6. the donation note stays under every mode ========================
+// ===== 6. the homepage blurb describes the modes, in the modes' colours ===
+// Colour-coordinated with the nav on purpose: a name read down here should be
+// recognisable as the button up there. The two sets of hex values live in
+// different places (a CSS rule and inline styles), so they are compared rather
+// than trusted.
+const blurb = between(html, '<h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>',
+                      'Support the project', 'homepage blurb');
+ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
+ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
+for (const [mode, hex] of [['Endless', '#4caf50'], ['Daily Gauntlet', '#b967ff'], ['Clash', '#ff9800'], ['FFA', '#ffd700']]) {
+  const re = new RegExp('<strong style="color:' + hex + ';">' + mode + '</strong>');
+  ck(re.test(blurb), `the blurb names ${mode} in its own colour (${hex})`,
+     (blurb.match(new RegExp('<strong[^>]*>' + mode + '</strong>')) || ['missing'])[0]);
+}
+// And those four hex values are the mode table's, not a second opinion.
+const tableHex = [...between(html, 'const MODES = {', '\n        };', 'MODES')
+  .matchAll(/color: "(#[0-9a-f]{6})"/g)].map((m) => m[1]);
+eq('the blurb colours are the nav colours', tableHex, ['#4caf50', '#b967ff', '#ff9800', '#ffd700']);
+// Four lines, not four paragraphs: this block was trimmed once already for
+// being too much text on a game you are meant to click and play.
+const items = [...blurb.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1].replace(/<[^>]+>/g, '').trim());
+eq('one line per mode', items.length, 4);
+ck(items.every((x) => x.length <= 130), 'each stays to a line', items.map((x) => x.length).join(','));
+
+// Leaving the Gauntlet says where it puts you. It said "Back to Arcade",
+// which names nothing the player can see anywhere else in the app.
+ck(!/Back to Arcade/.test(html), 'no button still offers to go "Back to Arcade"');
+// Scoped to buttons that name a MODE — "Back to List" and "Back to Game" are
+// ordinary navigation inside the archive and the shop, not mode switches.
+const backs = [...html.matchAll(/>Back to (\w+)</g)].map((m) => m[1]);
+ck(!backs.some((x) => x === 'Arcade' || x === 'Standard'),
+   'no "back" button names a mode that does not exist', backs.join(','));
+ck(backs.filter((x) => x === 'Endless').length >= 3,
+   'the three that do name a mode all say Endless, where they actually land you', backs.join(','));
+
+// ===== 7. the donation note stays under every mode ========================
 ck(/<section id="site-intro"/.test(html), 'the support note is on the page');
 ck(/Support the project/.test(html), 'and still says what it is');
 ck(!/getElementById\("site-intro"\)/.test(html) && !/#site-intro\s*\{[^}]*display:\s*none/.test(html),
