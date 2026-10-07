@@ -186,8 +186,13 @@ ck(show.length >= 6 && show.includes('none') && show.includes('flex'),
 
 const bank = grab(/<button class="cash-out-btn"[^>]*>[^<]*<\/button>/, 'bank button');
 ck(/Bank/.test(bank) && !/Cash Out/.test(bank), 'the button says Bank, not Cash Out', bank);
-ck(/bank\.innerText = "Bank " \+ score\.toLocaleString\(\) \+ " pts"/.test(html),
-   'and carries the live score, so it states what pressing it is worth');
+// Pinned to the property rather than the expression: the label must show the
+// value it is HANDED, never the global `score`. Reading the global is what
+// made it impossible for the animation to drive it, and is the whole reason
+// the button sat a word behind. The live-score behaviour itself is section 5b.
+const bankFn = between(html, 'function updateBankLabel(displayScore) {', '\n        }', 'updateBankLabel');
+ck(!/\bscore\b/.test(bankFn.replace(/displayScore/g, '')),
+   'the Bank label shows what it is handed and never reads the global score', bankFn.trim().slice(0, 90));
 ck(!/>Cash Out</.test(html) && !/Cashed Out!/.test(html),
    'no player-facing surface still says Cash Out');
 
@@ -243,6 +248,76 @@ ck(guestReturn !== -1 && firstLand > guestReturn,
    'every landing site is past the guest and signed-out early returns, so a guest is never sent to an account-only mode');
 ck(!/maybeLandOnGauntlet/.test(cardFn.slice(cardFn.indexOf('Done for today'))),
    'and a finished Gauntlet does not land you on a board with nothing left to play');
+
+// ===== 5b. the Bank button cannot fall behind the score ==================
+// It did. Both labels lived inside updateScoreBoard, and the SOLVE path never
+// calls it — it animates the score itself and hand-writes continues. So from
+// the first word you solved, the button showed the score you had before that
+// word, and only caught up on a miss. It read "Bank 0 pts" next to "SCORE: 50".
+//
+// Run as the real extracted source against a fake clock, so this is the
+// behaviour and not a grep for a function name.
+const animSrc = 'function animateScore(start, end) {' + between(html, 'function animateScore(start, end) {', '\n        }', 'animateScore') + '\n}';
+const bankSrc = 'function updateBankLabel(displayScore) {' + between(html, 'function updateBankLabel(displayScore) {', '\n        }', 'updateBankLabel') + '\n}';
+const runAnim = new Function('start', 'end', `
+  let bankText = null, scoreText = null;
+  const ticks = [];
+  const document = { getElementById: (id) => id === 'btn-cash-out'
+    ? { set innerText(v) { bankText = v; } } : null };
+  const scoreDisplay = { set innerText(v) { scoreText = v; } };
+  const isVersusMode = false;
+  let fns = [];
+  const setInterval = (fn) => { fns.push(fn); return 1; };
+  const clearInterval = () => { fns = []; };
+  ${bankSrc}
+  ${animSrc}
+  animateScore(start, end);
+  // Drive the fake clock to completion, recording what each tick showed.
+  for (let i = 0; i < 500 && fns.length; i++) { fns[0](); ticks.push([scoreText, bankText]); }
+  return { bankText, scoreText, ticks };
+`);
+
+const solve = runAnim(0, 50);
+eq('after a +50 solve the button shows 50, not 0', solve.bankText, 'Bank 50 pts');
+eq('and the score shows 50 too', solve.scoreText, '50');
+ck(solve.ticks.every(([sc, bk]) => bk === 'Bank ' + sc + ' pts'),
+   'the button and the score are never out of step, on any frame of the animation',
+   JSON.stringify(solve.ticks.slice(0, 3)));
+
+const big = runAnim(12400, 12900);
+eq('a later solve lands on the new total', big.bankText, 'Bank 12,900 pts');
+ck(big.ticks.every(([sc, bk]) => bk === 'Bank ' + sc + ' pts'), 'thousands separators agree too',
+   JSON.stringify(big.ticks.slice(-2)));
+ck(big.ticks.length > 1, 'the animation really ran rather than short-circuiting', String(big.ticks.length));
+
+// The invariant that keeps it fixed: every place the score reaches the screen
+// writes the button in the same breath.
+const scoreWrites = [...html.matchAll(/scoreDisplay\.innerText = [^\n]*\n([\s\S]{0,400}?)(?=\n\s*\}|\n\s*function )/g)];
+ck(scoreWrites.length >= 2, 'the score reaches the screen in more than one place', String(scoreWrites.length));
+ck(scoreWrites.every((m) => /updateBankLabel\(/.test(m[1])),
+   'and every one of them updates the Bank button too');
+
+// What the word number actually prints. Checking only that startRound calls it
+// let an off-by-one through: "WORD 0" on a fresh run passed every check here.
+const wordSrc = 'function updateWordLabel() {' + between(html, 'function updateWordLabel() {', '\n        }', 'updateWordLabel') + '\n}';
+const runWord = new Function('played', `
+  let text = null;
+  const document = { getElementById: (id) => id === 'endless-word-index'
+    ? { set innerText(v) { text = v; } } : null };
+  const runStats = { played };
+  ${wordSrc}
+  updateWordLabel();
+  return text;
+`);
+eq('a fresh run is on word 1, not word 0', runWord(0), '1');
+eq('after one solve you are on word 2', runWord(1), '2');
+eq('after three finished words you are on word 4', runWord(3), '4');
+eq('a long run reads as a number', runWord(1234), '1,235');
+eq('a corrupt counter does not print NaN', runWord('nonsense'), '1');
+
+// The word number names the word on the board, so it advances with the board.
+ck(/createBoard\(\); resetKeyboardColors\(\); checkDangerRow\(\); updateSkipButton\(\);[\s\S]{0,200}?updateWordLabel\(\);/.test(html),
+   'startRound advances the word number, so it names the word actually on screen');
 
 // ===== 6. the homepage blurb describes the modes, in the modes' colours ===
 // Colour-coordinated with the nav on purpose: a name read down here should be

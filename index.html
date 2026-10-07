@@ -4808,6 +4808,10 @@
                 current += increment;
                 if (current >= end) { current = end; clearInterval(timer); }
                 scoreDisplay.innerText = current.toLocaleString();
+                // Written here rather than once at the end: this is the only
+                // other place the score reaches the screen, and anything that
+                // writes the score has to write the button with it.
+                updateBankLabel(current);
             }, 30);
         }
 
@@ -5691,17 +5695,34 @@
             return false;
         }
 
+        // The word you are ON is one past the ones you have finished.
+        function updateWordLabel() {
+            const idx = document.getElementById("endless-word-index");
+            if (idx) idx.innerText = (Math.max(0, Number(runStats.played) || 0) + 1).toLocaleString();
+        }
+
+        // The button says what pressing it is worth. With nothing banked yet it
+        // reads "Bank 0 pts", which still states what the control does — the old
+        // "Cash Out" never did.
+        //
+        // Takes the value to show rather than reading `score`, because the solve
+        // path does not go through updateScoreBoard at all: it animates the score
+        // itself (see animateScore) and hand-writes continues. Both labels lived
+        // inside updateScoreBoard, so from the first solve the button sat at the
+        // score you had BEFORE that word, and only caught up on a miss — the miss
+        // path being the only one that called it. Passing the value in lets the
+        // animation count the button up in step with the score instead of
+        // snapping it to the end.
+        function updateBankLabel(displayScore) {
+            const bank = document.getElementById("btn-cash-out");
+            if (bank) bank.innerText = "Bank " + Math.max(0, Number(displayScore) || 0).toLocaleString() + " pts";
+        }
+
         function updateScoreBoard() {
             if (isVersusMode || isFfaMode) return;
             scoreDisplay.innerText = score.toLocaleString(); continuesDisplay.innerText = continues;
-            // The word you are ON is one past the ones you have finished.
-            const idx = document.getElementById("endless-word-index");
-            if (idx) idx.innerText = (Math.max(0, Number(runStats.played) || 0) + 1).toLocaleString();
-            // The button says what pressing it is worth. With nothing banked
-            // yet it reads "Bank 0 pts", which still states what the control
-            // does — the old "Cash Out" never did.
-            const bank = document.getElementById("btn-cash-out");
-            if (bank) bank.innerText = "Bank " + score.toLocaleString() + " pts";
+            updateWordLabel();
+            updateBankLabel(score);
         }
 
         function checkDangerRow() {
@@ -6084,6 +6105,9 @@
             
             currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = []; currentWordGuesses = [];
             createBoard(); resetKeyboardColors(); checkDangerRow(); updateSkipButton();
+            // Here rather than at the moment you solve, so the number always
+            // names the word actually on the board.
+            updateWordLabel();
         }
 
         const keys = document.querySelectorAll(".key");
