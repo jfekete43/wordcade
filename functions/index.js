@@ -253,7 +253,7 @@ const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "b
 // Must match index.html's scorePoints exactly — points awarded by which
 // guess (1st through 5th) solved the word.
 const SCORE_POINTS = [500, 250, 150, 50, 10];
-const DAILY_GAUNTLET_WORD_COUNT = 10;
+const DAILY_GAUNTLET_WORD_COUNT = 7;
 const DAILY_GAUNTLET_MAX_GUESSES = 5;
 const SUDDEN_DEATH_ROUND_MS = 90000; // a full 5-guess board per side, not one quick guess — needs real thinking time
 const SUDDEN_DEATH_MAX_ROUNDS = 1; // one word decides it — if neither side solves it, the match is a genuine tie rather than dragging a drawn 7-minute match out by another 90s per extra round
@@ -485,7 +485,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // on every page load.
     //
     // Gauntlet runs are excluded. They have their own board on their own
-    // screen, and their scores are on a different scale entirely — ten words
+    // screen, and their scores are on a different scale entirely — a fixed set of words
     // against an endless run — so mixing them would make the number on this
     // board mean two different things.
     if (run.mode !== "daily") {
@@ -1006,7 +1006,7 @@ exports.refreshProfile = onCall(async (request) => {
 // ============================================================================
 // DAILY GAUNTLET — a shared, once-per-day puzzle: everyone gets the same
 // DAILY_GAUNTLET_WORD_COUNT words each Eastern-time day (see
-// getTodayDateStr), one attempt each. Everyone plays all ten: running out of
+// getTodayDateStr), one attempt each. Everyone plays every word: running out of
 // guesses on a word reveals the answer and moves play to the next one, scoring
 // nothing for it, and only running out of words ends the run (no
 // continues/wipeout — this mode is meant to be a low-stress daily ritual, not
@@ -1058,9 +1058,17 @@ function effectiveDifficulty(word, stats) {
   return (plays * measured + WORD_STATS_PRIOR * prior) / (plays + WORD_STATS_PRIOR);
 }
 
-// Ten words that ramp: three from the easy third, four from the middle, three
+// Seven words that ramp: two from the easy third, three from the middle, two
 // from the hard third, then ordered easiest to hardest so a Gauntlet opens
 // gently and closes with its teeth out.
+//
+// Was ten. Players said a Gauntlet took too long, and length was the only one
+// of the obvious fixes that does not change what the mode IS — a clock would
+// have made the one unhurried mode a third race, and would have punished
+// exactly the people complaining. Seven rather than five because the tiers
+// below still divide into a real ramp at seven ([2,3,2]); at five they
+// collapse to [2,1,2] and "opens gently, closes with its teeth out" stops
+// meaning anything.
 //
 // `stats` is optional. The nightly generator passes the measured table; the
 // lazy fallback inside getOrCreateTodaysPuzzle deliberately does not, because
@@ -1072,7 +1080,7 @@ function pickDailyWords(stats) {
 
   const third = Math.floor(ranked.length / 3);
   const tiers = [ranked.slice(0, third), ranked.slice(third, third * 2), ranked.slice(third * 2)];
-  const want = [3, 4, 3]; // sums to DAILY_GAUNTLET_WORD_COUNT
+  const want = [2, 3, 2]; // must sum to DAILY_GAUNTLET_WORD_COUNT
 
   const picked = [];
   tiers.forEach((tier, i) => {
@@ -1286,7 +1294,7 @@ exports.guessDailyWord = onCall(async (request) => {
 
     const newScore = attempt.score + earned;
     const newWordIndex = wordFinished ? wordIndex + 1 : wordIndex;
-    // Everyone plays all ten words. Only running out of words ends the run.
+    // Everyone plays every word. Only running out of words ends the run.
     //
     // This used to stop at the first miss. pickDailyWords builds each puzzle as
     // a ramp - three from the easy third of the list, four from the middle,
@@ -1337,7 +1345,7 @@ exports.guessDailyWord = onCall(async (request) => {
       tx.set(runRef, {
         uid, username, equipped, score: newScore, isWipeout: false, lostScore: 0,
         wordsGuessed, wordsPlayed, guess1: g1, guess2: g2, guess3: g3, guess4: g4, guess5: g5,
-        // One per missed word, not 0-or-1: a run can now miss up to ten. This
+        // One per missed word, not 0-or-1: a run can now miss every word. This
         // is the same thing `fails` means for a standard run - words played
         // and not guessed - which is what the Profile's win rate divides by
         // `wordsPlayed` to get.

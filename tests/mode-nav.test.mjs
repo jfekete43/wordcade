@@ -354,6 +354,52 @@ ck(!backs.some((x) => x === 'Arcade' || x === 'Standard'),
 ck(backs.filter((x) => x === 'Endless').length >= 3,
    'the three that do name a mode all say Endless, where they actually land you', backs.join(','));
 
+// ===== 6b. the Gauntlet's length, and the waiting that came with it ======
+const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
+const GCOUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
+eq('the Gauntlet is seven words', GCOUNT, 7);
+const gwant = JSON.parse(fnSrc.match(/const want = (\[[^\]]*\]);/)[1]);
+eq('and the draw still ramps across three tiers', gwant, [2, 3, 2]);
+ck(gwant.reduce((a, b) => a + b, 0) === GCOUNT, 'the tiers sum to the puzzle length',
+   `${gwant} vs ${GCOUNT}`);
+// Five was the other option. It is rejected here rather than in a comment: the
+// outer tiers collapse to 1 and the ramp stops being a ramp.
+ck(gwant.every((x) => x >= 2), 'no tier is thin enough to make the ramp meaningless', String(gwant));
+
+// The two enforced waits. Both run AFTER the server has graded the guess, so
+// they are presentation, not protection — see the note at the call site and
+// guessDailyWord's own transaction, which is what actually enforces the guess
+// budget. animateRowReveal lands its last tile at 750ms (5 x 150 stagger +
+// a 150 flip), so the per-guess beat must cover that and little else.
+const perGuess = Number(between(html, 'currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();', '\n        }', 'per-guess wait').match(/\}, (\d+)\);/)[1]);
+ck(perGuess >= 750, 'the per-guess beat still covers the tile reveal', String(perGuess));
+ck(perGuess <= 850, 'but is not padded well past it', String(perGuess));
+const betweenWords = Number(html.match(/setTimeout\(startDailyRound, (\d+)\)/)[1]);
+ck(betweenWords <= 600, 'the gap between words is trimmed', String(betweenWords));
+// Roughly 3.7 guesses a word is a normal run; this is the dead time it buys.
+const deadMs = GCOUNT * 3.7 * perGuess + GCOUNT * betweenWords;
+ck(deadMs < 30000, 'a whole Gauntlet spends under 30s waiting on animations',
+   `${Math.round(deadMs / 1000)}s`);
+
+// Nothing about the delay may claim to be a security control, because it is
+// not one and writing that down would mislead whoever next tries to trim it.
+const guessFn = fnSrc.slice(fnSrc.indexOf('exports.guessDailyWord'));
+ck(/attempt\.status !== "active"/.test(guessFn.slice(0, 2000)), 'the server rejects a guess on a finished attempt');
+ck(/guesses\.length >= DAILY_GAUNTLET_MAX_GUESSES/.test(guessFn.slice(0, 2000)),
+   'and enforces the guess budget itself, which is what the client timer never did');
+
+// You can stop and come back — said where players will see it, and true.
+ck(/pick up where you left off/.test(between(html, 'const MODE_INTRO = {', '\n        };', 'MODE_INTRO')),
+   'the Gauntlet intro card says you can stop and resume');
+const startDaily = between(html, 'function startDailyRound() {', '\n        }', 'startDailyRound');
+ck(/wordEntry\.guesses\.forEach/.test(startDaily) && /currentRow = wordEntry\.guesses\.length/.test(startDaily),
+   'and resuming really does replay the guesses already made on that word, so the claim is true');
+
+// Every surface agrees on the number. The canonical sentence is checked for
+// agreement in docs-consistency; this is the count itself.
+ck(!/\ball ten\b/i.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/(^|\s)\/\/[^\n]*/g, '')),
+   'no player-facing copy still says all ten');
+
 // ===== 7. the donation note stays under every mode ========================
 ck(/<section id="site-intro"/.test(html), 'the support note is on the page');
 ck(/Support the project/.test(html), 'and still says what it is');

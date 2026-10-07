@@ -16,11 +16,23 @@
 export const GAUNTLET_EPOCH = "2026-09-02"; // date of Gauntlet #1 — matches index.html
 export const WORD_COUNT = 10;
 // Tier sizes from pickDailyWords in functions/index.js. That function draws
-// 3/4/3 from the easy/medium/hard thirds of the whole word list and then
-// sorts all ten by difficulty ascending. Because the thirds don't overlap,
-// sorting cannot move a word across a tier boundary — so position in the
-// published list IS the tier it was drawn from, and these counts label it.
-export const TIER_SIZES = [3, 4, 3];
+// from the easy/medium/hard thirds of the whole word list and then sorts the
+// draw by difficulty ascending. Because the thirds don't overlap, sorting
+// cannot move a word across a tier boundary — so position in the published
+// list IS the tier it was drawn from, and these counts label it.
+//
+// Derived from the day's own word count rather than fixed, because the archive
+// renders every past day and the Gauntlet has not always been the same length.
+// It was ten words (3/4/3) before it became seven (2/3/2); a constant here
+// would have relabelled every ten-word page the day the count changed —
+// position 8 was Hard on those days and is off the end of a seven-word puzzle.
+// The split is the same one the server uses: a third to each end, the
+// remainder in the middle.
+export function tierSizesFor(wordCount) {
+  const n = Math.max(0, Number(wordCount) || 0);
+  const outer = Math.floor(n / 3);
+  return [outer, n - outer * 2, outer];
+}
 const TIER_NAMES = ["Easy", "Medium", "Hard"];
 
 const SITE = "https://lexathon.gg";
@@ -80,10 +92,11 @@ export function prettyDate(dateStr) {
 
 // ----------------------------------------------------------- statistics ---
 
-export function tierOf(index) {
+export function tierOf(index, wordCount) {
+  const sizes = tierSizesFor(wordCount);
   let seen = 0;
-  for (let t = 0; t < TIER_SIZES.length; t++) {
-    seen += TIER_SIZES[t];
+  for (let t = 0; t < sizes.length; t++) {
+    seen += sizes[t];
     if (index < seen) return TIER_NAMES[t];
   }
   return TIER_NAMES[TIER_NAMES.length - 1];
@@ -101,7 +114,7 @@ export function tierOf(index) {
  * both eras. What the numbers MEAN moved:
  *
  *   reached   — then: players still alive at that word. Now: everyone, since
- *               everyone plays all ten. Still literally "players who got here".
+ *               everyone plays every word. Still literally "players who got here".
  *   endedRuns — then: runs that ended on this word. Now: players who missed it.
  *               The same count both times; `missedBy` is the name that is true
  *               of both, which is what the page prints.
@@ -123,7 +136,7 @@ export function computeWordStats(words, attempts) {
     return {
       // `missedBy` is the name used from here on; `endedRuns` stays as an alias
       // so an older caller (or an old test) is not silently reading undefined.
-      index: i, word, tier: tierOf(i), reached, solved, missedBy: endedRuns, endedRuns,
+      index: i, word, tier: tierOf(i, words.length), reached, solved, missedBy: endedRuns, endedRuns,
       // Averaged over the players who SOLVED it, not everyone who reached
       // it. A failed word is always five guesses, so including failures
       // would drag this toward 5 in step with the solve rate reported
@@ -168,7 +181,7 @@ export function computeDistribution(runs) {
 /*
  * Whether a finished day is worth a page.
  *
- * A day nobody completed renders as ten words and "Nobody finished this
+ * A day nobody completed renders as its words and "Nobody finished this
  * one", and unlike the rest of the archive it can never improve: a past
  * Gauntlet cannot be played retroactively, so its run count is final the
  * moment the day ends. Those pages stay thin forever, which is why the
@@ -265,7 +278,7 @@ const STYLE = `
                Perfect count. */
             .hide-sm { display: none; }
             .only-sm { display: inline; }
-            /* 2px between letters over ten five-letter words is real width
+            /* 2px between letters over a column of five-letter words is real width
                on a 334px table, and the word is legible without it. */
             .word { letter-spacing: 1px; }
         }
@@ -344,7 +357,7 @@ export function renderDayPage(day) {
    * Which rule was this day played under? Nobody stored a flag, so it is read
    * off the data - but only where the data actually proves it.
    *
-   * Proof of play-all-ten is positive and specific: somebody missed a word and
+   * Proof of play-all-words is positive and specific: somebody missed a word and
    * went on to play a later one, which the old rule made impossible. Proof of
    * the old rule is equally positive: some word was reached by fewer players
    * than finished, which the new rule makes impossible.
@@ -358,13 +371,13 @@ export function renderDayPage(day) {
   const playedOn = day.attempts.some((h) =>
     h.some((e, i) => e && e.guesses.length > 0 && !e.solved && h.slice(i + 1).some((x) => x && x.guesses.length > 0)));
   const someoneStoppedShort = players > 0 && stats.some((s) => s.reached < players);
-  const era = playedOn ? "all-ten" : someoneStoppedShort ? "sudden-death" : "unknown";
+  const era = playedOn ? "all-words" : someoneStoppedShort ? "sudden-death" : "unknown";
   const distMax = Math.max(1, ...dist);
 
   const title = `Lexathon Gauntlet #${n} — ${pretty}`;
   const description = players
-    ? `All ten words from Lexathon Gauntlet #${n} (${pretty}), with the final standings, how many guesses each word took, and which one caught the most people out.`
-    : `The ten words from Lexathon Gauntlet #${n} (${pretty}).`;
+    ? `All ${day.words.length} words from Lexathon Gauntlet #${n} (${pretty}), with the final standings, how many guesses each word took, and which one caught the most people out.`
+    : `The ${day.words.length} words from Lexathon Gauntlet #${n} (${pretty}).`;
 
   let html = head(title, description, `${SITE}/gauntlet/${day.date}/`);
   html += `
@@ -383,8 +396,8 @@ export function renderDayPage(day) {
 `;
     html += `        <p class="lede">${num(players)} ${players === 1 ? "player" : "players"} finished this one. `;
     html += perfect > 0
-      ? `${num(perfect)} got all ten.`
-      : `Nobody got all ten.`;
+      ? `${num(perfect)} got all ${day.words.length}.`
+      : `Nobody got all ${day.words.length}.`;
     if (nemesis) html += ` <strong>${escapeHtml(nemesis.word)}</strong> caught the most people out — ${num(nemesis.missedBy)} missed it.`;
     html += `</p>\n`;
   } else {
@@ -392,8 +405,8 @@ export function renderDayPage(day) {
   }
 
   html += `
-        <h2>The Ten Words</h2>
-        <p>Drawn easiest-first: three from the easy third of the word list, four from the middle, three from the hardest.</p>
+        <h2>The Words</h2>
+        <p>Drawn easiest-first, spread across the easy, middle and hardest thirds of the word list.</p>
         <table>
             <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Missed</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
 `;
@@ -403,8 +416,8 @@ export function renderDayPage(day) {
       + `<td class="n">${pct(s.solveRate)}</td><td class="n">${avg(s.avgGuesses)}</td></tr>\n`;
   }
   html += `        </table>\n`;
-  if (players) html += era === "all-ten"
-    ? `        <p style="font-size:13px;color:#888;">Everyone plays all ten words, so every player saw every word here \u2014 "Solved" is the share of the whole field that got it.</p>\n`
+  if (players) html += era === "all-words"
+    ? `        <p style="font-size:13px;color:#888;">Everyone plays all ${day.words.length} words, so every player saw every word here \u2014 "Solved" is the share of the whole field that got it.</p>\n`
     : era === "sudden-death"
     ? `        <p style="font-size:13px;color:#888;">On this puzzle a miss ended the run, so later words were only seen by players still going \u2014 "Solved" is the share of those who got that far.</p>\n`
     : `        <p style="font-size:13px;color:#888;">"Solved" is the share of the players who reached that word.</p>\n`;
@@ -440,7 +453,7 @@ export function renderDayPage(day) {
   html += `
         <div class="pager">${prevLink}${nextLink}</div>
 
-        <p style="margin-top:24px;">Today's Gauntlet is a different ten words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
+        <p style="margin-top:24px;">Today's Gauntlet is a different set of words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
 
         <a href="/" class="back-btn">Back to Arcade</a>
 
@@ -458,14 +471,14 @@ ${NAV}
 export function renderHubPage(days) {
   const newest = days[0];
   const title = "Past Gauntlets — Every Lexathon Daily Puzzle";
-  const description = `Every past Lexathon Gauntlet: all ten words from each day, the final standings, and which word caught the most people out. ${days.length} puzzles so far.`;
+  const description = `Every past Lexathon Gauntlet: every word from each day, the final standings, and which word caught the most people out. ${days.length} puzzles so far.`;
   let html = head(title, description, `${SITE}/gauntlet/`);
   html += `
     <div class="container">
         <h1>Past Gauntlets</h1>
         <div class="sub">${days.length} ${days.length === 1 ? "puzzle" : "puzzles"} so far</div>
 
-        <p class="lede">The Gauntlet is one shared puzzle a day: ten words, five guesses each, and everybody plays all ten. Everybody gets the same ten. Once a day is over its words go here, along with the final standings and how hard each word turned out to be.</p>
+        <p class="lede">The Gauntlet is one shared puzzle a day: seven words, five guesses each, and everybody plays all ten. Everybody gets the same ten. Once a day is over its words go here, along with the final standings and how hard each word turned out to be.</p>
 
         <p>Today's puzzle is never listed — <a href="/">play it first</a>.</p>
 

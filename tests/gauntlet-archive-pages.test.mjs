@@ -71,11 +71,37 @@ ok('shiftDate crosses a DST boundary without drifting',
 // ---- 3. tiers reflect how pickDailyWords actually draws ------------------
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 const want = JSON.parse(fnSrc.match(/const want = (\[[^\]]*\]);/)[1]);
+const COUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
+ok('the draw sums to the puzzle length', want.reduce((a, b) => a + b, 0) === COUNT, `${want} sums to ${want.reduce((a, b) => a + b, 0)}, puzzle is ${COUNT}`);
+// Derived from the count now, not a constant: the archive renders every past
+// day and the Gauntlet has not always been the same length.
 ok('tier sizes match pickDailyWords in the functions source',
-   JSON.stringify(want) === JSON.stringify(R.TIER_SIZES), `${want} vs ${R.TIER_SIZES}`);
-ok('positions 1-3 are Easy', [0, 1, 2].every((i) => R.tierOf(i) === 'Easy'));
-ok('positions 4-7 are Medium', [3, 4, 5, 6].every((i) => R.tierOf(i) === 'Medium'));
-ok('positions 8-10 are Hard', [7, 8, 9].every((i) => R.tierOf(i) === 'Hard'));
+   JSON.stringify(R.tierSizesFor(COUNT)) === JSON.stringify(want), `${R.tierSizesFor(COUNT)} vs ${want}`);
+ok('positions 1-2 are Easy', [0, 1].every((i) => R.tierOf(i, 7) === 'Easy'));
+ok('positions 3-5 are Medium', [2, 3, 4].every((i) => R.tierOf(i, 7) === 'Medium'));
+ok('positions 6-7 are Hard', [5, 6].every((i) => R.tierOf(i, 7) === 'Hard'));
+// The regression that matters: a ten-word day predates the change and its
+// pages are still published. A fixed 2/3/2 would have called position 8 Hard
+// on a seven-word puzzle that has no position 8, and relabelled every older
+// page on the day the count changed.
+ok('a ten-word day still splits 3/4/3', JSON.stringify(R.tierSizesFor(10)) === '[3,4,3]', JSON.stringify(R.tierSizesFor(10)));
+ok('positions 1-3 are Easy on a ten-word day', [0, 1, 2].every((i) => R.tierOf(i, 10) === 'Easy'));
+ok('positions 4-7 are Medium on a ten-word day', [3, 4, 5, 6].every((i) => R.tierOf(i, 10) === 'Medium'));
+ok('positions 8-10 are Hard on a ten-word day', [7, 8, 9].every((i) => R.tierOf(i, 10) === 'Hard'));
+
+// The count has to reach tierOf from the DAY, not from a constant and not from
+// today's puzzle length. Checking tierOf alone missed this: it was correct
+// while its caller handed it the wrong number, which would have relabelled
+// every published ten-word page.
+const tiersOf = (n) => R.computeWordStats(Array.from({ length: n }, (_, i) => 'WORD' + i), []).map((x) => x.tier);
+ok('a seven-word day is labelled 2 Easy / 3 Medium / 2 Hard',
+   JSON.stringify(tiersOf(7)) === JSON.stringify(['Easy', 'Easy', 'Medium', 'Medium', 'Medium', 'Hard', 'Hard']),
+   JSON.stringify(tiersOf(7)));
+ok('a ten-word day is still labelled 3 Easy / 4 Medium / 3 Hard',
+   JSON.stringify(tiersOf(10)) === JSON.stringify(['Easy', 'Easy', 'Easy', 'Medium', 'Medium', 'Medium', 'Medium', 'Hard', 'Hard', 'Hard']),
+   JSON.stringify(tiersOf(10)));
+ok('the two days disagree, which is the whole point',
+   JSON.stringify(tiersOf(7)) !== JSON.stringify(tiersOf(10).slice(0, 7)));
 
 // ---- 4. per-word stats from real attempt shapes --------------------------
 const WORDS = ['ARISE', 'HOUSE', 'MEDIA', 'GRAPE', 'TOKEN', 'FLINT', 'WRYLY', 'ABYSS', 'QUELL', 'NYMPH'];
@@ -148,8 +174,9 @@ const allTenRuns = [
   { username: 'DRIFT', score: 1900, wordsGuessed: 7 },
 ];
 const newPage = R.renderDayPage({ date: '2026-09-24', words: WORDS, runs: allTenRuns, attempts: allTen, prev: null, next: null });
-ok('a play-all-ten page says everyone saw every word',
-   /Everyone plays all ten words, so every player saw every word here/.test(newPage));
+ok('a play-all-words page says everyone saw every word, counted from that day',
+   /Everyone plays all 10 words, so every player saw every word here/.test(newPage),
+   (newPage.match(/Everyone plays all \d+ words/) || ['missing'])[0]);
 ok('...and does not claim a miss ended the run', !/a miss ended the run/.test(newPage));
 
 // The era is read off the data, and only where the data proves it. "Everyone
@@ -160,14 +187,14 @@ const allPerfect = [h(Array(10).fill([3, true])), h(Array(10).fill([2, true]))];
 const perfectRuns = [{ username: 'A', score: 1500, wordsGuessed: 10 }, { username: 'B', score: 2500, wordsGuessed: 10 }];
 const ambiguous = R.renderDayPage({ date: '2026-09-24', words: WORDS, runs: perfectRuns, attempts: allPerfect, prev: null, next: null });
 ok('a day where everyone solved everything claims neither rule',
-   !/Everyone plays all ten words/.test(ambiguous) && !/a miss ended the run/.test(ambiguous));
+   !/Everyone plays all \d+ words/.test(ambiguous) && !/a miss ended the run/.test(ambiguous));
 ok('...and still explains what the Solved column means',
    /"Solved" is the share of the players who reached that word/.test(ambiguous),
    (ambiguous.match(/<p style="font-size:13px[^<]*/) || [''])[0].slice(0, 120));
 // One finisher who went ten-for-ten is the same trap at n=1.
 const lone = R.renderDayPage({ date: '2026-09-24', words: WORDS, runs: [perfectRuns[0]], attempts: [allPerfect[0]], prev: null, next: null });
 ok('a single perfect finisher is not mistaken for proof of either rule',
-   !/Everyone plays all ten words/.test(lone) && !/a miss ended the run/.test(lone));
+   !/Everyone plays all \d+ words/.test(lone) && !/a miss ended the run/.test(lone));
 ok('the Missed column replaced Reached', /<th class="n">Missed<\/th>/.test(newPage) && !/<th class="n">Reached<\/th>/.test(newPage));
 
 // ---- 5. standings and distribution --------------------------------------

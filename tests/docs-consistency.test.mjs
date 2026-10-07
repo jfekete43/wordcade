@@ -149,7 +149,7 @@ ok('no Gauntlet leaderboard tab is documented, because none exists',
 ok('FFA is no longer documented as ranking on wins',
    !/FFA \(win count\)|FFA.{0,20}ranked by (?:total )?wins/i.test(allProse));
 
-// ---- 4b. the Gauntlet's finish rule, stated in one place and described in ten
+// ---- 4b. the Gauntlet's finish rule, stated in one place and described in many
 // The rule lives in one expression in functions/index.js. The last time it
 // changed, the sentence describing it had spread to seven pages — the in-app
 // How To Play, the onboarding slide, the Gauntlet card (in four separate string
@@ -158,11 +158,11 @@ ok('FFA is no longer documented as ranking on wins',
 // them all. So the rule is read out of the code, and the prose is held to it.
 const suddenDeath = /gauntletFinished\s*=\s*wordFinished\s*&&\s*\(/.test(fn);
 ok('the Gauntlet finish rule is readable in the server', /const gauntletFinished\s*=/.test(fn));
-ok('the server plays all ten words', !suddenDeath && /gauntletFinished = wordFinished && newWordIndex >= attempt\.wordCount/.test(fn));
+ok('the server plays every word', !suddenDeath && /gauntletFinished = wordFinished && newWordIndex >= attempt\.wordCount/.test(fn));
 // Phrases that are only true when a miss ends the run. Scoped to sentences that
 // also mention the Gauntlet, so Standard's own wipeout rule is left alone.
 const gauntletSentences = allProse.split(/(?<=[.!?])\s+/)
-  .filter((x) => /gauntlet/i.test(x) || /ten words|all ten/i.test(x));
+  .filter((x) => /gauntlet/i.test(x) || /seven words|all seven/i.test(x));
 const suddenDeathClaims = gauntletSentences.filter((x) =>
   /(a |one |single )?miss(ing)? (a word )?ends? the (whole )?run/i.test(x)
   || /no second chances/i.test(x)
@@ -173,17 +173,17 @@ ok('no page still says a missed word ends the Gauntlet run',
    suddenDeath || suddenDeathClaims.length === 0, suddenDeathClaims.join(' || ').slice(0, 300));
 // And the rule is actually stated somewhere a player will read it, rather than
 // merely not contradicted.
-ok('the rules page says you play all ten',
-   /play all ten|plays all ten|all ten words whatever happens/i.test(text['how-to-play.html']),
+ok('the rules page says you play every word',
+   /play all seven|plays all seven|all seven words whatever happens/i.test(text['how-to-play.html']),
    text['how-to-play.html'].slice(0, 0));
 // One sentence, written out six times: once in the card's markup, three times
 // as string literals in the card's branches, once in the Gauntlet's intro card
 // and once in the homepage blurb. Three of them carry a tail after an em-dash
 // ("free account required", and the two that add "the same ten, once a day"),
 // so the comparison is of the shared opening — the part that has to agree.
-const cardLines = [...pages['index.html'].matchAll(/Ten words,[^"<]{0,120}/g)]
+const cardLines = [...pages['index.html'].matchAll(/Seven words,[^"<]{0,120}/g)]
   .map((m) => m[0].split('\\u2014')[0].split('\u2014')[0])
-  .map((x) => x.slice(0, x.indexOf('all ten') + 'all ten'.length))
+  .map((x) => x.slice(0, x.indexOf('all seven') + 'all seven'.length))
   .map((x) => x.replace(/[.\s]+$/, '').trim());
 ok('the Gauntlet sentence is written in all six places', cardLines.length === 6, JSON.stringify(cardLines));
 ok('and says the same thing in every one of them',

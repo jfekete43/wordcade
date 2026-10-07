@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Endless 5-Letter Word Game — Free &amp; Unlimited | Lexathon</title>
-    <meta name="description" content="A free word game that doesn't stop after one puzzle a day: endless 5-letter runs, a daily ten-word gauntlet, and live multiplayer. No install, no account.">
+    <meta name="description" content="A free word game that doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. No install, no account.">
     <!-- How a shared link looks when it unfurls. Every share path in the
          game ends in a link to this site - the Standard and Gauntlet
          results, and both invite links - so without these a share is a
@@ -20,7 +20,7 @@
     <meta property="og:site_name" content="Lexathon">
     <meta property="og:url" content="https://lexathon.gg/">
     <meta property="og:title" content="An endless, competitive word game">
-    <meta property="og:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily ten-word gauntlet, and live multiplayer. Free, no install, no account.">
+    <meta property="og:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. Free, no install, no account.">
     <meta property="og:image" content="https://lexathon.gg/og-card.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -28,7 +28,7 @@
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="An endless, competitive word game">
-    <meta name="twitter:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily ten-word gauntlet, and live multiplayer. Free, no install, no account.">
+    <meta name="twitter:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. Free, no install, no account.">
     <meta name="twitter:image" content="https://lexathon.gg/og-card.png">
 
     <!-- Google Search Console ownership verification. Must stay on the
@@ -66,7 +66,7 @@
       "@type": "VideoGame",
       "name": "Lexathon",
       "url": "https://lexathon.gg",
-      "description": "A free five-letter word game with endless solo runs, a daily ten-word gauntlet, 1v1 races and six-player matches.",
+      "description": "A free five-letter word game with endless solo runs, a daily seven-word gauntlet, 1v1 races and six-player matches.",
       "image": "https://lexathon.gg/og-card.png",
       "genre": ["Word game", "Puzzle"],
       "applicationCategory": "Game",
@@ -1225,7 +1225,7 @@
             <span id="gauntlet-card-title">Daily Gauntlet</span>
             <span id="gauntlet-card-timer"></span>
         </div>
-        <div id="gauntlet-card-body">Ten words, five guesses each. Everyone plays all ten.</div>
+        <div id="gauntlet-card-body">Seven words, five guesses each. Everyone plays all seven.</div>
         <button id="gauntlet-card-btn" onclick="window.goToMode('gauntlet')">Play Today's Gauntlet</button>
     </div>
 
@@ -1261,7 +1261,7 @@
              are described in prose rather than left to the nav. -->
         <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
             <li style="margin-bottom: 5px;"><strong style="color:#4caf50;">Endless</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:#b967ff;">Daily Gauntlet</strong> — Ten words, five guesses each. Everyone plays all ten — the same ten, once a day.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:#b967ff;">Daily Gauntlet</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
             <li style="margin-bottom: 5px;"><strong style="color:#ff9800;">Clash</strong> — race one other player through the same words for seven minutes.</li>
             <li style="margin-bottom: 5px;"><strong style="color:#ffd700;">FFA</strong> — the same race with three to six players at once.</li>
         </ul>
@@ -1463,7 +1463,7 @@
                 <div id="gauntlet-archive-standing" style="font-size: 13px; color: #e8d5ff; margin-bottom: 10px; text-align: center;"></div>
                 <div id="gauntlet-archive-board"></div>
                 <!-- The static page carries what this panel deliberately does
-                     not: the ten words themselves, per-word difficulty, and
+                     not: the day's words themselves, per-word difficulty, and
                      the full spread of results. It is also a flat file, so
                      reading it there costs no Firestore reads at all. -->
                 <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:#b967ff; text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
@@ -1641,8 +1641,9 @@
 
                 <h3 style="color: #b967ff; text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
-                    <li>One shared puzzle per day — everyone gets the identical 10 words, one attempt each.</li>
-                    <li>Same 5-guess, 500/250/150/50/10 scoring as Endless, and no Continues — but you play all ten words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
+                    <li>One shared puzzle per day — everyone gets the identical seven words, one attempt each.</li>
+                    <li>Same 5-guess, 500/250/150/50/10 scoring as Endless, and no Continues — but you play all seven words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
+                    <li>No clock, and you don't have to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</li>
                     <li>Resets at midnight Eastern.</li>
                     <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
                     <li>Today's standings are on the Gauntlet screen itself, ordered by score and then by words solved, and yesterday's stay in Past Gauntlets. There's no all-time Gauntlet board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
@@ -2089,7 +2090,7 @@
             endless: { icon: "\u267E\uFE0F", color: "#4caf50", title: "Endless",
                 text: "Guess 5-letter words one after another, as long as you can keep going. Solve a word in fewer guesses to score more. Miss one and you spend a Continue \u2014 miss with none left and the run is over. Bank your score whenever you want to stop." },
             gauntlet: { icon: "\uD83D\uDD25", color: "#b967ff", title: "Daily Gauntlet",
-                text: "Ten words, five guesses each. Everyone plays all ten \u2014 the same ten words as everybody else, once a day. Share your result at the end and see where you finished." },
+                text: "Seven words, five guesses each. Everyone plays all seven \u2014 the same seven words as everybody else, once a day. No clock: stop whenever you like and pick up where you left off. Share your result at the end and see where you finished." },
             clash: { icon: "\u2694\uFE0F", color: "#ff9800", title: "Clash",
                 text: "Race one other player through the same words for 7 minutes. First to a 1,000-point lead, or the higher score at the buzzer, wins." },
             ffa: { icon: "\uD83D\uDC51", color: "#ffd700", title: "Free-For-All",
@@ -4015,13 +4016,13 @@
             gauntletCardTimer = setInterval(updateGauntletCardTimer, 30000);
 
             if (!currentUser) {
-                bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten.";
+                bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven.";
                 btnEl.innerText = "Play Today's Gauntlet";
                 return;
             }
             // Say it on the card rather than letting the tap dead-end in a gate.
             if (userProfileData && userProfileData.isGuest) {
-                bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten \u2014 " +
+                bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven \u2014 " +
                     "<span class=\"gcb-strong\">free account required</span>.";
                 btnEl.innerText = "Sign In To Play";
                 return;
@@ -4034,7 +4035,7 @@
             } catch (e) { console.error("Gauntlet card lookup failed", e); }
 
             if (!attempt) {
-                bodyEl.innerHTML = "Ten words, five guesses each. Everyone plays all ten.";
+                bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven.";
                 btnEl.innerText = "Play Today's Gauntlet";
                 maybeLandOnGauntlet();
             } else if (attempt.status === "active") {
@@ -4061,8 +4062,9 @@
 
         // Open on the Gauntlet rather than on Endless, once per page load.
         //
-        // The Gauntlet is the mode with a stated goal and an ending: ten words,
-        // the same ten for everyone, a result and a share at the end. Endless
+        // The Gauntlet is the mode with a stated goal and an ending: a fixed
+        // set of words, the same for everyone, a result and a share at the
+        // end. Endless
         // has none of that, and opening straight into it is how people played
         // four words and left without ever banking a score.
         //
@@ -4238,7 +4240,7 @@
             if (userProfileData && userProfileData.isGuest) {
                 showGuestGate(
                     "The Daily Gauntlet needs a free account.",
-                    "Everyone plays the same ten words each day, so the Gauntlet is account-only \u2014 it keeps a throwaway account from being used to look the answers up. Signing in also saves the progress you have already made in this browser."
+                    "Everyone plays the same seven words each day, so the Gauntlet is account-only \u2014 it keeps a throwaway account from being used to look the answers up. Signing in also saves the progress you have already made in this browser."
                 );
                 return;
             }
@@ -4351,11 +4353,25 @@
                     setTimeout(() => showDailyEndModal(dailyAttempt, false), 1200);
                 } else if (result.wordFinished) {
                     dailyAttempt.wordIndex = result.wordIndex;
-                    setTimeout(startDailyRound, 1200);
+                    setTimeout(startDailyRound, 600);
                 } else {
                     currentRow++; currentGuess = ""; isAnimating = false; checkDangerRow();
                 }
-            }, 1000);
+            // 800, not 1000. This runs AFTER the server has already graded and
+            // scored the guess (see the await above), so it is purely the beat
+            // that lets the row finish flipping before the score and the
+            // message move — it is not a rate limit and never was one. A
+            // client-side timer cannot be: anything cheating would call
+            // guessDailyWord directly and never reach this line. The real
+            // guards are server-side, in that function's transaction: the
+            // guess budget per word, the active-attempt check, and the answer
+            // never leaving dailyPuzzles (read: if false).
+            //
+            // animateRowReveal finishes at 750ms — five tiles staggered 150ms
+            // apart, each flipping for 150 — so 800 is the animation plus a
+            // frame, and 1000 was 250ms of nothing. Across a whole Gauntlet
+            // the two numbers here were about 45 seconds of enforced waiting.
+            }, 800);
         }
 
         async function submitSuddenDeathGuess() {
@@ -5947,7 +5963,7 @@
 
         window.shareDailyStats = function() {
             if (!dailyAttempt || !Array.isArray(dailyAttempt.history)) return;
-            // A finished run has played every word, so this is all ten. The
+            // A finished run has played every word, so this is all of them. The
             // filter stays because an untouched slot and a played-and-missed
             // one are indistinguishable in `history` — both are solved:false —
             // and nothing here should quietly count a word nobody ever saw.
@@ -5961,7 +5977,7 @@
             const totalGuesses = played.reduce((sum, h) => sum + h.guesses.length, 0);
             const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
 
-            // Everyone plays all ten, so this is simply how many of the ten
+            // Everyone plays every word, so this is simply how many of them
             // came off. It used to double as "the word you went out on, minus
             // one", which is what the bar below used to draw.
             const solvedLine = `${solvedCount}/${dailyAttempt.wordCount}`;
@@ -5970,7 +5986,7 @@
             // A run bar, on its own line: one mark per word, in the order
             // they were played.
             //
-            // Now that every player sees all ten, position means the same
+            // Now that every player sees every word, position means the same
             // thing to everyone reading it — word 7 is word 7 — which is the
             // property that makes Wordle's grid worth looking at. It was not
             // true before: the bar was greens, then the one word that ended
@@ -5982,7 +5998,7 @@
             //
             // A cross rather than a red square, deliberately: red against green
             // is the one pairing a colour-blind reader cannot separate, and a
-            // run can now hold up to ten of them. The trailing blanks are
+            // run can now hold one per word. The trailing blanks are
             // defensive only — a finished run has played every word.
             const bar = played.map((h) => (h.solved ? "\u{1F7E9}" : "\u274C")).join("")
                 + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - played.length));
