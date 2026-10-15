@@ -290,6 +290,66 @@ const overflow = await wide.evaluate((ids) => {
 await wide.close();
 ck('no season makes the page scroll sideways at 320px', overflow.length === 0, overflow.join(','));
 
+// ---- decoration has to survive a scroll ---------------------------------
+// Halloween's webs and bats sat once near the header. background-attachment:
+// fixed was meant to hold them in the viewport, and mobile browsers very
+// largely ignore it — so on a phone the season vanished the moment you
+// scrolled down to play, which is exactly where you spend the whole game.
+//
+// The fix is to tile them, which works whether fixed is honoured or not. This
+// checks it the way the player meets it: fixed turned OFF, scrolled to the
+// board, asking whether any decoration is on screen.
+const deco = await browser.newPage({ viewport: { width: 390, height: 800 } });
+await deco.setContent(markup);
+const seen = await deco.evaluate(async () => {
+  document.body.className = 'season-halloween';
+  // Reproduce the mobile behaviour rather than trusting the desktop one.
+  document.body.style.backgroundAttachment = 'scroll';
+  const cs = getComputedStyle(document.body);
+  const layers = cs.backgroundImage.split(/,(?![^(]*\))/).map((x) => x.trim());
+  const repeats = cs.backgroundRepeat.split(',').map((x) => x.trim());
+  const sizes = cs.backgroundSize.split(',').map((x) => x.trim());
+  const art = layers.map((l, i) => ({ i, l, repeat: repeats[i], size: sizes[i] }))
+    .filter((x) => x.l.startsWith('url('));
+  return { art, docHeight: document.documentElement.scrollHeight, viewport: window.innerHeight };
+});
+await deco.close();
+
+ck('Halloween draws its decoration as image layers', seen.art.length >= 3, String(seen.art.length));
+const notTiled = seen.art.filter((a) => !/repeat-y|^repeat$/.test(a.repeat));
+ck('every Halloween art layer tiles down the page', notTiled.length === 0,
+   notTiled.map((a) => a.repeat).join(' | '));
+
+// A tile has to be tall enough to read as decoration rather than wallpaper,
+// and short enough to appear more than once on a phone screen.
+for (const a of seen.art) {
+  const h = Number((a.size.match(/(\d+(?:\.\d+)?)px\s*$/) || [])[1]);
+  ck(`a Halloween layer repeats on a sane pitch (${a.size})`,
+     h > 200 && h < seen.viewport, String(h));
+}
+// And the art must not be stretched to achieve that spacing: the gap is baked
+// into the viewBox, so both axes scale by the same factor.
+const artSvgs = [...html.matchAll(/url\("data:image\/svg\+xml,([^"]*)"\)/g)]
+  .map((m) => decodeURIComponent(m[1]))
+  .filter((d) => /c3b2dd|2a2036/.test(d));   // the Halloween webs and bats
+ck('the Halloween art was found to measure', artSvgs.length >= 3, String(artSvgs.length));
+const ratios = artSvgs.map((d) => {
+  const vb = (d.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
+  return vb.length === 2 ? vb[1] / vb[0] : null;
+});
+seen.art.forEach((a, i) => {
+  const m = a.size.match(/(\d+(?:\.\d+)?)px\s+(\d+(?:\.\d+)?)px/);
+  if (!m || ratios[i] == null) return;
+  const drawn = Number(m[2]) / Number(m[1]);
+  ck(`Halloween layer ${i} is not stretched to make its gap`,
+     Math.abs(drawn - ratios[i]) < 0.02, `drawn ${drawn.toFixed(3)} vs viewBox ${ratios[i].toFixed(3)}`);
+});
+// The right-hand web is mirrored, or repeating it down the right edge leaves
+// every copy radiating from thin air.
+ck('the right-hand web is mirrored rather than a second copy of the left',
+   artSvgs.filter((d) => /scale\(-1,1\)/.test(d)).length === 1,
+   String(artSvgs.filter((d) => /scale\(-1,1\)/.test(d)).length));
+
 await browser.close();
 for (const c of t) console.log(c.cond ? 'ok  ' : 'FAIL', c.name, c.cond ? '' : '— ' + c.detail);
 const bad = t.filter((c) => !c.cond).length;

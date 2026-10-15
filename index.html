@@ -421,15 +421,32 @@
            Nothing here animates, so there is nothing for body.reduce-motion to
            turn off. Keep it that way, or add the selector to the list above. */
 
+        /* The webs and bats TILE down the page rather than sitting once at the
+           top. They were pinned near the header, so the moment you scrolled to
+           play they were gone and the season went with them — background-attachment:
+           fixed was supposed to hold them in the viewport, and mobile browsers
+           very largely ignore it. Repeating works either way: fixed or not, there
+           is decoration at every scroll position.
+
+           The gap is baked into each SVG viewBox (the art stays in the top 100
+           units of 440, the bats in the top 60 of 700) because background-size
+           scales the image rather than padding it, so spacing cannot be expressed
+           in CSS alone. Both axes scale by the same factor, so nothing distorts.
+
+           The right-hand web is mirrored. It was the same SVG as the left, which
+           radiates from ITS top-left — fine as one faint smudge in a corner, wrong
+           once it repeats down the right edge anchored to nothing. */
         body.season-halloween { background-color: #13101a; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.13%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c3b2dd%22%20stroke-width%3D%221.2%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.13%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c3b2dd%22%20stroke-width%3D%221.2%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.5%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%2060%22%3E%3Cg%20fill%3D%22%232a2036%22%3E%3Cpath%20d%3D%22M20%2022c4-7%208-3%2010%201%202-5%207-9%2010-1%203-4%207-2%208%203-5-1-7%202-9%205-3-4-6-4-9%200-2-3-5-6-10-8z%22%2F%3E%3Cpath%20d%3D%22M70%2036c3-5%206-2%207%201%202-4%205-7%208-1%202-3%205-1%206%202-4-1-5%202-7%204-2-3-4-3-7%200-1-2-4-4-7-6z%22%20opacity%3D%22.75%22%2F%3E%3Cpath%20d%3D%22M98%2014c2-4%205-2%206%201%201-3%204-5%206-1%202-2%204-1%205%202-3-1-4%201-5%203-2-2-3-2-5%200-1-2-3-3-7-5z%22%20opacity%3D%22.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.13%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20440%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c3b2dd%22%20stroke-width%3D%221.2%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.13%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20440%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c3b2dd%22%20stroke-width%3D%221.2%22%20transform%3D%22translate%28100%2C0%29%20scale%28-1%2C1%29%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.5%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%20700%22%3E%3Cg%20fill%3D%22%232a2036%22%3E%3Cpath%20d%3D%22M20%2022c4-7%208-3%2010%201%202-5%207-9%2010-1%203-4%207-2%208%203-5-1-7%202-9%205-3-4-6-4-9%200-2-3-5-6-10-8z%22%2F%3E%3Cpath%20d%3D%22M70%2036c3-5%206-2%207%201%202-4%205-7%208-1%202-3%205-1%206%202-4-1-5%202-7%204-2-3-4-3-7%200-1-2-4-4-7-6z%22%20opacity%3D%22.75%22%2F%3E%3Cpath%20d%3D%22M98%2014c2-4%205-2%206%201%201-3%204-5%206-1%202-2%204-1%205%202-3-1-4%201-5%203-2-2-3-2-5%200-1-2-3-3-7-5z%22%20opacity%3D%22.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
                 radial-gradient(900px 420px at 50% -8%, rgba(255,117,24,.17), transparent 64%),
                 radial-gradient(760px 520px at 10% 108%, rgba(123,58,180,.21), transparent 62%);
-            background-position: left -14px top -14px, right -14px top -14px, right 10px top 200px, 0 0, 0 0;
-            background-size: 118px 118px, 118px 118px, 112px 56px, auto, auto;
-            background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat; }
+            /* The right column is offset so the two edges do not march down in
+               lockstep, which reads as wallpaper rather than cobwebs. */
+            background-position: left -14px top -14px, right -14px top 240px, right 10px top 200px, 0 0, 0 0;
+            background-size: 118px 519px, 118px 519px, 112px 653px, auto, auto;
+            background-repeat: repeat-y, repeat-y, repeat-y, no-repeat, no-repeat; }
         body.season-halloween .arcade-title { text-shadow: 0 0 6px #ff7518, 0 0 14px #ff7518, 0 0 32px #ff751899; }
         body.season-halloween .arcade-title::after { content: "\1F383"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
