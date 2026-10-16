@@ -83,10 +83,23 @@ try {
      `every button's text clears ${MIN_CONTRAST}:1 against what it sits on`,
      failures.map((f) => `${f.label || f.id} ${f.ratio}:1 (${f.fg} on ${f.bg})`).join(' | '));
 
-  // The specific regression, named so it cannot come back quietly.
+  // The specific regression, named so it cannot come back quietly. The bar
+  // was 10:1, which only a black-on-neon palette can clear: on paper no
+  // accent fill reaches it and the check would have failed a button measuring
+  // a perfectly comfortable 4.99:1. What actually went wrong was the PAIR —
+  // gold text on a cyan fill — so that is what is checked, plus a real
+  // readability floor rather than a number borrowed from the old palette.
   const find = findings.find((f) => /FIND PUBLIC MATCH/i.test(f.label));
-  ck(find && find.ratio >= 10, 'Find Public Match is comfortably readable, not gold-on-cyan',
+  ck(find && find.ratio >= 4.5, 'Find Public Match is comfortably readable, not gold-on-cyan',
      find ? `${find.ratio}:1` : 'button not found');
+  const ffaRgb = (() => {
+    let h = (css.match(/--c-ffa:\s*(#[0-9a-fA-F]{3,6})\s*;/) || [])[1];
+    if (!h) throw new Error('could not read --c-ffa');
+    if (h.length === 4) h = '#' + [...h.slice(1)].map((c) => c + c).join('');
+    return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ');
+  })();
+  ck(find && !new RegExp(ffaRgb).test(find.fg),
+     "and its text is not the gold that caused it", find ? find.fg : 'button not found');
 
   const worst = [...findings].sort((a, b) => a.ratio - b.ratio)[0];
   console.log(`\nlowest-contrast button: "${worst.label}" at ${worst.ratio}:1 (${worst.fg} on ${worst.bg})\n`);
@@ -185,7 +198,7 @@ let bad = 0;
   // (gold text on a cyan fill measured 1.12:1). Each mode's primary action gets
   // its own class rather than an inline override of half the pair.
   const orange = src.match(/\.btn-orange \{ background-color: ([^;]+); color: ([^;]+); \}/);
-  ck(orange && resolve(orange[1]) === TOKENS['--c-clash'] && resolve(orange[2]) === TOKENS['--c-on-bright'],
+  ck(orange && resolve(orange[1]) === TOKENS['--c-clash'] && resolve(orange[2]) === TOKENS['--c-on-accent'],
      'Clash has a filled button class rather than an inline override',
      orange ? orange[1] + ' / ' + orange[2] : 'missing');
   ck(!/class="btn-cyan"[^>]*onclick="window\.(findRandomMatch|rematchVersusMatch)\(\)"/.test(src),
