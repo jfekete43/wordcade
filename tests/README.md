@@ -20,7 +20,7 @@ That runs the sixteen suites that need no emulator, then boots the emulator for
 the other four, and shuts the emulator down
 again. A non-zero exit means something failed.
 
-Six suites drive a real browser instead of the emulator, so they are not part
+Eleven suites drive a real browser instead of the emulator, so they are not part
 of `npm test`:
 
 ```
@@ -291,6 +291,33 @@ deliberate in the markup. The suite renders the real body against the real
 stylesheet, forces every modal open, walks all ~100 buttons, resolves the
 background each one actually sits on (a transparent button inherits its
 container's) and measures. Needs Playwright.
+
+**`board-contrast.test.mjs`** — the board has to be readable too, and nothing
+was checking it. Buttons were measured and every season's title and score were
+measured; the one surface the game is actually played on was measured by
+nobody. Repainting the page from black to paper left an absent tile at
+**2.57:1** between its letter and its fill with the whole browser suite still
+green. It checks three things for a plain body, for colorblind mode and for all
+eight seasons: a letter is readable on its tile (3:1, the tiles being 30px
+bold), a tile is distinguishable from the paper behind it, and the three
+verdicts are distinguishable from each other.
+
+The last two are measured as a distance in CIE Lab rather than as a contrast
+ratio, because WCAG contrast is a function of lightness alone: asked whether
+the blue and the amber are different it answers **1.00:1**, for the most
+different pair on the screen. For scale, on the light palette paper against
+white is 6, paper against an absent tile is 19, the closest two verdicts are
+53, and the old cyan/magenta pair was 157.
+
+Writing it turned up a live bug it now pins: the keyboard never showed which
+letters were in the right spot versus the wrong one. The game adds a bare
+`correct` or `present` class to the key, `.correct` and `.present` sit above
+`.key` in the stylesheet at the same specificity, so `.key`'s own background
+won — a letter you had placed looked exactly like one you had never tried.
+Only `absent` showed, being the only verdict with a `.key`-qualified rule.
+Colorblind mode was right all along, which is why nobody caught it: its
+`body.colorblind .correct` carries an extra element and outranks `.key`.
+Needs Playwright.
 
 **`ffa-lobby.test.mjs`** — a public FFA lobby starting itself when its grace
 period elapses. The bug it pins: the deadline check lived inside the match

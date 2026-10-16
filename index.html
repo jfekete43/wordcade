@@ -441,6 +441,18 @@
         .key:active { transform: scale(0.95); } 
         .key.wide { max-width: 65px; font-size: 14px; }
         .key.absent { background-color: var(--c-absent); color: var(--c-absent-ink); border-color: var(--c-absent); }
+        /* The keyboard carries the same three verdicts as the board, and
+           these two rules are why it can. The game adds a bare "correct" or
+           "present" class to the key, and .correct / .present sit ABOVE
+           .key in this stylesheet at the same specificity — so .key's own
+           background won, and a letter you had placed looked exactly like a
+           letter you had never tried. Only "absent" ever showed, because
+           only it had a .key-qualified rule. Colorblind mode was unaffected
+           and correct throughout, which is how it went unnoticed: its
+           body.colorblind .correct carries an extra element and outranks
+           .key already, and still outranks these. */
+        .key.correct { background-color: var(--c-correct); border-color: var(--c-correct); color: var(--c-on-accent); }
+        .key.present { background-color: var(--c-present); border-color: var(--c-present); color: var(--c-on-accent); }
         /* A flex item defaults to min-width:auto, which floors it at its own
            content width — so .key never shrank below ~36px however narrow the
            screen got, and ten of them plus gaps overflowed the page on every
