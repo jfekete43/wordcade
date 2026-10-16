@@ -39,6 +39,19 @@ function between(src, startAnchor, endAnchor, label) {
 }
 const grab = (re, what) => { const m = html.match(re); if (!m) throw new Error('could not extract ' + what); return m[0]; };
 
+// The palette lives in one place, so read it from there rather than restating
+// it. A repaint should not be able to make this suite pass while the nav and
+// the blurb drift apart — the point of the checks below is that they AGREE,
+// not that they hold any particular hex.
+const TOKENS = Object.fromEntries([...html.matchAll(/(--c-[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)]
+  .map((m) => [m[1], m[2].toLowerCase()]));
+const rgbOf = (tok) => {
+  let h = TOKENS[tok];
+  if (!h) throw new Error('no such token: ' + tok);
+  if (h.length === 4) h = '#' + [...h.slice(1)].map((c) => c + c).join('');
+  return `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
+};
+
 const css = grab(/<style>[\s\S]*?<\/style>/, 'stylesheet').replace(/<\/?style>/g, '');
 const nav = grab(/    <nav class="arcade-menu">[\s\S]*?<\/nav>/, 'nav');
 const endlessHeader = grab(/    <div id="endless-header">[\s\S]*?\n    <\/div>/, 'endless header');
@@ -91,7 +104,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await page.goto('file://' + tmp);
 await page.waitForTimeout(120);
 
-const RGB = { endless: 'rgb(76, 175, 80)', gauntlet: 'rgb(185, 103, 255)', clash: 'rgb(255, 152, 0)', ffa: 'rgb(255, 215, 0)' };
+const RGB = { endless: rgbOf('--c-endless'), gauntlet: rgbOf('--c-gauntlet'), clash: rgbOf('--c-clash'), ffa: rgbOf('--c-ffa') };
 
 // The markup alone, before renderModeNav has ever run. A nav that is only
 // correct once a script has run shows three blank buttons on a slow load.
@@ -324,19 +337,25 @@ ck(/createBoard\(\); resetKeyboardColors\(\); checkDangerRow\(\); updateSkipButt
 // recognisable as the button up there. The two sets of hex values live in
 // different places (a CSS rule and inline styles), so they are compared rather
 // than trusted.
-const blurb = between(html, '<h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>',
+const blurb = between(html, '<h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>',
                       'Support the project', 'homepage blurb');
 ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
 ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
-for (const [mode, hex] of [['Endless', '#4caf50'], ['Daily Gauntlet', '#b967ff'], ['Clash', '#ff9800'], ['FFA', '#ffd700']]) {
-  const re = new RegExp('<strong style="color:' + hex + ';">' + mode + '</strong>');
-  ck(re.test(blurb), `the blurb names ${mode} in its own colour (${hex})`,
+const MODE_TOKENS = ['--c-endless', '--c-gauntlet', '--c-clash', '--c-ffa'];
+for (const [mode, tok] of [['Endless', '--c-endless'], ['Daily Gauntlet', '--c-gauntlet'],
+                           ['Clash', '--c-clash'], ['FFA', '--c-ffa']]) {
+  const re = new RegExp('<strong style="color:var\\(' + tok + '\\);">' + mode + '</strong>');
+  ck(re.test(blurb), `the blurb names ${mode} in its own colour (${tok})`,
      (blurb.match(new RegExp('<strong[^>]*>' + mode + '</strong>')) || ['missing'])[0]);
 }
-// And those four hex values are the mode table's, not a second opinion.
-const tableHex = [...between(html, 'const MODES = {', '\n        };', 'MODES')
-  .matchAll(/color: "(#[0-9a-f]{6})"/g)].map((m) => m[1]);
-eq('the blurb colours are the nav colours', tableHex, ['#4caf50', '#b967ff', '#ff9800', '#ffd700']);
+// And those four colours are the mode table's, not a second opinion.
+const tableTokens = [...between(html, 'const MODES = {', '\n        };', 'MODES')
+  .matchAll(/color: "var\((--c-[\w-]+)\)"/g)].map((m) => m[1]);
+eq('the blurb colours are the nav colours', tableTokens, MODE_TOKENS);
+// Named colours only. A hex here would be a fifth copy of a value that is
+// already in three places, and the one the next repaint forgets.
+ck(!/color: "#/.test(between(html, 'const MODES = {', '\n        };', 'MODES')),
+   'the mode table names tokens rather than restating hex values');
 // Four lines, not four paragraphs: this block was trimmed once already for
 // being too much text on a game you are meant to click and play.
 const items = [...blurb.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1].replace(/<[^>]+>/g, '').trim());

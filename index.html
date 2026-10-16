@@ -86,11 +86,24 @@
 
            Values are unchanged from before this existed: introducing the
            tokens is deliberately a no-op, verified by rendering the page
-           at six widths before and after and diffing the pixels. The new
-           palette lands as a separate, small commit on top.
+           at four widths in eleven body states, before and after, and
+           byte-comparing the PNGs. The new palette lands as a separate,
+           small commit on top.
+
+           "Every structural colour" means the markup and the script too,
+           not just this stylesheet: inline style attributes and the colours
+           the script writes into the DOM resolve here as well. They were
+           the larger half, and a palette that only reached the stylesheet
+           would have repainted the chrome and left the page's own text
+           behind.
 
            Not in here: the eight seasonal palettes, the shop's cosmetic
-           colours and the rank tiers. Those are content, not chrome.
+           colours, the rank tiers and the three place badges. Those are
+           content, not chrome — a holographic nameplate is pale because it
+           is holographic, and a gold medal does not follow the theme. They
+           keep their literals on purpose; tokenising them once turned every
+           cosmetic's white into "whatever the page's ink is", which a light
+           palette would have turned black.
            --------------------------------------------------------------- */
         :root {
             /* signals — the only thing a theme may never repaint */
@@ -425,11 +438,11 @@
         }
 
         /* THEMES CSS */
-        body.theme-8bit { background-color: var(--c-on-bright); font-family: 'Courier New', Courier, monospace; }
-        body.theme-8bit .tile { border-radius: 0; border: 4px solid var(--c-ink); font-family: 'Courier New', Courier, monospace; }
+        body.theme-8bit { background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        body.theme-8bit .tile { border-radius: 0; border: 4px solid #fff; font-family: 'Courier New', Courier, monospace; }
         body.theme-8bit .key { border-radius: 0; font-family: 'Courier New', Courier, monospace; }
-        body.theme-8bit .correct { background-color: #00cc00; border-color: #00cc00; box-shadow: none; color: var(--c-ink);}
-        body.theme-8bit .present { background-color: #ccaa00; border-color: #ccaa00; box-shadow: none; color: var(--c-ink);}
+        body.theme-8bit .correct { background-color: #00cc00; border-color: #00cc00; box-shadow: none; color: #fff;}
+        body.theme-8bit .present { background-color: #ccaa00; border-color: #ccaa00; box-shadow: none; color: #fff;}
 
         body.theme-camo { background-color: #1c231c; }
         body.theme-camo .tile { border: 2px solid #4a5c4a; background-color: #2b362b; }
@@ -684,45 +697,45 @@
 
         /* BANNER COSMETICS */
         .banner_default { background: transparent; }
-        .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid var(--c-correct); border-radius: 3px;}
-        .banner_magenta { background: linear-gradient(90deg, rgba(255,0,255,0.15) 0%, rgba(255,0,255,0.02) 100%); border-left: 3px solid var(--c-present); border-radius: 3px;}
+        .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid #00ffff; border-radius: 3px;}
+        .banner_magenta { background: linear-gradient(90deg, rgba(255,0,255,0.15) 0%, rgba(255,0,255,0.02) 100%); border-left: 3px solid #ff00ff; border-radius: 3px;}
         .banner_matrix::after { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(0deg, rgba(0,255,0,0.08) 0px, transparent 2px, transparent 4px); z-index: -1; animation: matrix-scroll 10s linear infinite; border-left: 3px solid #00ff00; border-radius: 3px;}
-        .banner_vaporwave { background: linear-gradient(180deg, rgba(255,0,255,0.2) 0%, rgba(0,255,255,0.2) 100%); border-left: 3px solid var(--c-clash); border-radius: 3px;}
+        .banner_vaporwave { background: linear-gradient(180deg, rgba(255,0,255,0.2) 0%, rgba(0,255,255,0.2) 100%); border-left: 3px solid #ff9800; border-radius: 3px;}
         @keyframes matrix-scroll { 0% { background-position: 0 0; } 100% { background-position: 0 200px; } }
 
         /* REFRACTOR EFFECT COSMETICS */
-        .effect_none { color: var(--c-ink); }
-        .effect_holo { background: linear-gradient(90deg, #ccc 0%, var(--c-ink) 25%, var(--c-correct) 50%, var(--c-ink) 75%, #ccc 100%); background-size: 200% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite;}
+        .effect_none { color: #fff; }
+        .effect_holo { background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite;}
         @keyframes shine { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
 
         /* NEW BANNERS */
-        .banner_diamond { background: linear-gradient(180deg, #1e3b1e 0%, #2b572b 100%); border-left: 3px solid var(--c-ink); border-radius: 3px; }
+        .banner_diamond { background: linear-gradient(180deg, #1e3b1e 0%, #2b572b 100%); border-left: 3px solid #fff; border-radius: 3px; }
         .banner_8bit { background: linear-gradient(180deg, #ff9900 0%, #ff0055 100%); border-left: 3px solid #ffcc00; border-radius: 3px; }
-        .banner_foil { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px); border-left: 3px solid var(--c-ink-2); border-radius: 3px; }
-        .banner_scanline { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.3), rgba(0,0,0,0.3) 2px, transparent 2px, transparent 4px); background-color: var(--c-raised); border-left: 3px solid var(--c-ink-3); border-radius: 3px; }
-        .banner_grid { background: linear-gradient(transparent 90%, rgba(0, 255, 255, 0.2) 100%), linear-gradient(90deg, transparent 90%, rgba(0, 255, 255, 0.2) 100%); background-size: 10px 10px; background-color: #0a0a0a; border-left: 3px solid var(--c-correct); border-radius: 3px; }
-        .banner_galactic { background: radial-gradient(circle, #2b1055 0%, var(--c-on-bright) 100%); border-left: 3px solid var(--c-present); border-radius: 3px; }
-        .banner_carbon { background: repeating-linear-gradient(45deg, #111 0, #111 2px, var(--c-raised) 2px, var(--c-raised) 4px); border-left: 3px solid var(--c-ink-6); border-radius: 3px; }
-        .banner_champ { background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.3) 100%); border-left: 3px solid var(--c-ffa); border-radius: 3px; }
+        .banner_foil { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px); border-left: 3px solid #ddd; border-radius: 3px; }
+        .banner_scanline { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.3), rgba(0,0,0,0.3) 2px, transparent 2px, transparent 4px); background-color: #222; border-left: 3px solid #aaa; border-radius: 3px; }
+        .banner_grid { background: linear-gradient(transparent 90%, rgba(0, 255, 255, 0.2) 100%), linear-gradient(90deg, transparent 90%, rgba(0, 255, 255, 0.2) 100%); background-size: 10px 10px; background-color: #0a0a0a; border-left: 3px solid #00ffff; border-radius: 3px; }
+        .banner_galactic { background: radial-gradient(circle, #2b1055 0%, #000 100%); border-left: 3px solid #ff00ff; border-radius: 3px; }
+        .banner_carbon { background: repeating-linear-gradient(45deg, #111 0, #111 2px, #222 2px, #222 4px); border-left: 3px solid #555; border-radius: 3px; }
+        .banner_champ { background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.3) 100%); border-left: 3px solid #ffd700; border-radius: 3px; }
 
         /* NEW EFFECTS */
-        .effect_pulse { color: var(--c-correct); animation: text-pulse 2s infinite; }
+        .effect_pulse { color: #00ffff; animation: text-pulse 2s infinite; }
         @keyframes text-pulse { 0% { text-shadow: 0 0 5px var(--c-correct); } 50% { text-shadow: 0 0 15px var(--c-correct); } 100% { text-shadow: 0 0 5px var(--c-correct); } }
-        .effect_glitch { color: var(--c-ink); text-shadow: 2px 0 var(--c-present), -2px 0 var(--c-correct); }
-        .effect_electric { color: var(--c-ink); text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 20px #0ff; }
+        .effect_glitch { color: #fff; text-shadow: 2px 0 #ff00ff, -2px 0 #00ffff; }
+        .effect_electric { color: #fff; text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 20px #0ff; }
         .effect_fire { color: #ff4500; text-shadow: 0 0 5px #ffa500, 0 -2px 5px #ff0000; font-weight: 900; }
-        .effect_hologram { background: linear-gradient(90deg, #ccc 0%, var(--c-ink) 25%, var(--c-correct) 50%, var(--c-ink) 75%, #ccc 100%); background-size: 200% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; }
-        .effect_golden { background: linear-gradient(90deg, #b8860b 0%, var(--c-ffa) 25%, var(--c-ink) 50%, var(--c-ffa) 75%, #b8860b 100%); background-size: 200% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.5s linear infinite; font-weight: 900; }
-        .effect_void { color: #111; text-shadow: 0 0 5px var(--c-line-2), 0 0 10px var(--c-on-bright); font-weight: 900; letter-spacing: 2px; }
+        .effect_hologram { background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; }
+        .effect_golden { background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fff 50%, #ffd700 75%, #b8860b 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.5s linear infinite; font-weight: 900; }
+        .effect_void { color: #111; text-shadow: 0 0 5px #444, 0 0 10px #000; font-weight: 900; letter-spacing: 2px; }
 
         /* New Banner Replacement */
-        .banner_neoncity { background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); border-left: 3px solid var(--c-present); border-radius: 3px; }
+        .banner_neoncity { background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%); border-left: 3px solid #ff00ff; border-radius: 3px; }
 
         /* PRESTIGE TIER — priced above the previous ceiling, for long-term
            grinders with nothing left to buy. Kept dark/muted-toned like the
            rest of the banner set (not pale/bright) so white .lb-name text
            stays legible over them at every point in the animation. */
-        .banner_prism { background: linear-gradient(120deg, #8a0033, #8a4b00, #7a7a00, #006633, #004d66, #3d0080, #8a0033); background-size: 400% 400%; animation: prism-drift 6s ease infinite; border-left: 3px solid var(--c-ink); border-radius: 3px; }
+        .banner_prism { background: linear-gradient(120deg, #8a0033, #8a4b00, #7a7a00, #006633, #004d66, #3d0080, #8a0033); background-size: 400% 400%; animation: prism-drift 6s ease infinite; border-left: 3px solid #fff; border-radius: 3px; }
         @keyframes prism-drift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
         .banner_flux { background: linear-gradient(115deg, #6a00ff 0%, transparent 60%), linear-gradient(245deg, #00e5ff 0%, transparent 60%), #0a0a1a; background-size: 200% 200%, 200% 200%, 100% 100%; animation: flux-a 4s ease-in-out infinite, flux-b 5.5s ease-in-out infinite; border-left: 3px solid #00e5ff; border-radius: 3px; }
@@ -732,56 +745,56 @@
         .banner_solaris { background: radial-gradient(circle at 75% 50%, #ffb347 0%, #ff6a00 30%, #b30000 60%, #2b0000 100%); background-size: 160% 160%; animation: solaris-pulse 3s ease-in-out infinite; border-left: 3px solid #ff6a00; border-radius: 3px; }
         @keyframes solaris-pulse { 0%, 100% { background-position: 75% 50%; filter: brightness(1); } 50% { background-position: 65% 55%; filter: brightness(1.2); } }
 
-        .banner_celestial { background: radial-gradient(1px 1px at 15% 30%, var(--c-ink) 100%, transparent), radial-gradient(1px 1px at 70% 60%, var(--c-ink) 100%, transparent), radial-gradient(1px 1px at 40% 80%, var(--c-ink) 100%, transparent), radial-gradient(1px 1px at 85% 20%, var(--c-ink) 100%, transparent), radial-gradient(circle at 50% 50%, #241a4a 0%, #0a0715 100%); animation: celestial-twinkle 2.5s ease-in-out infinite; border-left: 3px solid #d4af37; border-radius: 3px; }
+        .banner_celestial { background: radial-gradient(1px 1px at 15% 30%, #fff 100%, transparent), radial-gradient(1px 1px at 70% 60%, #fff 100%, transparent), radial-gradient(1px 1px at 40% 80%, #fff 100%, transparent), radial-gradient(1px 1px at 85% 20%, #fff 100%, transparent), radial-gradient(circle at 50% 50%, #241a4a 0%, #0a0715 100%); animation: celestial-twinkle 2.5s ease-in-out infinite; border-left: 3px solid #d4af37; border-radius: 3px; }
         @keyframes celestial-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
-        .effect_chromatic { color: var(--c-ink); text-shadow: 2px 0 #ff0055, -2px 0 #00e5ff, 0 2px #7bff00; animation: chromatic-drift 2s ease-in-out infinite; font-weight: 900; }
+        .effect_chromatic { color: #fff; text-shadow: 2px 0 #ff0055, -2px 0 #00e5ff, 0 2px #7bff00; animation: chromatic-drift 2s ease-in-out infinite; font-weight: 900; }
         @keyframes chromatic-drift { 0%, 100% { text-shadow: 2px 0 #ff0055, -2px 0 #00e5ff, 0 2px #7bff00; } 50% { text-shadow: -2px 0 #ff0055, 2px 0 #00e5ff, 0 -2px #7bff00; } }
 
-        .effect_prism { background: linear-gradient(90deg, #ff0055, #ff9900, #fff700, #00ff88, #00d4ff, #7b2fff, #ff0055); background-size: 300% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 3s linear infinite; font-weight: 900; }
+        .effect_prism { background: linear-gradient(90deg, #ff0055, #ff9900, #fff700, #00ff88, #00d4ff, #7b2fff, #ff0055); background-size: 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 3s linear infinite; font-weight: 900; }
         @keyframes prism-text-shift { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
 
         .effect_supernova { color: #fff8e1; text-shadow: 0 0 8px #ffcc00, 0 0 16px #ff6a00, 0 0 28px #ff0000; animation: supernova-pulse 1.8s ease-in-out infinite; font-weight: 900; }
         @keyframes supernova-pulse { 0%, 100% { text-shadow: 0 0 8px #ffcc00, 0 0 16px #ff6a00, 0 0 28px #ff0000; } 50% { text-shadow: 0 0 14px #ffcc00, 0 0 30px #ff6a00, 0 0 50px #ff0000; } }
 
-        .effect_celestial { background: linear-gradient(90deg, #d4af37 0%, #fff8dc 20%, #d4af37 40%, #8a6d1f 60%, #fff8dc 80%, #d4af37 100%); background-size: 250% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2s linear infinite, celestial-sparkle 1.4s ease-in-out infinite; font-weight: 900; text-shadow: 0 0 10px rgba(255,248,220,0.5); }
+        .effect_celestial { background: linear-gradient(90deg, #d4af37 0%, #fff8dc 20%, #d4af37 40%, #8a6d1f 60%, #fff8dc 80%, #d4af37 100%); background-size: 250% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2s linear infinite, celestial-sparkle 1.4s ease-in-out infinite; font-weight: 900; text-shadow: 0 0 10px rgba(255,248,220,0.5); }
         @keyframes celestial-sparkle { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
 
         /* Two cheap early-game banners reusing colors/patterns already
            established elsewhere (a plain gradient, a diagonal foil stripe) —
            no animation, deliberately simple, priced to match. */
-        .banner_diamond { background: linear-gradient(180deg, #1e3b1e 0%, #2b572b 100%); border-left: 3px solid var(--c-ink); border-radius: 3px; }
-        .banner_foil { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px); border-left: 3px solid var(--c-ink-2); border-radius: 3px; }
+        .banner_diamond { background: linear-gradient(180deg, #1e3b1e 0%, #2b572b 100%); border-left: 3px solid #fff; border-radius: 3px; }
+        .banner_foil { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 20px); border-left: 3px solid #ddd; border-radius: 3px; }
 
         .banner_toxic { background: radial-gradient(circle at 30% 40%, #d4ff00 0%, #5a8c00 45%, #0a1400 100%); background-size: 160% 160%; animation: toxic-pulse 2.4s ease-in-out infinite; border-left: 3px solid #d4ff00; border-radius: 3px; }
         @keyframes toxic-pulse { 0%, 100% { background-position: 30% 40%; filter: brightness(1); } 50% { background-position: 45% 55%; filter: brightness(1.25); } }
 
-        .effect_toxic { background: linear-gradient(90deg, #0a1400 0%, #5a8c00 25%, #d4ff00 50%, #5a8c00 75%, #0a1400 100%); background-size: 200% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.2s linear infinite; font-weight: 900; }
+        .effect_toxic { background: linear-gradient(90deg, #0a1400 0%, #5a8c00 25%, #d4ff00 50%, #5a8c00 75%, #0a1400 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.2s linear infinite; font-weight: 900; }
 
         .banner_aurora { background: linear-gradient(120deg, #00ff9d 0%, #00d4ff 35%, #7b2fff 70%, #00ff9d 100%); background-size: 300% 300%; animation: aurora-drift 5s ease-in-out infinite; border-left: 3px solid #00ff9d; border-radius: 3px; }
         @keyframes aurora-drift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
-        .effect_aurora { background: linear-gradient(90deg, #00ff9d, #00d4ff, #7b2fff, #00ff9d); background-size: 300% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 3.5s linear infinite; font-weight: 900; }
+        .effect_aurora { background: linear-gradient(90deg, #00ff9d, #00d4ff, #7b2fff, #00ff9d); background-size: 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 3.5s linear infinite; font-weight: 900; }
 
-        .banner_bloodmoon { background: radial-gradient(circle at 50% 40%, #8b0000 0%, #3a0000 45%, var(--c-on-bright) 100%); background-size: 160% 160%; animation: bloodmoon-pulse 3.2s ease-in-out infinite; border-left: 3px solid #ff1a1a; border-radius: 3px; }
+        .banner_bloodmoon { background: radial-gradient(circle at 50% 40%, #8b0000 0%, #3a0000 45%, #000 100%); background-size: 160% 160%; animation: bloodmoon-pulse 3.2s ease-in-out infinite; border-left: 3px solid #ff1a1a; border-radius: 3px; }
         @keyframes bloodmoon-pulse { 0%, 100% { background-position: 50% 40%; filter: brightness(1); } 50% { background-position: 55% 50%; filter: brightness(1.3); } }
 
         /* Two cheap, low-effort static text effects for the low end of the
            effects ladder — Neon Outline has no animation at all (an outline
            glow reads fine static), Static Noise's flicker is fast/subtle
            rather than the more dramatic pulses used further up the list. */
-        .effect_neon_outline { color: var(--c-ink); text-shadow: 0 0 2px var(--c-correct), 0 0 4px var(--c-present); font-weight: 700; }
-        .effect_static { color: var(--c-ink-2); text-shadow: 1px 0 var(--c-ink), -1px 0 var(--c-ink-4); animation: static-flicker 0.15s steps(2) infinite; }
+        .effect_neon_outline { color: #fff; text-shadow: 0 0 2px #00ffff, 0 0 4px #ff00ff; font-weight: 700; }
+        .effect_static { color: #ddd; text-shadow: 1px 0 #fff, -1px 0 #888; animation: static-flicker 0.15s steps(2) infinite; }
         @keyframes static-flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 
         /* New top tier, above Celestial — a black hole rather than more
            starlight, so it reads as a genuinely different pinnacle instead
            of a recolor of the previous one. */
-        .banner_singularity { background: radial-gradient(circle at 50% 50%, var(--c-on-bright) 0%, #1a0033 35%, #3d0080 55%, var(--c-on-bright) 80%); background-size: 220% 220%; animation: singularity-warp 4s ease-in-out infinite; border-left: 3px solid var(--c-gauntlet); border-radius: 3px; }
+        .banner_singularity { background: radial-gradient(circle at 50% 50%, #000 0%, #1a0033 35%, #3d0080 55%, #000 80%); background-size: 220% 220%; animation: singularity-warp 4s ease-in-out infinite; border-left: 3px solid #b967ff; border-radius: 3px; }
         @keyframes singularity-warp { 0%, 100% { background-position: 50% 50%; filter: brightness(1); } 50% { background-position: 55% 45%; filter: brightness(1.4); } }
 
-        .effect_singularity { color: #0a0015; text-shadow: 0 0 8px var(--c-gauntlet), 0 0 18px #6a00ff, 0 0 32px #3d0080; animation: singularity-pulse 2.2s ease-in-out infinite; font-weight: 900; }
-        @keyframes singularity-pulse { 0%, 100% { text-shadow: 0 0 8px var(--c-gauntlet), 0 0 18px #6a00ff, 0 0 32px #3d0080; } 50% { text-shadow: 0 0 14px var(--c-gauntlet), 0 0 30px #6a00ff, 0 0 55px #3d0080; } }
+        .effect_singularity { color: #0a0015; text-shadow: 0 0 8px #b967ff, 0 0 18px #6a00ff, 0 0 32px #3d0080; animation: singularity-pulse 2.2s ease-in-out infinite; font-weight: 900; }
+        @keyframes singularity-pulse { 0%, 100% { text-shadow: 0 0 8px #b967ff, 0 0 18px #6a00ff, 0 0 32px #3d0080; } 50% { text-shadow: 0 0 14px #b967ff, 0 0 30px #6a00ff, 0 0 55px #3d0080; } }
 
         /* ATELIER TIER — the "expensive object" set. Everything above this
            point is light emitting from a dark field (neon, plasma, stars);
@@ -866,8 +879,8 @@
            distance, which nothing else here has; every other banner is flat. */
         .banner_depth { background: linear-gradient(135deg, #070a18 0%, #02030a 100%); border-left: 3px solid #9db4ff; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(157,180,255,0.13), inset 0 -4px 16px rgba(0,0,0,0.85); }
         .banner_depth::before, .banner_depth::after { content: ""; position: absolute; inset: 0; z-index: -1; }
-        .banner_depth::before { background: radial-gradient(1px 1px at 30px 18px, var(--c-ink), transparent), radial-gradient(1px 1px at 120px 40px, #cfe0ff, transparent), radial-gradient(1px 1px at 210px 12px, var(--c-ink), transparent), radial-gradient(1px 1px at 300px 46px, #cfe0ff, transparent); background-size: 340px 60px; animation: star-far 26s linear infinite; opacity: 0.55; }
-        .banner_depth::after { background: radial-gradient(1.6px 1.6px at 70px 34px, var(--c-ink), transparent), radial-gradient(1.6px 1.6px at 180px 20px, #e8f0ff, transparent), radial-gradient(1.6px 1.6px at 265px 50px, var(--c-ink), transparent); background-size: 340px 60px; animation: star-near 11s linear infinite; }
+        .banner_depth::before { background: radial-gradient(1px 1px at 30px 18px, #fff, transparent), radial-gradient(1px 1px at 120px 40px, #cfe0ff, transparent), radial-gradient(1px 1px at 210px 12px, #fff, transparent), radial-gradient(1px 1px at 300px 46px, #cfe0ff, transparent); background-size: 340px 60px; animation: star-far 26s linear infinite; opacity: 0.55; }
+        .banner_depth::after { background: radial-gradient(1.6px 1.6px at 70px 34px, #fff, transparent), radial-gradient(1.6px 1.6px at 180px 20px, #e8f0ff, transparent), radial-gradient(1.6px 1.6px at 265px 50px, #fff, transparent); background-size: 340px 60px; animation: star-near 11s linear infinite; }
         @keyframes star-far { to { background-position: -340px 0; } }
         @keyframes star-near { to { background-position: -340px 0; } }
 
@@ -892,11 +905,11 @@
            doesn't. Palettes stay bright so they read on the dark board. */
 
         /* Hard specular banding — chrome, not gold. Reuses the shared shine. */
-        .effect_chrome { background: linear-gradient(92deg, #39424d 0%, var(--c-ink) 9%, #8e9aa7 17%, var(--c-ink) 29%, #434c57 43%, var(--c-ink) 55%, #6e7a87 65%, #fbfdff 79%, #39424d 100%); background-size: 300% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.6s linear infinite; font-weight: 900; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.65)); }
+        .effect_chrome { background: linear-gradient(92deg, #39424d 0%, #ffffff 9%, #8e9aa7 17%, #ffffff 29%, #434c57 43%, #ffffff 55%, #6e7a87 65%, #fbfdff 79%, #39424d 100%); background-size: 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 2.6s linear infinite; font-weight: 900; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.65)); }
 
         /* Pearlescent rather than saturated — the pastel/iridescent read is
            what separates this from Prism Text sitting a tier below it. */
-        .effect_oilslick { background: linear-gradient(100deg, #5eead4 0%, #818cf8 18%, #f0abfc 34%, #22d3ee 50%, #a78bfa 66%, #f472b6 82%, #5eead4 100%); background-size: 320% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 4.5s linear infinite; font-weight: 900; filter: drop-shadow(0 0 7px rgba(150,110,235,0.55)) drop-shadow(0 0 2px rgba(0,255,220,0.45)); }
+        .effect_oilslick { background: linear-gradient(100deg, #5eead4 0%, #818cf8 18%, #f0abfc 34%, #22d3ee 50%, #a78bfa 66%, #f472b6 82%, #5eead4 100%); background-size: 320% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: prism-text-shift 4.5s linear infinite; font-weight: 900; filter: drop-shadow(0 0 7px rgba(150,110,235,0.55)) drop-shadow(0 0 2px rgba(0,255,220,0.45)); }
 
         /* Lenticular foil. Tried first as a BANNER and abandoned there: a
            full-width rainbow fights whatever text sits on it, and the mask
@@ -904,11 +917,11 @@
            with it. On the name itself it has nothing to fight, so it can be as
            loud as it likes — two layers clipped to the glyphs, fine ridges over
            a broad spectrum, sliding at different rates. */
-        .effect_foil { background: repeating-linear-gradient(72deg, rgba(255,255,255,0.55) 0 1px, transparent 1px 4px), linear-gradient(100deg, #ff2f6e 0%, #ffd166 18%, #06d6a0 36%, #4cc9f0 54%, #b57bff 72%, #ff2f6e 100%); background-size: 200% auto, 300% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: foil-ridge 3.4s linear infinite, shine 5s linear infinite; font-weight: 900; filter: drop-shadow(0 0 6px rgba(180,140,255,0.5)) drop-shadow(0 1px 0 rgba(0,0,0,0.7)); }
+        .effect_foil { background: repeating-linear-gradient(72deg, rgba(255,255,255,0.55) 0 1px, transparent 1px 4px), linear-gradient(100deg, #ff2f6e 0%, #ffd166 18%, #06d6a0 36%, #4cc9f0 54%, #b57bff 72%, #ff2f6e 100%); background-size: 200% auto, 300% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: foil-ridge 3.4s linear infinite, shine 5s linear infinite; font-weight: 900; filter: drop-shadow(0 0 6px rgba(180,140,255,0.5)) drop-shadow(0 1px 0 rgba(0,0,0,0.7)); }
         @keyframes foil-ridge { to { background-position: 200% 0, 0 0; } }
 
         /* Glacial ice — white-blue crystal with a cold double halo. */
-        .effect_permafrost { background: linear-gradient(100deg, #dff6ff 0%, var(--c-ink) 18%, #9fd8f5 34%, #e8fbff 50%, #7fc6ea 66%, var(--c-ink) 82%, #dff6ff 100%); background-size: 280% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3.2s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(140,220,255,0.78)) drop-shadow(0 0 13px rgba(60,160,220,0.45)); }
+        .effect_permafrost { background: linear-gradient(100deg, #dff6ff 0%, #ffffff 18%, #9fd8f5 34%, #e8fbff 50%, #7fc6ea 66%, #ffffff 82%, #dff6ff 100%); background-size: 280% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3.2s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(140,220,255,0.78)) drop-shadow(0 0 13px rgba(60,160,220,0.45)); }
 
         /* SEASONAL — time-limited (see isWithinSeasonalWindow in the module
            script and functions/index.js, which enforces the same window
@@ -935,14 +948,14 @@
         @keyframes firework-burst { 0% { background-position: 0% 0; } 100% { background-position: 260% 0; } }
 
         /* Tinsel — red and green running through a silver shine. */
-        .effect_tinsel { background: linear-gradient(100deg, #e63946 0%, #f4f6f8 22%, #39ff14 44%, #f4f6f8 66%, #e63946 88%, #f4f6f8 100%); background-size: 280% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(255,255,255,0.6)); }
+        .effect_tinsel { background: linear-gradient(100deg, #e63946 0%, #f4f6f8 22%, #39ff14 44%, #f4f6f8 66%, #e63946 88%, #f4f6f8 100%); background-size: 280% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(255,255,255,0.6)); }
 
         /* Countdown — gold that pulses like a clock coming up on midnight. */
         .effect_countdown { color: #ffd166; text-shadow: 0 0 6px #ffb703, 0 0 14px #c77f00; animation: countdown-tick 1s steps(2) infinite; font-weight: 900; }
         @keyframes countdown-tick { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.72; } }
 
         /* Shamrock — clover green with a gold glint passing through. */
-        .effect_shamrock { background: linear-gradient(100deg, #1e7a3c 0%, #3ddc84 24%, #ffe08a 42%, #3ddc84 60%, #1e7a3c 84%, #3ddc84 100%); background-size: 280% auto; color: var(--c-ink); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3.4s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(61,220,132,0.7)); }
+        .effect_shamrock { background: linear-gradient(100deg, #1e7a3c 0%, #3ddc84 24%, #ffe08a 42%, #3ddc84 60%, #1e7a3c 84%, #3ddc84 100%); background-size: 280% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3.4s linear infinite; font-weight: 900; filter: drop-shadow(0 0 5px rgba(61,220,132,0.7)); }
 
         /* A holiday item on sale right now. It is the only row the grid lifts
            out of price order, so it has to look deliberate rather than like a
@@ -1004,7 +1017,7 @@
 
         .rank-bronze { color: #cd7f32; }
         .rank-silver { color: #c0c0c0; }
-        .rank-gold { color: var(--c-ffa); }
+        .rank-gold { color: #ffd700; }
         .rank-platinum { color: #e5e4e2; }
         .rank-sapphire { color: #0f52ba; }
         .rank-ruby { color: #e0115f; text-shadow: 0 0 5px #e0115f; }
@@ -1061,11 +1074,11 @@
          about to type on is worse than being told it is coming. Never hides
          anything and always clears itself, so a slow or failed sign-in leaves
          a playable Endless board rather than a stuck spinner. -->
-    <div id="boot-notice" style="display:none; margin: 0 0 8px; font-size: 13px; color: #b967ff; text-align: center; position: relative; z-index: 2;">Opening today's Gauntlet…</div>
+    <div id="boot-notice" style="display:none; margin: 0 0 8px; font-size: 13px; color: var(--c-gauntlet); text-align: center; position: relative; z-index: 2;">Opening today's Gauntlet…</div>
 
     <div id="endless-header">
-        <div class="score-text" id="endless-mode-label" style="color:#4caf50;">ENDLESS</div>
-        <div class="score-text" id="endless-word-text" style="color:#4caf50;">WORD <span id="endless-word-index">1</span></div>
+        <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">ENDLESS</div>
+        <div class="score-text" id="endless-word-text" style="color:var(--c-endless);">WORD <span id="endless-word-index">1</span></div>
     </div>
 
     <div id="score-board">
@@ -1084,10 +1097,10 @@
 
     <!-- DAILY GAUNTLET UI -->
     <div id="daily-header" style="display:none;">
-        <div class="score-text" id="daily-progress-text" style="color:#b967ff;">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+        <div class="score-text" id="daily-progress-text" style="color:var(--c-gauntlet);">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
         <!-- Swapped in once today's run is over, when "WORD 1/10" would be
              describing a board that is no longer on screen. -->
-        <div class="score-text" id="daily-complete-text" style="color:#b967ff; display:none;">COMPLETE</div>
+        <div class="score-text" id="daily-complete-text" style="color:var(--c-gauntlet); display:none;">COMPLETE</div>
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
     </div>
 
@@ -1098,9 +1111,9 @@
 
     <!-- SUDDEN DEATH UI -->
     <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
-        <div style="color:#ff3333; font-size: 20px; font-weight: bold; text-shadow: 0 0 8px #ff3333;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
-        <div id="sd-status-text" style="color:#ff9800; font-size: 14px; margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
-        <div id="sd-timer" style="color:#fff; font-size: 16px; font-weight: bold; margin-top: 4px;">1:30</div>
+        <div style="color:var(--c-loss); font-size: 20px; font-weight: bold; text-shadow: 0 0 8px var(--c-loss);">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
+        <div id="sd-status-text" style="color:var(--c-clash); font-size: 14px; margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
+        <div id="sd-timer" style="color:var(--c-ink); font-size: 16px; font-weight: bold; margin-top: 4px;">1:30</div>
     </div>
 
     <!-- VERSUS UI -->
@@ -1112,11 +1125,11 @@
                 <div id="vs-guest-banner" class="lb-entry banner_default" style="padding: 6px; font-size: 12px; margin-bottom: 10px; min-height: 40px;">
                     <div class="lb-name-col">
                         <div id="vs-guest-name" class="lb-name effect_none" style="font-size: 14px;">GUEST</div>
-                        <div id="vs-guest-title" class="lb-date" style="color: #ff9800; font-size: 10px;"></div>
+                        <div id="vs-guest-title" class="lb-date" style="color: var(--c-clash); font-size: 10px;"></div>
                     </div>
                 </div>
                 <!-- NEW WORD COUNTER -->
-                <div id="vs-guest-word-count" style="font-size: 11px; color: #ff00ff; text-align: left; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
+                <div id="vs-guest-word-count" style="font-size: 11px; color: var(--c-present); text-align: left; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
                 
                 <div id="guest-mini-board" style="display:grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: start;"></div>
             </div>
@@ -1126,32 +1139,32 @@
                 <div id="vs-host-banner" class="lb-entry banner_default" style="padding: 6px; font-size: 12px; margin-bottom: 10px; min-height: 40px;">
                     <div class="lb-name-col" style="text-align: right; padding-right: 0; padding-left: 10px;">
                         <div id="vs-host-name" class="lb-name effect_none" style="font-size: 14px;">HOST</div>
-                        <div id="vs-host-title" class="lb-date" style="color: #ff9800; font-size: 10px;"></div>
+                        <div id="vs-host-title" class="lb-date" style="color: var(--c-clash); font-size: 10px;"></div>
                     </div>
                 </div>
                 <!-- NEW WORD COUNTER -->
-                <div id="vs-host-word-count" style="font-size: 11px; color: #00ffff; text-align: right; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
+                <div id="vs-host-word-count" style="font-size: 11px; color: var(--c-correct); text-align: right; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
                 
                 <div id="host-mini-board" style="display:grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: end;"></div>
             </div>
         </div>
 
-        <div id="versus-track" style="position: relative; padding-top: 15px; margin-top: 15px; border-top: 1px solid #444; height: 60px;">
+        <div id="versus-track" style="position: relative; padding-top: 15px; margin-top: 15px; border-top: 1px solid var(--c-line-2); height: 60px;">
             <!-- THE TUG-OF-WAR BAR -->
-            <div style="position: absolute; top: 50%; left: 15%; right: 15%; height: 12px; background: #222; border: 2px solid #555; border-radius: 6px; overflow: hidden; transform: translateY(-50%);">
-                <div id="tug-fill" style="width: 50%; height: 100%; background: linear-gradient(90deg, #ff00ff, #00ffff); transition: width 0.5s ease-out;"></div>
+            <div style="position: absolute; top: 50%; left: 15%; right: 15%; height: 12px; background: var(--c-raised); border: 2px solid var(--c-ink-6); border-radius: 6px; overflow: hidden; transform: translateY(-50%);">
+                <div id="tug-fill" style="width: 50%; height: 100%; background: linear-gradient(90deg, var(--c-present), var(--c-correct)); transition: width 0.5s ease-out;"></div>
                 <!-- Center Line Marker -->
-                <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: #fff; transform: translateX(-50%); opacity: 0.5;"></div>
+                <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: var(--c-ink); transform: translateX(-50%); opacity: 0.5;"></div>
             </div>
 
             <!-- TIMER -->
             <div style="position: absolute; left: 50%; top: -10px; transform: translateX(-50%); text-align: center;">
-                <div id="clash-timer-display" style="font-size: 20px; color: #ff9800; font-weight: bold; text-shadow: 0 0 10px #ff9800; background: #1a1a1d; padding: 0 10px; border-radius: 5px;">7:00</div>
+                <div id="clash-timer-display" style="font-size: 20px; color: var(--c-clash); font-weight: bold; text-shadow: 0 0 10px var(--c-clash); background: var(--c-panel); padding: 0 10px; border-radius: 5px;">7:00</div>
             </div>
             
             <!-- SCORES -->
-            <div id="vs-guest-score" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: #ff00ff;">0</div>
-            <div id="vs-host-score" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: #00ffff;">0</div>
+            <div id="vs-guest-score" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: var(--c-present);">0</div>
+            <div id="vs-host-score" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: var(--c-correct);">0</div>
         </div>
     </div>
 
@@ -1237,9 +1250,9 @@
         </div>
     </div>
     <!-- CLASH CHAT BOX -->
-    <div id="clash-chat-container" style="display: none; width: 95%; max-width: 500px; background: #1a1a1d; border: 2px solid #555; border-radius: 5px; margin-bottom: 20px; z-index: 2; position: relative; padding: 10px;">
+    <div id="clash-chat-container" style="display: none; width: 95%; max-width: 500px; background: var(--c-panel); border: 2px solid var(--c-ink-6); border-radius: 5px; margin-bottom: 20px; z-index: 2; position: relative; padding: 10px;">
         <div id="chat-messages" style="height: 100px; overflow-y: auto; font-size: 12px; margin-bottom: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 5px;">
-            <div style="color:#aaa; font-style:italic;">Match started. GLHF!</div>
+            <div style="color:var(--c-ink-3); font-style:italic;">Match started. GLHF!</div>
         </div>
         <!-- Quick chat. The chips are the only way to talk in a PUBLIC match;
              the free-text row below is revealed only in private (invite-code)
@@ -1249,7 +1262,7 @@
         <div id="chat-presets"></div>
         <div id="chat-freetext">
             <input type="text" id="chat-input" class="input-field" maxlength="50" placeholder="Type message..." style="font-size: 12px; padding: 8px; margin: 0; text-transform: none; letter-spacing: normal;">
-            <button class="action-btn" style="border-color: #00ffff; color: #00ffff;" onclick="window.sendChatMessage()">Send</button>
+            <button class="action-btn" style="border-color: var(--c-correct); color: var(--c-correct);" onclick="window.sendChatMessage()">Send</button>
         </div>
     </div>
 
@@ -1269,7 +1282,7 @@
             <div id="daily-board-title">Today's Best Runs</div>
             <button id="daily-board-next" onclick="window.stepDailyBoard(1)" title="Later day">&rsaquo;</button>
         </div>
-        <div id="daily-board-list" style="font-size: 14px; color: #aaa; font-style: italic;">Loading…</div>
+        <div id="daily-board-list" style="font-size: 14px; color: var(--c-ink-3); font-style: italic;">Loading…</div>
         <div id="daily-board-you"></div>
     </div>
 
@@ -1314,7 +1327,7 @@
          page Google ranks is not just a title and a keyboard, which is what
          everything above this is to a crawler. -->
     <section id="site-intro" style="width: 90%; max-width: 620px; margin: 10px auto 0; color: #999; font-size: 13px; line-height: 1.7; position: relative; z-index: 2;">
-        <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>
+        <h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>
         <p style="margin-top: 0; margin-bottom: 10px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is your place. Free, runs in your browser, no account needed to start.</p>
 
         <!-- Four lines, one per mode, each in that mode's own colour — the
@@ -1323,16 +1336,16 @@
              This is also the block a crawler indexes, which is why the modes
              are described in prose rather than left to the nav. -->
         <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
-            <li style="margin-bottom: 5px;"><strong style="color:#4caf50;">Endless</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:#b967ff;">Daily Gauntlet</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:#ff9800;">Clash</strong> — race one other player through the same words for seven minutes.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:#ffd700;">FFA</strong> — the same race with three to six players at once.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-endless);">Endless</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Daily Gauntlet</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-clash);">Clash</strong> — race one other player through the same words for seven minutes.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-ffa);">FFA</strong> — the same race with three to six players at once.</li>
         </ul>
 
-        <p style="margin-top: 12px; margin-bottom: 4px;">Read <a href="how-to-play.html" style="color:#b967ff;">the full rules</a> or the <a href="strategy.html" style="color:#00ffff;">strategy guide</a>.</p>
+        <p style="margin-top: 12px; margin-bottom: 4px;">Read <a href="how-to-play.html" style="color:var(--c-gauntlet);">the full rules</a> or the <a href="strategy.html" style="color:var(--c-correct);">strategy guide</a>.</p>
 
-        <h2 style="color: #fff; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Support the project</h2>
-        <p style="margin-top: 0;">Lexathon is free and always will be — no ads, no paywall, and nothing in the shop that makes anyone score higher. Running the multiplayer and leaderboards does cost something, so if you are enjoying it, <a href="https://ko-fi.com/lexathon" target="_blank" rel="noopener" style="color:#4caf50;">a donation on Ko-fi</a> is hugely appreciated. Play a few rounds first — only chip in if it earned it.</p>
+        <h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Support the project</h2>
+        <p style="margin-top: 0;">Lexathon is free and always will be — no ads, no paywall, and nothing in the shop that makes anyone score higher. Running the multiplayer and leaderboards does cost something, so if you are enjoying it, <a href="https://ko-fi.com/lexathon" target="_blank" rel="noopener" style="color:var(--c-endless);">a donation on Ko-fi</a> is hugely appreciated. Play a few rounds first — only chip in if it earned it.</p>
     </section>
 
     <!-- Always-visible footer (outside every modal, unlike the identical pair
@@ -1340,14 +1353,14 @@
          with zero interaction — matters for AdSense review, which expects a
          policy link discoverable without first having to find and tap a menu
          button. -->
-    <div style="margin: 20px 0 10px; font-size: 10px; color: #555; text-transform: uppercase; text-align: center; letter-spacing: 1px; line-height: 2.2; max-width: 420px;">
-        <a href="how-to-play.html" style="color: #777; text-decoration: none;">How To Play</a> |
-        <a href="strategy.html" style="color: #777; text-decoration: none;">Strategy Guide</a> |
-        <a href="/gauntlet/" style="color: #777; text-decoration: none;">Past Gauntlets</a> |
-        <a href="about.html" style="color: #777; text-decoration: none;">About</a> |
-        <a href="faq.html" style="color: #777; text-decoration: none;">FAQ</a><br>
-        <a href="privacy.html" style="color: #777; text-decoration: none;">Privacy Policy</a> |
-        <a href="terms.html" style="color: #777; text-decoration: none;">Terms of Service</a>
+    <div style="margin: 20px 0 10px; font-size: 10px; color: var(--c-ink-6); text-transform: uppercase; text-align: center; letter-spacing: 1px; line-height: 2.2; max-width: 420px;">
+        <a href="how-to-play.html" style="color: var(--c-ink-5); text-decoration: none;">How To Play</a> |
+        <a href="strategy.html" style="color: var(--c-ink-5); text-decoration: none;">Strategy Guide</a> |
+        <a href="/gauntlet/" style="color: var(--c-ink-5); text-decoration: none;">Past Gauntlets</a> |
+        <a href="about.html" style="color: var(--c-ink-5); text-decoration: none;">About</a> |
+        <a href="faq.html" style="color: var(--c-ink-5); text-decoration: none;">FAQ</a><br>
+        <a href="privacy.html" style="color: var(--c-ink-5); text-decoration: none;">Privacy Policy</a> |
+        <a href="terms.html" style="color: var(--c-ink-5); text-decoration: none;">Terms of Service</a>
     </div>
 
     <!-- STANDARD MODALS -->
@@ -1357,7 +1370,7 @@
             <div class="modal-stats">
                 <div>Total Score: <br><span id="modal-score">0</span></div>
                 <div style="margin-top: 15px;">Words Guessed: <br><span id="modal-words">0</span></div>
-                <div style="margin-top: 15px; font-size: 14px; color: #aaa;" id="cloud-save-status">Saving to cloud...</div>
+                <div style="margin-top: 15px; font-size: 14px; color: var(--c-ink-3);" id="cloud-save-status">Saving to cloud...</div>
             </div>
             <div class="modal-buttons">
                 <button class="btn-cyan" id="btn-share" onclick="window.shareStats()">Share Score</button>
@@ -1368,11 +1381,11 @@
     </div>
 
     <div id="warning-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
-            <h2 class="modal-title" style="color: #ff9800;">⚠️ WARNING! ⚠️</h2>
-            <div class="modal-stats" style="color: white; font-size: 18px;">
-                You have <span style="color: #ff3333;" id="warning-continues-text">0 Continues</span> left!<br><br>
-                If you fail when you reach 0, you will <span style="color: #ff3333;">lose ALL your points</span>.<br><br>
+        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+            <h2 class="modal-title" style="color: var(--c-clash);">⚠️ WARNING! ⚠️</h2>
+            <div class="modal-stats" style="color: var(--c-ink); font-size: 18px;">
+                You have <span style="color: var(--c-loss);" id="warning-continues-text">0 Continues</span> left!<br><br>
+                If you fail when you reach 0, you will <span style="color: var(--c-loss);">lose ALL your points</span>.<br><br>
                 Bank your score now, or risk it all!
             </div>
             <div class="modal-buttons">
@@ -1388,9 +1401,9 @@
          the orange button opened a blue box. The result colours inside stay as
          they are: green for a win and red for a loss are signals, not theme. -->
     <div id="versus-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
-            <h2 class="modal-title" style="color: #ff9800;">Head-to-Head</h2>
-                <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
+        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+            <h2 class="modal-title" style="color: var(--c-clash);">Head-to-Head</h2>
+                <div class="modal-stats" style="color: var(--c-ink-3); font-size: 14px; margin-bottom: 25px;">
                     Score Attack rules. No Continues. <br>First to 1,000 points or highest score when time expires wins!
                 </div>
             
@@ -1399,11 +1412,11 @@
                     <button class="btn-orange" onclick="window.findRandomMatch()">Find Random Match</button>
                     
                     <!-- NEW LIVE COUNTER DIV HERE -->
-                    <div id="active-searchers-text" style="color: #ff9800; font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+                    <div id="active-searchers-text" style="color: var(--c-clash); font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
                     
-                    <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
+                    <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
                     
-                    <button class="btn-dark" style="border-color: #ff9800 !important; color: #ff9800;" onclick="window.hostMatch()">Host Private Match</button>
+                    <button class="btn-dark" style="border-color: var(--c-clash) !important; color: var(--c-clash);" onclick="window.hostMatch()">Host Private Match</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
                         <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinMatch()">Join</button>
@@ -1413,24 +1426,24 @@
 
             <div id="lobby-waiting-view" style="display: none; width: 100%; text-align: center;">
                 <!-- CORRECT IDS -->
-                <h2 id="waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
+                <h2 id="waiting-status-text" class="pulse-text" style="color: var(--c-clash); margin-bottom: 10px;">SEARCHING FOR MATCH...</h2>
                 
                 <!-- ROOM CODE DISPLAY -->
-                <div id="display-room-code" style="font-size: 32px; color: #ff9800; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
+                <div id="display-room-code" style="font-size: 32px; color: var(--c-clash); letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
 
                 <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
-                <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: #ff9800 !important; color: #ff9800; margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
+                <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: var(--c-clash) !important; color: var(--c-clash); margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
 
                 <!-- SUB-TEXT BLOCK -->
-                <div id="waiting-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 20px; font-style: italic;"></div>
+                <div id="waiting-sub-text" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 20px; font-style: italic;"></div>
                 
-                <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">
+                <p style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 20px;">
                     First player to 1,000 points wins! <br>
                     If time expires, the highest score takes the victory.<br>
-                    <i style="color: #ff3333;">Failing a word deducts 50 points!</i>
+                    <i style="color: var(--c-loss);">Failing a word deducts 50 points!</i>
                 </p>
                 
-                <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelVersusLobby()">Cancel</button>
+                <button class="menu-list-btn" style="border-color: var(--c-loss); color: var(--c-loss);" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
 
             <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Endless</button>
@@ -1439,13 +1452,13 @@
 
     <!-- VERSUS END MODAL -->
     <div id="versus-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
+        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
             <h2 class="modal-title" id="vs-end-title">You Win!</h2>
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
             
             <div class="modal-buttons">
                 <button class="btn-orange" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
-                <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: #aaa; font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
+                <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: var(--c-ink-3); font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
                 <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
             </div>
         </div>
@@ -1453,20 +1466,20 @@
 
     <!-- FFA LOBBY MODAL -->
     <div id="ffa-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
-            <h2 class="modal-title" style="color: #ffd700;">Free-For-All</h2>
-            <div class="modal-stats" style="color: #aaa; font-size: 14px; margin-bottom: 25px;">
+        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: 0 0 20px var(--c-ffa);">
+            <h2 class="modal-title" style="color: var(--c-ffa);">Free-For-All</h2>
+            <div class="modal-stats" style="color: var(--c-ink-3); font-size: 14px; margin-bottom: 25px;">
                 3-6 players. Score Attack rules.<br>Highest score when the clock hits 0 wins!
             </div>
 
             <div id="ffa-lobby-action-view">
                 <div class="modal-buttons">
                     <button class="btn-gold" onclick="window.findRandomFfaMatch()">Find Public Match</button>
-                    <div id="ffa-active-searchers-text" style="color: #ffd700; font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+                    <div id="ffa-active-searchers-text" style="color: var(--c-ffa); font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
 
-                    <div style="margin: 15px 0; color: #555; font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIENDS -</div>
+                    <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIENDS -</div>
 
-                    <button class="btn-dark" style="border-color: #ffd700 !important; color: #ffd700;" onclick="window.hostFfaMatch()">Host Private Room</button>
+                    <button class="btn-dark" style="border-color: var(--c-ffa) !important; color: var(--c-ffa);" onclick="window.hostFfaMatch()">Host Private Room</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="ffa-join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
                         <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinFfaMatchByCode()">Join</button>
@@ -1475,20 +1488,20 @@
             </div>
 
             <div id="ffa-lobby-waiting-view" style="display: none; width: 100%; text-align: center;">
-                <h2 id="ffa-waiting-status-text" class="pulse-text" style="color: #ff9800; margin-bottom: 10px;">WAITING FOR PLAYERS...</h2>
+                <h2 id="ffa-waiting-status-text" class="pulse-text" style="color: var(--c-clash); margin-bottom: 10px;">WAITING FOR PLAYERS...</h2>
 
-                <div id="ffa-display-room-code" style="font-size: 32px; color: #ffd700; letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
+                <div id="ffa-display-room-code" style="font-size: 32px; color: var(--c-ffa); letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
 
                 <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
-                <button id="ffa-btn-share-invite" class="btn-dark" style="display: none; border-color: #ffd700 !important; color: #ffd700; margin-bottom: 10px;" onclick="window.shareFfaInvite()">Share Invite</button>
+                <button id="ffa-btn-share-invite" class="btn-dark" style="display: none; border-color: var(--c-ffa) !important; color: var(--c-ffa); margin-bottom: 10px;" onclick="window.shareFfaInvite()">Share Invite</button>
 
-                <div id="ffa-lobby-players-list" style="font-size: 14px; color: #fff; margin-bottom: 15px; line-height: 1.6;"></div>
+                <div id="ffa-lobby-players-list" style="font-size: 14px; color: var(--c-ink); margin-bottom: 15px; line-height: 1.6;"></div>
 
-                <div id="ffa-lobby-sub-text" style="font-size: 12px; color: #aaa; margin-bottom: 15px; font-style: italic;"></div>
+                <div id="ffa-lobby-sub-text" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px; font-style: italic;"></div>
 
                 <div class="modal-buttons">
                     <button class="btn-gold" id="ffa-btn-start-early" style="display: none;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
-                    <button class="menu-list-btn" style="border-color: #ff3333; color: #ff3333;" onclick="window.cancelFfaLobby()">Cancel</button>
+                    <button class="menu-list-btn" style="border-color: var(--c-loss); color: var(--c-loss);" onclick="window.cancelFfaLobby()">Cancel</button>
                 </div>
             </div>
 
@@ -1498,8 +1511,8 @@
 
     <!-- FFA END MODAL -->
     <div id="ffa-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #ffd700; box-shadow: 0 0 20px #ffd700;">
-            <h2 class="modal-title" id="ffa-end-title" style="color: #ffd700;">Match Complete!</h2>
+        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: 0 0 20px var(--c-ffa);">
+            <h2 class="modal-title" id="ffa-end-title" style="color: var(--c-ffa);">Match Complete!</h2>
             <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: 14px;"></div>
 
             <div class="modal-buttons">
@@ -1510,15 +1523,15 @@
 
     <!-- PAST GAUNTLETS (ARCHIVE) MODAL -->
     <div id="gauntlet-archive-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
-            <h2 class="modal-title" id="gauntlet-archive-title" style="color: #b967ff;">Past Gauntlets</h2>
+        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: 0 0 20px var(--c-gauntlet);">
+            <h2 class="modal-title" id="gauntlet-archive-title" style="color: var(--c-gauntlet);">Past Gauntlets</h2>
 
             <!-- List of past days. -->
             <div id="gauntlet-archive-browse">
-                <div style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
+                <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
                 <div id="gauntlet-archive-list"></div>
                 <button class="btn-dark" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
-                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:#b967ff; text-decoration:none; font-weight:bold;">Every past Gauntlet, with the words →</a>
+                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Gauntlet, with the words →</a>
             </div>
 
             <!-- One past day's final board. -->
@@ -1529,7 +1542,7 @@
                      not: the day's words themselves, per-word difficulty, and
                      the full spread of results. It is also a flat file, so
                      reading it there costs no Firestore reads at all. -->
-                <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:#b967ff; text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
+                <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
                 <button class="btn-dark" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
             </div>
 
@@ -1541,13 +1554,13 @@
 
     <!-- DAILY GAUNTLET END MODAL -->
     <div id="daily-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
-            <h2 class="modal-title" id="daily-end-title" style="color: #b967ff;">Gauntlet Complete!</h2>
-            <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:#4caf50; font-size: 24px;">0</span></div>
+        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: 0 0 20px var(--c-gauntlet);">
+            <h2 class="modal-title" id="daily-end-title" style="color: var(--c-gauntlet);">Gauntlet Complete!</h2>
+            <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:var(--c-endless); font-size: 24px;">0</span></div>
 
             <div id="daily-end-standing" style="display:none; font-size: 13px; color: #e8d5ff; margin-bottom: 12px;"></div>
 
-            <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
+            <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
             <div class="modal-buttons">
                 <button class="btn-cyan" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
@@ -1563,7 +1576,7 @@
     <!-- MAIN MENU MODAL -->
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
-            <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Menu</h2>
+            <h2 class="modal-title" style="color: var(--c-ink); text-shadow: 0 0 10px var(--c-ink);">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn is-primary" onclick="window.confirmNewGame()">New Game</button>
                 <button class="menu-list-btn" onclick="window.openHowToPlay()">How To Play</button>
@@ -1575,8 +1588,8 @@
                 <button id="auth-action-btn" class="menu-list-btn" onclick="window.handleAuthAction()">Sign Up / Log In</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
-                    <button class="btn-dark" style="border-color: #fff !important; padding: 8px 12px;" onclick="window.open('https://x.com/playlexathon', '_blank', 'noopener')">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.005 4.15H5.059z"/></svg>
+                    <button class="btn-dark" style="border-color: var(--c-ink) !important; padding: 8px 12px;" onclick="window.open('https://x.com/playlexathon', '_blank', 'noopener')">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.005 4.15H5.059z"/></svg>
                     </button>
                     <button class="btn-dark" style="border-color: #5865F2 !important; padding: 8px 12px;" onclick="window.open('https://discord.gg/xBVDym8TF9', '_blank', 'noopener')">
                         <svg viewBox="0 0 127.14 96.36" width="16" height="16" fill="#5865F2"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>
@@ -1586,12 +1599,12 @@
                     </button>
                 </div>
                 
-                <div style="margin-top: 15px; font-size: 10px; color: #555; text-transform: uppercase; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-                    <a href="how-to-play.html" style="color: #777; text-decoration: none;">How To Play</a> |
-                    <a href="strategy.html" style="color: #777; text-decoration: none;">Strategy</a> |
-                    <a href="faq.html" style="color: #777; text-decoration: none;">FAQ</a> |
-                    <a href="privacy.html" style="color: #777; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#00ffff'" onmouseout="this.style.color='#777'">Privacy Policy</a> | 
-                    <a href="terms.html" style="color: #777; text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='#ff9800'" onmouseout="this.style.color='#777'">Terms of Service</a>
+                <div style="margin-top: 15px; font-size: 10px; color: var(--c-ink-6); text-transform: uppercase; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                    <a href="how-to-play.html" style="color: var(--c-ink-5); text-decoration: none;">How To Play</a> |
+                    <a href="strategy.html" style="color: var(--c-ink-5); text-decoration: none;">Strategy</a> |
+                    <a href="faq.html" style="color: var(--c-ink-5); text-decoration: none;">FAQ</a> |
+                    <a href="privacy.html" style="color: var(--c-ink-5); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--c-correct)'" onmouseout="this.style.color='var(--c-ink-5)'">Privacy Policy</a> | 
+                    <a href="terms.html" style="color: var(--c-ink-5); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--c-clash)'" onmouseout="this.style.color='var(--c-ink-5)'">Terms of Service</a>
                 </div>
 
                 <button class="menu-list-btn is-quiet" style="margin-top: 10px;" onclick="document.getElementById('main-menu-modal').style.display='none'">Back to Game</button>
@@ -1608,9 +1621,9 @@
          falling back to signing into the existing account if that credential
          already has one (see signInWithGoogle / submitEmailAuth). -->
     <div id="auth-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #fff; box-shadow: 0 0 20px #fff;">
-            <h2 class="modal-title" style="color: #fff;">Sign Up / Log In</h2>
-            <div class="modal-stats" style="font-size: 12px; color: #aaa; margin-bottom: 15px; line-height: 1.4; text-align: center;">
+        <div class="modal-box" style="border-color: var(--c-ink); box-shadow: 0 0 20px var(--c-ink);">
+            <h2 class="modal-title" style="color: var(--c-ink);">Sign Up / Log In</h2>
+            <div class="modal-stats" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px; line-height: 1.4; text-align: center;">
                 This saves your current guest progress to whichever you pick. Already have a Lexathon account? You'll be signed into it instead.
             </div>
             <button class="btn-google" onclick="window.signInWithGoogle()">
@@ -1627,7 +1640,7 @@
             <input type="password" id="email-auth-password" class="input-field" placeholder="PASSWORD (6+ characters)" autocomplete="current-password" style="text-transform: none; letter-spacing: normal; text-align: left;">
             <button class="btn-cyan" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer; margin-top: 5px;" onclick="window.submitEmailAuth()">Continue</button>
             <div style="text-align: center; margin-top: 10px;">
-                <a href="#" style="color: #777; font-size: 11px; text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
+                <a href="#" style="color: var(--c-ink-5); font-size: 11px; text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
             </div>
             <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-dark" onclick="document.getElementById('auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
@@ -1642,7 +1655,7 @@
          Skippable, because the free change is still sitting in the Profile
          afterwards — a name is a bad thing to make someone hurry over. -->
     <div id="handle-setup-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff; max-width: 360px;">
+        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: 0 0 20px var(--c-correct); max-width: 360px;">
             <h2 class="modal-title">Pick Your Handle</h2>
             <div class="modal-stats" style="font-size: 13px; color: #bbb; margin-bottom: 15px; line-height: 1.5; text-align: center;">
                 <span id="handle-setup-blurb">Your progress is saved.</span> This is the name that shows on the leaderboards — your first change is free.
@@ -1668,21 +1681,21 @@
         <div class="modal-box" id="mode-intro-box" style="max-width: 360px;">
             <div id="mode-intro-icon" style="font-size: 44px; margin-bottom: 6px;"></div>
             <h2 class="modal-title" id="mode-intro-title"></h2>
-            <p id="mode-intro-text" style="color: #ddd; font-size: 14px; line-height: 1.65; margin: 0 0 4px;"></p>
+            <p id="mode-intro-text" style="color: var(--c-ink-2); font-size: 14px; line-height: 1.65; margin: 0 0 4px;"></p>
             <div class="modal-buttons">
                 <button class="btn-cyan" id="mode-intro-btn" onclick="window.dismissModeIntro()">Play</button>
             </div>
-            <a href="how-to-play.html" style="color: #777; font-size: 12px; text-decoration: none;">Full rules</a>
+            <a href="how-to-play.html" style="color: var(--c-ink-5); font-size: 12px; text-decoration: none;">Full rules</a>
         </div>
     </div>
 
     <!-- HOW TO PLAY MODAL — the full reference, open anytime from the Menu -->
     <div id="howto-modal" class="modal-overlay">
-        <div class="modal-box" style="max-width: 440px; text-align: left; border-color: #b967ff; box-shadow: 0 0 20px #b967ff;">
-            <h2 class="modal-title" style="text-align: center; color: #b967ff;">How To Play</h2>
+        <div class="modal-box" style="max-width: 440px; text-align: left; border-color: var(--c-gauntlet); box-shadow: 0 0 20px var(--c-gauntlet);">
+            <h2 class="modal-title" style="text-align: center; color: var(--c-gauntlet);">How To Play</h2>
 
-            <div style="font-size: 13px; line-height: 1.6; color: #ddd;">
-                <h3 style="color: #4caf50; text-transform: uppercase; margin-bottom: 6px;">♾️ Endless</h3>
+            <div style="font-size: 13px; line-height: 1.6; color: var(--c-ink-2);">
+                <h3 style="color: var(--c-endless); text-transform: uppercase; margin-bottom: 6px;">♾️ Endless</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>Guess a 5-letter word in up to 5 tries, one word after another.</li>
                     <li>Correct on try 1/2/3/4/5 scores 500/250/150/50/10 points.</li>
@@ -1691,7 +1704,7 @@
                     <li><b>Bank</b> your score anytime to lock it in for good, added to your Wallet and career total.</li>
                 </ul>
 
-                <h3 style="color: #ff9800; text-transform: uppercase; margin-bottom: 6px;">⚔️ Clash</h3>
+                <h3 style="color: var(--c-clash); text-transform: uppercase; margin-bottom: 6px;">⚔️ Clash</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>Head-to-head, 7 minutes, both players racing through the same word list — same scoring as Endless, but a miss costs -50 points instead of ending your run.</li>
                     <li>First to a 1,000-point lead wins instantly; otherwise, whoever's ahead when the clock hits 0 wins.</li>
@@ -1702,7 +1715,7 @@
                     <li>Leaving mid-match forfeits the match — your opponent wins automatically.</li>
                 </ul>
 
-                <h3 style="color: #b967ff; text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
+                <h3 style="color: var(--c-gauntlet); text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>One shared puzzle per day — everyone gets the identical seven words, one attempt each.</li>
                     <li>Same 5-guess, 500/250/150/50/10 scoring as Endless, and no Continues — but you play all seven words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
@@ -1712,7 +1725,7 @@
                     <li>Today's standings are on the Gauntlet screen itself, ordered by score and then by words solved, and yesterday's stay in Past Gauntlets. There's no all-time Gauntlet board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
                 </ul>
 
-                <h3 style="color: #ffd700; text-transform: uppercase; margin-bottom: 6px;">👑 FFA</h3>
+                <h3 style="color: var(--c-ffa); text-transform: uppercase; margin-bottom: 6px;">👑 FFA</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>The same 7-minute race as Clash, scaled to 3-6 players — public queue or a private room with friends (Share Invite works here too). You get 2 skips here as well.</li>
                     <li>No early win condition — purely whoever has the highest score when the clock runs out.</li>
@@ -1722,7 +1735,7 @@
                     <li>Leaving mid-match doesn't end it for everyone else — you're locked into the worst remaining placement, and it's worse the earlier you leave.</li>
                 </ul>
 
-                <h3 style="color: #fff; text-transform: uppercase; margin-bottom: 6px;">💰 The Rest</h3>
+                <h3 style="color: var(--c-ink); text-transform: uppercase; margin-bottom: 6px;">💰 The Rest</h3>
                 <ul style="margin: 0; padding-left: 18px;">
                     <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
                     <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
@@ -1732,8 +1745,8 @@
             </div>
 
             <div style="text-align: center; font-size: 12px; margin-top: 16px;">
-                <a href="how-to-play.html" style="color: #b967ff;">Full rules &amp; scoring</a> ·
-                <a href="strategy.html" style="color: #00ffff;">Strategy guide</a>
+                <a href="how-to-play.html" style="color: var(--c-gauntlet);">Full rules &amp; scoring</a> ·
+                <a href="strategy.html" style="color: var(--c-correct);">Strategy guide</a>
             </div>
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="document.getElementById('howto-modal').style.display='none'">Close</button>
@@ -1743,10 +1756,10 @@
 
     <!-- SIGN-UP NUDGE — contextual, guest-only, see maybeShowSignupNudge -->
     <div id="signup-nudge-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: #00ffff; box-shadow: 0 0 20px #00ffff; max-width: 360px;">
-            <h2 class="modal-title" style="color: #00ffff;">Don't Lose This!</h2>
-            <p id="signup-nudge-reason" style="color: #fff; font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
-            <p id="signup-nudge-body" style="color: #aaa; font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
+        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: 0 0 20px var(--c-correct); max-width: 360px;">
+            <h2 class="modal-title" style="color: var(--c-correct);">Don't Lose This!</h2>
+            <p id="signup-nudge-reason" style="color: var(--c-ink); font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
+            <p id="signup-nudge-body" style="color: var(--c-ink-3); font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
             <div class="modal-buttons">
                 <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign Up / Log In</button>
                 <button class="btn-dark" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
@@ -1756,8 +1769,8 @@
 
     <!-- CHALLENGES MODAL -->
     <div id="challenges-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 340px; border-color: #ff00ff; box-shadow: 0 0 20px #ff00ff;">
-            <h2 class="modal-title" style="color: #ff00ff;">Challenges</h2>
+        <div class="modal-box" style="min-width: 340px; border-color: var(--c-present); box-shadow: 0 0 20px var(--c-present);">
+            <h2 class="modal-title" style="color: var(--c-present);">Challenges</h2>
             <div class="tabs">
                 <button class="tab-btn active" id="tab-chal-daily" onclick="window.renderChallenges('daily')">Daily</button>
                 <button class="tab-btn" id="tab-chal-career" onclick="window.renderChallenges('career')">Career</button>
@@ -1771,16 +1784,16 @@
 
     <!-- SHOP MODAL -->
     <div id="shop-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 340px; border-color: #ff9800; box-shadow: 0 0 20px #ff9800;">
-            <h2 class="modal-title" style="color: #ff9800;">Item Shop</h2>
-            <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">Wallet: <span id="shop-bank-display" style="color: #ff00ff;">0</span> pts</div>
+        <div class="modal-box" style="min-width: 340px; border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+            <h2 class="modal-title" style="color: var(--c-clash);">Item Shop</h2>
+            <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">Wallet: <span id="shop-bank-display" style="color: var(--c-present);">0</span> pts</div>
             
             <div id="shop-preview-monitor">
                 <div class="preview-label">Preview</div>
                 <div id="preview-banner-box" class="lb-entry banner_default" style="margin-bottom: 0; padding: 10px;">
                     <div class="lb-name-col">
                         <div id="preview-name-box" class="lb-name effect_none" style="font-size: 20px;">HANDLE</div>
-                        <div id="preview-title-box" class="lb-date" style="color: #ff9800;">TITLE</div>
+                        <div id="preview-title-box" class="lb-date" style="color: var(--c-clash);">TITLE</div>
                     </div>
                 </div>
             </div>
@@ -1799,14 +1812,14 @@
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Profile</h2>
             <div class="modal-stats" style="text-align: center; margin-bottom: 10px;">
-                <div id="login-status-text" style="color: white; font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
+                <div id="login-status-text" style="color: var(--c-ink); font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
                 <div id="username-section" style="display: none;">
                     <input type="text" id="username-input" class="input-field" maxlength="12" placeholder="ENTER NAME">
-                    <div id="handle-cost-text" style="font-size: 11px; color:#aaa; margin-bottom: 8px;">Cost: 0 pts</div>
+                    <div id="handle-cost-text" style="font-size: 11px; color:var(--c-ink-3); margin-bottom: 8px;">Cost: 0 pts</div>
                     <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer;">Update Handle</button>
                 </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
-                    <div style="font-size: 12px; color: #aaa; margin-bottom: 10px; line-height: 1.4;">
+                    <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 10px; line-height: 1.4;">
                         You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Sign up from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
                     </div>
                 </div>
@@ -1821,31 +1834,31 @@
 
             <!-- STANDARD STATS -->
             <div id="profile-standard" class="modal-stats" style="text-align: left;">
-                <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: #ff00ff; font-size: 28px;">0</span> pts</div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">🔥 Login Streak<br><span id="stat-login-streak" style="color:white; font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">🎯 Best No-Miss<br><span id="stat-nomiss-streak" style="color:white; font-size: 18px;">0</span></div>
+                <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: var(--c-present); font-size: 28px;">0</span> pts</div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">🔥 Login Streak<br><span id="stat-login-streak" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">🎯 Best No-Miss<br><span id="stat-nomiss-streak" style="color:var(--c-ink); font-size: 18px;">0</span></div>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #aaa; font-size: 14px; padding: 0 5px;">
-                    <div style="text-align: center;">Played<br><span id="stat-played" style="color:white; font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:white; font-size: 18px;">0%</span></div>
-                    <div style="text-align: center;">Avg Score<br><span id="stat-avg-score" style="color:white; font-size: 18px;">0</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: var(--c-ink-3); font-size: 14px; padding: 0 5px;">
+                    <div style="text-align: center;">Played<br><span id="stat-played" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:var(--c-ink); font-size: 18px;">0%</span></div>
+                    <div style="text-align: center;">Avg Score<br><span id="stat-avg-score" style="color:var(--c-ink); font-size: 18px;">0</span></div>
                 </div>
-                <div style="font-size: 14px; margin-bottom: 10px; color: #00ffff; text-transform: uppercase; text-align: center;">Guess Distribution</div>
+                <div style="font-size: 14px; margin-bottom: 10px; color: var(--c-correct); text-transform: uppercase; text-align: center;">Guess Distribution</div>
                 <div id="stat-distribution"></div>
             </div>
 
             <!-- CLASH STATS -->
             <div id="profile-clash" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 20px;">MMR: <br><span id="stat-mmr-score" style="color: #ff9800; font-size: 28px;">1000</span></div>
+                <div style="text-align: center; margin-bottom: 20px;">MMR: <br><span id="stat-mmr-score" style="color: var(--c-clash); font-size: 28px;">1000</span></div>
                 <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;" id="stat-rank-title">Bronze</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:white; font-size: 18px;">0 - 0 - 0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:white; font-size: 18px;">0%</span></div>
-                    <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:white; font-size: 18px;">0</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:var(--c-ink); font-size: 18px;">0 - 0 - 0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:var(--c-ink); font-size: 18px;">0%</span></div>
+                    <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:var(--c-ink); font-size: 18px;">0</span></div>
                 </div>
-                <div id="stat-clash-note" style="text-align: center; font-size: 12px; color: #888; line-height: 1.5;">&nbsp;</div>
+                <div id="stat-clash-note" style="text-align: center; font-size: 12px; color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
             </div>
 
             <!-- FFA STATS — its own rating ladder, separate from Clash's.
@@ -1853,29 +1866,29 @@
                  ffaMmr now: a win count rewards volume over skill, so it is a
                  personal stat, not a ranking. -->
             <div id="profile-ffa" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 4px;">FFA Rating: <br><span id="stat-ffa-mmr" style="color: #ffd700; font-size: 28px;">—</span></div>
+                <div style="text-align: center; margin-bottom: 4px;">FFA Rating: <br><span id="stat-ffa-mmr" style="color: var(--c-ffa); font-size: 28px;">—</span></div>
                 <div id="stat-ffa-rank-title" style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;">Unranked</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Wins<br><span id="stat-ffa-wins" style="color:white; font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">Played<br><span id="stat-ffa-played" style="color:white; font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-ffa-winrate" style="color:white; font-size: 18px;">0%</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">Wins<br><span id="stat-ffa-wins" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">Played<br><span id="stat-ffa-played" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-ffa-winrate" style="color:var(--c-ink); font-size: 18px;">0%</span></div>
                 </div>
-                <div id="stat-ffa-note" style="text-align: center; font-size: 12px; color: #888; line-height: 1.5;">&nbsp;</div>
+                <div id="stat-ffa-note" style="text-align: center; font-size: 12px; color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
             </div>
 
             <!-- GAUNTLET STATS -->
             <div id="profile-gauntlet" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 4px;">Best Gauntlet: <br><span id="stat-gauntlet-best" style="color: #b967ff; font-size: 28px;">—</span> pts</div>
-                <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: 12px; color: #888;">&nbsp;</div>
+                <div style="text-align: center; margin-bottom: 4px;">Best Gauntlet: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: 28px;">—</span> pts</div>
+                <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: 12px; color: var(--c-ink-4);">&nbsp;</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: #aaa; font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Global Rank<br><span id="stat-gauntlet-rank" style="color:white; font-size: 18px;">—</span></div>
-                    <div style="text-align: center;">Played<br><span id="stat-gauntlet-played" style="color:white; font-size: 18px;">—</span></div>
-                    <div style="text-align: center;">Top 10 Finish<br><span id="stat-gauntlet-top10" style="color:white; font-size: 18px;">—</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
+                    <div style="text-align: center;">Global Rank<br><span id="stat-gauntlet-rank" style="color:var(--c-ink); font-size: 18px;">—</span></div>
+                    <div style="text-align: center;">Played<br><span id="stat-gauntlet-played" style="color:var(--c-ink); font-size: 18px;">—</span></div>
+                    <div style="text-align: center;">Top 10 Finish<br><span id="stat-gauntlet-top10" style="color:var(--c-ink); font-size: 18px;">—</span></div>
                 </div>
 
-                <div style="font-size: 14px; margin: 18px 0 8px; color: #b967ff; text-transform: uppercase; text-align: center;">Today</div>
+                <div style="font-size: 14px; margin: 18px 0 8px; color: var(--c-gauntlet); text-transform: uppercase; text-align: center;">Today</div>
                 <div id="stat-gauntlet-today" style="text-align: center; font-size: 13px; color: #e8d5ff;">Checking...</div>
             </div>
 
@@ -1886,7 +1899,7 @@
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
-            <h2 class="modal-title" style="color: #fff; text-shadow: 0 0 10px #fff;">Settings</h2>
+            <h2 class="modal-title" style="color: var(--c-ink); text-shadow: 0 0 10px var(--c-ink);">Settings</h2>
             <div class="modal-stats" style="text-align: left;">
                 <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
                     <span>Sound Effects</span>
@@ -1903,7 +1916,7 @@
                 <!-- The longest label of the four, so it needs an explicit gap -
                      space-between alone lets it grow until it touches the button. -->
                 <div class="stat-bar-container" style="justify-content: space-between; gap: 14px;">
-                    <span style="text-align: left;">Seasonal Themes<div id="settings-season-note" style="font-size: 11px; color: #888; font-weight: normal;"></div></span>
+                    <span style="text-align: left;">Seasonal Themes<div id="settings-season-note" style="font-size: 11px; color: var(--c-ink-4); font-weight: normal;"></div></span>
                     <button id="settings-toggle-seasonal" class="action-btn" onclick="window.toggleSetting('seasonal')">ON</button>
                 </div>
             </div>
@@ -2150,13 +2163,13 @@
         // single "seen the tour" flag, so each description arrives the first
         // time it is relevant and never again.
         const MODE_INTRO = {
-            endless: { icon: "\u267E\uFE0F", color: "#4caf50", title: "Endless",
+            endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Endless",
                 text: "Guess 5-letter words one after another, as long as you can keep going. Solve a word in fewer guesses to score more. Miss one and you spend a Continue \u2014 miss with none left and the run is over. Bank your score whenever you want to stop." },
-            gauntlet: { icon: "\uD83D\uDD25", color: "#b967ff", title: "Daily Gauntlet",
+            gauntlet: { icon: "\uD83D\uDD25", color: "var(--c-gauntlet)", title: "Daily Gauntlet",
                 text: "Seven words, five guesses each. Everyone plays all seven \u2014 the same seven words as everybody else, once a day. No clock: stop whenever you like and pick up where you left off. Share your result at the end and see where you finished." },
-            clash: { icon: "\u2694\uFE0F", color: "#ff9800", title: "Clash",
+            clash: { icon: "\u2694\uFE0F", color: "var(--c-clash)", title: "Clash",
                 text: "Race one other player through the same words for 7 minutes. First to a 1,000-point lead, or the higher score at the buzzer, wins." },
-            ffa: { icon: "\uD83D\uDC51", color: "#ffd700", title: "Free-For-All",
+            ffa: { icon: "\uD83D\uDC51", color: "var(--c-ffa)", title: "Free-For-All",
                 text: "The same race as Clash with 3-6 players at once. Highest score when time runs out takes first \u2014 everyone else still earns something." },
         };
         const modeIntroKey = (mode) => "wordcade_mode_intro_" + mode;
@@ -2251,8 +2264,8 @@
                 const btn = document.getElementById(`settings-toggle-${key}`);
                 if (!btn) return;
                 btn.innerText = val ? "ON" : "OFF";
-                btn.style.borderColor = val ? "#4caf50" : "#ff3333";
-                btn.style.color = val ? "#4caf50" : "#ff3333";
+                btn.style.borderColor = val ? "var(--c-endless)" : "var(--c-loss)";
+                btn.style.color = val ? "var(--c-endless)" : "var(--c-loss)";
             });
         }
         window.toggleSetting = function(key) {
@@ -2509,8 +2522,8 @@
                 if (mine <= 0) return;
                 const ahead = await getCountFromServer(query(collection(db, "users"),
                     where("dayBestKey", "==", key), where("dayBestScore", ">", mine)));
-                el.innerHTML = `You: <b style="color:#fff;">#${(ahead.data().count + 1).toLocaleString()}</b>`
-                    + ` &middot; <b style="color:#4caf50;">${mine.toLocaleString()}</b> pts`;
+                el.innerHTML = `You: <b style="color:var(--c-ink);">#${(ahead.data().count + 1).toLocaleString()}</b>`
+                    + ` &middot; <b style="color:var(--c-endless);">${mine.toLocaleString()}</b> pts`;
             } catch (e) { console.error("Daily board rank lookup failed", e); }
         }
 
@@ -2994,7 +3007,7 @@
                     document.getElementById("stat-avg-score").innerText = avgScore.toLocaleString();
                     let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails]; const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
                     for(let i = 0; i < 6; i++) {
-                        let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "#ff3333" : "#00ffff"; let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: #aaa;";
+                        let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "var(--c-loss)" : "var(--c-correct)"; let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: var(--c-ink-3);";
                         distHtml += `<div class="stat-bar-container"><div class="stat-label">${labels[i]}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: ${pct}%; background: ${barColor}; justify-content: ${justify}; ${pad}">${counts[i] > 0 ? counts[i] : ''}</div></div></div>`;
                     }
                     document.getElementById("stat-distribution").innerHTML = distHtml;
@@ -3168,10 +3181,10 @@
                     let isClaimed = type === 'daily' ? userProfileData.dailyStats.claimed.includes(chal.id) : userProfileData.claimedCareer.includes(chal.id);
                     if (isClaimed) return; 
                     let isComplete = currentProgress >= chal.req; let pct = Math.min((currentProgress / chal.req) * 100, 100);
-                    let btnHtml = isComplete ? `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}')">CLAIM<br>${chal.reward.toLocaleString()}</button>` : `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
+                    let btnHtml = isComplete ? `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}')">CLAIM<br>${chal.reward.toLocaleString()}</button>` : `<button class="action-btn" style="border-color:var(--c-ink-6); color:var(--c-ink-6); cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
                     html += `<div class="grid-item"><div class="grid-item-info"><div class="grid-item-name">${chal.name}</div><div class="grid-item-desc">${chal.desc}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${pct}%;"></div><div class="progress-text">${currentProgress} / ${chal.req}</div></div></div>${btnHtml}</div>`;
                 });
-                listDiv.innerHTML = html === "" ? `<div style="text-align: center; color: #4caf50; padding: 20px; font-weight: bold;">All ${type} challenges completed!</div>` : html;
+                listDiv.innerHTML = html === "" ? `<div style="text-align: center; color: var(--c-endless); padding: 20px; font-weight: bold;">All ${type} challenges completed!</div>` : html;
             }
 
         window.claimChallenge = async function(id, type) {
@@ -3246,10 +3259,10 @@
                     // Only reachable for something already owned - the filter
                     // above dropped everything else.
                     rowClass += " locked";
-                    btnHtml = `<button class="action-btn" style="border-color:#555; color:#555; cursor:default;" onclick="event.stopPropagation()">🔒 Out Of Season</button>`;
+                    btnHtml = `<button class="action-btn" style="border-color:var(--c-ink-6); color:var(--c-ink-6); cursor:default;" onclick="event.stopPropagation()">🔒 Out Of Season</button>`;
                 } else {
                     if (item.seasonal) { badgeHtml = `<span class="seasonal-badge">Limited Time</span>`; rowClass += " seasonal-live"; }
-                    let canAfford = userProfileData.wallet >= item.cost; let color = canAfford ? "#4caf50" : "#ff3333";
+                    let canAfford = userProfileData.wallet >= item.cost; let color = canAfford ? "var(--c-endless)" : "var(--c-loss)";
                     btnHtml = `<button class="action-btn" style="border-color:${color}; color:${color};" onclick="event.stopPropagation(); window.buyItem('${item.id}', ${item.cost}, '${category}')">${item.cost.toLocaleString()} pts</button>`;
                 }
                 html += `<div class="${rowClass}" onclick="window.previewItem('${item.id}', '${eqKey}')"><div class="grid-item-info"><div class="grid-item-name">${item.name}${badgeHtml}</div><div class="grid-item-desc">${item.desc}</div></div>${btnHtml}</div>`;
@@ -3339,7 +3352,7 @@
         // the same heading as an all-time #1 of 40,000 and reads as a worse score.
         function periodCaption() {
             if (currentLbTime !== 'weekly') return "";
-            return `<div style="text-align:center; font-size:11px; color:#888; margin-bottom:8px;">${escapeHtml(periodLabel(new Date()))} · resets Monday</div>`;
+            return `<div style="text-align:center; font-size:11px; color:var(--c-ink-4); margin-bottom:8px;">${escapeHtml(periodLabel(new Date()))} · resets Monday</div>`;
         }
 
         let currentLbTime = 'all'; 
@@ -3376,7 +3389,7 @@
                         `<div class="lb-rank">${rank}</div>` +
                         `<div class="lb-name-col">` +
                             `<div class="lb-name ${nameClass}">${name}</div>` +
-                            (note ? `<div class="lb-date" style="color:#888;">${escapeHtml(note)}</div>` : "") +
+                            (note ? `<div class="lb-date" style="color:var(--c-ink-4);">${escapeHtml(note)}</div>` : "") +
                         `</div>` +
                         `<div class="lb-score">${score}</div>` +
                     `</div>`;
@@ -3551,7 +3564,7 @@
                                 titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
                             }
             
-                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:#ff9800;">${titleStr}${dateStr}</div></div><div class="lb-score">${Number(entry.score || 0).toLocaleString()}</div></div>`;
+                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${dateStr}</div></div><div class="lb-score">${Number(entry.score || 0).toLocaleString()}</div></div>`;
                         }); 
                         // A rating board only indexes players who have earned a
                         // rating, so a brand-new one really is empty rather than
@@ -3561,7 +3574,7 @@
                         // "am I on this board" check below agrees with what
                         // the player is actually looking at.
                         renderYourRank(currentLbTime, finalData, maxLimit);
-                    } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:#ff3333;">Error loading scores.</div>'; document.getElementById("lb-you").style.display = "none"; }
+                    } catch (error) { listDiv.innerHTML = '<div class="lb-loading" style="color:var(--c-loss);">Error loading scores.</div>'; document.getElementById("lb-you").style.display = "none"; }
                 }
 
         // ==========================================
@@ -3657,10 +3670,10 @@
                 if (el) {
                     if (count === 0) {
                         el.innerText = "No players currently searching.";
-                        el.style.color = "#aaa";
+                        el.style.color = "var(--c-ink-3)";
                     } else {
                         el.innerText = `${count} player(s) in queue...`;
-                        el.style.color = "#00ffff";
+                        el.style.color = "var(--c-correct)";
                     }
                 }
             });
@@ -3725,10 +3738,10 @@
         // is how every mode but Endless ended up showing one "leave" button
         // and hiding the other two.
         const MODES = {
-            endless:  { label: "ENDLESS",  cls: "mode-endless",  color: "#4caf50" },
-            gauntlet: { label: "GAUNTLET", cls: "mode-gauntlet", color: "#b967ff" },
-            clash:    { label: "CLASH",    cls: "mode-clash",    color: "#ff9800" },
-            ffa:      { label: "FFA",      cls: "mode-ffa",      color: "#ffd700" },
+            endless:  { label: "ENDLESS",  cls: "mode-endless",  color: "var(--c-endless)" },
+            gauntlet: { label: "GAUNTLET", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
+            clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
+            ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)" },
         };
         // Derived from the flags that already drive everything else, rather
         // than stored a second time and kept in sync by hand.
@@ -3965,7 +3978,7 @@
                 (snapshot) => renderGauntletBoard(snapshot, listEl, "No finished runs yet today — be the first."),
                 (err) => {
                     console.error("Gauntlet feed failed", err);
-                    listEl.innerHTML = '<div class="gauntlet-empty" style="color:#ff3333;">Couldn\'t load today\'s board.</div>';
+                    listEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load today\'s board.</div>';
                 }
             );
         }
@@ -4015,7 +4028,7 @@
                     `<div class="lb-rank">#${place}</div>` +
                     `<div class="lb-name-col">` +
                         `<div class="lb-name ${nameClass}">${escapeHtml(data.username || "Guest")}</div>` +
-                        `<div class="lb-date" style="color:#b967ff;">${solved} solved</div>` +
+                        `<div class="lb-date" style="color:var(--c-gauntlet);">${solved} solved</div>` +
                     `</div>` +
                     `<div class="lb-score">${score.toLocaleString()}</div>` +
                 `</div>`;
@@ -4307,7 +4320,7 @@
             document.getElementById("gauntlet-archive-detail").style.display = "block";
             document.getElementById("gauntlet-archive-title").innerText = num ? `Gauntlet #${num}` : "Past Gauntlet";
             document.getElementById("gauntlet-archive-full").href = `/gauntlet/${dateStr}/`;
-            standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
+            standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
             boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
 
             try {
@@ -4320,26 +4333,26 @@
                 renderGauntletBoard(snapshot, boardEl, "No scores were recorded for this Gauntlet.");
             } catch (e) {
                 console.error("Past Gauntlet board failed", e);
-                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:#ff3333;">Couldn\'t load this Gauntlet.</div>';
+                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load this Gauntlet.</div>';
             }
 
             // Your own line above the board. Separate from the board query so
             // it still reports a placement outside the visible top 100.
             const run = await fetchMyGauntletRun(dateStr);
             if (!run) {
-                standingEl.innerHTML = `<span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))} — you didn't play this one.</span>`;
+                standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))} — you didn't play this one.</span>`;
                 return;
             }
             const score = Math.max(0, Number(run.score) || 0);
-            let line = `you scored <span style="color:#fff; font-weight:bold;">${score.toLocaleString()}</span>`;
+            let line = `you scored <span style="color:var(--c-ink); font-weight:bold;">${score.toLocaleString()}</span>`;
             let badge = PLACE_BADGES.plain;
             try {
                 const { place, total } = await fetchGauntletStanding(dateStr, score, gauntletSolvedCount(run));
-                line = `you finished <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span>`;
+                line = `you finished <span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span>`;
                 badge = placeBadge(place);
             } catch (e) { console.error("Past Gauntlet standing failed", e); }
             // Same sentence as the callout, so it gets the same badge.
-            standingEl.innerHTML = `${badge} <span style="color:#888;">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
+            standingEl.innerHTML = `${badge} <span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
         };
 
         // "You finished 12th of 47" for yesterday's Gauntlet, shown when you
@@ -4590,7 +4603,7 @@
             // write. This used to carry a second branch naming the word a run
             // ended on, which a run can no longer do.
             const wordsLine = `${solvedCount} / ${attempt.wordCount} words solved`;
-            document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:#4caf50; font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${wordsLine}`;
+            document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:var(--c-endless); font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${wordsLine}`;
             document.getElementById("daily-end-modal").style.display = "flex";
 
             // Where this run currently sits on today's board. Provisional by
@@ -4602,8 +4615,8 @@
             standingEl.innerHTML = "";
             fetchGauntletStanding(attempt.date, Math.max(0, Number(attempt.score) || 0), solvedCount)
                 .then(({ place, total }) => {
-                    standingEl.innerHTML = `Currently <span style="color:#fff; font-weight:bold;">${ordinal(place)} of ${total}</span> on today's board` +
-                        `<div style="font-size: 11px; color: #888; margin-top: 2px;">Final once today's Gauntlet closes at midnight ET.</div>`;
+                    standingEl.innerHTML = `Currently <span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span> on today's board` +
+                        `<div style="font-size: 11px; color: var(--c-ink-4); margin-top: 2px;">Final once today's Gauntlet closes at midnight ET.</div>`;
                     standingEl.style.display = "block";
                 })
                 .catch((e) => console.error("Today's Gauntlet standing failed", e));
@@ -4735,7 +4748,7 @@
             chatLineCount = lines.length;
             box.textContent = "";
             const intro = document.createElement("div");
-            intro.style.color = "#aaa";
+            intro.style.color = "var(--c-ink-3)";
             intro.style.fontStyle = "italic";
             intro.textContent = "Match started. GLHF!";
             box.appendChild(intro);
@@ -4747,7 +4760,7 @@
                 if (!line || typeof line !== "object") return;
                 const row = document.createElement("div");
                 const who = document.createElement("span");
-                who.style.color = "#00ffff";
+                who.style.color = "var(--c-correct)";
                 who.style.fontWeight = "bold";
                 who.textContent = String(line.n || "Player");
                 row.appendChild(who);
@@ -4811,7 +4824,7 @@
             
             document.getElementById("lobby-action-view").style.display = "none";
             document.getElementById("lobby-waiting-view").style.display = "block";
-            document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:#aaa; font-weight:normal;'>Looking for public opponent</span>";
+            document.getElementById("waiting-status-text").innerHTML = "Searching the Arcade...<br><span style='font-size:12px; color:var(--c-ink-3); font-weight:normal;'>Looking for public opponent</span>";
             document.getElementById("display-room-code").style.display = "none";
             document.getElementById("btn-share-invite").style.display = "none";
             document.getElementById("waiting-sub-text").style.display = "block";
@@ -4854,8 +4867,8 @@
                 }
             } catch(e) { 
                 console.error("Matchmaking error", e); 
-                document.getElementById("waiting-status-text").innerHTML = "<span style='color:#ff3333;'>Firebase Error:</span>";
-                document.getElementById("waiting-sub-text").innerHTML = `<span style='color:#ff3333; font-size:14px; font-style:normal;'>${e.message}</span>`;
+                document.getElementById("waiting-status-text").innerHTML = "<span style='color:var(--c-loss);'>Firebase Error:</span>";
+                document.getElementById("waiting-sub-text").innerHTML = `<span style='color:var(--c-loss); font-size:14px; font-style:normal;'>${e.message}</span>`;
             }
         }
 
@@ -5179,7 +5192,7 @@
                     // so a modified client can't just fabricate them locally.
                     if (!data.payoutApplied) {
                         document.getElementById("vs-end-title").innerText = "CALCULATING RESULT...";
-                        document.getElementById("vs-end-title").style.color = "#ff9800";
+                        document.getElementById("vs-end-title").style.color = "var(--c-clash)";
                         document.getElementById("vs-end-desc").innerText = "Hang tight while the match is verified.";
                         document.getElementById("btn-rematch").style.display = "none";
                         document.getElementById("rematch-waiting-text").style.display = "none";
@@ -5199,11 +5212,11 @@
                     if (isTie) {
                         SFX.clashTie();
                         document.getElementById("vs-end-title").innerText = "IT'S A TIE!";
-                        document.getElementById("vs-end-title").style.color = "#ff9800";
+                        document.getElementById("vs-end-title").style.color = "var(--c-clash)";
                     } else {
                         amIWinner ? SFX.clashWin() : SFX.clashLose();
                         document.getElementById("vs-end-title").innerText = amIWinner ? "YOU WIN!" : "YOU LOSE!";
-                        document.getElementById("vs-end-title").style.color = amIWinner ? "#4caf50" : "#ff3333";
+                        document.getElementById("vs-end-title").style.color = amIWinner ? "var(--c-endless)" : "var(--c-loss)";
                     }
 
                     let resultText = "Time's up! Tie Game.";
@@ -5234,10 +5247,10 @@
                     let rankObj = getRankDetails(userProfileData.mmr || 1000);
 
                     let mmrText = isPublicMatch
-                        ? (myMMRChange >= 0 ? `<span style="color:#4caf50;">+${myMMRChange} MMR</span>` : `<span style="color:#ff3333;">${myMMRChange} MMR</span>`)
-                        : `<span style="color:#aaa; font-style:italic;">Unranked Private Match</span>`;
+                        ? (myMMRChange >= 0 ? `<span style="color:var(--c-endless);">+${myMMRChange} MMR</span>` : `<span style="color:var(--c-loss);">${myMMRChange} MMR</span>`)
+                        : `<span style="color:var(--c-ink-3); font-style:italic;">Unranked Private Match</span>`;
 
-                    if (isTie && isPublicMatch) mmrText = `<span style="color:#aaa;">+0 MMR (Draw)</span>`;
+                    if (isTie && isPublicMatch) mmrText = `<span style="color:var(--c-ink-3);">+0 MMR (Draw)</span>`;
 
                     document.getElementById("vs-end-desc").innerHTML = `${resultText}<br><br><span style="font-size:16px;">Rank: <span class="${rankObj.class}" style="text-transform:uppercase; font-weight:bold;">${rankObj.name}</span></span><br>${mmrText}`;
 
@@ -5315,8 +5328,8 @@
                 snapshot.forEach(d => { count += d.data().playerCount || 0; });
                 const el = document.getElementById("ffa-active-searchers-text");
                 if (el) {
-                    if (count === 0) { el.innerText = "No players currently searching."; el.style.color = "#aaa"; }
-                    else { el.innerText = `${count} player(s) in queue...`; el.style.color = "#ffd700"; }
+                    if (count === 0) { el.innerText = "No players currently searching."; el.style.color = "var(--c-ink-3)"; }
+                    else { el.innerText = `${count} player(s) in queue...`; el.style.color = "var(--c-ffa)"; }
                 }
             });
         }
@@ -5401,8 +5414,8 @@
                 }
             } catch (e) {
                 console.error("FFA matchmaking error", e);
-                document.getElementById("ffa-waiting-status-text").innerHTML = "<span style='color:#ff3333;'>Firebase Error:</span>";
-                document.getElementById("ffa-lobby-sub-text").innerHTML = `<span style='color:#ff3333; font-size:14px; font-style:normal;'>${e.message}</span>`;
+                document.getElementById("ffa-waiting-status-text").innerHTML = "<span style='color:var(--c-loss);'>Firebase Error:</span>";
+                document.getElementById("ffa-lobby-sub-text").innerHTML = `<span style='color:var(--c-loss); font-size:14px; font-style:normal;'>${e.message}</span>`;
             }
         }
 
@@ -5732,7 +5745,7 @@
                     // in listenToMatch() above.
                     if (!data.payoutApplied) {
                         document.getElementById("ffa-end-title").innerText = "CALCULATING RESULTS...";
-                        document.getElementById("ffa-end-title").style.color = "#ff9800";
+                        document.getElementById("ffa-end-title").style.color = "var(--c-clash)";
                         document.getElementById("ffa-end-results").innerHTML = "Hang tight while the match is verified.";
                         document.getElementById("ffa-end-modal").style.display = "flex";
                         return;
@@ -5758,7 +5771,7 @@
                     const changes = data.changes || {};
 
                     document.getElementById("ffa-end-title").innerText = amIWinner ? (winners.length > 1 ? "TIED FOR 1ST!" : "YOU WIN!") : "MATCH COMPLETE";
-                    document.getElementById("ffa-end-title").style.color = amIWinner ? "#4caf50" : "#ffd700";
+                    document.getElementById("ffa-end-title").style.color = amIWinner ? "var(--c-endless)" : "var(--c-ffa)";
                     amIWinner ? SFX.clashWin() : SFX.clashLose();
 
                     let html = "";
@@ -5769,9 +5782,9 @@
                         const change = changes[s.uid] || { payout: 0, eloChange: 0 };
                         const isWin = winners.includes(s.uid);
                         let mmrText = isPublicMatch ? (change.eloChange >= 0 ? `+${change.eloChange} FFA MMR` : `${change.eloChange} FFA MMR`) : "Unranked";
-                        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "#332b00" : "#222"}; border:1px solid ${isWin ? "#ffd700" : "#444"};">
-                            <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}${isLeaver ? " <span style=\"color:#ff3333;\">(left)</span>" : ""}</div>
-                            <div style="text-align:right;"><div>${s.score.toLocaleString()} pts</div><div style="font-size:11px; color:${change.payout > 0 ? "#4caf50" : "#aaa"};">+${change.payout.toLocaleString()} pts &nbsp; ${mmrText}</div></div>
+                        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "#332b00" : "var(--c-raised)"}; border:1px solid ${isWin ? "var(--c-ffa)" : "var(--c-line-2)"};">
+                            <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}${isLeaver ? " <span style=\"color:var(--c-loss);\">(left)</span>" : ""}</div>
+                            <div style="text-align:right;"><div>${s.score.toLocaleString()} pts</div><div style="font-size:11px; color:${change.payout > 0 ? "var(--c-endless)" : "var(--c-ink-3)"};">+${change.payout.toLocaleString()} pts &nbsp; ${mmrText}</div></div>
                         </div>`;
                     });
                     document.getElementById("ffa-end-results").innerHTML = html;
@@ -5952,13 +5965,13 @@
                     // next profile/leaderboard read will show the server-confirmed
                     // totals regardless.
                     if (userProfileData) { userProfileData.wallet = (userProfileData.wallet || 0) + score; userProfileData.careerBank = (userProfileData.careerBank || 0) + score; }
-                    document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "#4caf50";
+                    document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "var(--c-endless)";
                     // A sizable, genuine Cash Out (not a wipeout — that's a
                     // gameplay loss, not a "your browser could lose this"
                     // moment) is a natural point to mention that a Guest's
                     // wallet only exists in this one browser.
                     if (!isWipeout && score >= 2500) setTimeout(() => maybeShowSignupNudge(`You just cashed out ${score.toLocaleString()} points!`), 2000);
-                } catch (e) { document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed."; document.getElementById("cloud-save-status").style.color = "#ff3333"; console.error(e); }
+                } catch (e) { document.getElementById("cloud-save-status").innerText = "❌ Cloud save failed."; document.getElementById("cloud-save-status").style.color = "var(--c-loss)"; console.error(e); }
             } else { document.getElementById("cloud-save-status").innerText = "No stats to save."; }
         }
 
@@ -5984,14 +5997,14 @@
             isAnimating = false;
             SFX.cashOut();
             lastRunOutcome = { cashedOut: true, points: score, words: wordsGuessed };
-            document.getElementById("modal-title-text").innerText = "Banked!"; document.getElementById("modal-title-text").style.color = "#00ffff";
+            document.getElementById("modal-title-text").innerText = "Banked!"; document.getElementById("modal-title-text").style.color = "var(--c-correct)";
             document.getElementById("modal-score").innerText = score.toLocaleString(); document.getElementById("modal-words").innerText = wordsGuessed;
             modalOverlay.style.display = "flex"; clearLocalState(); saveRunToCloud(); 
         }
 
         function triggerGameOver(lostScore = 0) {
             lastRunOutcome = { cashedOut: false, points: lostScore, words: wordsGuessed };
-            document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "#ff3333"; 
+            document.getElementById("modal-title-text").innerText = "Game Over!"; document.getElementById("modal-title-text").style.color = "var(--c-loss)"; 
             // Update the modal to show them exactly what they lost!
             document.getElementById("modal-score").innerText = `0 (Lost ${lostScore.toLocaleString()})`; 
             document.getElementById("modal-words").innerText = wordsGuessed;
@@ -6192,7 +6205,7 @@
         }
 
         window.startNewRun = function() {
-            modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "#aaa";
+            modalOverlay.style.display = "none"; document.getElementById("cloud-save-status").innerText = ""; document.getElementById("cloud-save-status").style.color = "var(--c-ink-3)";
             score = 0; continues = 1; wordsGuessed = 0; runWordLog = []; runStats = { played: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, fails: 0, kobeCount: 0, currentStreak: 0, bestStreak: 0 };
             clearLocalState(); updateScoreBoard(); startRound();
         }
