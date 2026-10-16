@@ -149,11 +149,25 @@ let bad = 0;
 // be dragged into the theme.
 {
   const src = fs.readFileSync(REPO('index.html'), 'utf8');
-  const colourOf = (re) => { const m = src.match(re); return m ? m[1].toLowerCase() : null; };
+  // Colours resolve through the palette now. Reading the literal out of each
+  // rule stopped working the moment the rules became var(--c-clash), and
+  // pinning literals was the wrong thing anyway: this check is about two
+  // values AGREEING, so it should follow whatever the palette says they are.
+  const TOKENS = Object.fromEntries(
+    [...src.matchAll(/(--c-[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map((m) => [m[1], m[2].toLowerCase()]));
+  ck(Object.keys(TOKENS).length >= 10, 'the palette block is readable', String(Object.keys(TOKENS).length));
+  const resolve = (v) => {
+    if (!v) return null;
+    const t = v.trim().match(/^var\((--c-[\w-]+)\)$/);
+    return (t ? TOKENS[t[1]] : v.trim()).toLowerCase();
+  };
+  const colourOf = (re) => { const m = src.match(re); return m ? resolve(m[1]) : null; };
+  const VAL = '(#[0-9a-fA-F]{3,8}|var\\(--c-[\\w-]+\\))';
+  const modeRe = (cls) => new RegExp('\\.arcade-menu \\.mode-' + cls + ' \\{ color: ' + VAL + ';');
   const MODES = [
-    { name: 'Clash',    button: /\.arcade-menu \.mode-clash \{ color: (#[0-9a-fA-F]{6});/,    modals: ['versus-lobby-modal', 'versus-end-modal'] },
-    { name: 'FFA',      button: /\.arcade-menu \.mode-ffa \{ color: (#[0-9a-fA-F]{6});/,      modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
-    { name: 'Gauntlet', button: /\.arcade-menu \.mode-gauntlet \{ color: (#[0-9a-fA-F]{6});/, modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
+    { name: 'Clash',    button: modeRe('clash'),    modals: ['versus-lobby-modal', 'versus-end-modal'] },
+    { name: 'FFA',      button: modeRe('ffa'),      modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
+    { name: 'Gauntlet', button: modeRe('gauntlet'), modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
   ];
   for (const mode of MODES) {
     const want = colourOf(mode.button);
@@ -161,17 +175,19 @@ let bad = 0;
     for (const id of mode.modals) {
       const at = src.indexOf(`id="${id}"`);
       const box = at < 0 ? '' : src.slice(at, at + 400);
-      const border = (box.match(/border-color: (#[0-9a-fA-F]{6})/) || [])[1];
+      const border = resolve((box.match(new RegExp('border-color: ' + VAL)) || [])[1]);
       ck(at > 0, `${mode.name}: ${id} exists`);
-      ck(border && border.toLowerCase() === want,
+      ck(border && border === want,
          `${mode.name}: ${id} is bordered in the mode's own colour`, `${border} vs ${want}`);
     }
   }
   // A filled button owns its text colour, which is why .btn-gold exists at all
   // (gold text on a cyan fill measured 1.12:1). Each mode's primary action gets
   // its own class rather than an inline override of half the pair.
-  ck(/\.btn-orange \{ background-color: #ff9800; color: #000; \}/.test(src),
-     'Clash has a filled button class rather than an inline override');
+  const orange = src.match(/\.btn-orange \{ background-color: ([^;]+); color: ([^;]+); \}/);
+  ck(orange && resolve(orange[1]) === TOKENS['--c-clash'] && resolve(orange[2]) === TOKENS['--c-on-bright'],
+     'Clash has a filled button class rather than an inline override',
+     orange ? orange[1] + ' / ' + orange[2] : 'missing');
   ck(!/class="btn-cyan"[^>]*onclick="window\.(findRandomMatch|rematchVersusMatch)\(\)"/.test(src),
      "and Clash's primary actions no longer use the generic cyan one");
 }
