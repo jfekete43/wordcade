@@ -329,9 +329,18 @@ for (const a of seen.art) {
 }
 // And the art must not be stretched to achieve that spacing: the gap is baked
 // into the viewBox, so both axes scale by the same factor.
-const artSvgs = [...html.matchAll(/url\("data:image\/svg\+xml,([^"]*)"\)/g)]
-  .map((m) => decodeURIComponent(m[1]))
-  .filter((d) => /c3b2dd|2a2036/.test(d));   // the Halloween webs and bats
+// Taken from inside the Halloween rule, in source order, which is the order
+// the computed background layers come back in. This used to pick them out by
+// their stroke colours — which is a thing the theme is allowed to change, and
+// did: a repaint moved the web to a darker purple and the filter silently
+// matched one layer instead of three, so layer 0 was measured against the
+// bats' viewBox and the mirror check found nothing to count.
+const hwStart = html.indexOf('body.season-halloween {');
+const hwEnd = html.indexOf('body.season-halloween .arcade-title', hwStart);
+if (hwStart === -1 || hwEnd === -1) throw new Error('could not slice the Halloween rule');
+const hwRule = html.slice(hwStart, hwEnd);
+const artSvgs = [...hwRule.matchAll(/url\("data:image\/svg\+xml,([^"]*)"\)/g)]
+  .map((m) => decodeURIComponent(m[1]));
 ck('the Halloween art was found to measure', artSvgs.length >= 3, String(artSvgs.length));
 const ratios = artSvgs.map((d) => {
   const vb = (d.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);

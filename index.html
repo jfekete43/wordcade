@@ -36,11 +36,16 @@
          drops the property (losing the sitemap and indexing history) if it
          ever disappears. -->
     <meta name="google-site-verification" content="-XgEOwTu7tbcPiqB0Js7g-jbsjstC0JoVpAZDutNiAI" />
-    <!-- Favicon: a "correct guess" tile in the app's own signature cyan
-         (#00ffff, same as .correct / #legend-correct below — not Wordle's
-         green, which this game doesn't use) carrying the L initial, leaned
-         at the same 11 degrees as .arcade-title and backed by a magenta
-         offset for the #ff00ff half of the palette. The tab sizes use their
+    <!-- Favicon: a "correct guess" tile carrying the L initial, leaned at
+         the same 11 degrees as .arcade-title and backed by an offset for
+         the other half of the signal pair.
+
+         STILL CYAN AND MAGENTA. These are baked PNGs plus one inline SVG,
+         and the palette moved to blue and amber underneath them — so the
+         tab icon is the one place on the site still showing the old look.
+         They want regenerating against --c-correct and --c-present.
+
+         The tab sizes use their
          own artwork rather than a downscale of the big one: at 16px a drop
          shadow turns to mud and the corner radius eats the face, so they
          get a tighter radius and a proportionally larger letter. Real
@@ -84,11 +89,19 @@
            so a change of look is a change to this block rather than to
            three hundred scattered literals.
 
-           Values are unchanged from before this existed: introducing the
-           tokens is deliberately a no-op, verified by rendering the page
-           at four widths in eleven body states, before and after, and
-           byte-comparing the PNGs. The new palette lands as a separate,
-           small commit on top.
+           Paper, not neon. Two saturated colours on the whole screen and
+           they are the two that mean something: a letter in the right spot
+           and a letter in the wrong one. Blue and amber rather than cyan
+           and magenta, which is also the most colour-blind-robust pair
+           there is, so the repaint is an accessibility gain rather than a
+           trade.
+
+           Every value here is measured against the page it sits on, not
+           picked by eye. The six ink levels track the old dark ramp's
+           contrast ratios within about a point at every level and keep the
+           same ordering, and all seven accents land between 4.3:1 and
+           5.9:1 as text — which is why the ink that goes on a filled one
+           is white in every case.
 
            "Every structural colour" means the markup and the script too,
            not just this stylesheet: inline style attributes and the colours
@@ -107,35 +120,46 @@
            --------------------------------------------------------------- */
         :root {
             /* signals — the only thing a theme may never repaint */
-            --c-correct: #00ffff;
-            --c-present: #ff00ff;
-            --c-loss: #ff3333;
+            --c-correct: #24688f;
+            --c-present: #9e6713;
+            --c-loss: #b3261e;
             /* one per mode */
-            --c-endless: #4caf50;
-            --c-gauntlet: #b967ff;
-            --c-clash: #ff9800;
-            --c-ffa: #ffd700;
-            /* surfaces, darkest to lightest */
-            --c-page: #121213;
-            --c-panel: #1a1a1d;
-            --c-raised: #222;
-            --c-line: #333;
-            --c-line-2: #444;
-            /* ink, brightest to faintest */
-            --c-ink: #fff;
-            --c-ink-2: #ddd;
-            --c-ink-3: #aaa;
-            --c-ink-4: #888;
-            --c-ink-5: #777;
-            --c-ink-6: #555;
-            --c-on-bright: #000;
+            --c-endless: #4a7c59;
+            --c-gauntlet: #6b5b95;
+            --c-clash: #b5563f;
+            --c-ffa: #8a6b26;
+            /* a letter that is in no part of the word */
+            --c-absent: #c9c0ae;
+            --c-absent-ink: #635c4c;
+            /* surfaces, named for the job rather than the lightness: on paper
+               the ramp runs the other way, and "darkest to lightest" would be
+               a lie the next repaint inherits */
+            --c-page: #f7f3ea;     /* the paper everything sits on */
+            --c-panel: #ffffff;    /* cards, modals, lists */
+            --c-raised: #fbf7ee;   /* control faces: inputs, tabs, menu rows */
+            --c-line: #e6dece;     /* ordinary rules and borders */
+            --c-line-2: #d8cdb6;   /* the same, one step stronger */
+            /* ink, strongest to faintest */
+            --c-ink: #2a2420;
+            --c-ink-2: #403930;
+            --c-ink-3: #5c5447;
+            --c-ink-4: #6f675a;
+            --c-ink-5: #847c6c;
+            --c-ink-6: #a89e8c;
+            /* Ink that goes on top of a filled accent. Every accent above is
+               mid-tone on purpose, so this is white for all seven rather than
+               one rule per fill. It was --c-on-bright and black, which is the
+               same idea upside down. */
+            --c-on-accent: #ffffff;
+            /* Elevation, now that a glow cannot do it. */
+            --c-shadow: 0 1px 0 rgba(42, 36, 32, .05), 0 2px 8px rgba(42, 36, 32, .10);
         }
         * { touch-action: manipulation; box-sizing: border-box; }
 
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: var(--c-page); 
-            color: white; 
+            color: var(--c-ink); 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
@@ -150,7 +174,6 @@
             font-size: 40px; 
             margin: 10px 0 20px 0;
             color: var(--c-ink);
-            text-shadow: 0 0 5px var(--c-present), 0 0 10px var(--c-present), 0 0 20px var(--c-present);
             letter-spacing: 4px;
             font-style: italic;
             text-transform: uppercase;
@@ -164,7 +187,7 @@
             padding: 8px 12px; font-weight: bold; cursor: pointer; border-radius: 5px;
             text-transform: uppercase; transition: all 0.2s; font-size: 14px;
         }
-        .arcade-menu button:hover { background-color: var(--c-correct); color: var(--c-on-bright); }
+        .arcade-menu button:hover { background-color: var(--c-correct); color: var(--c-on-accent); }
         /* Four modes, one row. With Cash Out gone the nav is exactly the four
            modes, and it should read as one group rather than three-and-a-
            straggler. Trimmed just enough to fit four across at 320px; 280px
@@ -180,18 +203,18 @@
            with the button id — hence a class per mode instead of the old
            per-id rules. renderModeNav() sets the class; nothing else does. */
         .arcade-menu .mode-endless { color: var(--c-endless); border-color: var(--c-endless); }
-        .arcade-menu .mode-endless:hover { background-color: var(--c-endless); color: var(--c-on-bright); }
+        .arcade-menu .mode-endless:hover { background-color: var(--c-endless); color: var(--c-on-accent); }
         .arcade-menu .mode-gauntlet { color: var(--c-gauntlet); border-color: var(--c-gauntlet); }
-        .arcade-menu .mode-gauntlet:hover { background-color: var(--c-gauntlet); color: var(--c-on-bright); }
+        .arcade-menu .mode-gauntlet:hover { background-color: var(--c-gauntlet); color: var(--c-on-accent); }
         .arcade-menu .mode-clash { color: var(--c-clash); border-color: var(--c-clash); }
-        .arcade-menu .mode-clash:hover { background-color: var(--c-clash); color: var(--c-on-bright); }
+        .arcade-menu .mode-clash:hover { background-color: var(--c-clash); color: var(--c-on-accent); }
         .arcade-menu .mode-ffa { color: var(--c-ffa); border-color: var(--c-ffa); }
-        .arcade-menu .mode-ffa:hover { background-color: var(--c-ffa); color: var(--c-on-bright); }
+        .arcade-menu .mode-ffa:hover { background-color: var(--c-ffa); color: var(--c-on-accent); }
         /* Yesterday's Gauntlet placement strip (see #gauntlet-callout). */
         #gauntlet-callout {
             width: 90%; max-width: 500px; margin: 0 auto 10px; padding: 8px 12px;
-            background: rgba(185, 103, 255, 0.12); border: 1px solid var(--c-gauntlet);
-            border-radius: 5px; text-align: center; font-size: 13px; color: #e8d5ff;
+            background: rgba(107, 91, 149, .08); border: 1px solid var(--c-gauntlet);
+            border-radius: 5px; text-align: center; font-size: 13px; color: var(--c-ink-3);
         }
         #gauntlet-callout .gc-place { color: var(--c-ink); font-weight: bold; }
         .place-badge { vertical-align: -5px; margin-right: 4px; flex-shrink: 0; }
@@ -199,7 +222,7 @@
            block in the Profile overrides one span at a time. The Gauntlet
            tab's Today line is a sentence rather than a figure, so it opts out
            as a whole and reads at the size of the text around it. */
-        #stat-gauntlet-today span { font-size: 13px; color: #e8d5ff; font-weight: normal; }
+        #stat-gauntlet-today span { font-size: 13px; color: var(--c-ink-3); font-weight: normal; }
         #stat-gauntlet-today .gs-strong { color: var(--c-ink); font-weight: bold; }
         /* Same opt-out, same reason: the handle prompt's first half is the
            opening of a sentence whose second half is plain text beside it, so
@@ -207,7 +230,7 @@
         #handle-setup-blurb { font-size: inherit; color: inherit; font-weight: inherit; }
 
         .arcade-menu .ffa-btn { color: var(--c-ffa); border-color: var(--c-ffa); }
-        .arcade-menu .ffa-btn:hover { background-color: var(--c-ffa); color: var(--c-on-bright); }
+        .arcade-menu .ffa-btn:hover { background-color: var(--c-ffa); color: var(--c-on-accent); }
 
         /* ENDLESS UI */
         #score-board, #daily-header, #endless-header {
@@ -233,10 +256,10 @@
             font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase;
             letter-spacing: 0.5px; padding: 9px 16px; border-radius: 5px; cursor: pointer;
             transition: all 0.2s; }
-        .cash-out-btn:hover { background-color: var(--c-endless); color: var(--c-on-bright); }
+        .cash-out-btn:hover { background-color: var(--c-endless); color: var(--c-on-accent); }
         .score-text { color: var(--c-endless); }
         .arcade-menu .daily-btn { color: var(--c-gauntlet); border-color: var(--c-gauntlet); }
-        .arcade-menu .daily-btn:hover { background-color: var(--c-gauntlet); color: var(--c-on-bright); }
+        .arcade-menu .daily-btn:hover { background-color: var(--c-gauntlet); color: var(--c-on-accent); }
         .lives-text { color: var(--c-loss); }
         
         /* VERSUS UI */
@@ -247,14 +270,14 @@
         .vs-profile-area { width: 48%; }
         #versus-track { display: flex; justify-content: space-between; align-items: center; position: relative; margin-top: 15px;}
         .track-dot { width: 14px; height: 14px; background: var(--c-raised); border: 2px solid var(--c-ink-6); border-radius: 50%; position: relative; z-index: 2; transition: all 0.3s; }
-        .track-dot.puck { background: var(--c-ink); border-color: var(--c-ink); box-shadow: 0 0 15px var(--c-ink); transform: scale(1.3); }
+        .track-dot.puck { background: var(--c-ink); border-color: var(--c-ink); transform: scale(1.3); }
 
         /* FFA (FREE-FOR-ALL) UI — same Score Attack race as Versus, scaled to 3-6 players */
         #ffa-track-container {
             display: none; width: 95%; max-width: 520px; z-index: 2; position: relative;
             background: var(--c-panel); padding: 15px; border-radius: 5px; border: 2px solid var(--c-ffa); margin-bottom: 15px;
         }
-        #ffa-timer-display { font-size: 20px; color: var(--c-ffa); font-weight: bold; text-shadow: 0 0 10px var(--c-ffa); text-align: center; margin-bottom: 12px; }
+        #ffa-timer-display { font-size: 20px; color: var(--c-ffa); font-weight: bold; text-align: center; margin-bottom: 12px; }
         /* A standings list, not a 2x2 card grid. Four cards each carrying a
            name plate and a 5x5 mini-board stacked most of a phone screen
            above the board you are actually playing on, and a grid cannot put
@@ -266,7 +289,7 @@
         .ffa-list-head, .ffa-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 42px 42px 68px; align-items: center; gap: 6px; }
         .ffa-list-head { font-size: 9px; color: var(--c-ink-4); text-transform: uppercase; letter-spacing: 1px; padding: 0 8px 5px; }
         .ffa-row { border: 1px solid var(--c-line-2); border-radius: 5px; padding: 7px 8px; position: relative; z-index: 1; }
-        .ffa-row.ffa-me { border-color: var(--c-ffa); box-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
+        .ffa-row.ffa-me { border-color: var(--c-ffa); background: rgba(138, 107, 38, .07); }
         /* banner_matrix paints itself with a z-index:-1 ::after, so the cells
            need their own stacking context to stay on top of it. */
         .ffa-row > * { position: relative; z-index: 2; }
@@ -287,8 +310,8 @@
         .ffa-mini-board { display: grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: center; margin: 4px 0; }
 
         .mini-0 { background: transparent; border-color: var(--c-line); }
-        .mini-1 { background: var(--c-present); border-color: var(--c-present); box-shadow: 0 0 5px var(--c-present);}
-        .mini-2 { background: var(--c-correct); border-color: var(--c-correct); box-shadow: 0 0 5px var(--c-correct);}
+        .mini-1 { background: var(--c-present); border-color: var(--c-present); }
+        .mini-2 { background: var(--c-correct); border-color: var(--c-correct); }
 
         #message { height: 20px; margin-bottom: 4px; color: var(--c-clash); font-weight: bold; font-size: 18px; position: relative; z-index: 2; text-align: center;}
 
@@ -302,7 +325,7 @@
            a public match, and it is tapped mid-race with one hand. 11px of
            vertical padding puts it at ~40px, near the 44px guideline, and the
            row is measured at seven widths in tests/chat-render. */
-        .chat-chip { flex: 0 0 auto; background: #2a2a2e; color: var(--c-correct); border: 1px solid var(--c-correct); border-radius: 16px;
+        .chat-chip { flex: 0 0 auto; background: var(--c-raised); color: var(--c-correct); border: 1px solid var(--c-correct); border-radius: 16px;
                      padding: 13px 13px; font-family: inherit; font-size: 12px; line-height: 1; cursor: pointer; white-space: nowrap; }
         .chat-chip:disabled { color: var(--c-ink-4); border-color: var(--c-ink-6); cursor: default; }
         #chat-freetext { display: none; gap: 5px; margin-top: 6px; }
@@ -312,47 +335,51 @@
         
         #legend {
             display: flex; gap: 15px; margin-bottom: 15px; font-size: 12px;
-            color: #ccc; text-transform: uppercase; font-weight: bold; position: relative; z-index: 2;
+            color: var(--c-ink-3); text-transform: uppercase; font-weight: bold; position: relative; z-index: 2;
         }
         .legend-item { display: flex; align-items: center; gap: 6px; }
         .legend-box { width: 14px; height: 14px; border-radius: 3px; transition: background-color 0.3s, box-shadow 0.3s;}
         
-        #legend-correct { background-color: var(--c-correct); box-shadow: 0 0 8px var(--c-correct); }
-        #legend-present { background-color: var(--c-present); box-shadow: 0 0 8px var(--c-present); }
+        #legend-correct { background-color: var(--c-correct); }
+        #legend-present { background-color: var(--c-present); }
 
         #board { display: grid; grid-gap: 5px; margin-bottom: 20px; position: relative; z-index: 2;}
         .row { display: grid; grid-template-columns: repeat(5, 55px); grid-gap: 5px; }
         
         .tile { 
-            border: 2px solid #3a3a3c; font-size: 30px; font-weight: bold; 
+            border: 2px dashed var(--c-line-2); font-size: 30px; font-weight: bold; 
             display: flex; justify-content: center; align-items: center; 
             text-transform: uppercase; transition: transform 0.15s linear, border-color 0.3s, background-color 0.3s; 
         }
         
-        .danger-row-static { border-color: var(--c-loss) !important; }
-        .danger-tile { border-color: var(--c-loss) !important; animation: pulse-danger 1.5s infinite; }
-        @keyframes pulse-danger { 0% { box-shadow: 0 0 5px var(--c-loss) inset, 0 0 5px var(--c-loss); } 50% { box-shadow: 0 0 20px var(--c-loss) inset, 0 0 15px var(--c-loss); } 100% { box-shadow: 0 0 5px var(--c-loss) inset, 0 0 5px var(--c-loss); } }
+        .danger-row-static { border-color: var(--c-loss) !important; border-style: solid !important; }
+        .danger-tile { border-color: var(--c-loss) !important; border-style: solid !important; animation: pulse-danger 1.5s infinite; }
+        @keyframes pulse-danger { 0%, 100% { box-shadow: 0 0 0 0 rgba(179, 38, 30, 0); } 50% { box-shadow: 0 0 0 4px rgba(179, 38, 30, .20); } }
 
         /* Gauntlet/Sudden Death guesses are graded server-side (see
            markRowPending) — the only visible sign anything happened between
            hitting Enter and the flip animation starting, since neither mode
            can grade locally without exposing the answer to devtools. */
         .tile-pending { animation: pulse-pending 0.9s ease-in-out infinite; }
-        @keyframes pulse-pending { 0%, 100% { opacity: 1; border-color: #565758; } 50% { opacity: 0.45; border-color: var(--c-gauntlet); } }
+        @keyframes pulse-pending { 0%, 100% { opacity: 1; border-color: var(--c-line-2); } 50% { opacity: 0.45; border-color: var(--c-gauntlet); } }
 
-        .correct { background-color: var(--c-correct); border-color: var(--c-correct); color: var(--c-on-bright); box-shadow: 0 0 12px var(--c-correct); }
-        .present { background-color: var(--c-present); border-color: var(--c-present); color: var(--c-ink); box-shadow: 0 0 12px var(--c-present); }
-        .absent { background-color: var(--c-panel); border-color: var(--c-raised); color: var(--c-line-2); }
+        .correct { background-color: var(--c-correct); border-color: var(--c-correct); color: var(--c-on-accent); border-style: solid; }
+        .present { background-color: var(--c-present); border-color: var(--c-present); color: var(--c-on-accent); border-style: solid; }
+        .absent { background-color: var(--c-absent); border-color: var(--c-absent); color: var(--c-absent-ink); border-style: solid; }
+        /* A cell with a letter in it but no verdict yet: solid, so the row
+           you are working on reads as committed-to against the dashed ones
+           below it, and still unjudged. */
+        .tile.typed:not(.correct):not(.present):not(.absent) { border-style: solid; border-color: var(--c-ink-4); }
 
         /* COLORBLIND MODE — swaps the correct/wrong-spot signal colors (cyan/
            magenta) for the Okabe-Ito blue/orange pair, which stays distinct
            across the common forms of color vision deficiency. Applies to
            tiles, keyboard keys, and the legend swatches — everywhere the
            game uses color alone to mean "correct" vs "wrong spot". */
-        body.colorblind .correct { background-color: #0072B2; border-color: #0072B2; color: var(--c-ink); box-shadow: 0 0 12px #0072B2; }
-        body.colorblind .present { background-color: #E69F00; border-color: #E69F00; color: var(--c-on-bright); box-shadow: 0 0 12px #E69F00; }
-        body.colorblind #legend-correct { background-color: #0072B2; box-shadow: 0 0 8px #0072B2; }
-        body.colorblind #legend-present { background-color: #E69F00; box-shadow: 0 0 8px #E69F00; }
+        body.colorblind .correct { background-color: #0072B2; border-color: #0072B2; color: var(--c-on-accent); }
+        body.colorblind .present { background-color: #E69F00; border-color: #E69F00; color: var(--c-ink); }
+        body.colorblind #legend-correct { background-color: #0072B2; }
+        body.colorblind #legend-present { background-color: #E69F00; }
 
         /* REDUCE MOTION — turns off the decorative pulse/glow/scroll
            keyframe animations. Leaves the tile flip and other functional
@@ -410,10 +437,10 @@
 
         #keyboard { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 500px; margin-bottom: 20px; user-select: none; padding: 0 5px; position: relative; z-index: 2;}
         .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
-        .key { background-color: var(--c-line); color: white; border: 2px solid var(--c-ink-6); border-radius: 4px; font-size: 16px; font-weight: bold; padding: 15px 10px; cursor: pointer; text-transform: uppercase; flex: 1; max-width: 45px; display: flex; justify-content: center; align-items: center; transition: all 0.2s;}
+        .key { background-color: var(--c-raised); color: var(--c-ink); border: 2px solid var(--c-line-2); border-radius: 4px; font-size: 16px; font-weight: bold; padding: 15px 10px; cursor: pointer; text-transform: uppercase; flex: 1; max-width: 45px; display: flex; justify-content: center; align-items: center; transition: all 0.2s;}
         .key:active { transform: scale(0.95); } 
         .key.wide { max-width: 65px; font-size: 14px; }
-        .key.absent { opacity: 0.25; background-color: var(--c-on-bright); color: var(--c-ink-6); border-color: #111; }
+        .key.absent { background-color: var(--c-absent); color: var(--c-absent-ink); border-color: var(--c-absent); }
         /* A flex item defaults to min-width:auto, which floors it at its own
            content width — so .key never shrank below ~36px however narrow the
            screen got, and ten of them plus gaps overflowed the page on every
@@ -463,11 +490,19 @@
            markup: a layer list takes as many images as it needs, and body is the
            lowest painted surface so everything lands behind the game for free.
 
-           The rules below NEVER touch a signal colour. A correct letter is cyan
-           and a missed one is magenta in every season, win stays green and loss
-           stays red, and each mode keeps its own colour — a theme that recoloured
-           those would also break colorblind mode, which overrides .correct and
-           .present as a matched pair.
+           A season may tint the paper and the surfaces on it, and it does that
+           by redeclaring the palette's surface tokens rather than painting the
+           page directly — so there is no way for a theme to reach the page
+           except through the palette.
+
+           What a season may NEVER touch is a signal. A correct letter is the
+           same blue and a missed one the same amber in every season, win stays
+           green and loss stays red, and each mode keeps its own colour; a theme
+           that recoloured those would also break colorblind mode, which
+           overrides .correct and .present as a matched pair. The ink tokens are
+           left alone for the same reason: a season that could darken the paper
+           without darkening the text could make the game unreadable, and two of
+           these eight did exactly that the moment the base went light.
 
            Nothing here animates, so there is nothing for body.reduce-motion to
            turn off. Keep it that way, or add the selector to the list above. */
@@ -487,111 +522,135 @@
            The right-hand web is mirrored. It was the same SVG as the left, which
            radiates from ITS top-left — fine as one faint smudge in a corner, wrong
            once it repeats down the right edge anchored to nothing. */
-        body.season-halloween { background-color: #13101a; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.13%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20440%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c3b2dd%22%20stroke-width%3D%221.2%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.13%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20440%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c3b2dd%22%20stroke-width%3D%221.2%22%20transform%3D%22translate%28100%2C0%29%20scale%28-1%2C1%29%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.5%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%20700%22%3E%3Cg%20fill%3D%22%232a2036%22%3E%3Cpath%20d%3D%22M20%2022c4-7%208-3%2010%201%202-5%207-9%2010-1%203-4%207-2%208%203-5-1-7%202-9%205-3-4-6-4-9%200-2-3-5-6-10-8z%22%2F%3E%3Cpath%20d%3D%22M70%2036c3-5%206-2%207%201%202-4%205-7%208-1%202-3%205-1%206%202-4-1-5%202-7%204-2-3-4-3-7%200-1-2-4-4-7-6z%22%20opacity%3D%22.75%22%2F%3E%3Cpath%20d%3D%22M98%2014c2-4%205-2%206%201%201-3%204-5%206-1%202-2%204-1%205%202-3-1-4%201-5%203-2-2-3-2-5%200-1-2-3-3-7-5z%22%20opacity%3D%22.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(255,117,24,.17), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(123,58,180,.21), transparent 62%);
+        body.season-halloween { 
+            --c-page: #f7efe1; --c-panel: #fffbf4; --c-raised: #fdf6ea;
+            --c-line: #e9dcc6; --c-line-2: #dbcaab;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.20%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20440%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%236b5b95%22%20stroke-width%3D%221.2%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.20%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20440%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%236b5b95%22%20stroke-width%3D%221.2%22%20transform%3D%22translate%28100%2C0%29%20scale%28-1%2C1%29%22%3E%3Cpath%20d%3D%22M0%200%20L100%200%20M0%200%20L0%20100%20M0%200%20L70%2070%20M0%200%20L92%2038%20M0%200%20L38%2092%22%2F%3E%3Cpath%20d%3D%22M26%200%20A26%2026%200%200%201%200%2026%20M46%200%20A46%2046%200%200%201%200%2046%20M68%200%20A68%2068%200%200%201%200%2068%20M92%200%20A92%2092%200%200%201%200%2092%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.34%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%20700%22%3E%3Cg%20fill%3D%22%232a2036%22%3E%3Cpath%20d%3D%22M20%2022c4-7%208-3%2010%201%202-5%207-9%2010-1%203-4%207-2%208%203-5-1-7%202-9%205-3-4-6-4-9%200-2-3-5-6-10-8z%22%2F%3E%3Cpath%20d%3D%22M70%2036c3-5%206-2%207%201%202-4%205-7%208-1%202-3%205-1%206%202-4-1-5%202-7%204-2-3-4-3-7%200-1-2-4-4-7-6z%22%20opacity%3D%22.75%22%2F%3E%3Cpath%20d%3D%22M98%2014c2-4%205-2%206%201%201-3%204-5%206-1%202-2%204-1%205%202-3-1-4%201-5%203-2-2-3-2-5%200-1-2-3-3-7-5z%22%20opacity%3D%22.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(196,88,12,.13), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(107,91,149,.12), transparent 62%);
             /* The right column is offset so the two edges do not march down in
                lockstep, which reads as wallpaper rather than cobwebs. */
             background-position: left -14px top -14px, right -14px top 240px, right 10px top 200px, 0 0, 0 0;
             background-size: 118px 519px, 118px 519px, 112px 653px, auto, auto;
             background-repeat: repeat-y, repeat-y, repeat-y, no-repeat, no-repeat; }
-        body.season-halloween .arcade-title { text-shadow: 0 0 6px #ff7518, 0 0 14px #ff7518, 0 0 32px #ff751899; }
+        body.season-halloween .arcade-title { color: #9c4a0a; }
         body.season-halloween .arcade-title::after { content: "\1F383"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-thanksgiving { background-color: #17110a; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.30%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%2090%22%3E%3Cg%3E%3Cpath%20d%3D%22M24%2020c12-10%2026-4%2024%2010-2%2013-18%2018-26%2010-6-6-5-15%202-20z%22%20fill%3D%22%23c05621%22%2F%3E%3Cpath%20d%3D%22M86%2048c10-8%2022-3%2020%208-2%2011-15%2015-22%208-5-5-4-12%202-16z%22%20fill%3D%22%239c4221%22%20opacity%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M126%2016c8-6%2017-2%2016%206-2%209-12%2012-17%206-4-4-3-9%201-12z%22%20fill%3D%22%23b7791f%22%20opacity%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M52%2070c8-7%2018-2%2016%207-1%209-12%2013-18%207-4-4-3-10%202-14z%22%20fill%3D%22%23dd6b20%22%20opacity%3D%22.7%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.22%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%2090%22%3E%3Cg%3E%3Cpath%20d%3D%22M24%2020c12-10%2026-4%2024%2010-2%2013-18%2018-26%2010-6-6-5-15%202-20z%22%20fill%3D%22%23c05621%22%2F%3E%3Cpath%20d%3D%22M86%2048c10-8%2022-3%2020%208-2%2011-15%2015-22%208-5-5-4-12%202-16z%22%20fill%3D%22%239c4221%22%20opacity%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M126%2016c8-6%2017-2%2016%206-2%209-12%2012-17%206-4-4-3-9%201-12z%22%20fill%3D%22%23b7791f%22%20opacity%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M52%2070c8-7%2018-2%2016%207-1%209-12%2013-18%207-4-4-3-10%202-14z%22%20fill%3D%22%23dd6b20%22%20opacity%3D%22.7%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(240,180,41,.15), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(176,74,28,.20), transparent 62%);
+        body.season-thanksgiving { 
+            --c-page: #f9f1e2; --c-panel: #fffcf5; --c-raised: #fef7eb;
+            --c-line: #ebdfc8; --c-line-2: #decdad;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.36%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%2090%22%3E%3Cg%3E%3Cpath%20d%3D%22M24%2020c12-10%2026-4%2024%2010-2%2013-18%2018-26%2010-6-6-5-15%202-20z%22%20fill%3D%22%23c05621%22%2F%3E%3Cpath%20d%3D%22M86%2048c10-8%2022-3%2020%208-2%2011-15%2015-22%208-5-5-4-12%202-16z%22%20fill%3D%22%239c4221%22%20opacity%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M126%2016c8-6%2017-2%2016%206-2%209-12%2012-17%206-4-4-3-9%201-12z%22%20fill%3D%22%23b7791f%22%20opacity%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M52%2070c8-7%2018-2%2016%207-1%209-12%2013-18%207-4-4-3-10%202-14z%22%20fill%3D%22%23dd6b20%22%20opacity%3D%22.7%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.28%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%2090%22%3E%3Cg%3E%3Cpath%20d%3D%22M24%2020c12-10%2026-4%2024%2010-2%2013-18%2018-26%2010-6-6-5-15%202-20z%22%20fill%3D%22%23c05621%22%2F%3E%3Cpath%20d%3D%22M86%2048c10-8%2022-3%2020%208-2%2011-15%2015-22%208-5-5-4-12%202-16z%22%20fill%3D%22%239c4221%22%20opacity%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M126%2016c8-6%2017-2%2016%206-2%209-12%2012-17%206-4-4-3-9%201-12z%22%20fill%3D%22%23b7791f%22%20opacity%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M52%2070c8-7%2018-2%2016%207-1%209-12%2013-18%207-4-4-3-10%202-14z%22%20fill%3D%22%23dd6b20%22%20opacity%3D%22.7%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(176,126,24,.13), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(176,74,28,.12), transparent 62%);
             background-position: left -24px top -6px, right -24px top 190px, 0 0, 0 0;
             background-size: 140px 84px, 118px 70px, auto, auto;
             background-repeat: no-repeat, no-repeat, no-repeat, no-repeat; }
-        body.season-thanksgiving .arcade-title { text-shadow: 0 0 6px #f0b429, 0 0 14px #f0b429, 0 0 32px #f0b42999; }
+        body.season-thanksgiving .arcade-title { color: #8a5214; }
         body.season-thanksgiving .arcade-title::after { content: "\1F342"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-christmas { background-color: #0f1411; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.22%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2040%2014%22%3E%3Crect%20width%3D%2240%22%20height%3D%2214%22%20fill%3D%22%23f4f6f8%22%2F%3E%3Cg%20fill%3D%22%23e63946%22%3E%3Cpath%20d%3D%22M0%200%20h10%20L4%2014%20H0z%22%2F%3E%3Cpath%20d%3D%22M20%200%20h10%20L24%2014%20H20z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.45%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20160%22%3E%3Cg%20fill%3D%22%23ffffff%22%3E%3Ccircle%20cx%3D%2218%22%20cy%3D%2224%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%2264%22%20cy%3D%2212%22%20r%3D%221.6%22%2F%3E%3Ccircle%20cx%3D%22110%22%20cy%3D%2230%22%20r%3D%222.1%22%2F%3E%3Ccircle%20cx%3D%22146%22%20cy%3D%2216%22%20r%3D%221.4%22%2F%3E%3Ccircle%20cx%3D%2236%22%20cy%3D%2266%22%20r%3D%221.8%22%2F%3E%3Ccircle%20cx%3D%2288%22%20cy%3D%2258%22%20r%3D%222.5%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2278%22%20r%3D%221.6%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%22104%22%20r%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%2258%22%20cy%3D%22116%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22100%22%20cy%3D%22100%22%20r%3D%221.9%22%2F%3E%3Ccircle%20cx%3D%22148%22%20cy%3D%22124%22%20r%3D%222.3%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%22142%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%2276%22%20cy%3D%22150%22%20r%3D%222.1%22%2F%3E%3Ccircle%20cx%3D%22120%22%20cy%3D%22146%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.34%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%2070%22%3E%3Cg%3E%3Crect%20x%3D%228%22%20y%3D%2230%22%20width%3D%2238%22%20height%3D%2234%22%20rx%3D%223%22%20fill%3D%22%23c62828%22%2F%3E%3Crect%20x%3D%228%22%20y%3D%2230%22%20width%3D%2238%22%20height%3D%228%22%20rx%3D%222%22%20fill%3D%22%23ffd54f%22%2F%3E%3Crect%20x%3D%2223%22%20y%3D%2230%22%20width%3D%228%22%20height%3D%2234%22%20fill%3D%22%23ffd54f%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2242%22%20width%3D%2230%22%20height%3D%2222%22%20rx%3D%223%22%20fill%3D%22%232e7d32%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2242%22%20width%3D%2230%22%20height%3D%226%22%20rx%3D%222%22%20fill%3D%22%23f4f6f8%22%2F%3E%3Crect%20x%3D%2267%22%20y%3D%2242%22%20width%3D%227%22%20height%3D%2222%22%20fill%3D%22%23f4f6f8%22%2F%3E%3Crect%20x%3D%2292%22%20y%3D%2236%22%20width%3D%2222%22%20height%3D%2228%22%20rx%3D%223%22%20fill%3D%22%231565c0%22%2F%3E%3Crect%20x%3D%2299%22%20y%3D%2236%22%20width%3D%227%22%20height%3D%2228%22%20fill%3D%22%23ffd54f%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(230,57,70,.20), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(57,255,20,.14), transparent 62%);
+        body.season-christmas { 
+            --c-page: #f3f7f3; --c-panel: #ffffff; --c-raised: #fafcf9;
+            --c-line: #dde8dd; --c-line-2: #c7d8c7;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.26%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2040%2014%22%3E%3Crect%20width%3D%2240%22%20height%3D%2214%22%20fill%3D%22%23cfdccf%22%2F%3E%3Cg%20fill%3D%22%23e63946%22%3E%3Cpath%20d%3D%22M0%200%20h10%20L4%2014%20H0z%22%2F%3E%3Cpath%20d%3D%22M20%200%20h10%20L24%2014%20H20z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.30%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20160%22%3E%3Cg%20fill%3D%22%238fa894%22%3E%3Ccircle%20cx%3D%2218%22%20cy%3D%2224%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%2264%22%20cy%3D%2212%22%20r%3D%221.6%22%2F%3E%3Ccircle%20cx%3D%22110%22%20cy%3D%2230%22%20r%3D%222.1%22%2F%3E%3Ccircle%20cx%3D%22146%22%20cy%3D%2216%22%20r%3D%221.4%22%2F%3E%3Ccircle%20cx%3D%2236%22%20cy%3D%2266%22%20r%3D%221.8%22%2F%3E%3Ccircle%20cx%3D%2288%22%20cy%3D%2258%22%20r%3D%222.5%22%2F%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2278%22%20r%3D%221.6%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%22104%22%20r%3D%222.2%22%2F%3E%3Ccircle%20cx%3D%2258%22%20cy%3D%22116%22%20r%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%22100%22%20cy%3D%22100%22%20r%3D%221.9%22%2F%3E%3Ccircle%20cx%3D%22148%22%20cy%3D%22124%22%20r%3D%222.3%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%22142%22%20r%3D%221.7%22%2F%3E%3Ccircle%20cx%3D%2276%22%20cy%3D%22150%22%20r%3D%222.1%22%2F%3E%3Ccircle%20cx%3D%22120%22%20cy%3D%22146%22%20r%3D%221.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.38%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%2070%22%3E%3Cg%3E%3Crect%20x%3D%228%22%20y%3D%2230%22%20width%3D%2238%22%20height%3D%2234%22%20rx%3D%223%22%20fill%3D%22%23c62828%22%2F%3E%3Crect%20x%3D%228%22%20y%3D%2230%22%20width%3D%2238%22%20height%3D%228%22%20rx%3D%222%22%20fill%3D%22%23ffd54f%22%2F%3E%3Crect%20x%3D%2223%22%20y%3D%2230%22%20width%3D%228%22%20height%3D%2234%22%20fill%3D%22%23ffd54f%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2242%22%20width%3D%2230%22%20height%3D%2222%22%20rx%3D%223%22%20fill%3D%22%232e7d32%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2242%22%20width%3D%2230%22%20height%3D%226%22%20rx%3D%222%22%20fill%3D%22%23cfdccf%22%2F%3E%3Crect%20x%3D%2267%22%20y%3D%2242%22%20width%3D%227%22%20height%3D%2222%22%20fill%3D%22%23cfdccf%22%2F%3E%3Crect%20x%3D%2292%22%20y%3D%2236%22%20width%3D%2222%22%20height%3D%2228%22%20rx%3D%223%22%20fill%3D%22%231565c0%22%2F%3E%3Crect%20x%3D%2299%22%20y%3D%2236%22%20width%3D%227%22%20height%3D%2228%22%20fill%3D%22%23ffd54f%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(198,40,40,.12), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(22,101,52,.10), transparent 62%);
             background-position: left top, center top, right 4px top 236px, 0 0, 0 0;
             background-size: 30px 5px, 200px 200px, 104px 60px, auto, auto;
             background-repeat: repeat-x, repeat, no-repeat, no-repeat, no-repeat; }
-        body.season-christmas .arcade-title { text-shadow: 0 0 6px #39ff14, 0 0 14px #39ff14, 0 0 32px #39ff1499; }
+        body.season-christmas .arcade-title { color: #166534; }
         body.season-christmas .arcade-title::after { content: "\1F384"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-newyear { background-color: #0e1018; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.38%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20110%22%3E%3Cg%20stroke%3D%22%23ffd166%22%20fill%3D%22none%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%3E%3Cg%20transform%3D%22translate(40%2040)%22%20opacity%3D%22.9%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(118%2062)%20scale(.7)%22%20opacity%3D%22.7%22%20stroke%3D%22%238ab4ff%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(82%2018)%20scale(.5)%22%20opacity%3D%22.6%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.26%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20110%22%3E%3Cg%20stroke%3D%22%23ffd166%22%20fill%3D%22none%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%3E%3Cg%20transform%3D%22translate(40%2040)%22%20opacity%3D%22.9%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(118%2062)%20scale(.7)%22%20opacity%3D%22.7%22%20stroke%3D%22%238ab4ff%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(82%2018)%20scale(.5)%22%20opacity%3D%22.6%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(255,209,102,.18), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(60,90,200,.20), transparent 62%);
+        body.season-newyear { 
+            --c-page: #f3f4fa; --c-panel: #ffffff; --c-raised: #fafbff;
+            --c-line: #dfe2ee; --c-line-2: #c9cee0;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.32%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20110%22%3E%3Cg%20stroke%3D%22%23a8801f%22%20fill%3D%22none%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%3E%3Cg%20transform%3D%22translate(40%2040)%22%20opacity%3D%22.9%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(118%2062)%20scale(.7)%22%20opacity%3D%22.7%22%20stroke%3D%22%234f6fae%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(82%2018)%20scale(.5)%22%20opacity%3D%22.6%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.22%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20110%22%3E%3Cg%20stroke%3D%22%23a8801f%22%20fill%3D%22none%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%3E%3Cg%20transform%3D%22translate(40%2040)%22%20opacity%3D%22.9%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(118%2062)%20scale(.7)%22%20opacity%3D%22.7%22%20stroke%3D%22%234f6fae%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8M-14-14l8%208M14%2014l-8-8M-14%2014l8-8M14-14l-8%208%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(82%2018)%20scale(.5)%22%20opacity%3D%22.6%22%3E%3Cpath%20d%3D%22M0-20V-8M0%2020V8M-20%200h12M20%200H8%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(168,128,31,.12), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(60,90,200,.11), transparent 62%);
             background-position: left -16px top 6px, right -12px top 170px, 0 0, 0 0;
             background-size: 130px 90px, 104px 70px, auto, auto;
             background-repeat: no-repeat, no-repeat, no-repeat, no-repeat; }
-        body.season-newyear .arcade-title { text-shadow: 0 0 6px #ffd166, 0 0 14px #ffd166, 0 0 32px #ffd16699; }
+        body.season-newyear .arcade-title { color: #7a5c12; }
         body.season-newyear .arcade-title::after { content: "\2728"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-valentines { background-color: #170f14; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.22%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%20150%22%3E%3Cg%20fill%3D%22%23ff4d8d%22%3E%3Cpath%20d%3D%22M22%2030c-6-8%204-16%2010-9%206-7%2016%201%2010%209-4%206-10%2011-10%2011s-6-5-10-11z%22%20opacity%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M96%2016c-4-6%203-11%207-6%204-5%2011%200%207%206-3%204-7%208-7%208s-4-4-7-8z%22%20opacity%3D%22.6%22%2F%3E%3Cpath%20d%3D%22M128%2074c-5-7%204-13%208-7%205-6%2013%201%208%207-3%205-8%209-8%209s-5-4-8-9z%22%20opacity%3D%22.7%22%2F%3E%3Cpath%20d%3D%22M40%20112c-4-5%203-10%206-5%204-5%2010%200%206%205-2%204-6%207-6%207s-4-3-6-7z%22%20opacity%3D%22.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(255,77,141,.18), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(190,30,90,.20), transparent 62%);
+        body.season-valentines { 
+            --c-page: #fcf0f3; --c-panel: #fffbfc; --c-raised: #fef6f8;
+            --c-line: #f2dde4; --c-line-2: #e6c8d2;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.26%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%20150%22%3E%3Cg%20fill%3D%22%23d14a78%22%3E%3Cpath%20d%3D%22M22%2030c-6-8%204-16%2010-9%206-7%2016%201%2010%209-4%206-10%2011-10%2011s-6-5-10-11z%22%20opacity%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M96%2016c-4-6%203-11%207-6%204-5%2011%200%207%206-3%204-7%208-7%208s-4-4-7-8z%22%20opacity%3D%22.6%22%2F%3E%3Cpath%20d%3D%22M128%2074c-5-7%204-13%208-7%205-6%2013%201%208%207-3%205-8%209-8%209s-5-4-8-9z%22%20opacity%3D%22.7%22%2F%3E%3Cpath%20d%3D%22M40%20112c-4-5%203-10%206-5%204-5%2010%200%206%205-2%204-6%207-6%207s-4-3-6-7z%22%20opacity%3D%22.5%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(209,74,120,.12), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(190,30,90,.10), transparent 62%);
             background-position: left top, 0 0, 0 0;
             background-size: 230px 230px, auto, auto;
             background-repeat: repeat, no-repeat, no-repeat; }
-        body.season-valentines .arcade-title { text-shadow: 0 0 6px #ff4d8d, 0 0 14px #ff4d8d, 0 0 32px #ff4d8d99; }
+        body.season-valentines .arcade-title { color: #a8244f; }
         body.season-valentines .arcade-title::after { content: "\1F497"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-stpatricks { background-color: #0b1410; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.18%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%20150%22%3E%3Cg%20fill%3D%22%232f9e44%22%3E%3Cg%20transform%3D%22translate(26%2028)%22%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(110%2060)%20scale(.7)%22%20opacity%3D%22.75%22%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(60%20120)%20scale(.55)%22%20opacity%3D%22.55%22%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(61,220,132,.16), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(20,120,70,.22), transparent 62%);
+        body.season-stpatricks { 
+            --c-page: #f1f7f1; --c-panel: #ffffff; --c-raised: #f9fcf8;
+            --c-line: #dbe8db; --c-line-2: #c3d8c3;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.24%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20150%20150%22%3E%3Cg%20fill%3D%22%232f9e44%22%3E%3Cg%20transform%3D%22translate(26%2028)%22%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(110%2060)%20scale(.7)%22%20opacity%3D%22.75%22%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3C%2Fg%3E%3Cg%20transform%3D%22translate(60%20120)%20scale(.55)%22%20opacity%3D%22.55%22%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%22-7%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%22-7%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%227%22%2F%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(20,104,58,.10), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(20,120,70,.11), transparent 62%);
             background-position: left top, 0 0, 0 0;
             background-size: 215px 215px, auto, auto;
             background-repeat: repeat, no-repeat, no-repeat; }
-        body.season-stpatricks .arcade-title { text-shadow: 0 0 6px #3ddc84, 0 0 14px #3ddc84, 0 0 32px #3ddc8499; }
+        body.season-stpatricks .arcade-title { color: #14683a; }
         body.season-stpatricks .arcade-title::after { content: "\1F340"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-easter { background-color: #141020; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.40%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20140%2080%22%3E%3Cg%3E%3Cellipse%20cx%3D%2222%22%20cy%3D%2250%22%20rx%3D%2215%22%20ry%3D%2220%22%20fill%3D%22%23f6b9d4%22%2F%3E%3Cpath%20d%3D%22M8%2048h28M8%2056h28%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%2266%22%20cy%3D%2244%22%20rx%3D%2213%22%20ry%3D%2218%22%20fill%3D%22%23a8e6cf%22%2F%3E%3Cpath%20d%3D%22M54%2042h24M54%2050h24%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%22108%22%20cy%3D%2252%22%20rx%3D%2214%22%20ry%3D%2219%22%20fill%3D%22%23ffe08a%22%2F%3E%3Cpath%20d%3D%22M95%2050h26M95%2058h26%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.22%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20140%2080%22%3E%3Cg%3E%3Cellipse%20cx%3D%2222%22%20cy%3D%2250%22%20rx%3D%2215%22%20ry%3D%2220%22%20fill%3D%22%23f6b9d4%22%2F%3E%3Cpath%20d%3D%22M8%2048h28M8%2056h28%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%2266%22%20cy%3D%2244%22%20rx%3D%2213%22%20ry%3D%2218%22%20fill%3D%22%23a8e6cf%22%2F%3E%3Cpath%20d%3D%22M54%2042h24M54%2050h24%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%22108%22%20cy%3D%2252%22%20rx%3D%2214%22%20ry%3D%2219%22%20fill%3D%22%23ffe08a%22%2F%3E%3Cpath%20d%3D%22M95%2050h26M95%2058h26%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(143,227,200,.15), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(196,150,240,.20), transparent 62%);
+        body.season-easter { 
+            --c-page: #f6f3fa; --c-panel: #ffffff; --c-raised: #fcfaff;
+            --c-line: #e4dfee; --c-line-2: #d0c8e0;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.34%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20140%2080%22%3E%3Cg%3E%3Cellipse%20cx%3D%2222%22%20cy%3D%2250%22%20rx%3D%2215%22%20ry%3D%2220%22%20fill%3D%22%23cf7b9f%22%2F%3E%3Cpath%20d%3D%22M8%2048h28M8%2056h28%22%20stroke%3D%22%23b9a8d4%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%2266%22%20cy%3D%2244%22%20rx%3D%2213%22%20ry%3D%2218%22%20fill%3D%22%235ea98c%22%2F%3E%3Cpath%20d%3D%22M54%2042h24M54%2050h24%22%20stroke%3D%22%23b9a8d4%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%22108%22%20cy%3D%2252%22%20rx%3D%2214%22%20ry%3D%2219%22%20fill%3D%22%23c0a03c%22%2F%3E%3Cpath%20d%3D%22M95%2050h26M95%2058h26%22%20stroke%3D%22%23b9a8d4%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                url("data:image/svg+xml,%3Csvg%20opacity%3D%22.20%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20140%2080%22%3E%3Cg%3E%3Cellipse%20cx%3D%2222%22%20cy%3D%2250%22%20rx%3D%2215%22%20ry%3D%2220%22%20fill%3D%22%23cf7b9f%22%2F%3E%3Cpath%20d%3D%22M8%2048h28M8%2056h28%22%20stroke%3D%22%23b9a8d4%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%2266%22%20cy%3D%2244%22%20rx%3D%2213%22%20ry%3D%2218%22%20fill%3D%22%235ea98c%22%2F%3E%3Cpath%20d%3D%22M54%2042h24M54%2050h24%22%20stroke%3D%22%23b9a8d4%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3Cellipse%20cx%3D%22108%22%20cy%3D%2252%22%20rx%3D%2214%22%20ry%3D%2219%22%20fill%3D%22%23c0a03c%22%2F%3E%3Cpath%20d%3D%22M95%2050h26M95%2058h26%22%20stroke%3D%22%23b9a8d4%22%20stroke-width%3D%223%22%20opacity%3D%22.8%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(94,169,140,.11), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(140,105,186,.11), transparent 62%);
             background-position: right -20px top 196px, left -26px top 8px, 0 0, 0 0;
             background-size: 132px 76px, 108px 62px, auto, auto;
             background-repeat: no-repeat, no-repeat, no-repeat, no-repeat; }
-        body.season-easter .arcade-title { text-shadow: 0 0 6px #8fe3c8, 0 0 14px #8fe3c8, 0 0 32px #8fe3c899; }
+        body.season-easter .arcade-title { color: #5b3a86; }
         body.season-easter .arcade-title::after { content: "\1F430"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
-        body.season-julyfourth { background-color: #0c1019; background-attachment: fixed;
-            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.30%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20100%22%3E%3Cg%20fill%3D%22%23f4f6f8%22%3E%3Cpath%20d%3D%22M20%2014l3%207%207%201-5%205%201%207-6-3-6%203%201-7-5-5%207-1z%22%2F%3E%3Cpath%20d%3D%22M78%2030l2%205%205%201-4%204%201%205-4-2-4%202%201-5-4-4%205-1z%22%20opacity%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M134%2012l2%206%206%201-4%204%201%206-5-3-5%203%201-6-4-4%206-1z%22%20opacity%3D%22.9%22%2F%3E%3Cpath%20d%3D%22M48%2070l2%204%204%201-3%203%201%204-4-2-4%202%201-4-3-3%204-1z%22%20opacity%3D%22.6%22%2F%3E%3Cpath%20d%3D%22M110%2076l2%204%204%201-3%203%201%204-4-2-4%202%201-4-3-3%204-1z%22%20opacity%3D%22.55%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
-                radial-gradient(900px 420px at 50% -8%, rgba(255,70,70,.16), transparent 64%),
-                radial-gradient(760px 520px at 10% 108%, rgba(70,120,255,.22), transparent 62%);
+        body.season-julyfourth { 
+            --c-page: #f3f5fb; --c-panel: #ffffff; --c-raised: #fafbff;
+            --c-line: #dee3f0; --c-line-2: #c7cfe3;
+            background-attachment: fixed;
+            background-image: url("data:image/svg+xml,%3Csvg%20opacity%3D%22.24%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20160%20100%22%3E%3Cg%20fill%3D%22%236f88bf%22%3E%3Cpath%20d%3D%22M20%2014l3%207%207%201-5%205%201%207-6-3-6%203%201-7-5-5%207-1z%22%2F%3E%3Cpath%20d%3D%22M78%2030l2%205%205%201-4%204%201%205-4-2-4%202%201-5-4-4%205-1z%22%20opacity%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M134%2012l2%206%206%201-4%204%201%206-5-3-5%203%201-6-4-4%206-1z%22%20opacity%3D%22.9%22%2F%3E%3Cpath%20d%3D%22M48%2070l2%204%204%201-3%203%201%204-4-2-4%202%201-4-3-3%204-1z%22%20opacity%3D%22.6%22%2F%3E%3Cpath%20d%3D%22M110%2076l2%204%204%201-3%203%201%204-4-2-4%202%201-4-3-3%204-1z%22%20opacity%3D%22.55%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
+                radial-gradient(900px 420px at 50% -8%, rgba(190,40,40,.10), transparent 64%),
+                radial-gradient(760px 520px at 10% 108%, rgba(45,85,170,.11), transparent 62%);
             background-position: center top, 0 0, 0 0;
             background-size: 230px 140px, auto, auto;
             background-repeat: repeat-x, no-repeat, no-repeat; }
-        body.season-julyfourth .arcade-title { text-shadow: 0 0 6px #8fc2ff, 0 0 14px #8fc2ff, 0 0 32px #8fc2ff99; }
+        body.season-julyfourth .arcade-title { color: #1a4f94; }
         body.season-julyfourth .arcade-title::after { content: "\1F386"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         /* Today's Gauntlet board, in the slot the Live Arcade Feed occupies
            during a Standard run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
-        #gauntlet-feed-container { width: 90%; max-width: 420px; background: #111; border: 1px solid #3a2a4a; border-radius: 5px; padding: 10px; margin-bottom: 20px; position: relative; z-index: 2; }
+        #gauntlet-feed-container { width: 90%; max-width: 420px; background: var(--c-panel); border: 1px solid var(--c-line-2); border-radius: 5px; padding: 10px; margin-bottom: 20px; position: relative; z-index: 2; }
         #gauntlet-card { width: 90%; max-width: 420px; background: linear-gradient(160deg, rgba(185,103,255,0.18), rgba(185,103,255,0.05)); border: 1px solid var(--c-gauntlet); border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; position: relative; z-index: 2; }
         #gauntlet-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
         #gauntlet-card-title { color: var(--c-gauntlet); font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         #gauntlet-card-timer { color: var(--c-ink-4); font-size: 11px; white-space: nowrap; }
-        #gauntlet-card-body { color: #e8d5ff; font-size: 14px; margin-bottom: 10px; }
+        #gauntlet-card-body { color: var(--c-ink-3); font-size: 14px; margin-bottom: 10px; }
         #gauntlet-card-body .gcb-strong { color: var(--c-ink); font-weight: bold; }
         #gauntlet-card-btn { width: 100%; background: transparent; color: var(--c-gauntlet); border: 2px solid var(--c-gauntlet); border-radius: 5px; padding: 10px; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-family: inherit; transition: background 0.2s; }
-        #gauntlet-card-btn:hover { background: var(--c-gauntlet); color: var(--c-on-bright); }
+        #gauntlet-card-btn:hover { background: var(--c-gauntlet); color: var(--c-on-accent); }
 
         #gauntlet-feed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
         #gauntlet-archive-btn { background: transparent; color: var(--c-gauntlet); border: 1px solid var(--c-gauntlet); border-radius: 3px; padding: 3px 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
-        #gauntlet-archive-btn:hover { background: var(--c-gauntlet); color: var(--c-on-bright); }
+        #gauntlet-archive-btn:hover { background: var(--c-gauntlet); color: var(--c-on-accent); }
         .gauntlet-archive-row { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--c-panel); color: var(--c-ink-2); border: 1px solid var(--c-line); border-radius: 4px; padding: 9px 12px; margin-bottom: 6px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: inherit; text-align: left; }
         .gauntlet-archive-row:hover { border-color: var(--c-gauntlet); color: var(--c-ink); }
         .gauntlet-archive-row .gar-date { font-size: 12px; color: var(--c-ink-4); font-weight: normal; }
@@ -608,7 +667,7 @@
         .gf-me { outline: 2px solid var(--c-gauntlet); outline-offset: -2px; border-radius: 3px; }
         .gauntlet-empty { color: var(--c-ink-4); font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
 
-        #daily-board-container { width: 90%; max-width: 340px; background: #111; border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
+        #daily-board-container { width: 90%; max-width: 340px; background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
         #daily-board-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
         #daily-board-title { flex: 1; color: var(--c-correct); font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
         #daily-board-head button { background: transparent; border: 1px solid var(--c-line); color: var(--c-ink-4); border-radius: 4px;
@@ -616,10 +675,10 @@
         #daily-board-head button:hover:not(:disabled) { border-color: var(--c-correct); color: var(--c-correct); }
         #daily-board-head button:disabled { opacity: 0.25; cursor: default; }
         .daily-board-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 4px 6px; border-radius: 3px; position: relative; z-index: 1; font-style: normal; text-align: left; }
-        .daily-board-place { color: #666; font-size: 12px; font-weight: bold; min-width: 22px; }
+        .daily-board-place { color: var(--c-ink-4); font-size: 12px; font-weight: bold; min-width: 22px; }
         .daily-board-score { margin-left: auto; color: var(--c-endless); font-weight: bold; }
         /* Your own line under the board, for when you are not on it. */
-        #daily-board-you { margin-top: 6px; padding-top: 6px; border-top: 1px solid #262626; font-size: 12px; color: var(--c-ink-4); }
+        #daily-board-you { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--c-line); font-size: 12px; color: var(--c-ink-4); }
         #daily-board-you:empty { display: none; }
         /* Default look for a player's name here. Deliberately a class and
            deliberately declared ABOVE the .effect_* rules: those are also
@@ -631,8 +690,8 @@
            still applied (pink text wearing someone else's glow). */
         .daily-board-name { color: var(--c-ink); font-weight: bold; }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
-        .modal-box { background-color: var(--c-panel); border: 3px solid var(--c-present); border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 20px var(--c-present); min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(42, 36, 32, .45); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
+        .modal-box { background-color: var(--c-panel); border: 3px solid var(--c-present); border-radius: 10px; padding: 25px; text-align: center; box-shadow: var(--c-shadow); min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
         .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 45vh; overflow-y: auto; padding-right: 5px; text-align: left; overscroll-behavior: contain; }
         .modal-title { color: var(--c-correct); font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
         .modal-stats { font-size: 20px; margin-bottom: 20px; line-height: 1.6; }
@@ -640,38 +699,38 @@
         .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         .modal-buttons button { padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; border: none; transition: all 0.2s; }
 
-        .btn-cyan { background-color: var(--c-correct); color: var(--c-on-bright); }
-        .btn-cyan:hover { background-color: #00cccc; }
+        .btn-cyan { background-color: var(--c-correct); color: var(--c-on-accent); }
+        .btn-cyan:hover { background-color: #1d5577; }
         /* FFA's primary action, the gold counterpart to .btn-cyan. It exists
            because the two FFA buttons used to be .btn-cyan with the text
            colour overridden inline to var(--c-ffa) — gold on cyan, which measures
            1.12:1 against a 3:1 minimum for large bold text, i.e. very nearly
            invisible. Filled buttons own their text colour; overriding one
            half of the pair inline is what broke it. */
-        .btn-gold { background-color: var(--c-ffa); color: var(--c-on-bright); }
-        .btn-gold:hover { background-color: #e6c200; }
+        .btn-gold { background-color: var(--c-ffa); color: var(--c-on-accent); }
+        .btn-gold:hover { background-color: #73591f; }
         /* Clash's primary action. Same reason .btn-gold exists: a filled button
            owns its text colour, so the way to recolour one is a class, not an
            inline override of half the pair. Black on var(--c-clash) measures 9.7:1. */
-        .btn-orange { background-color: var(--c-clash); color: var(--c-on-bright); }
-        .btn-orange:hover { background-color: #e08600; }
-        .btn-dark { background-color: var(--c-line); color: white; border: 2px solid var(--c-ink-5) !important; }
-        .btn-dark:hover { background-color: var(--c-ink-6); }
+        .btn-orange { background-color: var(--c-clash); color: var(--c-on-accent); }
+        .btn-orange:hover { background-color: #984734; }
+        .btn-dark { background-color: var(--c-line); color: var(--c-ink); border: 2px solid var(--c-ink-5) !important; }
+        .btn-dark:hover { background-color: var(--c-line-2); }
         /* Google's own sign-in treatment rather than the arcade palette:
            players recognise this plate by sight, and a button restyled to
            match the site reads as a phishing page asking for a Google
-           password. #3c4043 on var(--c-ink) measures 10.3:1. */
-        .btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; background: var(--c-ink); color: #3c4043; border: none; border-radius: 5px; font-family: inherit; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+           password. #3c4043 on #fff measures 10.3:1. */
+        .btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; background: #fff; color: #3c4043; border: none; border-radius: 5px; font-family: inherit; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .btn-google:hover { background: #e8eaed; }
         .auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: var(--c-ink-5); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
         .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--c-line); }
 
         .input-field { padding: 10px; font-size: 18px; width: 100%; text-align: center; border-radius: 5px; border: 2px solid var(--c-present); background: var(--c-raised); color: var(--c-ink); text-transform: uppercase; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;}
-        .input-field:focus { outline: none; border-color: var(--c-correct); box-shadow: 0 0 8px var(--c-correct); }
+        .input-field:focus { outline: none; border-color: var(--c-correct); box-shadow: 0 0 0 3px rgba(36, 104, 143, .22); }
 
         .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .tab-btn { background: var(--c-raised); color: var(--c-ink-3); border: 1px solid var(--c-ink-6); padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
-        .tab-btn.active { background: var(--c-present); color: white; border-color: var(--c-present); box-shadow: 0 0 8px var(--c-present); }
+        .tab-btn.active { background: var(--c-present); color: var(--c-on-accent); border-color: var(--c-present); }
         /* Four profile tabs overflow a 360px phone at the default size and
            wrap to a lonely second row. They wrap rather than clip either way,
            so this is only about fitting the common case on one line. */
@@ -680,7 +739,7 @@
             .tab-btn { padding: 8px 7px; font-size: 11px; }
         }
 
-        #leaderboard-list { background: #111; border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
+        #leaderboard-list { background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         
         #lb-you { border-top: 2px solid var(--c-line-2); margin-top: 6px; padding-top: 8px; }
         #lb-you .lb-you-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-ink-4); font-weight: bold; margin-bottom: 4px; }
@@ -960,11 +1019,11 @@
         /* A holiday item on sale right now. It is the only row the grid lifts
            out of price order, so it has to look deliberate rather than like a
            rendering slip. */
-        .grid-item.seasonal-live { border-color: var(--c-clash); background: linear-gradient(90deg, rgba(255,152,0,0.13), rgba(255,152,0,0.03)); }
-        .grid-item.seasonal-live:hover { border-color: #ffb547; }
+        .grid-item.seasonal-live { border-color: var(--c-clash); background: linear-gradient(90deg, rgba(181,86,63,.11), rgba(181,86,63,.02)); }
+        .grid-item.seasonal-live:hover { border-color: #8f4130; }
         .seasonal-badge { display: inline-block; font-size: 10px; font-weight: bold; color: var(--c-clash); border: 1px solid var(--c-clash); border-radius: 3px; padding: 1px 5px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
         .grid-item.locked { opacity: 0.5; cursor: default; }
-        .grid-item.locked:hover { background: #111; border-color: var(--c-line-2); }
+        .grid-item.locked:hover { background: var(--c-raised); border-color: var(--c-line-2); }
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: var(--c-ink-3); font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: var(--c-line); height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
@@ -980,36 +1039,40 @@
            meaning anything anywhere else. Hierarchy here is brightness instead:
            one primary, the rest even, the two housekeeping items quiet. Hue is
            reserved for modes. */
-        .menu-list-btn { background: var(--c-raised); border: 2px solid #3d3d3d; color: #ccc; padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
-        .menu-list-btn:hover { background: var(--c-line); border-color: #5a5a5a; color: var(--c-ink); }
-        .menu-list-btn.is-primary { color: var(--c-ink); border-color: #8a8a8a; }
-        .menu-list-btn.is-primary:hover { background: #2e2e2e; border-color: var(--c-ink); }
+        .menu-list-btn { background: var(--c-raised); border: 2px solid var(--c-line-2); color: var(--c-ink-3); padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
+        .menu-list-btn:hover { background: var(--c-line); border-color: var(--c-ink-5); color: var(--c-ink); }
+        .menu-list-btn.is-primary { color: var(--c-ink); border-color: var(--c-ink-4); }
+        .menu-list-btn.is-primary:hover { background: var(--c-line); border-color: var(--c-ink); }
         .menu-list-btn.is-quiet { color: var(--c-ink-4); border-color: var(--c-line); }
-        .menu-list-btn.is-quiet:hover { color: #ccc; border-color: #4a4a4a; }
+        .menu-list-btn.is-quiet:hover { color: var(--c-ink-3); border-color: var(--c-line-2); }
         
         .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
-        .grid-item { background: #111; border: 1px solid var(--c-line-2); border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;}
+        .grid-item { background: var(--c-raised); border: 1px solid var(--c-line-2); border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;}
         .grid-item:hover { background: var(--c-panel); border-color: var(--c-ink-5);}
         .grid-item-info { display: flex; flex-direction: column; flex-grow: 1; padding-right: 10px; pointer-events: none;}
         .grid-item-name { font-weight: bold; color: var(--c-ink); font-size: 16px; pointer-events: none;}
         .grid-item-desc { color: var(--c-ink-3); font-size: 11px; margin-top: 3px; font-style: italic; margin-bottom: 6px; pointer-events: none;}
         
         .action-btn { background: transparent; border: 2px solid var(--c-endless); color: var(--c-endless); padding: 6px 12px; font-weight: bold; border-radius: 3px; cursor: pointer; text-transform: uppercase; font-size: 12px; white-space: nowrap;}
-        .action-btn:hover { background: var(--c-endless); color: var(--c-on-bright); }
+        .action-btn:hover { background: var(--c-endless); color: var(--c-on-accent); }
         .btn-equipped { background: var(--c-line-2); border-color: var(--c-line-2); color: var(--c-ink-3); cursor: default; }
         .btn-equipped:hover { background: var(--c-line-2); color: var(--c-ink-3); }
         .btn-equip { border-color: var(--c-correct); color: var(--c-correct); }
-        .btn-equip:hover { background: var(--c-correct); color: var(--c-on-bright); }
+        .btn-equip:hover { background: var(--c-correct); color: var(--c-on-accent); }
         
         .btn-claim { border-color: var(--c-clash); color: var(--c-clash); animation: pulse-claim 1.5s infinite;}
-        .btn-claim:hover { background: var(--c-clash); color: var(--c-on-bright); }
-        @keyframes pulse-claim { 0% { box-shadow: 0 0 5px var(--c-clash); } 50% { box-shadow: 0 0 15px var(--c-clash); } 100% { box-shadow: 0 0 5px var(--c-clash); } }
+        .btn-claim:hover { background: var(--c-clash); color: var(--c-on-accent); }
+        @keyframes pulse-claim { 0%, 100% { box-shadow: 0 0 0 0 rgba(181, 86, 63, 0); } 50% { box-shadow: 0 0 0 4px rgba(181, 86, 63, .22); } }
 
         .progress-bar-bg { background: var(--c-line); height: 10px; border-radius: 5px; overflow: hidden; width: 100%; position: relative; margin-top: 5px;}
         .progress-bar-fill { background: var(--c-correct); height: 100%; width: 0%; transition: width 0.3s; }
         .progress-text { font-size: 10px; color: var(--c-ink); position: absolute; width: 100%; text-align: center; top: -1px; font-weight: bold;}
 
-        #shop-preview-monitor { border: 2px solid var(--c-line); border-radius: 5px; background: #0a0a0a; margin-bottom: 15px; padding: 15px; text-align: left; position: relative;}
+        /* Deliberately still black. What it previews is the cosmetics, and
+           every one of them — holographic, neon, chrome, the lot — was drawn
+           for a dark surface. Previewing them on paper would misrepresent
+           what the player is buying, so this one panel keeps its own night. */
+        #shop-preview-monitor { border: 2px solid var(--c-line-2); border-radius: 5px; background: #0a0a0a; margin-bottom: 15px; padding: 15px; text-align: left; position: relative;}
         .preview-label { position: absolute; top: 5px; right: 8px; font-size: 10px; color: var(--c-ink-6); text-transform: uppercase; font-weight: bold;}
         
         .pulse-text { animation: pulse-opacity 1.5s infinite; }
@@ -1027,7 +1090,7 @@
            styled down so it never competes with ENTER. */
         #skip-word-container { display: none; width: 100%; justify-content: center; margin: 4px 0 8px; position: relative; z-index: 2; }
         #skip-word-btn { background: var(--c-raised); color: var(--c-clash); border: 2px solid var(--c-clash); padding: 7px 16px; font-weight: bold; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
-        #skip-word-btn:hover:not(:disabled) { background: var(--c-clash); color: #111; }
+        #skip-word-btn:hover:not(:disabled) { background: var(--c-clash); color: var(--c-on-accent); }
         #skip-word-btn:disabled { color: var(--c-ink-6); border-color: var(--c-line-2); cursor: default; }
     </style>
 </head>
@@ -1111,7 +1174,7 @@
 
     <!-- SUDDEN DEATH UI -->
     <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
-        <div style="color:var(--c-loss); font-size: 20px; font-weight: bold; text-shadow: 0 0 8px var(--c-loss);">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
+        <div style="color:var(--c-loss); font-size: 20px; font-weight: bold;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
         <div id="sd-status-text" style="color:var(--c-clash); font-size: 14px; margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
         <div id="sd-timer" style="color:var(--c-ink); font-size: 16px; font-weight: bold; margin-top: 4px;">1:30</div>
     </div>
@@ -1154,12 +1217,12 @@
             <div style="position: absolute; top: 50%; left: 15%; right: 15%; height: 12px; background: var(--c-raised); border: 2px solid var(--c-ink-6); border-radius: 6px; overflow: hidden; transform: translateY(-50%);">
                 <div id="tug-fill" style="width: 50%; height: 100%; background: linear-gradient(90deg, var(--c-present), var(--c-correct)); transition: width 0.5s ease-out;"></div>
                 <!-- Center Line Marker -->
-                <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: var(--c-ink); transform: translateX(-50%); opacity: 0.5;"></div>
+                <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: var(--c-ink); transform: translateX(-50%); opacity: 0.3;"></div>
             </div>
 
             <!-- TIMER -->
             <div style="position: absolute; left: 50%; top: -10px; transform: translateX(-50%); text-align: center;">
-                <div id="clash-timer-display" style="font-size: 20px; color: var(--c-clash); font-weight: bold; text-shadow: 0 0 10px var(--c-clash); background: var(--c-panel); padding: 0 10px; border-radius: 5px;">7:00</div>
+                <div id="clash-timer-display" style="font-size: 20px; color: var(--c-clash); font-weight: bold; background: var(--c-panel); padding: 0 10px; border-radius: 5px;">7:00</div>
             </div>
             
             <!-- SCORES -->
@@ -1326,7 +1389,7 @@
          stranger needs and the one ask - plus enough indexable prose that the
          page Google ranks is not just a title and a keyboard, which is what
          everything above this is to a crawler. -->
-    <section id="site-intro" style="width: 90%; max-width: 620px; margin: 10px auto 0; color: #999; font-size: 13px; line-height: 1.7; position: relative; z-index: 2;">
+    <section id="site-intro" style="width: 90%; max-width: 620px; margin: 10px auto 0; color: var(--c-ink-3); font-size: 13px; line-height: 1.7; position: relative; z-index: 2;">
         <h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>
         <p style="margin-top: 0; margin-bottom: 10px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is your place. Free, runs in your browser, no account needed to start.</p>
 
@@ -1381,7 +1444,7 @@
     </div>
 
     <div id="warning-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="color: var(--c-clash);">⚠️ WARNING! ⚠️</h2>
             <div class="modal-stats" style="color: var(--c-ink); font-size: 18px;">
                 You have <span style="color: var(--c-loss);" id="warning-continues-text">0 Continues</span> left!<br><br>
@@ -1395,13 +1458,13 @@
     </div>
 
     <!-- VERSUS LOBBY MODAL -->
-    <!-- Clash's own colour is #ff9800, the same as its nav button. Every other
+    <!-- Clash's own colour is --c-clash, the same as its nav button. Every other
          mode already does this - FFA's lobby and end modal are gold like the FFA
          button, the Gauntlet's are purple - and this one was cyan, so tapping
          the orange button opened a blue box. The result colours inside stay as
          they are: green for a win and red for a loss are signals, not theme. -->
     <div id="versus-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="color: var(--c-clash);">Head-to-Head</h2>
                 <div class="modal-stats" style="color: var(--c-ink-3); font-size: 14px; margin-bottom: 25px;">
                     Score Attack rules. No Continues. <br>First to 1,000 points or highest score when time expires wins!
@@ -1452,7 +1515,7 @@
 
     <!-- VERSUS END MODAL -->
     <div id="versus-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" id="vs-end-title">You Win!</h2>
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
             
@@ -1466,7 +1529,7 @@
 
     <!-- FFA LOBBY MODAL -->
     <div id="ffa-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: 0 0 20px var(--c-ffa);">
+        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="color: var(--c-ffa);">Free-For-All</h2>
             <div class="modal-stats" style="color: var(--c-ink-3); font-size: 14px; margin-bottom: 25px;">
                 3-6 players. Score Attack rules.<br>Highest score when the clock hits 0 wins!
@@ -1511,7 +1574,7 @@
 
     <!-- FFA END MODAL -->
     <div id="ffa-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: 0 0 20px var(--c-ffa);">
+        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" id="ffa-end-title" style="color: var(--c-ffa);">Match Complete!</h2>
             <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: 14px;"></div>
 
@@ -1523,7 +1586,7 @@
 
     <!-- PAST GAUNTLETS (ARCHIVE) MODAL -->
     <div id="gauntlet-archive-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: 0 0 20px var(--c-gauntlet);">
+        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" id="gauntlet-archive-title" style="color: var(--c-gauntlet);">Past Gauntlets</h2>
 
             <!-- List of past days. -->
@@ -1536,7 +1599,7 @@
 
             <!-- One past day's final board. -->
             <div id="gauntlet-archive-detail" style="display:none;">
-                <div id="gauntlet-archive-standing" style="font-size: 13px; color: #e8d5ff; margin-bottom: 10px; text-align: center;"></div>
+                <div id="gauntlet-archive-standing" style="font-size: 13px; color: var(--c-ink-3); margin-bottom: 10px; text-align: center;"></div>
                 <div id="gauntlet-archive-board"></div>
                 <!-- The static page carries what this panel deliberately does
                      not: the day's words themselves, per-word difficulty, and
@@ -1554,11 +1617,11 @@
 
     <!-- DAILY GAUNTLET END MODAL -->
     <div id="daily-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: 0 0 20px var(--c-gauntlet);">
+        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" id="daily-end-title" style="color: var(--c-gauntlet);">Gauntlet Complete!</h2>
             <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:var(--c-endless); font-size: 24px;">0</span></div>
 
-            <div id="daily-end-standing" style="display:none; font-size: 13px; color: #e8d5ff; margin-bottom: 12px;"></div>
+            <div id="daily-end-standing" style="display:none; font-size: 13px; color: var(--c-ink-3); margin-bottom: 12px;"></div>
 
             <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
@@ -1576,7 +1639,7 @@
     <!-- MAIN MENU MODAL -->
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
-            <h2 class="modal-title" style="color: var(--c-ink); text-shadow: 0 0 10px var(--c-ink);">Menu</h2>
+            <h2 class="modal-title" style="color: var(--c-ink);">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn is-primary" onclick="window.confirmNewGame()">New Game</button>
                 <button class="menu-list-btn" onclick="window.openHowToPlay()">How To Play</button>
@@ -1621,7 +1684,7 @@
          falling back to signing into the existing account if that credential
          already has one (see signInWithGoogle / submitEmailAuth). -->
     <div id="auth-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-ink); box-shadow: 0 0 20px var(--c-ink);">
+        <div class="modal-box" style="border-color: var(--c-ink); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="color: var(--c-ink);">Sign Up / Log In</h2>
             <div class="modal-stats" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px; line-height: 1.4; text-align: center;">
                 This saves your current guest progress to whichever you pick. Already have a Lexathon account? You'll be signed into it instead.
@@ -1655,13 +1718,13 @@
          Skippable, because the free change is still sitting in the Profile
          afterwards — a name is a bad thing to make someone hurry over. -->
     <div id="handle-setup-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: 0 0 20px var(--c-correct); max-width: 360px;">
+        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: var(--c-shadow); max-width: 360px;">
             <h2 class="modal-title">Pick Your Handle</h2>
-            <div class="modal-stats" style="font-size: 13px; color: #bbb; margin-bottom: 15px; line-height: 1.5; text-align: center;">
+            <div class="modal-stats" style="font-size: 13px; color: var(--c-ink-2); margin-bottom: 15px; line-height: 1.5; text-align: center;">
                 <span id="handle-setup-blurb">Your progress is saved.</span> This is the name that shows on the leaderboards — your first change is free.
             </div>
             <input type="text" id="handle-setup-input" class="input-field" maxlength="12" placeholder="ENTER NAME" autocomplete="off">
-            <div id="handle-setup-error" style="font-size: 12px; color: #ff6b6b; line-height: 1.4; min-height: 17px;"></div>
+            <div id="handle-setup-error" style="font-size: 12px; color: var(--c-loss); line-height: 1.4; min-height: 17px;"></div>
             <div class="modal-buttons" style="margin-top: 5px;">
                 <button class="btn-cyan" id="handle-setup-save" onclick="window.saveHandleSetup()">Save Handle</button>
                 <button class="btn-dark" id="handle-setup-skip" style="font-size: 15px;" onclick="window.skipHandleSetup()">Skip For Now</button>
@@ -1691,7 +1754,7 @@
 
     <!-- HOW TO PLAY MODAL — the full reference, open anytime from the Menu -->
     <div id="howto-modal" class="modal-overlay">
-        <div class="modal-box" style="max-width: 440px; text-align: left; border-color: var(--c-gauntlet); box-shadow: 0 0 20px var(--c-gauntlet);">
+        <div class="modal-box" style="max-width: 440px; text-align: left; border-color: var(--c-gauntlet); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="text-align: center; color: var(--c-gauntlet);">How To Play</h2>
 
             <div style="font-size: 13px; line-height: 1.6; color: var(--c-ink-2);">
@@ -1756,7 +1819,7 @@
 
     <!-- SIGN-UP NUDGE — contextual, guest-only, see maybeShowSignupNudge -->
     <div id="signup-nudge-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: 0 0 20px var(--c-correct); max-width: 360px;">
+        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: var(--c-shadow); max-width: 360px;">
             <h2 class="modal-title" style="color: var(--c-correct);">Don't Lose This!</h2>
             <p id="signup-nudge-reason" style="color: var(--c-ink); font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
             <p id="signup-nudge-body" style="color: var(--c-ink-3); font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
@@ -1769,7 +1832,7 @@
 
     <!-- CHALLENGES MODAL -->
     <div id="challenges-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 340px; border-color: var(--c-present); box-shadow: 0 0 20px var(--c-present);">
+        <div class="modal-box" style="min-width: 340px; border-color: var(--c-present); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="color: var(--c-present);">Challenges</h2>
             <div class="tabs">
                 <button class="tab-btn active" id="tab-chal-daily" onclick="window.renderChallenges('daily')">Daily</button>
@@ -1784,7 +1847,7 @@
 
     <!-- SHOP MODAL -->
     <div id="shop-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 340px; border-color: var(--c-clash); box-shadow: 0 0 20px var(--c-clash);">
+        <div class="modal-box" style="min-width: 340px; border-color: var(--c-clash); box-shadow: var(--c-shadow);">
             <h2 class="modal-title" style="color: var(--c-clash);">Item Shop</h2>
             <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">Wallet: <span id="shop-bank-display" style="color: var(--c-present);">0</span> pts</div>
             
@@ -1889,7 +1952,7 @@
                 </div>
 
                 <div style="font-size: 14px; margin: 18px 0 8px; color: var(--c-gauntlet); text-transform: uppercase; text-align: center;">Today</div>
-                <div id="stat-gauntlet-today" style="text-align: center; font-size: 13px; color: #e8d5ff;">Checking...</div>
+                <div id="stat-gauntlet-today" style="text-align: center; font-size: 13px; color: var(--c-ink-3);">Checking...</div>
             </div>
 
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
@@ -1899,7 +1962,7 @@
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
-            <h2 class="modal-title" style="color: var(--c-ink); text-shadow: 0 0 10px var(--c-ink);">Settings</h2>
+            <h2 class="modal-title" style="color: var(--c-ink);">Settings</h2>
             <div class="modal-stats" style="text-align: left;">
                 <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
                     <span>Sound Effects</span>
@@ -2502,7 +2565,7 @@
         function renderDailyBoardRows(rows, emptyText) {
             document.getElementById("daily-board-list").innerHTML =
                 rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.score, r.equipped)).join("")
-                || `<div style="color:#666;">${escapeHtml(emptyText)}</div>`;
+                || `<div style="color:var(--c-ink-4);">${escapeHtml(emptyText)}</div>`;
         }
 
         // Your own line, for when you are playing but not on the board. Only
@@ -5782,7 +5845,7 @@
                         const change = changes[s.uid] || { payout: 0, eloChange: 0 };
                         const isWin = winners.includes(s.uid);
                         let mmrText = isPublicMatch ? (change.eloChange >= 0 ? `+${change.eloChange} FFA MMR` : `${change.eloChange} FFA MMR`) : "Unranked";
-                        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "#332b00" : "var(--c-raised)"}; border:1px solid ${isWin ? "var(--c-ffa)" : "var(--c-line-2)"};">
+                        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px; margin-bottom:6px; border-radius:5px; background:${mine ? "rgba(138, 107, 38, .12)" : "var(--c-raised)"}; border:1px solid ${isWin ? "var(--c-ffa)" : "var(--c-line-2)"};">
                             <div><b>#${placeNum}</b> ${escapeHtml(s.name)}${mine ? " (you)" : ""}${isLeaver ? " <span style=\"color:var(--c-loss);\">(left)</span>" : ""}</div>
                             <div style="text-align:right;"><div>${s.score.toLocaleString()} pts</div><div style="font-size:11px; color:${change.payout > 0 ? "var(--c-endless)" : "var(--c-ink-3)"};">+${change.payout.toLocaleString()} pts &nbsp; ${mmrText}</div></div>
                         </div>`;
@@ -6333,11 +6396,7 @@
                 let tile = document.getElementById("tile-" + currentRow + "-" + j);
                 if (tile) {
                     tile.innerText = currentGuess[j] || "";
-                    if (currentGuess[j]) {
-                        tile.style.borderColor = "#565758";
-                    } else {
-                        tile.style.borderColor = "#3a3a3c";
-                    }
+                    tile.classList.toggle("typed", !!currentGuess[j]);
                 }
             }
             checkDangerRow();
