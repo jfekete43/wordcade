@@ -356,6 +356,43 @@ ok('no preset phrase is longer than the free-text limit',
    CHAT_PRESETS.every((p) => p.length <= CHAT_TEXT_MAX),
    JSON.stringify(CHAT_PRESETS.filter((p) => p.length > CHAT_TEXT_MAX)));
 
+// ---- one palette, eight copies of it -------------------------------------
+// The game page and the seven static pages are separate files served straight
+// off GitHub Pages with no build step, so there is nowhere shared to put the
+// palette. Eight inline copies is the cheapest honest answer — a stylesheet
+// request on a page this small costs more than it saves — but eight copies
+// drift. This is what stops them: change :root in index.html without copying
+// it across and the build fails here rather than the About page quietly
+// staying on last season's colours.
+{
+  const PAGES = ['index.html', 'about.html', 'faq.html', 'how-to-play.html',
+                 'strategy.html', '404.html', 'privacy.html', 'terms.html'];
+  const roots = {};
+  for (const p of PAGES) {
+    const src = fs.readFileSync(REPO(p), 'utf8').replace(/\r\n/g, '\n');
+    const m = src.match(/:root \{[\s\S]*?\n        \}/);
+    roots[p] = m ? m[0] : null;
+    ok(`${p} declares the palette`, !!m);
+  }
+  const base = roots['index.html'];
+  for (const p of PAGES.slice(1)) {
+    ok(`${p}'s palette is identical to index.html's`, roots[p] === base,
+       roots[p] === base ? '' : 'differs');
+  }
+  // A page that carries the tokens but still paints itself with a literal is
+  // the same bug wearing a disguise, so check the stylesheets are actually
+  // USING them. The exceptions are deliberate and named: brand marks, and the
+  // shop preview that stays black on purpose.
+  const ALLOWED = /#(0a0a0a|fff|3c4043|e8eaed|0072B2|E69F00|5865F2|FF5E5B|4285F4|34A853|FBBC05|EA4335)\b/gi;
+  for (const p of PAGES.slice(1)) {
+    const src = fs.readFileSync(REPO(p), 'utf8').replace(/\r\n/g, '\n');
+    const style = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
+    const afterRoot = style.slice(style.indexOf('}', style.indexOf('--c-shadow')));
+    const stray = (afterRoot.replace(ALLOWED, '').match(/#[0-9a-fA-F]{3,6}\b/g) || []);
+    ok(`${p} paints with tokens, not literals`, stray.length === 0, stray.join(' '));
+  }
+}
+
 let failed = 0;
 for (const c of t) { if (!c.cond) failed++; console.log(`${c.cond ? 'PASS' : 'FAIL'}  ${c.name}${c.detail ? '   [' + c.detail + ']' : ''}`); }
 console.log(`\n${t.length - failed}/${t.length} passed`);
