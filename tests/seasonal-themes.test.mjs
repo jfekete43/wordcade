@@ -187,7 +187,14 @@ ck('the row names the active season', /id="settings-season-note"/.test(html));
 // ---- every season has CSS, and it is chrome only --------------------------
 for (const s of Seasons.TABLE) {
   ck(`${s.id}: has a body rule`, new RegExp(`body\\.season-${s.id} \\{`).test(html));
-  ck(`${s.id}: retints the title`, new RegExp(`body\\.season-${s.id} \\.arcade-title \\{`).test(html));
+  // A season used to carry its own .arcade-title rule, so this asked for one
+  // per season. There is a single rule for all eight now, reading --c-season,
+  // and what matters is that the season DECLARES the token — the rendered
+  // colour is measured further down, in a browser, which is the real check.
+  ck(`${s.id}: declares its accent`,
+     new RegExp(`body\\.season-${s.id} \\{[^}]*--c-season:`).test(html.replace(/\r\n/g, '\n')));
+  ck(`${s.id}: retints the paper`,
+     new RegExp(`body\\.season-${s.id} \\{[^}]*--c-page:`).test(html.replace(/\r\n/g, '\n')));
 }
 // The rule the feature rests on. A theme that recoloured these would also break
 // colorblind mode, which overrides .correct/.present as a matched pair.
@@ -205,8 +212,14 @@ const block = (() => {
   }
   return out;
 })();
-ck('found the seasonal CSS rules', block.length > 2000 && (block.match(/body\.season-/g) || []).length >= 24,
+ck('found the seasonal CSS rules', block.length > 800 && (block.match(/body\.season-/g) || []).length >= 16,
    `${block.length} chars, ${(block.match(/body\.season-/g) || []).length} rules`);
+// The floor used to be 2,000 chars and 24 rules, which was really a floor on
+// the tiled decoration. That is gone: a season is a paper tint, an accent and
+// an emoji. This is the rule that keeps it gone — a background-image on body
+// is exactly what came back looking like dirt on paper.
+ck('no season paints a background image', !/background-image/.test(block),
+   (block.match(/background-image[^;]*/) || [''])[0].slice(0, 80));
 for (const sel of ['.correct', '.present', '.absent', '.mode-clash', '.mode-ffa', '.mode-gauntlet', '.cash-out-btn']) {
   ck(`no season touches ${sel}`, !block.includes(sel), sel);
 }
@@ -290,74 +303,42 @@ const overflow = await wide.evaluate((ids) => {
 await wide.close();
 ck('no season makes the page scroll sideways at 320px', overflow.length === 0, overflow.join(','));
 
-// ---- decoration has to survive a scroll ---------------------------------
-// Halloween's webs and bats sat once near the header. background-attachment:
-// fixed was meant to hold them in the viewport, and mobile browsers very
-// largely ignore it — so on a phone the season vanished the moment you
-// scrolled down to play, which is exactly where you spend the whole game.
+// ---- a season has to be visible, and only in the two places it owns ------
+// There used to be a block here checking that Halloween's tiled cobwebs and
+// bats survived a scroll — that they repeated down the page on a sane pitch,
+// that neither was stretched to fake its gap, and that the right-hand web was
+// mirrored rather than a second copy radiating from thin air. All of that was
+// real and all of it is gone with the decoration itself: tiled line art reads
+// as atmosphere on black and as dirt on paper.
 //
-// The fix is to tile them, which works whether fixed is honoured or not. This
-// checks it the way the player meets it: fixed turned OFF, scrolled to the
-// board, asking whether any decoration is on screen.
-const deco = await browser.newPage({ viewport: { width: 390, height: 800 } });
-await deco.setContent(markup);
-const seen = await deco.evaluate(async () => {
-  document.body.className = 'season-halloween';
-  // Reproduce the mobile behaviour rather than trusting the desktop one.
-  document.body.style.backgroundAttachment = 'scroll';
-  const cs = getComputedStyle(document.body);
-  const layers = cs.backgroundImage.split(/,(?![^(]*\))/).map((x) => x.trim());
-  const repeats = cs.backgroundRepeat.split(',').map((x) => x.trim());
-  const sizes = cs.backgroundSize.split(',').map((x) => x.trim());
-  const art = layers.map((l, i) => ({ i, l, repeat: repeats[i], size: sizes[i] }))
-    .filter((x) => x.l.startsWith('url('));
-  return { art, docHeight: document.documentElement.scrollHeight, viewport: window.innerHeight };
-});
-await deco.close();
+// What replaces it is the question that actually matters now. A season is a
+// paper tint and one accent. If the accent does not reach the title, or two
+// seasons land on the same colour, the feature is invisible and should not
+// exist. Measured in a browser rather than read off the source, because the
+// source now has one rule for all eight.
+const tint = await browser.newPage({ viewport: { width: 390, height: 800 } });
+await tint.setContent(markup);
+const titles = await tint.evaluate((ids) => {
+  const out = {};
+  const el = document.querySelector('.arcade-title');
+  document.body.className = '';
+  out.base = getComputedStyle(el).color;
+  for (const id of ids) {
+    document.body.className = 'season-' + id;
+    out[id] = getComputedStyle(el).color;
+  }
+  document.body.className = '';
+  return out;
+}, Seasons.TABLE.map((s) => s.id));
+await tint.close();
 
-ck('Halloween draws its decoration as image layers', seen.art.length >= 3, String(seen.art.length));
-const notTiled = seen.art.filter((a) => !/repeat-y|^repeat$/.test(a.repeat));
-ck('every Halloween art layer tiles down the page', notTiled.length === 0,
-   notTiled.map((a) => a.repeat).join(' | '));
-
-// A tile has to be tall enough to read as decoration rather than wallpaper,
-// and short enough to appear more than once on a phone screen.
-for (const a of seen.art) {
-  const h = Number((a.size.match(/(\d+(?:\.\d+)?)px\s*$/) || [])[1]);
-  ck(`a Halloween layer repeats on a sane pitch (${a.size})`,
-     h > 200 && h < seen.viewport, String(h));
+for (const s of Seasons.TABLE) {
+  ck(`${s.id}: the title actually takes the season's colour`,
+     titles[s.id] && titles[s.id] !== titles.base, `${titles[s.id]} vs base ${titles.base}`);
 }
-// And the art must not be stretched to achieve that spacing: the gap is baked
-// into the viewBox, so both axes scale by the same factor.
-// Taken from inside the Halloween rule, in source order, which is the order
-// the computed background layers come back in. This used to pick them out by
-// their stroke colours — which is a thing the theme is allowed to change, and
-// did: a repaint moved the web to a darker purple and the filter silently
-// matched one layer instead of three, so layer 0 was measured against the
-// bats' viewBox and the mirror check found nothing to count.
-const hwStart = html.indexOf('body.season-halloween {');
-const hwEnd = html.indexOf('body.season-halloween .arcade-title', hwStart);
-if (hwStart === -1 || hwEnd === -1) throw new Error('could not slice the Halloween rule');
-const hwRule = html.slice(hwStart, hwEnd);
-const artSvgs = [...hwRule.matchAll(/url\("data:image\/svg\+xml,([^"]*)"\)/g)]
-  .map((m) => decodeURIComponent(m[1]));
-ck('the Halloween art was found to measure', artSvgs.length >= 3, String(artSvgs.length));
-const ratios = artSvgs.map((d) => {
-  const vb = (d.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
-  return vb.length === 2 ? vb[1] / vb[0] : null;
-});
-seen.art.forEach((a, i) => {
-  const m = a.size.match(/(\d+(?:\.\d+)?)px\s+(\d+(?:\.\d+)?)px/);
-  if (!m || ratios[i] == null) return;
-  const drawn = Number(m[2]) / Number(m[1]);
-  ck(`Halloween layer ${i} is not stretched to make its gap`,
-     Math.abs(drawn - ratios[i]) < 0.02, `drawn ${drawn.toFixed(3)} vs viewBox ${ratios[i].toFixed(3)}`);
-});
-// The right-hand web is mirrored, or repeating it down the right edge leaves
-// every copy radiating from thin air.
-ck('the right-hand web is mirrored rather than a second copy of the left',
-   artSvgs.filter((d) => /scale\(-1,1\)/.test(d)).length === 1,
-   String(artSvgs.filter((d) => /scale\(-1,1\)/.test(d)).length));
+const distinct = new Set(Seasons.TABLE.map((s) => titles[s.id]));
+ck('every season has its own accent, none shared',
+   distinct.size === Seasons.TABLE.length, `${distinct.size} distinct of ${Seasons.TABLE.length}`);
 
 await browser.close();
 for (const c of t) console.log(c.cond ? 'ok  ' : 'FAIL', c.name, c.cond ? '' : '— ' + c.detail);
