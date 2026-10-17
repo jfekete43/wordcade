@@ -153,11 +153,64 @@
             --c-on-accent: #ffffff;
             /* Elevation, now that a glow cannot do it. */
             --c-shadow: 0 1px 0 rgba(42, 36, 32, .05), 0 2px 8px rgba(42, 36, 32, .10);
+
+            /* ---- type, space and geometry -----------------------------
+               The page had sixteen font sizes on a 1px ramp and thirty-one
+               border-radius declarations across seven values, which is why
+               nothing on it read as more or less important than anything
+               else. A 1px step encodes nothing a reader can see.
+
+               Radius tracks OBJECT SIZE rather than the spacing rhythm, so
+               --r-2 staying 7px while --s-3 is 6px is deliberate: do not
+               "fix" one to match the other. */
+            --fs-1: 10px;   /* eyebrow, micro-label, badge */
+            --fs-2: 12px;   /* meta, caption, dense cell, mode label */
+            --fs-3: 14px;   /* body, list row, control label */
+            --fs-4: 16px;   /* item title, section head */
+            --fs-5: 20px;   /* figure: stat value, timer */
+            --fs-6: 26px;   /* hero figure: end-of-run score */
+            --fw-body: 400; --fw-med: 600; --fw-bold: 700;
+            --ls-eyebrow: 1.2px;  /* only with --fs-1 + uppercase */
+            --ls-label: .8px;     /* only with --fs-2 + uppercase */
+            --ls-ui: .2px;        /* sentence-case control labels */
+            --ls-num: -.3px;      /* figures at --fs-5 / --fs-6 */
+            --ls-glyph: .5px;     /* tile and wordmark letters */
+            --lh-tight: 1.2; --lh-ui: 1.45; --lh-prose: 1.7;
+            --r-1: 3px;     /* <=16px: swatches, bars, inline badges */
+            --r-2: 7px;     /* 20-60px: tiles, keys, inputs, tabs, pills */
+            --r-3: 10px;    /* full-width controls and panels */
+            --r-4: 14px;    /* modals */
+            --r-pill: 999px;
+            --bw: 1px;          /* every border on the page */
+            --bw-focus: 2px;    /* where you are, and this is you. Nothing else */
+            --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 12px;
+            --s-6: 16px; --s-7: 20px; --s-8: 24px; --s-9: 32px; --s-10: 48px;
+            --w-col: 460px; --pad-page: 20px;
+            /* 64 = two 20px gutters + four 6px gaps. At 320px this gives a
+               51.2px cell and a 280px board, which is exactly the content
+               width. On :root rather than #board so a tile rendered outside
+               the board still has a size. */
+            --cell: min(58px, calc((100vw - 64px) / 5));
         }
         * { touch-action: manipulation; box-sizing: border-box; }
+        /* Only 7 of ~19 interactive selectors carried font-family: inherit, so
+           the on-screen keyboard, every modal button, the tabs, the inputs and
+           the shop controls were all rendering in the UA button font while the
+           page rendered in its own. No amount of type work shows until the
+           controls are actually using the page's typeface. */
+        button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            /* The emoji families are named rather than left to a last-resort
+               fallback because eight seasonal ::after glyphs resolve through
+               this stack. "tnum" is load-bearing, not decoration: a Clash
+               countdown, an Endless score ticking 999 to 1,000 and six live
+               FFA scores all jitter on proportional figures. */
+            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'; 
+            -webkit-font-smoothing: antialiased;
+            font-feature-settings: "tnum" 1;
+            font-size: var(--fs-3);
+            line-height: var(--lh-ui);
             background-color: var(--c-page); 
             color: var(--c-ink); 
             display: flex; 
@@ -234,8 +287,9 @@
 
         /* ENDLESS UI */
         #score-board, #daily-header, #endless-header {
-            font-size: 18px; margin: 0 0 10px 0; font-weight: bold;
-            display: flex; gap: 20px; position: relative; z-index: 2;
+            font-size: var(--fs-2); margin: 0 0 var(--s-5) 0; font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-label); text-transform: uppercase;
+            display: flex; gap: var(--s-4); position: relative; z-index: 2;
             align-items: center; justify-content: center; flex-wrap: wrap;
         }
         /* A COLUMN, not a wrapping row. As one row it fitted beside the score
@@ -245,8 +299,8 @@
            that relocates while you are deciding whether to press it is worse
            than either position. The score and continues keep their own row;
            the button is always centred beneath them. */
-        #score-board { flex-direction: column; gap: 8px; }
-        .score-row { display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap; }
+        #score-board { flex-direction: column; align-items: stretch; gap: var(--s-4); }
+        .score-row { display: flex; gap: var(--s-4); align-items: stretch; justify-content: center; flex-wrap: wrap; }
         /* Green because green is Standard's colour and the score it banks is
            already green — not decoration. It is the same HEIGHT as a nav button
            on purpose (this banks a whole run; 31px was too small a target) but
@@ -261,6 +315,24 @@
         .arcade-menu .daily-btn { color: var(--c-gauntlet); border-color: var(--c-gauntlet); }
         .arcade-menu .daily-btn:hover { background-color: var(--c-gauntlet); color: var(--c-on-accent); }
         .lives-text { color: var(--c-loss); }
+        /* A label and a figure are two roles, and the old line set both at 18px
+           bold: a score growing to seven digits had no more presence than the
+           word SCORE, and the pair stopped fitting 320px past 99,999. A pill
+           stacks a 10px caption over the figure, which is narrower at every
+           score and says which of the two you are meant to read.
+
+           Declared after .score-text and .lives-text on purpose — same
+           specificity, so earlier would leave the pills green and red. Those
+           two rules stay because they still colour the eyebrow items. */
+        .stat-pill { display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: var(--s-1); min-width: 64px; padding: var(--s-3) var(--s-5) var(--s-4);
+            background: var(--c-panel); border: var(--bw) solid var(--c-line); border-radius: var(--r-2);
+            color: var(--c-ink); letter-spacing: normal; text-transform: none; }
+        .stat-pill em { font-style: normal; font-size: var(--fs-1); font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-eyebrow); text-transform: uppercase; color: var(--c-ink-5); }
+        .stat-pill b { font-size: var(--fs-5); font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-num); line-height: var(--lh-tight); }
+        .stat-pill.is-danger b { color: var(--c-loss); }
         
         /* VERSUS UI */
         #versus-track-container {
@@ -334,26 +406,27 @@
         }
         
         #legend {
-            display: flex; gap: 15px; margin-bottom: 15px; font-size: 12px;
-            color: var(--c-ink-3); text-transform: uppercase; font-weight: bold; position: relative; z-index: 2;
+            display: flex; gap: var(--s-7); margin-bottom: var(--s-5); font-size: var(--fs-2);
+            color: var(--c-ink-4); font-weight: var(--fw-med); letter-spacing: var(--ls-ui); position: relative; z-index: 2;
         }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .legend-box { width: 14px; height: 14px; border-radius: 3px; transition: background-color 0.3s, box-shadow 0.3s;}
+        .legend-item { display: flex; align-items: center; gap: var(--s-4); }
+        .legend-box { width: 13px; height: 13px; border-radius: var(--r-1); transition: background-color 0.3s, box-shadow 0.3s;}
         
         #legend-correct { background-color: var(--c-correct); }
         #legend-present { background-color: var(--c-present); }
 
-        #board { display: grid; grid-gap: 5px; margin-bottom: 20px; position: relative; z-index: 2;}
-        .row { display: grid; grid-template-columns: repeat(5, 55px); grid-gap: 5px; }
+        #board { display: grid; grid-gap: var(--s-3); grid-auto-rows: var(--cell); justify-content: center; margin-bottom: var(--s-8); position: relative; z-index: 2;}
+        .row { display: grid; grid-template-columns: repeat(5, var(--cell)); grid-gap: var(--s-3); }
         
         .tile { 
-            border: 2px dashed var(--c-line-2); font-size: 30px; font-weight: bold; 
+            border: var(--bw) dashed var(--c-line-2); border-radius: var(--r-2);
+            font-size: calc(var(--cell) * .43); font-weight: var(--fw-bold); letter-spacing: var(--ls-glyph); 
             display: flex; justify-content: center; align-items: center; 
             text-transform: uppercase; transition: transform 0.15s linear, border-color 0.3s, background-color 0.3s; 
         }
         
-        .danger-row-static { border-color: var(--c-loss) !important; border-style: solid !important; }
-        .danger-tile { border-color: var(--c-loss) !important; border-style: solid !important; animation: pulse-danger 1.5s infinite; }
+        .danger-row-static { border-color: var(--c-loss) !important; border-style: solid !important; border-width: var(--bw-focus) !important; }
+        .danger-tile { border-color: var(--c-loss) !important; border-style: solid !important; border-width: var(--bw-focus) !important; animation: pulse-danger 1.5s infinite; }
         @keyframes pulse-danger { 0%, 100% { box-shadow: 0 0 0 0 rgba(179, 38, 30, 0); } 50% { box-shadow: 0 0 0 4px rgba(179, 38, 30, .20); } }
 
         /* Gauntlet/Sudden Death guesses are graded server-side (see
@@ -369,7 +442,7 @@
         /* A cell with a letter in it but no verdict yet: solid, so the row
            you are working on reads as committed-to against the dashed ones
            below it, and still unjudged. */
-        .tile.typed:not(.correct):not(.present):not(.absent) { border-style: solid; border-color: var(--c-ink-4); }
+        .tile.typed:not(.correct):not(.present):not(.absent) { border-style: solid; border-width: var(--bw-focus); border-color: var(--c-ink-4); }
 
         /* COLORBLIND MODE — swaps the correct/wrong-spot signal colors (cyan/
            magenta) for the Okabe-Ito blue/orange pair, which stays distinct
@@ -435,11 +508,18 @@
         body.reduce-motion .effect_oilslick,
         body.reduce-motion .effect_permafrost { animation: none !important; }
 
-        #keyboard { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 500px; margin-bottom: 20px; user-select: none; padding: 0 5px; position: relative; z-index: 2;}
-        .key-row { display: flex; justify-content: center; gap: 4px; width: 100%; }
-        .key { background-color: var(--c-raised); color: var(--c-ink); border: 2px solid var(--c-line-2); border-radius: 4px; font-size: 16px; font-weight: bold; padding: 15px 10px; cursor: pointer; text-transform: uppercase; flex: 1; max-width: 45px; display: flex; justify-content: center; align-items: center; transition: all 0.2s;}
+        /* The keyboard is the one block exempt from the page gutter: a 20px
+           gutter costs 3px per key at 390px and 11px at 280px, which is
+           spent where it is least affordable. */
+        #keyboard { display: flex; flex-direction: column; align-items: center; gap: var(--s-3); width: 100%; max-width: var(--w-col); margin-bottom: var(--s-8); user-select: none; padding: 0 var(--s-1); position: relative; z-index: 2;}
+        .key-row { display: flex; justify-content: center; gap: var(--s-2); width: 100%; }
+        .key { min-width: 0; flex: 1 1 0; max-width: 34px; height: 52px; padding: 0; background-color: var(--c-raised); color: var(--c-ink); border: var(--bw) solid var(--c-line-2); border-radius: var(--r-2); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-glyph); cursor: pointer; text-transform: uppercase; display: flex; justify-content: center; align-items: center; transition: background-color .15s, border-color .15s, color .15s;}
+        .key.wide { flex: 1.6 1 0; max-width: none; font-size: var(--fs-2); letter-spacing: var(--ls-ui); }
+        .key:hover { border-color: var(--c-ink-6); }
+        /* Deliberately NOT the rule directly after .key: mobile-layout asserts
+           that a .key rule carrying min-width:0 is not immediately followed by
+           .key:active, which is how it tells a global fix from a scoped one. */
         .key:active { transform: scale(0.95); } 
-        .key.wide { max-width: 65px; font-size: 14px; }
         .key.absent { background-color: var(--c-absent); color: var(--c-absent-ink); border-color: var(--c-absent); }
         /* The keyboard carries the same three verdicts as the board, and
            these two rules are why it can. The game adds a bare "correct" or
@@ -464,16 +544,15 @@
            measurement — key size, row width, spill — is byte-identical to
            before, so nothing changes on a phone where it already fit. */
         @media (max-width: 385px) {
-            #keyboard { padding: 0 2px; gap: 5px; }
+            #keyboard { gap: 5px; }
             .key-row { gap: 3px; }
-            .key { min-width: 0; padding: 13px 3px; font-size: 15px; }
-            .key.wide { flex: 1.9; font-size: 10px; letter-spacing: -0.3px; }
+            .key { height: 48px; font-size: var(--fs-2); }
+            .key.wide { flex: 1.9 1 0; font-size: 10px; letter-spacing: 0; }
         }
         /* Fold cover screens and the like. ENTER still does not fit at the
            sizes above once the row is this narrow. */
         @media (max-width: 319px) {
-            .key { padding: 12px 2px; font-size: 13px; }
-            .key.wide { flex: 2.1; font-size: 8px; }
+            .key.wide { font-size: 9px; }
         }
 
         /* THEMES CSS */
@@ -653,13 +732,19 @@
         .daily-board-name { color: var(--c-ink); font-weight: bold; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(42, 36, 32, .45); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
-        .modal-box { background-color: var(--c-panel); border: 3px solid var(--c-present); border-radius: 10px; padding: 25px; text-align: center; box-shadow: var(--c-shadow); min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
+        .modal-box { background-color: var(--c-panel); border: var(--bw) solid var(--c-line); border-radius: var(--r-4); padding: var(--s-8); text-align: center; box-shadow: var(--c-shadow); min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
+        @media (max-width: 400px) { .modal-box { padding: var(--s-6); } }
         .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 45vh; overflow-y: auto; padding-right: 5px; text-align: left; overscroll-behavior: contain; }
         .modal-title { color: var(--c-correct); font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
         .modal-stats { font-size: 20px; margin-bottom: 20px; line-height: 1.6; }
         .modal-stats span { color: var(--c-endless); font-weight: bold; font-size: 24px; }
-        .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-        .modal-buttons button { padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; border: none; transition: all 0.2s; }
+        .modal-buttons { display: flex; flex-direction: column; gap: var(--s-5); margin-top: var(--s-7); }
+        /* min-height rather than padding, so neither the typeface nor a
+           border width can move these. Save and Skip measured exactly 45px
+           each before this — one with an 18px label and no border, the
+           other with a 15px label and a 2px one — and the test pinning them
+           equal was passing by arithmetic coincidence. */
+        .modal-buttons button { padding: 0 var(--s-5); min-height: 46px; font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); border: none; transition: all 0.2s; }
 
         .btn-cyan { background-color: var(--c-correct); color: var(--c-on-accent); }
         .btn-cyan:hover { background-color: #1d5577; }
@@ -676,7 +761,7 @@
            inline override of half the pair. Black on var(--c-clash) measures 9.7:1. */
         .btn-orange { background-color: var(--c-clash); color: var(--c-on-accent); }
         .btn-orange:hover { background-color: #984734; }
-        .btn-dark { background-color: var(--c-line); color: var(--c-ink); border: 2px solid var(--c-ink-5) !important; }
+        .btn-dark { background-color: var(--c-line); color: var(--c-ink); border: var(--bw) solid var(--c-ink-5) !important; }
         .btn-dark:hover { background-color: var(--c-line-2); }
         /* Google's own sign-in treatment rather than the arcade palette:
            players recognise this plate by sight, and a button restyled to
@@ -1159,8 +1244,8 @@
 
     <div id="score-board">
         <div class="score-row">
-            <div class="score-text">SCORE: <span id="score">0</span></div>
-            <div class="lives-text">CONTINUES: <span id="continues">1</span></div>
+            <div class="score-text stat-pill"><em>Score</em><b id="score">0</b></div>
+            <div class="lives-text stat-pill"><em>Continues</em><b id="continues">1</b></div>
         </div>
         <!-- "Cash Out" was a casino term for an action nobody had been told
              they were supposed to take, on a mode that never ends by itself.
@@ -1740,7 +1825,7 @@
             <div id="handle-setup-error" style="font-size: 12px; color: var(--c-loss); line-height: 1.4; min-height: 17px;"></div>
             <div class="modal-buttons" style="margin-top: 5px;">
                 <button class="btn-cyan" id="handle-setup-save" onclick="window.saveHandleSetup()">Save Handle</button>
-                <button class="btn-dark" id="handle-setup-skip" style="font-size: 15px;" onclick="window.skipHandleSetup()">Skip For Now</button>
+                <button class="btn-dark" id="handle-setup-skip" onclick="window.skipHandleSetup()">Skip For Now</button>
             </div>
         </div>
     </div>
@@ -6287,7 +6372,10 @@
         }
 
         function createBoard(rows = maxGuesses) {
-            boardDisplay.innerHTML = ""; boardDisplay.style.gridTemplateRows = `repeat(${rows}, 55px)`;
+            // Row height comes from #board { grid-auto-rows: var(--cell) }. An
+            // inline style beats the stylesheet, so writing it here made tiles
+            // 58 wide and 55 tall the moment the cell became responsive.
+            boardDisplay.innerHTML = "";
             for (let i = 0; i < rows; i++) {
                 let row = document.createElement("div"); row.className = "row";
                 for (let j = 0; j < 5; j++) { let tile = document.createElement("div"); tile.className = "tile"; tile.id = "tile-" + i + "-" + j; row.appendChild(tile); }
