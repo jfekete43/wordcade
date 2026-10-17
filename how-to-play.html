@@ -34,20 +34,62 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121213; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
-        .container { background-color: #1a1a1d; border: 2px solid #b967ff; border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: 0 0 15px #b967ff; line-height: 1.7; font-size: 15px; }
-        h1 { color: #b967ff; text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
-        h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed #555; padding-bottom: 6px; }
-        h3 { color: #fff; font-size: 15px; margin-top: 22px; margin-bottom: 4px; }
-        a { color: #4caf50; text-decoration: none; font-weight: bold; }
-        a:hover { color: #00ffff; }
+        /* The palette, copied verbatim from index.html. These pages are
+           plain files on GitHub Pages with no build step, so there is
+           nowhere shared to put it; a test pins all eight copies byte for
+           byte instead, which is cheaper than a stylesheet request on a
+           page this small and makes drift a failing build rather than a
+           page that quietly stops matching the game. */
+        :root {
+            /* signals — the only thing a theme may never repaint */
+            --c-correct: #24688f;
+            --c-present: #9e6713;
+            --c-loss: #b3261e;
+            /* one per mode */
+            --c-endless: #4a7c59;
+            --c-gauntlet: #6b5b95;
+            --c-clash: #b5563f;
+            --c-ffa: #8a6b26;
+            /* a letter that is in no part of the word */
+            --c-absent: #c9c0ae;
+            --c-absent-ink: #635c4c;
+            /* surfaces, named for the job rather than the lightness: on paper
+               the ramp runs the other way, and "darkest to lightest" would be
+               a lie the next repaint inherits */
+            --c-page: #f7f3ea;     /* the paper everything sits on */
+            --c-panel: #ffffff;    /* cards, modals, lists */
+            --c-raised: #fbf7ee;   /* control faces: inputs, tabs, menu rows */
+            --c-line: #e6dece;     /* ordinary rules and borders */
+            --c-line-2: #d8cdb6;   /* the same, one step stronger */
+            /* ink, strongest to faintest */
+            --c-ink: #2a2420;
+            --c-ink-2: #403930;
+            --c-ink-3: #5c5447;
+            --c-ink-4: #6f675a;
+            --c-ink-5: #847c6c;
+            --c-ink-6: #a89e8c;
+            /* Ink that goes on top of a filled accent. Every accent above is
+               mid-tone on purpose, so this is white for all seven rather than
+               one rule per fill. It was --c-on-bright and black, which is the
+               same idea upside down. */
+            --c-on-accent: #ffffff;
+            /* Elevation, now that a glow cannot do it. */
+            --c-shadow: 0 1px 0 rgba(42, 36, 32, .05), 0 2px 8px rgba(42, 36, 32, .10);
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
+        .container { background-color: var(--c-panel); border: 2px solid var(--c-gauntlet); border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: 1.7; font-size: 15px; }
+        h1 { color: var(--c-gauntlet); text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
+        h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed var(--c-ink-6); padding-bottom: 6px; }
+        h3 { color: var(--c-ink); font-size: 15px; margin-top: 22px; margin-bottom: 4px; }
+        a { color: var(--c-endless); text-decoration: none; font-weight: bold; }
+        a:hover { color: var(--c-correct); }
         table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
-        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #333; }
-        th { color: #b967ff; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
-        .lede { color: #ddd; font-size: 16px; }
-        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: #666; line-height: 2; }
-        .back-btn { background-color: #333; color: white; border: 2px solid #777; padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
-        .back-btn:hover { background-color: #555; }
+        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--c-line); }
+        th { color: var(--c-gauntlet); text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        .lede { color: var(--c-ink-2); font-size: 16px; }
+        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: var(--c-ink-4); line-height: 2; }
+        .back-btn { background-color: var(--c-line); color: var(--c-ink); border: 2px solid var(--c-ink-5); padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
+        .back-btn:hover { background-color: var(--c-ink-6); }
 
         /* The .container above is width:100% PLUS 25px of padding and a 2px
            border, so on a 390px phone it rendered 404px wide inside a 350px
