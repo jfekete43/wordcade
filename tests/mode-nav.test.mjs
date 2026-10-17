@@ -53,11 +53,14 @@ const rgbOf = (tok) => {
 };
 
 const css = grab(/<style>[\s\S]*?<\/style>/, 'stylesheet').replace(/<\/?style>/g, '');
-const nav = grab(/    <nav class="arcade-menu">[\s\S]*?<\/nav>/, 'nav');
+const nav = grab(/    <nav class="arcade-menu"[\s\S]*?<\/nav>/, 'nav');
 const endlessHeader = grab(/    <div id="endless-header">[\s\S]*?\n    <\/div>/, 'endless header');
 const scoreBoard = grab(/    <div id="score-board">[\s\S]*?\n    <\/div>/, 'score board');
 // The table and the renderer, lifted whole.
-const modesSrc = 'const MODES = {' + between(html, 'const MODES = {', '\n        };', 'MODES') + '\n};';
+const modesSrc = 'const MODES = {' + between(html, 'const MODES = {', '\n        };', 'MODES') + '\n};\n'
+  // Lifted from the file rather than restated, so the slot order the renderer
+  // walks is the same one the page ships with.
+  + grab(/const MODE_ORDER = [^\n]*/, 'MODE_ORDER');
 const renderSrc = 'function renderModeNav() {' + between(html, 'function renderModeNav() {', '\n        }', 'renderModeNav') + '\n}';
 console.log('extracted from index.html:', (modesSrc + renderSrc + nav).length, 'chars');
 
@@ -83,10 +86,12 @@ function currentMode() {
 }
 ${renderSrc}
 window.setFlags = (d, v, f) => { isDailyMode = d; isVersusMode = v; isFfaMode = f; renderModeNav(); };
-window.readNav = () => [1,2,3].map((i) => {
+window.readNav = () => [1,2,3,4].map((i) => {
   const b = document.getElementById("btn-nav-" + i);
   const cs = getComputedStyle(b);
-  return { label: b.innerText.trim(), mode: b.dataset.mode, color: cs.color, shown: cs.display !== "none" };
+  return { label: b.innerText.trim(), mode: b.dataset.mode, color: cs.color,
+           bg: cs.backgroundColor, current: b.getAttribute("aria-current") === "true",
+           shown: cs.display !== "none" };
 });
 window.currentModeIs = () => currentMode();
 </script></body></html>`;
@@ -106,13 +111,27 @@ await page.waitForTimeout(120);
 
 const RGB = { endless: rgbOf('--c-endless'), gauntlet: rgbOf('--c-gauntlet'), clash: rgbOf('--c-clash'), ffa: rgbOf('--c-ffa') };
 
+const QUIET = rgbOf('--c-ink-4');
+const ON_ACCENT = rgbOf('--c-on-accent');
+
 // The markup alone, before renderModeNav has ever run. A nav that is only
-// correct once a script has run shows three blank buttons on a slow load.
+// correct once a script has run shows four blank buttons on a slow load.
 const atRest = await page.evaluate(() => window.readNav());
 eq('the shipped markup already reads as the Endless default',
-   atRest.map((b) => b.label), ['GAUNTLET', 'CLASH', 'FFA']);
-ck(atRest.every((b) => b.color === RGB[b.mode]), 'and is already coloured per mode',
-   atRest.map((b) => b.mode + ':' + b.color).join(' '));
+   atRest.map((b) => b.label), ['ENDLESS', 'GAUNTLET', 'CLASH', 'FFA']);
+// Colour used to identify the three modes you were NOT in. It identifies the
+// one you ARE in now: the current slot is filled in its own colour and the
+// other three are quiet and identical, which is the whole point of the
+// four-up row — the mode you are playing is finally the one that is marked.
+eq('and the Endless slot is already the marked one',
+   atRest.filter((b) => b.current).map((b) => b.mode), ['endless']);
+ck(atRest.find((b) => b.current).bg === RGB.endless
+   && atRest.find((b) => b.current).color === ON_ACCENT,
+   'filled in its own colour, before any script runs',
+   atRest.find((b) => b.current).bg + ' / ' + atRest.find((b) => b.current).color);
+ck(atRest.filter((b) => !b.current).every((b) => b.color === QUIET),
+   'and the other three are quiet and identical',
+   atRest.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
 
 for (const [mode, flags] of [
   ['endless', [false, false, false]],
@@ -123,20 +142,25 @@ for (const [mode, flags] of [
   const nav = await page.evaluate((f) => { window.setFlags(f[0], f[1], f[2]); return window.readNav(); }, flags);
   const here = await page.evaluate(() => window.currentModeIs());
   eq(`in ${mode}, currentMode() agrees with the flags`, here, mode);
-  // The whole point: three slots, always filled, never the mode you are in.
-  ck(nav.length === 3 && nav.every((b) => b.shown), `in ${mode}, all three slots are shown`,
+  // The whole point: four slots, always shown, and the mode you are in is
+  // the marked one rather than the missing one.
+  ck(nav.length === 4 && nav.every((b) => b.shown), `in ${mode}, all four slots are shown`,
      JSON.stringify(nav.map((b) => b.shown)));
-  ck(!nav.some((b) => b.mode === mode), `in ${mode}, the mode you are in is NOT one of the buttons`,
-     nav.map((b) => b.mode).join(','));
-  eq(`in ${mode}, the other three modes are all reachable`,
-     nav.map((b) => b.mode).sort(), ['clash', 'endless', 'ffa', 'gauntlet'].filter((m) => m !== mode).sort());
+  eq(`in ${mode}, the mode you are in IS a button, and it is the marked one`,
+     nav.filter((b) => b.current).map((b) => b.mode), [mode]);
+  eq(`in ${mode}, all four modes are reachable`,
+     nav.map((b) => b.mode).sort(), ['clash', 'endless', 'ffa', 'gauntlet']);
   ck(nav.every((b) => b.label === MODE_LABEL(b.mode)), `in ${mode}, each slot is labelled with its mode`,
      nav.map((b) => b.mode + '=' + b.label).join(' '));
-  // Colour travels with the mode, not with the button id — the thing that
-  // broke when the slots stopped being one-mode-each.
-  ck(nav.every((b) => b.color === RGB[b.mode]), `in ${mode}, each slot carries its mode's colour`,
-     nav.map((b) => b.mode + ':' + b.color).join(' '));
-  ck(new Set(nav.map((b) => b.mode)).size === 3, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
+  // Colour travels with the mode, not with the button id. It now arrives as
+  // a FILL on the current slot rather than as ink on the other three.
+  ck(nav.find((b) => b.current).bg === RGB[mode],
+     `in ${mode}, the marked slot is filled in that mode's colour`,
+     nav.find((b) => b.current).bg + ' want ' + RGB[mode]);
+  ck(nav.filter((b) => !b.current).every((b) => b.color === QUIET),
+     `in ${mode}, the other three stay quiet`,
+     nav.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
+  ck(new Set(nav.map((b) => b.mode)).size === 4, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
 }
 function MODE_LABEL(m) {
   return { endless: 'ENDLESS', gauntlet: 'GAUNTLET', clash: 'CLASH', ffa: 'FFA' }[m];
@@ -149,22 +173,40 @@ for (const [mode, flags] of [['endless', [false,false,false]], ['gauntlet', [tru
   orders[mode] = (await page.evaluate((f) => { window.setFlags(f[0], f[1], f[2]); return window.readNav(); }, flags))
     .map((b) => b.mode);
 }
-eq('the slots keep one stable order across every mode', orders,
-   { endless: ['gauntlet', 'clash', 'ffa'], gauntlet: ['endless', 'clash', 'ffa'],
-     clash: ['endless', 'gauntlet', 'ffa'], ffa: ['endless', 'gauntlet', 'clash'] });
+// Stronger than it used to be: "stable" meant the relative order survived
+// while the SET changed. Now a mode's button never moves at all.
+const ORDER = ['endless', 'gauntlet', 'clash', 'ffa'];
+eq('a mode\'s slot never moves, in any mode', orders,
+   { endless: ORDER, gauntlet: ORDER, clash: ORDER, ffa: ORDER });
 
 // The nav must still fit on a phone now that no slot is ever hidden.
-for (const width of [320, 360, 390]) {
+// The harness injects index.html's whole stylesheet, which carries
+// body { overflow-x: hidden } — so scrollWidth > innerWidth can NEVER fire
+// here and the old check was green against real overflow. Measure each
+// button's own label against its own box instead, which is what actually
+// breaks, and include the fold-cover width the old list skipped.
+for (const width of [280, 320, 360, 390, 428]) {
   const p = await browser.newPage({ viewport: { width, height: 844 } });
   await p.goto('file://' + tmp);
   await p.waitForTimeout(100);
-  const r = await p.evaluate(() => ({
-    scrolls: document.documentElement.scrollWidth > window.innerWidth,
-    rows: new Set([...document.querySelectorAll('.arcade-menu button')]
-      .map((b) => Math.round(b.getBoundingClientRect().top))).size,
-  }));
-  ck(!r.scrolls, `${width}px: four nav buttons do not scroll the page sideways`, String(r.scrolls));
-  ck(r.rows <= 2, `${width}px: the nav stays within two rows`, String(r.rows));
+  const r = await p.evaluate(() => {
+    const btns = [...document.querySelectorAll('.arcade-menu button')];
+    const spill = btns.map((b) => {
+      const cs = getComputedStyle(b);
+      const inner = b.getBoundingClientRect().width
+        - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+        - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+      const rr = document.createRange(); rr.selectNodeContents(b);
+      return +(rr.getBoundingClientRect().width - inner).toFixed(1);
+    });
+    return {
+      spill, worst: Math.max(...spill),
+      rows: new Set(btns.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+    };
+  });
+  ck(r.worst <= 0, `${width}px: no nav label spills out of its own button`, r.spill.join(' '));
+  ck(r.rows === (width < 320 ? 2 : 1),
+     `${width}px: the nav is ${width < 320 ? 'two rows' : 'one row'}`, String(r.rows));
   await p.close();
 }
 await browser.close();

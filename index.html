@@ -223,53 +223,97 @@
             transition: background-color 0.3s;
         }
 
+        /* The topbar: wordmark left, Menu right. body is a centred column, so
+           this needs its own width or space-between has nothing to span. */
+        .arcade-head { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--s-5); margin: var(--s-2) 0 var(--s-5); position: relative; z-index: 2; }
+        /* Eight tiles and a Menu button come to more than a 280px screen at a
+           fixed size, so the tile is derived from the viewport. 142 is a budget,
+           not a round number: 40 (gutter) + 70 (the Menu button) + 21 (seven 3px
+           gaps) + 11 slack. Change the Menu label or its size and recompute it.
+
+           `color` stays HERE rather than on the tile, and the tile inherits it.
+           That is what lets a season reach the letters. */
         .arcade-title {
-            font-size: 40px; 
-            margin: 10px 0 20px 0;
+            display: flex; gap: 3px; align-items: center;
+            margin: 0;
             color: var(--c-ink);
-            letter-spacing: 4px;
-            font-style: italic;
-            text-transform: uppercase;
+            --wm: min(26px, calc((100vw - 142px) / 8));
             position: relative;
             z-index: 2;
         }
+        .arcade-title .wm-t { width: var(--wm); height: calc(var(--wm) * 1.08);
+            border-radius: 5px; background: var(--c-raised); border: var(--bw) solid var(--c-line-2);
+            color: inherit; box-shadow: var(--c-shadow); display: grid; place-items: center;
+            font-size: calc(var(--wm) * .58); font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-glyph); line-height: 1; }
+        .menu-btn { background: transparent; border: var(--bw) solid var(--c-line-2);
+            color: var(--c-ink-4); border-radius: var(--r-2); height: 34px; padding: 0 var(--s-5);
+            font-size: var(--fs-2); font-weight: var(--fw-med); letter-spacing: var(--ls-ui);
+            cursor: pointer; flex: none; transition: background-color .15s, color .15s; }
+        .menu-btn:hover { background-color: var(--c-panel); color: var(--c-ink); }
 
-        .arcade-menu { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; position: relative; z-index: 2;}
+        /* minmax(0, 1fr), not 1fr: with plain 1fr the min-content floor of
+           GAUNTLET widens its column and squeezes the other three, which
+           hides real overflow behind body's overflow-x: hidden. */
+        .arcade-menu { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
+            display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2);
+            margin-bottom: var(--s-6); position: relative; z-index: 2;}
         .arcade-menu button {
-            background-color: var(--c-raised); color: var(--c-correct); border: 2px solid var(--c-correct);
-            padding: 8px 12px; font-weight: bold; cursor: pointer; border-radius: 5px;
-            text-transform: uppercase; transition: all 0.2s; font-size: 14px;
+            background-color: var(--c-raised); color: var(--c-ink-4);
+            border: var(--bw) solid var(--c-line-2);
+            padding: var(--s-5) var(--s-1); font-weight: var(--fw-bold); cursor: pointer;
+            border-radius: var(--r-3); letter-spacing: var(--ls-ui); font-size: var(--fs-2);
+            white-space: nowrap; overflow: hidden;
+            transition: background-color .15s, border-color .15s, color .15s;
         }
-        .arcade-menu button:hover { background-color: var(--c-correct); color: var(--c-on-accent); }
-        /* Four modes, one row. With Cash Out gone the nav is exactly the four
-           modes, and it should read as one group rather than three-and-a-
-           straggler. Trimmed just enough to fit four across at 320px; 280px
-           still wraps 3+1, which is the fold-cover case and not worth
-           distorting the other seven widths for. */
         @media (max-width: 385px) {
-            .arcade-menu { gap: 6px; }
-            .arcade-menu button { padding: 8px 9px; font-size: 13px; }
+            .arcade-menu { gap: 3px; }
+            /* GAUNTLET is the only label that ever binds, and it binds here.
+               Measured in the widest stack available (DejaVu in CI; a real
+               Android or iPhone gains about 5px), 11px still spills 3.1px
+               at 320px. 10px fits with room. */
+            .arcade-menu button { padding: var(--s-5) var(--s-1); font-size: var(--fs-1); letter-spacing: 0; }
+        }
+        /* Four across cannot hold GAUNTLET at any legible size on a fold cover,
+           so below 320px the row goes 2x2 rather than shrinking the type again.
+           This replaces the 3+1 wrap the old flex row produced. */
+        @media (max-width: 319px) {
+            .arcade-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         
-        /* The three mode slots. Each slot is whichever mode it currently
-           points at, so the colour has to travel with the mode rather than
-           with the button id — hence a class per mode instead of the old
-           per-id rules. renderModeNav() sets the class; nothing else does. */
-        .arcade-menu .mode-endless { color: var(--c-endless); border-color: var(--c-endless); }
-        .arcade-menu .mode-endless:hover { background-color: var(--c-endless); color: var(--c-on-accent); }
-        .arcade-menu .mode-gauntlet { color: var(--c-gauntlet); border-color: var(--c-gauntlet); }
-        .arcade-menu .mode-gauntlet:hover { background-color: var(--c-gauntlet); color: var(--c-on-accent); }
-        .arcade-menu .mode-clash { color: var(--c-clash); border-color: var(--c-clash); }
-        .arcade-menu .mode-clash:hover { background-color: var(--c-clash); color: var(--c-on-accent); }
-        .arcade-menu .mode-ffa { color: var(--c-ffa); border-color: var(--c-ffa); }
-        .arcade-menu .mode-ffa:hover { background-color: var(--c-ffa); color: var(--c-on-accent); }
+        /* Four slots, one per mode, in the table's order — a mode's button
+           never moves now, so only aria-current changes between renders.
+
+           Each rule stays on ONE line with `color:` first: button-contrast
+           reads each mode's colour straight out of this text and compares it
+           to that mode's lobby and end-modal borders. Split the rule across
+           lines or reorder it and four cross-checks go dark. --c-mode is an
+           alias, not a new colour, so one hover and one fill rule serve all
+           four instead of eight. */
+        .arcade-menu .mode-endless { color: var(--c-endless); --c-mode: var(--c-endless); }
+        .arcade-menu .mode-gauntlet { color: var(--c-gauntlet); --c-mode: var(--c-gauntlet); }
+        .arcade-menu .mode-clash { color: var(--c-clash); --c-mode: var(--c-clash); }
+        .arcade-menu .mode-ffa { color: var(--c-ffa); --c-mode: var(--c-ffa); }
+        /* Colour arrives when a mode is selected, or on hover. The quiet rule
+           is (0,2,1) and beats .mode-* at (0,2,0), so no !important is needed.
+           No `disabled` attribute on the current one: a disabled button loses
+           its fill in most UA stylesheets and drops out of the focus order —
+           goToMode already early-returns on a tap of the mode you are in. */
+        .arcade-menu button:not([aria-current="true"]) { color: var(--c-ink-4); }
+        .arcade-menu button:not([aria-current="true"]):hover { color: var(--c-mode); border-color: var(--c-mode); }
+        .arcade-menu button[aria-current="true"] { background-color: var(--c-mode); border-color: var(--c-mode); color: var(--c-on-accent); cursor: default; }
         /* Yesterday's Gauntlet placement strip (see #gauntlet-callout). */
         #gauntlet-callout {
-            width: 90%; max-width: 500px; margin: 0 auto 10px; padding: 8px 12px;
-            background: rgba(107, 91, 149, .08); border: 1px solid var(--c-gauntlet);
-            border-radius: 5px; text-align: center; font-size: 13px; color: var(--c-ink-3);
+            width: 100%; max-width: var(--w-col); margin: 0 auto var(--s-5); padding: var(--s-5) var(--s-6);
+            background: var(--c-panel); border: var(--bw) solid var(--c-line);
+            border-radius: var(--r-3); text-align: center; font-size: var(--fs-2);
+            line-height: var(--lh-ui); color: var(--c-ink-4);
         }
-        #gauntlet-callout .gc-place { color: var(--c-ink); font-weight: bold; }
+        #gauntlet-callout .gc-place { color: var(--c-ink); font-weight: var(--fw-bold); }
+        /* The callout's only mode cue now that the panel is a plain card. */
+        #gauntlet-callout .gc-label { color: var(--c-gauntlet); font-weight: var(--fw-bold); }
         .place-badge { vertical-align: -5px; margin-right: 4px; flex-shrink: 0; }
         /* .modal-stats span is a blanket 24px/green rule, which every stat
            block in the Profile overrides one span at a time. The Gauntlet
@@ -282,15 +326,16 @@
            the blanket rule rendered one sentence as two different things. */
         #handle-setup-blurb { font-size: inherit; color: inherit; font-weight: inherit; }
 
-        .arcade-menu .ffa-btn { color: var(--c-ffa); border-color: var(--c-ffa); }
-        .arcade-menu .ffa-btn:hover { background-color: var(--c-ffa); color: var(--c-on-accent); }
 
         /* ENDLESS UI */
+        /* One measure for the strip, the pills and the Bank button, matching
+           the page column so their outer edges line up with everything else. */
         #score-board, #daily-header, #endless-header {
+            width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
             font-size: var(--fs-2); margin: 0 0 var(--s-5) 0; font-weight: var(--fw-bold);
             letter-spacing: var(--ls-label); text-transform: uppercase;
             display: flex; gap: var(--s-4); position: relative; z-index: 2;
-            align-items: center; justify-content: center; flex-wrap: wrap;
+            align-items: center; justify-content: flex-start; flex-wrap: wrap;
         }
         /* A COLUMN, not a wrapping row. As one row it fitted beside the score
            while the score was short and wrapped underneath once it grew — so
@@ -300,20 +345,24 @@
            than either position. The score and continues keep their own row;
            the button is always centred beneath them. */
         #score-board { flex-direction: column; align-items: stretch; gap: var(--s-4); }
-        .score-row { display: flex; gap: var(--s-4); align-items: stretch; justify-content: center; flex-wrap: wrap; }
+        .score-row { display: flex; gap: var(--s-4); align-items: stretch; justify-content: flex-end; flex-wrap: wrap; }
         /* Green because green is Standard's colour and the score it banks is
            already green — not decoration. It is the same HEIGHT as a nav button
            on purpose (this banks a whole run; 31px was too small a target) but
            lighter: smaller type, no fill, sitting under the score rather than
            among the modes. Subordinate by weight, not by size. */
-        .cash-out-btn { background: transparent; border: 2px solid var(--c-endless); color: var(--c-endless);
-            font-family: inherit; font-size: 13px; font-weight: bold; text-transform: uppercase;
-            letter-spacing: 0.5px; padding: 9px 16px; border-radius: 5px; cursor: pointer;
-            transition: all 0.2s; }
-        .cash-out-btn:hover { background-color: var(--c-endless); color: var(--c-on-accent); }
+        .cash-out-btn { width: 100%; background: var(--c-endless); border: var(--bw) solid var(--c-endless);
+            color: var(--c-on-accent); font-size: var(--fs-3); font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-ui); padding: var(--s-5) var(--s-6); border-radius: var(--r-3);
+            cursor: pointer; box-shadow: 0 1px 0 rgba(42, 36, 32, .10);
+            transition: filter .15s; }
+        /* Already filled, so hover brightens rather than inverting. */
+        .cash-out-btn:hover { filter: brightness(1.07); }
         .score-text { color: var(--c-endless); }
-        .arcade-menu .daily-btn { color: var(--c-gauntlet); border-color: var(--c-gauntlet); }
-        .arcade-menu .daily-btn:hover { background-color: var(--c-gauntlet); color: var(--c-on-accent); }
+        /* A faint separator between the mode name and the word number, as
+           generated content so no divider element enters the markup that the
+           display toggles would then have to manage. */
+        #endless-mode-label::after { content: "·"; color: var(--c-ink-6); margin-left: var(--s-4); font-weight: var(--fw-bold); }
         .lives-text { color: var(--c-loss); }
         /* A label and a figure are two roles, and the old line set both at 18px
            bold: a score growing to seven digits had no more presence than the
@@ -335,20 +384,14 @@
         .stat-pill.is-danger b { color: var(--c-loss); }
         
         /* VERSUS UI */
-        #versus-track-container {
-            display: none; width: 95%; max-width: 450px; z-index: 2; position: relative;
-            background: var(--c-panel); padding: 15px; border-radius: 5px; border: 2px solid var(--c-clash); margin-bottom: 15px;
-        }
+        /* Chrome comes from the shared card contract further down; this keeps
+           only what is its own. */
+        #versus-track-container { display: none; }
         .vs-profile-area { width: 48%; }
         #versus-track { display: flex; justify-content: space-between; align-items: center; position: relative; margin-top: 15px;}
-        .track-dot { width: 14px; height: 14px; background: var(--c-raised); border: 2px solid var(--c-ink-6); border-radius: 50%; position: relative; z-index: 2; transition: all 0.3s; }
-        .track-dot.puck { background: var(--c-ink); border-color: var(--c-ink); transform: scale(1.3); }
 
         /* FFA (FREE-FOR-ALL) UI — same Score Attack race as Versus, scaled to 3-6 players */
-        #ffa-track-container {
-            display: none; width: 95%; max-width: 520px; z-index: 2; position: relative;
-            background: var(--c-panel); padding: 15px; border-radius: 5px; border: 2px solid var(--c-ffa); margin-bottom: 15px;
-        }
+        #ffa-track-container { display: none; }
         #ffa-timer-display { font-size: 20px; color: var(--c-ffa); font-weight: bold; text-align: center; margin-bottom: 12px; }
         /* A standings list, not a 2x2 card grid. Four cards each carrying a
            name plate and a 5x5 mini-board stacked most of a phone screen
@@ -632,71 +675,96 @@
            the board-game object, not the table it sits on — which is why this
            waited for the tile wordmark to exist. */
         body[class*="season-"] .arcade-title { color: var(--c-season); }
-        body.season-halloween .arcade-title::after { content: "\1F383"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
+        /* The season lives on the wordmark now. It used to be a 26px emoji on
+           .arcade-title::after, which was fine beside a text h1 and is not
+           beside a flex row of eight tiles: the emoji became a flex item,
+           took 24px out of the 19.5px of free room between the wordmark and
+           the Menu button, and pushed the page 16.7px sideways at 320px.
+
+           This is the better answer anyway, and the one the decoration was
+           reaching for when it came off: a season should colour the
+           board-game object rather than wallpaper the table it sits on. The
+           letters already inherit --c-season through .arcade-title; the edge
+           carries it too, so eight tiles read as seasonal at a glance and
+           cost nothing in width. */
+        body[class*="season-"] .arcade-title .wm-t { border-color: var(--c-season); }
 
         body.season-thanksgiving {
             --c-page: #f9f1e2; --c-panel: #fffcf5; --c-raised: #fef7eb;
             --c-line: #ebdfc8; --c-line-2: #decdad;
             --c-season: #8a5214; }
-        body.season-thanksgiving .arcade-title::after { content: "\1F342"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         body.season-christmas {
             --c-page: #f3f7f3; --c-panel: #ffffff; --c-raised: #fafcf9;
             --c-line: #dde8dd; --c-line-2: #c7d8c7;
             --c-season: #166534; }
-        body.season-christmas .arcade-title::after { content: "\1F384"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         body.season-newyear {
             --c-page: #f3f4fa; --c-panel: #ffffff; --c-raised: #fafbff;
             --c-line: #dfe2ee; --c-line-2: #c9cee0;
             --c-season: #7a5c12; }
-        body.season-newyear .arcade-title::after { content: "\2728"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         body.season-valentines {
             --c-page: #fcf0f3; --c-panel: #fffbfc; --c-raised: #fef6f8;
             --c-line: #f2dde4; --c-line-2: #e6c8d2;
             --c-season: #a8244f; }
-        body.season-valentines .arcade-title::after { content: "\1F497"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         body.season-stpatricks {
             --c-page: #f1f7f1; --c-panel: #ffffff; --c-raised: #f9fcf8;
             --c-line: #dbe8db; --c-line-2: #c3d8c3;
             --c-season: #14683a; }
-        body.season-stpatricks .arcade-title::after { content: "\1F340"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         body.season-easter {
             --c-page: #f6f3fa; --c-panel: #ffffff; --c-raised: #fcfaff;
             --c-line: #e4dfee; --c-line-2: #d0c8e0;
             --c-season: #5b3a86; }
-        body.season-easter .arcade-title::after { content: "\1F430"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
         body.season-julyfourth {
             --c-page: #f3f5fb; --c-panel: #ffffff; --c-raised: #fafbff;
             --c-line: #dee3f0; --c-line-2: #c7cfe3;
             --c-season: #1a4f94; }
-        body.season-julyfourth .arcade-title::after { content: "\1F386"; font-size: 26px; margin-left: 12px; vertical-align: 4px; text-shadow: none; }
 
+        /* One card, one measure. These six panels carried six different
+           widths (90%/340, 90%/420, 95%/450, 95%/500, 95%/520) and five
+           different borders, so no two of them shared an edge — which is
+           most of why the page read as assembled rather than designed,
+           independently of any colour.
+
+           No box-shadow, deliberately. A shadow means one of two things on
+           this page — the object has a tile face, or it floats above the
+           page — and spending it on panels too would make the distinction
+           say nothing, which is exactly how the glow failed. */
+        #daily-board-container, #gauntlet-card, #gauntlet-feed-container,
+        #clash-chat-container, #versus-track-container, #ffa-track-container {
+            width: 100%; max-width: var(--w-col); margin-left: auto; margin-right: auto;
+            background: var(--c-panel); border: var(--bw) solid var(--c-line);
+            border-radius: var(--r-3); padding: var(--s-6);
+            margin-bottom: var(--s-5); position: relative; z-index: 2; }
+        /* One eyebrow for every card, with a controls slot on the right. */
+        #site-intro { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
+            margin: var(--s-5) auto 0; color: var(--c-ink-3); font-size: var(--fs-2);
+            line-height: var(--lh-prose); position: relative; z-index: 2; }
+        #daily-board-title, #gauntlet-card-title, #gauntlet-feed-title {
+            font-size: var(--fs-1); font-weight: var(--fw-bold); letter-spacing: var(--ls-eyebrow);
+            text-transform: uppercase; color: var(--c-ink-4); }
+        #daily-board-head, #gauntlet-card-head, #gauntlet-feed-head {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: var(--s-5); margin-bottom: var(--s-5); }
         /* Today's Gauntlet board, in the slot the Live Arcade Feed occupies
            during a Standard run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
-        #gauntlet-feed-container { width: 90%; max-width: 420px; background: var(--c-panel); border: 1px solid var(--c-line-2); border-radius: 5px; padding: 10px; margin-bottom: 20px; position: relative; z-index: 2; }
-        #gauntlet-card { width: 90%; max-width: 420px; background: linear-gradient(160deg, rgba(185,103,255,0.18), rgba(185,103,255,0.05)); border: 1px solid var(--c-gauntlet); border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; position: relative; z-index: 2; }
-        #gauntlet-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-        #gauntlet-card-title { color: var(--c-gauntlet); font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         #gauntlet-card-timer { color: var(--c-ink-4); font-size: 11px; white-space: nowrap; }
         #gauntlet-card-body { color: var(--c-ink-3); font-size: 14px; margin-bottom: 10px; }
         #gauntlet-card-body .gcb-strong { color: var(--c-ink); font-weight: bold; }
-        #gauntlet-card-btn { width: 100%; background: transparent; color: var(--c-gauntlet); border: 2px solid var(--c-gauntlet); border-radius: 5px; padding: 10px; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-family: inherit; transition: background 0.2s; }
-        #gauntlet-card-btn:hover { background: var(--c-gauntlet); color: var(--c-on-accent); }
+        #gauntlet-card-btn { width: 100%; background: var(--c-gauntlet); color: var(--c-on-accent); border: none; border-radius: var(--r-3); padding: var(--s-5); font-size: var(--fs-3); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+        #gauntlet-card-btn:hover { filter: brightness(1.07); }
 
-        #gauntlet-feed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-        #gauntlet-archive-btn { background: transparent; color: var(--c-gauntlet); border: 1px solid var(--c-gauntlet); border-radius: 3px; padding: 3px 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
-        #gauntlet-archive-btn:hover { background: var(--c-gauntlet); color: var(--c-on-accent); }
+        #gauntlet-archive-btn { background: transparent; color: var(--c-ink-4); border: var(--bw) solid var(--c-line); border-radius: var(--r-1); height: 28px; padding: 0 11px; font-size: var(--fs-1); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+        #gauntlet-archive-btn:hover { border-color: var(--c-gauntlet); color: var(--c-gauntlet); }
         .gauntlet-archive-row { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--c-panel); color: var(--c-ink-2); border: 1px solid var(--c-line); border-radius: 4px; padding: 9px 12px; margin-bottom: 6px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: inherit; text-align: left; }
         .gauntlet-archive-row:hover { border-color: var(--c-gauntlet); color: var(--c-ink); }
         .gauntlet-archive-row .gar-date { font-size: 12px; color: var(--c-ink-4); font-weight: normal; }
         #gauntlet-archive-list, #gauntlet-archive-board { max-height: 300px; overflow-y: auto; }
-        #gauntlet-feed-title { color: var(--c-gauntlet); font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
         #gauntlet-feed-list { max-height: 270px; overflow-y: auto; font-size: 14px; }
         /* Both Gauntlet boards — today's live one and the archive's detail
            view — share renderGauntletBoard, so they share its styling too.
@@ -708,9 +776,7 @@
         .gf-me { outline: 2px solid var(--c-gauntlet); outline-offset: -2px; border-radius: 3px; }
         .gauntlet-empty { color: var(--c-ink-4); font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
 
-        #daily-board-container { width: 90%; max-width: 340px; background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; margin-bottom: 20px; text-align: center; position: relative; z-index: 2;}
-        #daily-board-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
-        #daily-board-title { flex: 1; color: var(--c-correct); font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        #daily-board-title { flex: 1; }
         #daily-board-head button { background: transparent; border: 1px solid var(--c-line); color: var(--c-ink-4); border-radius: 4px;
             font-family: inherit; font-size: 15px; line-height: 1; padding: 5px 9px; cursor: pointer; transition: all 0.2s; }
         #daily-board-head button:hover:not(:disabled) { border-color: var(--c-correct); color: var(--c-correct); }
@@ -788,13 +854,20 @@
 
         #leaderboard-list { background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         
-        #lb-you { border-top: 2px solid var(--c-line-2); margin-top: 6px; padding-top: 8px; }
+        #lb-you { border-top: var(--bw) solid var(--c-line); margin-top: var(--s-5); padding-top: var(--s-5); }
         #lb-you .lb-you-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-ink-4); font-weight: bold; margin-bottom: 4px; }
         #lb-you .lb-entry { border-bottom: none; }
-        #lb-you .lb-rank { color: var(--c-correct); }
-        .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: 8px 5px; border-bottom: 1px dashed var(--c-line); font-size: 16px; position: relative; z-index: 1;}
+        /* The me-row is one reading, not a tinted numeral. */
+        #lb-you .lb-entry, #lb-you .lb-rank, #lb-you .lb-score { color: var(--c-correct); }
+        /* Solid, and BETWEEN rows rather than under each one. A dashed rule
+           under every row of a leaderboard reads as a form, and dashed is
+           spoken for here: it means an unplayed board cell. */
+        .lb-entry { display: flex; align-items: center; justify-content: space-between; padding: var(--s-4) var(--s-3); font-size: var(--fs-3); position: relative; z-index: 1;}
+        .lb-entry + .lb-entry { border-top: var(--bw) solid var(--c-line); }
         .lb-entry:last-child { border-bottom: none; }
-        .lb-rank { font-weight: bold; color: var(--c-clash); width: 35px; z-index: 2;}
+        /* Not --c-clash: this class renders on the all-time leaderboard, the
+           Gauntlet feed, the archive and #lb-you, none of which are Clash. */
+        .lb-rank { font-weight: var(--fw-bold); font-size: var(--fs-2); color: var(--c-ink-4); width: 32px; z-index: 2;}
         .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; z-index: 2;}
         .lb-name { color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
         .lb-date { font-size: 11px; color: var(--c-ink-5); margin-top: 2px; font-weight: bold;}
@@ -1194,7 +1267,13 @@
 </head>
 <body>
 
-    <h1 class="arcade-title">Lexathon</h1>
+    <div class="arcade-head">
+        <!-- aria-label restores the single word: eight separate inline
+             elements otherwise make a screen reader spell it out. The letters
+             stay in the DOM so crawlers still read them. -->
+        <h1 class="arcade-title" aria-label="Lexathon"><span class="wm-t" aria-hidden="true">L</span><span class="wm-t" aria-hidden="true">E</span><span class="wm-t" aria-hidden="true">X</span><span class="wm-t" aria-hidden="true">A</span><span class="wm-t" aria-hidden="true">T</span><span class="wm-t" aria-hidden="true">H</span><span class="wm-t" aria-hidden="true">O</span><span class="wm-t" aria-hidden="true">N</span></h1>
+        <button class="menu-btn" onclick="window.showMainMenu()">Menu</button>
+    </div>
     
     <!-- Menu, then the three modes you are NOT in.
          Every mode except Endless used to collapse this to a single "leave"
@@ -1205,14 +1284,15 @@
          had no way to tell which game they were playing.
          The three slots are filled by renderModeNav() from the mode flags.
          Nothing else writes to them. -->
-    <nav class="arcade-menu">
-        <button onclick="window.showMainMenu()">Menu</button>
+    <nav class="arcade-menu" aria-label="Game mode">
         <!-- Markup carries the Endless-default state so the nav is correct
-             before any script runs; renderModeNav() rewrites all three the
-             moment the mode changes. -->
-        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-1" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">GAUNTLET</button>
-        <button class="mode-nav-btn mode-clash" id="btn-nav-2" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
-        <button class="mode-nav-btn mode-ffa" id="btn-nav-3" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
+             before any script runs; renderModeNav() only moves aria-current
+             after that. Order is the MODES table's order, which is also the
+             homepage blurb's order. -->
+        <button class="mode-nav-btn mode-endless" id="btn-nav-1" data-mode="endless" aria-current="true" onclick="window.goToMode(this.dataset.mode)">ENDLESS</button>
+        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-2" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">GAUNTLET</button>
+        <button class="mode-nav-btn mode-clash" id="btn-nav-3" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
+        <button class="mode-nav-btn mode-ffa" id="btn-nav-4" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
     </nav>
 
     <!-- STANDARD UI -->
@@ -1239,7 +1319,7 @@
 
     <div id="endless-header">
         <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">ENDLESS</div>
-        <div class="score-text" id="endless-word-text" style="color:var(--c-endless);">WORD <span id="endless-word-index">1</span></div>
+        <div class="score-text" id="endless-word-text" style="color:var(--c-ink-4);">WORD <span id="endless-word-index">1</span></div>
     </div>
 
     <div id="score-board">
@@ -1411,7 +1491,7 @@
         </div>
     </div>
     <!-- CLASH CHAT BOX -->
-    <div id="clash-chat-container" style="display: none; width: 95%; max-width: 500px; background: var(--c-panel); border: 2px solid var(--c-ink-6); border-radius: 5px; margin-bottom: 20px; z-index: 2; position: relative; padding: 10px;">
+    <div id="clash-chat-container" style="display: none;">
         <div id="chat-messages" style="height: 100px; overflow-y: auto; font-size: 12px; margin-bottom: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 5px;">
             <div style="color:var(--c-ink-3); font-style:italic;">Match started. GLHF!</div>
         </div>
@@ -1487,7 +1567,7 @@
          stranger needs and the one ask - plus enough indexable prose that the
          page Google ranks is not just a title and a keyboard, which is what
          everything above this is to a crawler. -->
-    <section id="site-intro" style="width: 90%; max-width: 620px; margin: 10px auto 0; color: var(--c-ink-3); font-size: 13px; line-height: 1.7; position: relative; z-index: 2;">
+    <section id="site-intro">
         <h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>
         <p style="margin-top: 0; margin-bottom: 10px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is your place. Free, runs in your browser, no account needed to start.</p>
 
@@ -3904,6 +3984,8 @@
             clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
             ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)" },
         };
+        // Derived, not restated: the slot order and the table cannot drift.
+        const MODE_ORDER = Object.keys(MODES);
         // Derived from the flags that already drive everything else, rather
         // than stored a second time and kept in sync by hand.
         function currentMode() {
@@ -3912,15 +3994,28 @@
             if (isFfaMode) return "ffa";
             return "endless";
         }
+        // All four modes, always, in the table's order — so a mode's button
+        // never moves and only aria-current changes between renders. The nav
+        // used to show the three you were NOT in, which meant the mode you
+        // were playing was the one thing it never named.
+        //
+        // The id is still built as "btn-nav-" + n from one place: writing four
+        // explicit getElementById calls would be the same behaviour and a
+        // worse invariant, and a test counts the occurrences.
+        //
+        // removeAttribute, not aria-current="false" — the CSS asks for
+        // :not([aria-current="true"]), which "false" would satisfy, but any
+        // future [aria-current] selector would not.
         function renderModeNav() {
             const here = currentMode();
-            const others = Object.keys(MODES).filter((m) => m !== here);
-            others.forEach((m, i) => {
+            MODE_ORDER.forEach((m, i) => {
                 const btn = document.getElementById("btn-nav-" + (i + 1));
                 if (!btn) return;
                 btn.dataset.mode = m;
                 btn.innerText = MODES[m].label;
                 btn.className = "mode-nav-btn " + MODES[m].cls;
+                if (m === here) btn.setAttribute("aria-current", "true");
+                else btn.removeAttribute("aria-current");
             });
         }
 
@@ -4546,7 +4641,7 @@
                 // Placement is the nice-to-have; the score line still lands.
                 console.error("Gauntlet standing lookup failed", e);
             }
-            el.innerHTML = `${badge} ${label} — ${detail}`;
+            el.innerHTML = `${badge} <span class="gc-label">${label}</span> — ${detail}`;
             el.style.display = "block";
         }
 
