@@ -68,6 +68,44 @@
             --c-on-accent: #ffffff;
             /* Elevation, now that a glow cannot do it. */
             --c-shadow: 0 1px 0 rgba(42, 36, 32, .05), 0 2px 8px rgba(42, 36, 32, .10);
+
+            /* ---- type, space and geometry -----------------------------
+               The page had sixteen font sizes on a 1px ramp and thirty-one
+               border-radius declarations across seven values, which is why
+               nothing on it read as more or less important than anything
+               else. A 1px step encodes nothing a reader can see.
+
+               Radius tracks OBJECT SIZE rather than the spacing rhythm, so
+               --r-2 staying 7px while --s-3 is 6px is deliberate: do not
+               "fix" one to match the other. */
+            --fs-1: 10px;   /* eyebrow, micro-label, badge */
+            --fs-2: 12px;   /* meta, caption, dense cell, mode label */
+            --fs-3: 14px;   /* body, list row, control label */
+            --fs-4: 16px;   /* item title, section head */
+            --fs-5: 20px;   /* figure: stat value, timer */
+            --fs-6: 26px;   /* hero figure: end-of-run score */
+            --fw-body: 400; --fw-med: 600; --fw-bold: 700;
+            --ls-eyebrow: 1.2px;  /* only with --fs-1 + uppercase */
+            --ls-label: .8px;     /* only with --fs-2 + uppercase */
+            --ls-ui: .2px;        /* sentence-case control labels */
+            --ls-num: -.3px;      /* figures at --fs-5 / --fs-6 */
+            --ls-glyph: .5px;     /* tile and wordmark letters */
+            --lh-tight: 1.2; --lh-ui: 1.45; --lh-prose: 1.7;
+            --r-1: 3px;     /* <=16px: swatches, bars, inline badges */
+            --r-2: 7px;     /* 20-60px: tiles, keys, inputs, tabs, pills */
+            --r-3: 10px;    /* full-width controls and panels */
+            --r-4: 14px;    /* modals */
+            --r-pill: 999px;
+            --bw: 1px;          /* every border on the page */
+            --bw-focus: 2px;    /* where you are, and this is you. Nothing else */
+            --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 12px;
+            --s-6: 16px; --s-7: 20px; --s-8: 24px; --s-9: 32px; --s-10: 48px;
+            --w-col: 460px; --pad-page: 20px;
+            /* 64 = two 20px gutters + four 6px gaps. At 320px this gives a
+               51.2px cell and a 280px board, which is exactly the content
+               width. On :root rather than #board so a tile rendered outside
+               the board still has a size. */
+            --cell: min(58px, calc((100vw - 64px) / 5));
         }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
         .container { background-color: var(--c-panel); border: 2px solid var(--c-present); border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: 1.7; font-size: 15px; }
