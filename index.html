@@ -402,7 +402,7 @@
            from the banner_* cosmetics, same as a leaderboard row. */
         #ffa-players-list { display: flex; flex-direction: column; gap: 5px; }
         .ffa-list-head, .ffa-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 42px 42px 68px; align-items: center; gap: 6px; }
-        .ffa-list-head { font-size: 9px; color: var(--c-ink-4); text-transform: uppercase; letter-spacing: 1px; padding: 0 8px 5px; }
+        .ffa-list-head { font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); color: var(--c-ink-4); text-transform: uppercase; letter-spacing: 1px; padding: 0 8px 5px; }
         .ffa-row { border: 1px solid var(--c-line-2); border-radius: 5px; padding: 7px 8px; position: relative; z-index: 1; }
         .ffa-row.ffa-me { border-color: var(--c-ffa); background: rgba(138, 107, 38, .07); }
         /* banner_matrix paints itself with a z-index:-1 ::after, so the cells
@@ -415,7 +415,7 @@
         .ffa-row-score { font-size: 15px; font-weight: bold; color: var(--c-ffa); text-align: right; }
         .ffa-row-left { opacity: 0.5; }
         /* Stands in for the rows a collapsed list is not showing. */
-        .ffa-more { font-size: 11px; color: var(--c-ink-5); text-align: center; letter-spacing: 1px; text-transform: uppercase; padding: 1px 0; }
+        .ffa-more { font-size: var(--fs-1); color: var(--c-ink-5); text-align: center; letter-spacing: 1px; text-transform: uppercase; padding: 1px 0; }
         @media (max-width: 380px) {
             .ffa-list-head, .ffa-row { grid-template-columns: 16px minmax(0, 1fr) 34px 34px 58px; gap: 4px; }
             .ffa-row { padding: 6px 5px; }
@@ -756,7 +756,7 @@
         #gauntlet-card-timer { color: var(--c-ink-4); font-size: 11px; white-space: nowrap; }
         #gauntlet-card-body { color: var(--c-ink-3); font-size: 14px; margin-bottom: 10px; }
         #gauntlet-card-body .gcb-strong { color: var(--c-ink); font-weight: bold; }
-        #gauntlet-card-btn { width: 100%; background: var(--c-gauntlet); color: var(--c-on-accent); border: none; border-radius: var(--r-3); padding: var(--s-5); font-size: var(--fs-3); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+        #gauntlet-card-btn { width: 100%; background: var(--c-gauntlet); color: var(--c-on-accent); border: none; border-radius: var(--r-3); padding: var(--s-5); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; font-family: inherit; transition: background 0.2s; }
         #gauntlet-card-btn:hover { filter: brightness(1.07); }
 
         #gauntlet-archive-btn { background: transparent; color: var(--c-ink-4); border: var(--bw) solid var(--c-line); border-radius: var(--r-1); height: 28px; padding: 0 11px; font-size: var(--fs-1); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
@@ -774,7 +774,7 @@
         /* Your own row. An outline rather than a background so it can't fight
            whichever banner the player has equipped. */
         .gf-me { outline: 2px solid var(--c-gauntlet); outline-offset: -2px; border-radius: 3px; }
-        .gauntlet-empty { color: var(--c-ink-4); font-style: italic; text-align: center; padding: 8px 0; font-size: 13px; }
+        .gauntlet-empty { color: var(--c-ink-5); text-align: center; padding: var(--s-4) 0; font-size: var(--fs-2); }
 
         #daily-board-title { flex: 1; }
         #daily-board-head button { background: transparent; border: 1px solid var(--c-line); color: var(--c-ink-4); border-radius: 4px;
@@ -801,9 +801,13 @@
         .modal-box { background-color: var(--c-panel); border: var(--bw) solid var(--c-line); border-radius: var(--r-4); padding: var(--s-8); text-align: center; box-shadow: var(--c-shadow); min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
         @media (max-width: 400px) { .modal-box { padding: var(--s-6); } }
         .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 45vh; overflow-y: auto; padding-right: 5px; text-align: left; overscroll-behavior: contain; }
-        .modal-title { color: var(--c-correct); font-size: 28px; margin: 0 0 20px 0; text-transform: uppercase; font-style: italic; }
-        .modal-stats { font-size: 20px; margin-bottom: 20px; line-height: 1.6; }
-        .modal-stats span { color: var(--c-endless); font-weight: bold; font-size: 24px; }
+        /* Ink, with the dialog's own border carrying which mode it belongs
+           to. Nineteen titles were previously in three treatments — a blue
+           default, nine inline mode colours and three inline inks — which
+           read as three different things rather than one heading. */
+        .modal-title { color: var(--c-ink); font-size: var(--fs-6); font-weight: var(--fw-bold); letter-spacing: var(--ls-num); margin: 0 0 var(--s-7) 0; }
+        .modal-stats { font-size: var(--fs-3); margin-bottom: var(--s-7); line-height: var(--lh-prose); }
+        .modal-stats span { color: var(--c-endless); font-weight: var(--fw-bold); font-size: var(--fs-5); letter-spacing: var(--ls-num); }
         .modal-buttons { display: flex; flex-direction: column; gap: var(--s-5); margin-top: var(--s-7); }
         /* min-height rather than padding, so neither the typeface nor a
            border width can move these. Save and Skip measured exactly 45px
@@ -833,29 +837,33 @@
            players recognise this plate by sight, and a button restyled to
            match the site reads as a phishing page asking for a Google
            password. #3c4043 on #fff measures 10.3:1. */
-        .btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; background: #fff; color: #3c4043; border: none; border-radius: 5px; font-family: inherit; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-google { display: flex; align-items: center; justify-content: center; gap: var(--s-5); width: 100%; padding: var(--s-5); background: #fff; color: #3c4043; border: none; border-radius: var(--r-3); font-family: inherit; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .btn-google:hover { background: #e8eaed; }
-        .auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: var(--c-ink-5); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+        .auth-divider { display: flex; align-items: center; gap: var(--s-5); margin: var(--s-6) 0 var(--s-5); color: var(--c-ink-5); font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 1px; }
         .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--c-line); }
 
-        .input-field { padding: 10px; font-size: 18px; width: 100%; text-align: center; border-radius: 5px; border: 2px solid var(--c-present); background: var(--c-raised); color: var(--c-ink); text-transform: uppercase; font-weight: bold; margin-bottom: 5px; letter-spacing: 2px;}
+        /* 16px is not arbitrary: below it, iOS zooms the page on focus. */
+        .input-field { padding: var(--s-5); font-size: var(--fs-4); width: 100%; text-align: center; border-radius: var(--r-2); border: var(--bw) solid var(--c-line-2); background: var(--c-raised); color: var(--c-ink); text-transform: uppercase; font-weight: var(--fw-bold); margin-bottom: var(--s-3); letter-spacing: 1px;}
         .input-field:focus { outline: none; border-color: var(--c-correct); box-shadow: 0 0 0 3px rgba(36, 104, 143, .22); }
 
-        .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
-        .tab-btn { background: var(--c-raised); color: var(--c-ink-3); border: 1px solid var(--c-ink-6); padding: 8px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase;}
-        .tab-btn.active { background: var(--c-present); color: var(--c-on-accent); border-color: var(--c-present); }
+        .tabs { display: flex; justify-content: center; gap: var(--s-3); margin-bottom: var(--s-6); flex-wrap: wrap; }
+        .tab-btn { background: var(--c-raised); color: var(--c-ink-4); border: var(--bw) solid var(--c-line-2); padding: var(--s-4) var(--s-5); border-radius: var(--r-2); cursor: pointer; font-weight: var(--fw-bold); font-size: var(--fs-2); letter-spacing: var(--ls-ui);}
+        /* Ink, not --c-present. A selected tab is a UI state; amber means a
+           letter is in the word but the wrong spot, and a signal spent on
+           chrome stops being a signal. */
+        .tab-btn.active { background: var(--c-ink); color: var(--c-on-accent); border-color: var(--c-ink); }
         /* Four profile tabs overflow a 360px phone at the default size and
            wrap to a lonely second row. They wrap rather than clip either way,
            so this is only about fitting the common case on one line. */
         @media (max-width: 400px) {
             .tabs { gap: 5px; }
-            .tab-btn { padding: 8px 7px; font-size: 11px; }
+            .tab-btn { padding: var(--s-4) var(--s-3); font-size: 11px; }
         }
 
         #leaderboard-list { background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 5px; padding: 10px; max-height: 250px; overflow-y: auto; text-align: left;}
         
         #lb-you { border-top: var(--bw) solid var(--c-line); margin-top: var(--s-5); padding-top: var(--s-5); }
-        #lb-you .lb-you-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--c-ink-4); font-weight: bold; margin-bottom: 4px; }
+        #lb-you .lb-you-label { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 1px; color: var(--c-ink-4); font-weight: bold; margin-bottom: 4px; }
         #lb-you .lb-entry { border-bottom: none; }
         /* The me-row is one reading, not a tinted numeral. */
         #lb-you .lb-entry, #lb-you .lb-rank, #lb-you .lb-score { color: var(--c-correct); }
@@ -872,7 +880,7 @@
         .lb-name { color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
         .lb-date { font-size: 11px; color: var(--c-ink-5); margin-top: 2px; font-weight: bold;}
         .lb-score { font-weight: bold; color: var(--c-endless); z-index: 2;}
-        .lb-loading { text-align: center; color: var(--c-ink-3); font-style: italic; padding: 20px 0; }
+        .lb-loading { text-align: center; color: var(--c-ink-5); padding: var(--s-7) 0; font-size: var(--fs-2); }
 
         /* BANNER COSMETICS */
         .banner_default { background: transparent; }
@@ -1192,12 +1200,12 @@
            rendering slip. */
         .grid-item.seasonal-live { border-color: var(--c-clash); background: linear-gradient(90deg, rgba(181,86,63,.11), rgba(181,86,63,.02)); }
         .grid-item.seasonal-live:hover { border-color: #8f4130; }
-        .seasonal-badge { display: inline-block; font-size: 10px; font-weight: bold; color: var(--c-clash); border: 1px solid var(--c-clash); border-radius: 3px; padding: 1px 5px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
+        .seasonal-badge { display: inline-block; font-size: var(--fs-1); font-weight: var(--fw-bold); letter-spacing: var(--ls-eyebrow); color: var(--c-clash); border: var(--bw) solid var(--c-clash); border-radius: var(--r-1); padding: 1px 5px; margin-left: 6px; text-transform: uppercase; vertical-align: middle; }
         .grid-item.locked { opacity: 0.5; cursor: default; }
         .grid-item.locked:hover { background: var(--c-raised); border-color: var(--c-line-2); }
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: var(--c-ink-3); font-weight: bold;}
-        .stat-bar-bg { flex-grow: 1; background: var(--c-line); height: 20px; border-radius: 3px; overflow: hidden; position: relative;}
+        .stat-bar-bg { flex-grow: 1; background: var(--c-line); height: 18px; border-radius: var(--r-1); overflow: hidden; position: relative;}
         .stat-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-out; display: flex; align-items: center; font-weight: bold; font-size: 12px;}
         hr { border: 0; border-top: 1px dashed var(--c-ink-6); margin: 25px 0; }
 
@@ -1210,7 +1218,7 @@
            meaning anything anywhere else. Hierarchy here is brightness instead:
            one primary, the rest even, the two housekeeping items quiet. Hue is
            reserved for modes. */
-        .menu-list-btn { background: var(--c-raised); border: 2px solid var(--c-line-2); color: var(--c-ink-3); padding: 12px; font-size: 18px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; transition: all 0.2s; width: 100%;}
+        .menu-list-btn { background: var(--c-raised); border: var(--bw) solid var(--c-line-2); color: var(--c-ink-3); min-height: 48px; padding: 0 var(--s-6); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); transition: background-color .15s, border-color .15s, color .15s; width: 100%;}
         .menu-list-btn:hover { background: var(--c-line); border-color: var(--c-ink-5); color: var(--c-ink); }
         .menu-list-btn.is-primary { color: var(--c-ink); border-color: var(--c-ink-4); }
         .menu-list-btn.is-primary:hover { background: var(--c-line); border-color: var(--c-ink); }
@@ -1218,13 +1226,13 @@
         .menu-list-btn.is-quiet:hover { color: var(--c-ink-3); border-color: var(--c-line-2); }
         
         .grid-container { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; text-align: left;}
-        .grid-item { background: var(--c-raised); border: 1px solid var(--c-line-2); border-radius: 5px; padding: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;}
-        .grid-item:hover { background: var(--c-panel); border-color: var(--c-ink-5);}
+        .grid-item { background: var(--c-raised); border: var(--bw) solid var(--c-line); border-radius: var(--r-2); padding: var(--s-5); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s;}
+        .grid-item:hover { background: var(--c-panel); border-color: var(--c-line-2);}
         .grid-item-info { display: flex; flex-direction: column; flex-grow: 1; padding-right: 10px; pointer-events: none;}
-        .grid-item-name { font-weight: bold; color: var(--c-ink); font-size: 16px; pointer-events: none;}
-        .grid-item-desc { color: var(--c-ink-3); font-size: 11px; margin-top: 3px; font-style: italic; margin-bottom: 6px; pointer-events: none;}
+        .grid-item-name { font-weight: var(--fw-bold); color: var(--c-ink); font-size: var(--fs-4); pointer-events: none;}
+        .grid-item-desc { color: var(--c-ink-4); font-size: var(--fs-2); margin-top: var(--s-1); margin-bottom: var(--s-3); pointer-events: none;}
         
-        .action-btn { background: transparent; border: 2px solid var(--c-endless); color: var(--c-endless); padding: 6px 12px; font-weight: bold; border-radius: 3px; cursor: pointer; text-transform: uppercase; font-size: 12px; white-space: nowrap;}
+        .action-btn { background: transparent; border: var(--bw) solid var(--c-endless); color: var(--c-endless); padding: var(--s-4) var(--s-5); font-weight: var(--fw-bold); border-radius: 3px; cursor: pointer; text-transform: uppercase; font-size: 12px; white-space: nowrap;}
         .action-btn:hover { background: var(--c-endless); color: var(--c-on-accent); }
         .btn-equipped { background: var(--c-line-2); border-color: var(--c-line-2); color: var(--c-ink-3); cursor: default; }
         .btn-equipped:hover { background: var(--c-line-2); color: var(--c-ink-3); }
@@ -1235,7 +1243,7 @@
         .btn-claim:hover { background: var(--c-clash); color: var(--c-on-accent); }
         @keyframes pulse-claim { 0%, 100% { box-shadow: 0 0 0 0 rgba(181, 86, 63, 0); } 50% { box-shadow: 0 0 0 4px rgba(181, 86, 63, .22); } }
 
-        .progress-bar-bg { background: var(--c-line); height: 10px; border-radius: 5px; overflow: hidden; width: 100%; position: relative; margin-top: 5px;}
+        .progress-bar-bg { background: var(--c-line); height: 10px; border-radius: var(--r-1); overflow: hidden; width: 100%; position: relative; margin-top: var(--s-3);}
         .progress-bar-fill { background: var(--c-correct); height: 100%; width: 0%; transition: width 0.3s; }
         .progress-text { font-size: 10px; color: var(--c-ink); position: absolute; width: 100%; text-align: center; top: -1px; font-weight: bold;}
 
@@ -1244,7 +1252,7 @@
            for a dark surface. Previewing them on paper would misrepresent
            what the player is buying, so this one panel keeps its own night. */
         #shop-preview-monitor { border: 2px solid var(--c-line-2); border-radius: 5px; background: #0a0a0a; margin-bottom: 15px; padding: 15px; text-align: left; position: relative;}
-        .preview-label { position: absolute; top: 5px; right: 8px; font-size: 10px; color: var(--c-ink-6); text-transform: uppercase; font-weight: bold;}
+        .preview-label { position: absolute; top: var(--s-3); right: var(--s-4); font-size: var(--fs-1); color: var(--c-ink-6); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); font-weight: var(--fw-bold);}
         
         .pulse-text { animation: pulse-opacity 1.5s infinite; }
         @keyframes pulse-opacity { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
@@ -1260,8 +1268,12 @@
            board and the keyboard so it's reachable with the same thumb, but
            styled down so it never competes with ENTER. */
         #skip-word-container { display: none; width: 100%; justify-content: center; margin: 4px 0 8px; position: relative; z-index: 2; }
-        #skip-word-btn { background: var(--c-raised); color: var(--c-clash); border: 2px solid var(--c-clash); padding: 7px 16px; font-weight: bold; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; border-radius: 5px; cursor: pointer; transition: all 0.2s; }
-        #skip-word-btn:hover:not(:disabled) { background: var(--c-clash); color: var(--c-on-accent); }
+        /* Quiet, and not --c-clash: Skip shows up in FFA too, so a Clash-orange
+           control was appearing in a mode it has nothing to do with. The rule
+           above this one says it must never compete with ENTER, and a 2px
+           saturated outline competes. */
+        #skip-word-btn { background: var(--c-panel); color: var(--c-ink-4); border: var(--bw) solid var(--c-line-2); height: 34px; padding: 0 var(--s-6); font-weight: var(--fw-bold); font-size: var(--fs-2); letter-spacing: var(--ls-label); text-transform: uppercase; border-radius: var(--r-2); cursor: pointer; transition: color .15s, border-color .15s; }
+        #skip-word-btn:hover:not(:disabled) { color: var(--c-ink); border-color: var(--c-ink-6); }
         #skip-word-btn:disabled { color: var(--c-ink-6); border-color: var(--c-line-2); cursor: default; }
     </style>
 </head>
@@ -1315,7 +1327,7 @@
          about to type on is worse than being told it is coming. Never hides
          anything and always clears itself, so a slow or failed sign-in leaves
          a playable Endless board rather than a stuck spinner. -->
-    <div id="boot-notice" style="display:none; margin: 0 0 8px; font-size: 13px; color: var(--c-gauntlet); text-align: center; position: relative; z-index: 2;">Opening today's Gauntlet…</div>
+    <div id="boot-notice" style="display:none; margin: 0 0 8px; font-size: var(--fs-3); color: var(--c-gauntlet); text-align: center; position: relative; z-index: 2;">Opening today's Gauntlet…</div>
 
     <div id="endless-header">
         <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">ENDLESS</div>
@@ -1352,9 +1364,9 @@
 
     <!-- SUDDEN DEATH UI -->
     <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
-        <div style="color:var(--c-loss); font-size: 20px; font-weight: bold;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
-        <div id="sd-status-text" style="color:var(--c-clash); font-size: 14px; margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
-        <div id="sd-timer" style="color:var(--c-ink); font-size: 16px; font-weight: bold; margin-top: 4px;">1:30</div>
+        <div style="color:var(--c-loss); font-size: var(--fs-5); font-weight: bold;">⚔️ SUDDEN DEATH — ROUND <span id="sd-round">1</span></div>
+        <div id="sd-status-text" style="color:var(--c-clash); font-size: var(--fs-3); margin-top: 4px;">One word. One guess. Fastest correct answer wins!</div>
+        <div id="sd-timer" style="color:var(--c-ink); font-size: var(--fs-4); font-weight: bold; margin-top: 4px;">1:30</div>
     </div>
 
     <!-- VERSUS UI -->
@@ -1363,28 +1375,28 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
             <!-- GUEST PROFILE -->
             <div class="vs-profile-area" id="guest-profile-area">
-                <div id="vs-guest-banner" class="lb-entry banner_default" style="padding: 6px; font-size: 12px; margin-bottom: 10px; min-height: 40px;">
+                <div id="vs-guest-banner" class="lb-entry banner_default" style="padding: 6px; font-size: var(--fs-2); margin-bottom: 10px; min-height: 40px;">
                     <div class="lb-name-col">
-                        <div id="vs-guest-name" class="lb-name effect_none" style="font-size: 14px;">GUEST</div>
-                        <div id="vs-guest-title" class="lb-date" style="color: var(--c-clash); font-size: 10px;"></div>
+                        <div id="vs-guest-name" class="lb-name effect_none" style="font-size: var(--fs-3);">GUEST</div>
+                        <div id="vs-guest-title" class="lb-date" style="color: var(--c-clash); font-size: var(--fs-1);"></div>
                     </div>
                 </div>
                 <!-- NEW WORD COUNTER -->
-                <div id="vs-guest-word-count" style="font-size: 11px; color: var(--c-present); text-align: left; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
+                <div id="vs-guest-word-count" style="font-size: var(--fs-2); color: var(--c-present); text-align: left; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: var(--ls-label);">Word: 1</div>
                 
                 <div id="guest-mini-board" style="display:grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: start;"></div>
             </div>
 
             <!-- HOST PROFILE -->
             <div class="vs-profile-area" id="host-profile-area">
-                <div id="vs-host-banner" class="lb-entry banner_default" style="padding: 6px; font-size: 12px; margin-bottom: 10px; min-height: 40px;">
+                <div id="vs-host-banner" class="lb-entry banner_default" style="padding: 6px; font-size: var(--fs-2); margin-bottom: 10px; min-height: 40px;">
                     <div class="lb-name-col" style="text-align: right; padding-right: 0; padding-left: 10px;">
-                        <div id="vs-host-name" class="lb-name effect_none" style="font-size: 14px;">HOST</div>
-                        <div id="vs-host-title" class="lb-date" style="color: var(--c-clash); font-size: 10px;"></div>
+                        <div id="vs-host-name" class="lb-name effect_none" style="font-size: var(--fs-3);">HOST</div>
+                        <div id="vs-host-title" class="lb-date" style="color: var(--c-clash); font-size: var(--fs-1);"></div>
                     </div>
                 </div>
                 <!-- NEW WORD COUNTER -->
-                <div id="vs-host-word-count" style="font-size: 11px; color: var(--c-correct); text-align: right; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase;">Word: 1</div>
+                <div id="vs-host-word-count" style="font-size: var(--fs-2); color: var(--c-correct); text-align: right; font-weight: bold; margin-top: -5px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: var(--ls-label);">Word: 1</div>
                 
                 <div id="host-mini-board" style="display:grid; grid-template-rows: repeat(5, 10px); grid-gap: 2px; justify-content: end;"></div>
             </div>
@@ -1400,12 +1412,12 @@
 
             <!-- TIMER -->
             <div style="position: absolute; left: 50%; top: -10px; transform: translateX(-50%); text-align: center;">
-                <div id="clash-timer-display" style="font-size: 20px; color: var(--c-clash); font-weight: bold; background: var(--c-panel); padding: 0 10px; border-radius: 5px;">7:00</div>
+                <div id="clash-timer-display" style="font-size: var(--fs-5); color: var(--c-clash); font-weight: bold; background: var(--c-panel); padding: 0 10px; border-radius: 5px;">7:00</div>
             </div>
             
             <!-- SCORES -->
-            <div id="vs-guest-score" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: var(--c-present);">0</div>
-            <div id="vs-host-score" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: 18px; font-weight: bold; color: var(--c-correct);">0</div>
+            <div id="vs-guest-score" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-size: var(--fs-5); font-weight: bold; color: var(--c-present);">0</div>
+            <div id="vs-host-score" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); font-size: var(--fs-5); font-weight: bold; color: var(--c-correct);">0</div>
         </div>
     </div>
 
@@ -1422,42 +1434,42 @@
         <div id="ffa-players-list">
             <div class="ffa-row banner_default" id="ffa-row-0" style="display:none;">
                 <div class="ffa-rank" id="ffa-rank-0">1</div>
-                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-0" style="font-size: 14px;">P1</div></div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-0" style="font-size: var(--fs-3);">P1</div></div>
                 <div class="ffa-col" id="ffa-word-index-0">1</div>
                 <div class="ffa-col" id="ffa-skips-0">2</div>
                 <div class="ffa-row-score" id="ffa-score-0">0</div>
             </div>
             <div class="ffa-row banner_default" id="ffa-row-1" style="display:none;">
                 <div class="ffa-rank" id="ffa-rank-1">2</div>
-                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-1" style="font-size: 14px;">P2</div></div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-1" style="font-size: var(--fs-3);">P2</div></div>
                 <div class="ffa-col" id="ffa-word-index-1">1</div>
                 <div class="ffa-col" id="ffa-skips-1">2</div>
                 <div class="ffa-row-score" id="ffa-score-1">0</div>
             </div>
             <div class="ffa-row banner_default" id="ffa-row-2" style="display:none;">
                 <div class="ffa-rank" id="ffa-rank-2">3</div>
-                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-2" style="font-size: 14px;">P3</div></div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-2" style="font-size: var(--fs-3);">P3</div></div>
                 <div class="ffa-col" id="ffa-word-index-2">1</div>
                 <div class="ffa-col" id="ffa-skips-2">2</div>
                 <div class="ffa-row-score" id="ffa-score-2">0</div>
             </div>
             <div class="ffa-row banner_default" id="ffa-row-3" style="display:none;">
                 <div class="ffa-rank" id="ffa-rank-3">4</div>
-                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-3" style="font-size: 14px;">P4</div></div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-3" style="font-size: var(--fs-3);">P4</div></div>
                 <div class="ffa-col" id="ffa-word-index-3">1</div>
                 <div class="ffa-col" id="ffa-skips-3">2</div>
                 <div class="ffa-row-score" id="ffa-score-3">0</div>
             </div>
             <div class="ffa-row banner_default" id="ffa-row-4" style="display:none;">
                 <div class="ffa-rank" id="ffa-rank-4">5</div>
-                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-4" style="font-size: 14px;">P5</div></div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-4" style="font-size: var(--fs-3);">P5</div></div>
                 <div class="ffa-col" id="ffa-word-index-4">1</div>
                 <div class="ffa-col" id="ffa-skips-4">2</div>
                 <div class="ffa-row-score" id="ffa-score-4">0</div>
             </div>
             <div class="ffa-row banner_default" id="ffa-row-5" style="display:none;">
                 <div class="ffa-rank" id="ffa-rank-5">6</div>
-                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-5" style="font-size: 14px;">P6</div></div>
+                <div class="lb-name-col"><div class="lb-name effect_none" id="ffa-name-5" style="font-size: var(--fs-3);">P6</div></div>
                 <div class="ffa-col" id="ffa-word-index-5">1</div>
                 <div class="ffa-col" id="ffa-skips-5">2</div>
                 <div class="ffa-row-score" id="ffa-score-5">0</div>
@@ -1492,7 +1504,7 @@
     </div>
     <!-- CLASH CHAT BOX -->
     <div id="clash-chat-container" style="display: none;">
-        <div id="chat-messages" style="height: 100px; overflow-y: auto; font-size: 12px; margin-bottom: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 5px;">
+        <div id="chat-messages" style="height: 100px; overflow-y: auto; font-size: var(--fs-2); margin-bottom: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px; padding-right: 5px;">
             <div style="color:var(--c-ink-3); font-style:italic;">Match started. GLHF!</div>
         </div>
         <!-- Quick chat. The chips are the only way to talk in a PUBLIC match;
@@ -1502,7 +1514,7 @@
              from CHAT_PRESETS so the phrase list lives in exactly one place. -->
         <div id="chat-presets"></div>
         <div id="chat-freetext">
-            <input type="text" id="chat-input" class="input-field" maxlength="50" placeholder="Type message..." style="font-size: 12px; padding: 8px; margin: 0; text-transform: none; letter-spacing: normal;">
+            <input type="text" id="chat-input" class="input-field" maxlength="50" placeholder="Type message..." style="font-size: var(--fs-2); padding: 8px; margin: 0; text-transform: none; letter-spacing: normal;">
             <button class="action-btn" style="border-color: var(--c-correct); color: var(--c-correct);" onclick="window.sendChatMessage()">Send</button>
         </div>
     </div>
@@ -1523,7 +1535,7 @@
             <div id="daily-board-title">Today's Best Runs</div>
             <button id="daily-board-next" onclick="window.stepDailyBoard(1)" title="Later day">&rsaquo;</button>
         </div>
-        <div id="daily-board-list" style="font-size: 14px; color: var(--c-ink-3); font-style: italic;">Loading…</div>
+        <div id="daily-board-list" style="font-size: var(--fs-3); color: var(--c-ink-3); font-style: italic;">Loading…</div>
         <div id="daily-board-you"></div>
     </div>
 
@@ -1568,7 +1580,7 @@
          page Google ranks is not just a title and a keyboard, which is what
          everything above this is to a crawler. -->
     <section id="site-intro">
-        <h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>
+        <h2 style="color: var(--c-ink); font-size: var(--fs-4); letter-spacing: var(--ls-ui); margin-bottom: var(--s-4);">A competitive word game</h2>
         <p style="margin-top: 0; margin-bottom: 10px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is your place. Free, runs in your browser, no account needed to start.</p>
 
         <!-- Four lines, one per mode, each in that mode's own colour — the
@@ -1585,7 +1597,7 @@
 
         <p style="margin-top: 12px; margin-bottom: 4px;">Read <a href="how-to-play.html" style="color:var(--c-gauntlet);">the full rules</a> or the <a href="strategy.html" style="color:var(--c-correct);">strategy guide</a>.</p>
 
-        <h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin: 22px 0 8px;">Support the project</h2>
+        <h2 style="color: var(--c-ink); font-size: var(--fs-4); letter-spacing: var(--ls-ui); margin: var(--s-8) 0 var(--s-4);">Support the project</h2>
         <p style="margin-top: 0;">Lexathon is free and always will be — no ads, no paywall, and nothing in the shop that makes anyone score higher. Running the multiplayer and leaderboards does cost something, so if you are enjoying it, <a href="https://ko-fi.com/lexathon" target="_blank" rel="noopener" style="color:var(--c-endless);">a donation on Ko-fi</a> is hugely appreciated. Play a few rounds first — only chip in if it earned it.</p>
     </section>
 
@@ -1594,7 +1606,7 @@
          with zero interaction — matters for AdSense review, which expects a
          policy link discoverable without first having to find and tap a menu
          button. -->
-    <div style="margin: 20px 0 10px; font-size: 10px; color: var(--c-ink-6); text-transform: uppercase; text-align: center; letter-spacing: 1px; line-height: 2.2; max-width: 420px;">
+    <div style="margin: 20px 0 10px; font-size: var(--fs-1); color: var(--c-ink-6); text-transform: uppercase; text-align: center; letter-spacing: 1px; line-height: 2.2; max-width: 420px;">
         <a href="how-to-play.html" style="color: var(--c-ink-5); text-decoration: none;">How To Play</a> |
         <a href="strategy.html" style="color: var(--c-ink-5); text-decoration: none;">Strategy Guide</a> |
         <a href="/gauntlet/" style="color: var(--c-ink-5); text-decoration: none;">Past Gauntlets</a> |
@@ -1611,7 +1623,7 @@
             <div class="modal-stats">
                 <div>Total Score: <br><span id="modal-score">0</span></div>
                 <div style="margin-top: 15px;">Words Guessed: <br><span id="modal-words">0</span></div>
-                <div style="margin-top: 15px; font-size: 14px; color: var(--c-ink-3);" id="cloud-save-status">Saving to cloud...</div>
+                <div style="margin-top: 15px; font-size: var(--fs-3); color: var(--c-ink-3);" id="cloud-save-status">Saving to cloud...</div>
             </div>
             <div class="modal-buttons">
                 <button class="btn-cyan" id="btn-share" onclick="window.shareStats()">Share Score</button>
@@ -1622,9 +1634,9 @@
     </div>
 
     <div id="warning-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="color: var(--c-clash);">⚠️ WARNING! ⚠️</h2>
-            <div class="modal-stats" style="color: var(--c-ink); font-size: 18px;">
+        <div class="modal-box" style="border-color: var(--c-clash);">
+            <h2 class="modal-title" style="color: var(--c-loss);">⚠️ WARNING! ⚠️</h2>
+            <div class="modal-stats" style="color: var(--c-ink); font-size: var(--fs-5);">
                 You have <span style="color: var(--c-loss);" id="warning-continues-text">0 Continues</span> left!<br><br>
                 If you fail when you reach 0, you will <span style="color: var(--c-loss);">lose ALL your points</span>.<br><br>
                 Bank your score now, or risk it all!
@@ -1642,9 +1654,9 @@
          the orange button opened a blue box. The result colours inside stay as
          they are: green for a win and red for a loss are signals, not theme. -->
     <div id="versus-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="color: var(--c-clash);">Head-to-Head</h2>
-                <div class="modal-stats" style="color: var(--c-ink-3); font-size: 14px; margin-bottom: 25px;">
+        <div class="modal-box" style="border-color: var(--c-clash);">
+            <h2 class="modal-title">Head-to-Head</h2>
+                <div class="modal-stats" style="color: var(--c-ink-3); font-size: var(--fs-3); margin-bottom: 25px;">
                     Score Attack rules. No Continues. <br>First to 1,000 points or highest score when time expires wins!
                 </div>
             
@@ -1653,13 +1665,13 @@
                     <button class="btn-orange" onclick="window.findRandomMatch()">Find Random Match</button>
                     
                     <!-- NEW LIVE COUNTER DIV HERE -->
-                    <div id="active-searchers-text" style="color: var(--c-clash); font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+                    <div id="active-searchers-text" style="color: var(--c-clash); font-size: var(--fs-2); margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
                     
-                    <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
+                    <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: var(--fs-2); font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
                     
                     <button class="btn-dark" style="border-color: var(--c-clash) !important; color: var(--c-clash);" onclick="window.hostMatch()">Host Private Match</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
+                        <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="Code" style="margin-bottom: 0;">
                         <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinMatch()">Join</button>
                     </div>
                 </div>
@@ -1676,9 +1688,9 @@
                 <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: var(--c-clash) !important; color: var(--c-clash); margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
 
                 <!-- SUB-TEXT BLOCK -->
-                <div id="waiting-sub-text" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 20px; font-style: italic;"></div>
+                <div id="waiting-sub-text" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 20px; font-style: italic;"></div>
                 
-                <p style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 20px;">
+                <p style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 20px;">
                     First player to 1,000 points wins! <br>
                     If time expires, the highest score takes the victory.<br>
                     <i style="color: var(--c-loss);">Failing a word deducts 50 points!</i>
@@ -1693,13 +1705,13 @@
 
     <!-- VERSUS END MODAL -->
     <div id="versus-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-clash); box-shadow: var(--c-shadow);">
+        <div class="modal-box" style="border-color: var(--c-clash);">
             <h2 class="modal-title" id="vs-end-title">You Win!</h2>
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
             
             <div class="modal-buttons">
                 <button class="btn-orange" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
-                <div id="rematch-waiting-text" style="display:none; font-size: 12px; color: var(--c-ink-3); font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
+                <div id="rematch-waiting-text" style="display:none; font-size: var(--fs-2); color: var(--c-ink-3); font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
                 <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
             </div>
         </div>
@@ -1707,22 +1719,22 @@
 
     <!-- FFA LOBBY MODAL -->
     <div id="ffa-lobby-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="color: var(--c-ffa);">Free-For-All</h2>
-            <div class="modal-stats" style="color: var(--c-ink-3); font-size: 14px; margin-bottom: 25px;">
+        <div class="modal-box" style="border-color: var(--c-ffa);">
+            <h2 class="modal-title">Free-For-All</h2>
+            <div class="modal-stats" style="color: var(--c-ink-3); font-size: var(--fs-3); margin-bottom: 25px;">
                 3-6 players. Score Attack rules.<br>Highest score when the clock hits 0 wins!
             </div>
 
             <div id="ffa-lobby-action-view">
                 <div class="modal-buttons">
                     <button class="btn-gold" onclick="window.findRandomFfaMatch()">Find Public Match</button>
-                    <div id="ffa-active-searchers-text" style="color: var(--c-ffa); font-size: 12px; margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
+                    <div id="ffa-active-searchers-text" style="color: var(--c-ffa); font-size: var(--fs-2); margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
 
-                    <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: 12px; font-weight: bold; text-align: center;">- OR PLAY WITH FRIENDS -</div>
+                    <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: var(--fs-2); font-weight: bold; text-align: center;">- OR PLAY WITH FRIENDS -</div>
 
                     <button class="btn-dark" style="border-color: var(--c-ffa) !important; color: var(--c-ffa);" onclick="window.hostFfaMatch()">Host Private Room</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <input type="text" id="ffa-join-code-input" class="input-field" maxlength="5" placeholder="CODE" style="margin-bottom: 0;">
+                        <input type="text" id="ffa-join-code-input" class="input-field" maxlength="5" placeholder="Code" style="margin-bottom: 0;">
                         <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinFfaMatchByCode()">Join</button>
                     </div>
                 </div>
@@ -1736,9 +1748,9 @@
                 <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
                 <button id="ffa-btn-share-invite" class="btn-dark" style="display: none; border-color: var(--c-ffa) !important; color: var(--c-ffa); margin-bottom: 10px;" onclick="window.shareFfaInvite()">Share Invite</button>
 
-                <div id="ffa-lobby-players-list" style="font-size: 14px; color: var(--c-ink); margin-bottom: 15px; line-height: 1.6;"></div>
+                <div id="ffa-lobby-players-list" style="font-size: var(--fs-3); color: var(--c-ink); margin-bottom: 15px; line-height: 1.6;"></div>
 
-                <div id="ffa-lobby-sub-text" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px; font-style: italic;"></div>
+                <div id="ffa-lobby-sub-text" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px; font-style: italic;"></div>
 
                 <div class="modal-buttons">
                     <button class="btn-gold" id="ffa-btn-start-early" style="display: none;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
@@ -1752,9 +1764,9 @@
 
     <!-- FFA END MODAL -->
     <div id="ffa-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-ffa); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" id="ffa-end-title" style="color: var(--c-ffa);">Match Complete!</h2>
-            <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: 14px;"></div>
+        <div class="modal-box" style="border-color: var(--c-ffa);">
+            <h2 class="modal-title" id="ffa-end-title">Match Complete!</h2>
+            <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: var(--fs-3);"></div>
 
             <div class="modal-buttons">
                 <button class="btn-dark" onclick="window.leaveFfaMatch()">Leave Match</button>
@@ -1764,26 +1776,26 @@
 
     <!-- PAST GAUNTLETS (ARCHIVE) MODAL -->
     <div id="gauntlet-archive-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" id="gauntlet-archive-title" style="color: var(--c-gauntlet);">Past Gauntlets</h2>
+        <div class="modal-box" style="border-color: var(--c-gauntlet);">
+            <h2 class="modal-title" id="gauntlet-archive-title">Past Gauntlets</h2>
 
             <!-- List of past days. -->
             <div id="gauntlet-archive-browse">
-                <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
+                <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
                 <div id="gauntlet-archive-list"></div>
                 <button class="btn-dark" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
-                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Gauntlet, with the words →</a>
+                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Gauntlet, with the words →</a>
             </div>
 
             <!-- One past day's final board. -->
             <div id="gauntlet-archive-detail" style="display:none;">
-                <div id="gauntlet-archive-standing" style="font-size: 13px; color: var(--c-ink-3); margin-bottom: 10px; text-align: center;"></div>
+                <div id="gauntlet-archive-standing" style="font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 10px; text-align: center;"></div>
                 <div id="gauntlet-archive-board"></div>
                 <!-- The static page carries what this panel deliberately does
                      not: the day's words themselves, per-word difficulty, and
                      the full spread of results. It is also a flat file, so
                      reading it there costs no Firestore reads at all. -->
-                <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
+                <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
                 <button class="btn-dark" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
             </div>
 
@@ -1795,13 +1807,13 @@
 
     <!-- DAILY GAUNTLET END MODAL -->
     <div id="daily-end-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-gauntlet); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" id="daily-end-title" style="color: var(--c-gauntlet);">Gauntlet Complete!</h2>
-            <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:var(--c-endless); font-size: 24px;">0</span></div>
+        <div class="modal-box" style="border-color: var(--c-gauntlet);">
+            <h2 class="modal-title" id="daily-end-title">Gauntlet Complete!</h2>
+            <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:var(--c-endless); font-size: var(--fs-6);">0</span></div>
 
-            <div id="daily-end-standing" style="display:none; font-size: 13px; color: var(--c-ink-3); margin-bottom: 12px;"></div>
+            <div id="daily-end-standing" style="display:none; font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 12px;"></div>
 
-            <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
+            <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
             <div class="modal-buttons">
                 <button class="btn-cyan" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
@@ -1817,7 +1829,7 @@
     <!-- MAIN MENU MODAL -->
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
-            <h2 class="modal-title" style="color: var(--c-ink);">Menu</h2>
+            <h2 class="modal-title">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <button class="menu-list-btn is-primary" onclick="window.confirmNewGame()">New Game</button>
                 <button class="menu-list-btn" onclick="window.openHowToPlay()">How To Play</button>
@@ -1840,7 +1852,7 @@
                     </button>
                 </div>
                 
-                <div style="margin-top: 15px; font-size: 10px; color: var(--c-ink-6); text-transform: uppercase; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <div style="margin-top: 15px; font-size: var(--fs-1); color: var(--c-ink-6); text-transform: uppercase; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; letter-spacing: var(--ls-label);">
                     <a href="how-to-play.html" style="color: var(--c-ink-5); text-decoration: none;">How To Play</a> |
                     <a href="strategy.html" style="color: var(--c-ink-5); text-decoration: none;">Strategy</a> |
                     <a href="faq.html" style="color: var(--c-ink-5); text-decoration: none;">FAQ</a> |
@@ -1862,9 +1874,9 @@
          falling back to signing into the existing account if that credential
          already has one (see signInWithGoogle / submitEmailAuth). -->
     <div id="auth-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-ink); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="color: var(--c-ink);">Sign Up / Log In</h2>
-            <div class="modal-stats" style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 15px; line-height: 1.4; text-align: center;">
+        <div class="modal-box" style="border-color: var(--c-ink);">
+            <h2 class="modal-title">Sign Up / Log In</h2>
+            <div class="modal-stats" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px; line-height: 1.4; text-align: center;">
                 This saves your current guest progress to whichever you pick. Already have a Lexathon account? You'll be signed into it instead.
             </div>
             <button class="btn-google" onclick="window.signInWithGoogle()">
@@ -1877,11 +1889,11 @@
                 <span>Sign in with Google</span>
             </button>
             <div class="auth-divider"><span>or use an email</span></div>
-            <input type="email" id="email-auth-email" class="input-field" placeholder="EMAIL" autocomplete="email" style="text-transform: none; letter-spacing: normal; text-align: left;">
-            <input type="password" id="email-auth-password" class="input-field" placeholder="PASSWORD (6+ characters)" autocomplete="current-password" style="text-transform: none; letter-spacing: normal; text-align: left;">
+            <input type="email" id="email-auth-email" class="input-field" placeholder="Email" autocomplete="email" style="text-transform: none; letter-spacing: normal; text-align: left;">
+            <input type="password" id="email-auth-password" class="input-field" placeholder="Password (6+ characters)" autocomplete="current-password" style="text-transform: none; letter-spacing: normal; text-align: left;">
             <button class="btn-cyan" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer; margin-top: 5px;" onclick="window.submitEmailAuth()">Continue</button>
             <div style="text-align: center; margin-top: 10px;">
-                <a href="#" style="color: var(--c-ink-5); font-size: 11px; text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
+                <a href="#" style="color: var(--c-ink-5); font-size: var(--fs-2); text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
             </div>
             <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-dark" onclick="document.getElementById('auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
@@ -1896,13 +1908,13 @@
          Skippable, because the free change is still sitting in the Profile
          afterwards — a name is a bad thing to make someone hurry over. -->
     <div id="handle-setup-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: var(--c-shadow); max-width: 360px;">
+        <div class="modal-box" style="border-color: var(--c-correct); max-width: 360px;">
             <h2 class="modal-title">Pick Your Handle</h2>
-            <div class="modal-stats" style="font-size: 13px; color: var(--c-ink-2); margin-bottom: 15px; line-height: 1.5; text-align: center;">
+            <div class="modal-stats" style="font-size: var(--fs-3); color: var(--c-ink-2); margin-bottom: 15px; line-height: 1.5; text-align: center;">
                 <span id="handle-setup-blurb">Your progress is saved.</span> This is the name that shows on the leaderboards — your first change is free.
             </div>
-            <input type="text" id="handle-setup-input" class="input-field" maxlength="12" placeholder="ENTER NAME" autocomplete="off">
-            <div id="handle-setup-error" style="font-size: 12px; color: var(--c-loss); line-height: 1.4; min-height: 17px;"></div>
+            <input type="text" id="handle-setup-input" class="input-field" maxlength="12" placeholder="Enter name" autocomplete="off">
+            <div id="handle-setup-error" style="font-size: var(--fs-2); color: var(--c-loss); line-height: 1.4; min-height: 17px;"></div>
             <div class="modal-buttons" style="margin-top: 5px;">
                 <button class="btn-cyan" id="handle-setup-save" onclick="window.saveHandleSetup()">Save Handle</button>
                 <button class="btn-dark" id="handle-setup-skip" onclick="window.skipHandleSetup()">Skip For Now</button>
@@ -1922,20 +1934,20 @@
         <div class="modal-box" id="mode-intro-box" style="max-width: 360px;">
             <div id="mode-intro-icon" style="font-size: 44px; margin-bottom: 6px;"></div>
             <h2 class="modal-title" id="mode-intro-title"></h2>
-            <p id="mode-intro-text" style="color: var(--c-ink-2); font-size: 14px; line-height: 1.65; margin: 0 0 4px;"></p>
+            <p id="mode-intro-text" style="color: var(--c-ink-2); font-size: var(--fs-3); line-height: 1.65; margin: 0 0 4px;"></p>
             <div class="modal-buttons">
                 <button class="btn-cyan" id="mode-intro-btn" onclick="window.dismissModeIntro()">Play</button>
             </div>
-            <a href="how-to-play.html" style="color: var(--c-ink-5); font-size: 12px; text-decoration: none;">Full rules</a>
+            <a href="how-to-play.html" style="color: var(--c-ink-5); font-size: var(--fs-2); text-decoration: none;">Full rules</a>
         </div>
     </div>
 
     <!-- HOW TO PLAY MODAL — the full reference, open anytime from the Menu -->
     <div id="howto-modal" class="modal-overlay">
-        <div class="modal-box" style="max-width: 440px; text-align: left; border-color: var(--c-gauntlet); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="text-align: center; color: var(--c-gauntlet);">How To Play</h2>
+        <div class="modal-box" style="max-width: 440px; text-align: left; border-color: var(--c-gauntlet);">
+            <h2 class="modal-title" style="text-align: center;">How To Play</h2>
 
-            <div style="font-size: 13px; line-height: 1.6; color: var(--c-ink-2);">
+            <div style="font-size: var(--fs-3); line-height: 1.6; color: var(--c-ink-2);">
                 <h3 style="color: var(--c-endless); text-transform: uppercase; margin-bottom: 6px;">♾️ Endless</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>Guess a 5-letter word in up to 5 tries, one word after another.</li>
@@ -1985,7 +1997,7 @@
                 </ul>
             </div>
 
-            <div style="text-align: center; font-size: 12px; margin-top: 16px;">
+            <div style="text-align: center; font-size: var(--fs-2); margin-top: 16px;">
                 <a href="how-to-play.html" style="color: var(--c-gauntlet);">Full rules &amp; scoring</a> ·
                 <a href="strategy.html" style="color: var(--c-correct);">Strategy guide</a>
             </div>
@@ -1997,10 +2009,10 @@
 
     <!-- SIGN-UP NUDGE — contextual, guest-only, see maybeShowSignupNudge -->
     <div id="signup-nudge-modal" class="modal-overlay">
-        <div class="modal-box" style="border-color: var(--c-correct); box-shadow: var(--c-shadow); max-width: 360px;">
-            <h2 class="modal-title" style="color: var(--c-correct);">Don't Lose This!</h2>
-            <p id="signup-nudge-reason" style="color: var(--c-ink); font-size: 15px; font-weight: bold; margin-bottom: 12px;"></p>
-            <p id="signup-nudge-body" style="color: var(--c-ink-3); font-size: 12px; line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
+        <div class="modal-box" style="border-color: var(--c-correct); max-width: 360px;">
+            <h2 class="modal-title">Don't Lose This!</h2>
+            <p id="signup-nudge-reason" style="color: var(--c-ink); font-size: var(--fs-4); font-weight: bold; margin-bottom: 12px;"></p>
+            <p id="signup-nudge-body" style="color: var(--c-ink-3); font-size: var(--fs-2); line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
             <div class="modal-buttons">
                 <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign Up / Log In</button>
                 <button class="btn-dark" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
@@ -2010,8 +2022,8 @@
 
     <!-- CHALLENGES MODAL -->
     <div id="challenges-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 340px; border-color: var(--c-present); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="color: var(--c-present);">Challenges</h2>
+        <div class="modal-box" style="min-width: 340px; border-color: var(--c-present);">
+            <h2 class="modal-title">Challenges</h2>
             <div class="tabs">
                 <button class="tab-btn active" id="tab-chal-daily" onclick="window.renderChallenges('daily')">Daily</button>
                 <button class="tab-btn" id="tab-chal-career" onclick="window.renderChallenges('career')">Career</button>
@@ -2025,15 +2037,15 @@
 
     <!-- SHOP MODAL -->
     <div id="shop-modal" class="modal-overlay">
-        <div class="modal-box" style="min-width: 340px; border-color: var(--c-clash); box-shadow: var(--c-shadow);">
-            <h2 class="modal-title" style="color: var(--c-clash);">Item Shop</h2>
+        <div class="modal-box" style="min-width: 340px; border-color: var(--c-clash);">
+            <h2 class="modal-title">Item Shop</h2>
             <div style="text-align: center; margin-bottom: 15px; font-weight: bold;">Wallet: <span id="shop-bank-display" style="color: var(--c-present);">0</span> pts</div>
             
             <div id="shop-preview-monitor">
                 <div class="preview-label">Preview</div>
                 <div id="preview-banner-box" class="lb-entry banner_default" style="margin-bottom: 0; padding: 10px;">
                     <div class="lb-name-col">
-                        <div id="preview-name-box" class="lb-name effect_none" style="font-size: 20px;">HANDLE</div>
+                        <div id="preview-name-box" class="lb-name effect_none" style="font-size: var(--fs-5);">HANDLE</div>
                         <div id="preview-title-box" class="lb-date" style="color: var(--c-clash);">TITLE</div>
                     </div>
                 </div>
@@ -2053,14 +2065,14 @@
         <div class="modal-box" style="min-width: 340px;">
             <h2 class="modal-title">Profile</h2>
             <div class="modal-stats" style="text-align: center; margin-bottom: 10px;">
-                <div id="login-status-text" style="color: var(--c-ink); font-size: 14px; margin-bottom: 15px; text-transform: uppercase;">Loading Profile...</div>
+                <div id="login-status-text" style="color: var(--c-ink); font-size: var(--fs-3); margin-bottom: 15px;">Loading Profile...</div>
                 <div id="username-section" style="display: none;">
-                    <input type="text" id="username-input" class="input-field" maxlength="12" placeholder="ENTER NAME">
-                    <div id="handle-cost-text" style="font-size: 11px; color:var(--c-ink-3); margin-bottom: 8px;">Cost: 0 pts</div>
-                    <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer;">Update Handle</button>
+                    <input type="text" id="username-input" class="input-field" maxlength="12" placeholder="Enter name">
+                    <div id="handle-cost-text" style="font-size: var(--fs-2); color:var(--c-ink-3); margin-bottom: 8px;">Cost: 0 pts</div>
+                    <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%;">Update Handle</button>
                 </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
-                    <div style="font-size: 12px; color: var(--c-ink-3); margin-bottom: 10px; line-height: 1.4;">
+                    <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px; line-height: 1.4;">
                         You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Sign up from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
                     </div>
                 </div>
@@ -2075,31 +2087,31 @@
 
             <!-- STANDARD STATS -->
             <div id="profile-standard" class="modal-stats" style="text-align: left;">
-                <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: var(--c-present); font-size: 28px;">0</span> pts</div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">🔥 Login Streak<br><span id="stat-login-streak" style="color:var(--c-ink); font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">🎯 Best No-Miss<br><span id="stat-nomiss-streak" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: var(--c-present); font-size: var(--fs-6);">0</span> pts</div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center;">🔥 Login Streak<br><span id="stat-login-streak" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">🎯 Best No-Miss<br><span id="stat-nomiss-streak" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: var(--c-ink-3); font-size: 14px; padding: 0 5px;">
-                    <div style="text-align: center;">Played<br><span id="stat-played" style="color:var(--c-ink); font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:var(--c-ink); font-size: 18px;">0%</span></div>
-                    <div style="text-align: center;">Avg Score<br><span id="stat-avg-score" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: var(--c-ink-3); font-size: var(--fs-3); padding: 0 5px;">
+                    <div style="text-align: center;">Played<br><span id="stat-played" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-win-rate" style="color:var(--c-ink); font-size: var(--fs-5);">0%</span></div>
+                    <div style="text-align: center;">Avg Score<br><span id="stat-avg-score" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                 </div>
-                <div style="font-size: 14px; margin-bottom: 10px; color: var(--c-correct); text-transform: uppercase; text-align: center;">Guess Distribution</div>
+                <div style="font-size: var(--fs-3); margin-bottom: 10px; color: var(--c-correct); text-align: center;">Guess Distribution</div>
                 <div id="stat-distribution"></div>
             </div>
 
             <!-- CLASH STATS -->
             <div id="profile-clash" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 20px;">MMR: <br><span id="stat-mmr-score" style="color: var(--c-clash); font-size: 28px;">1000</span></div>
-                <div style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;" id="stat-rank-title">Bronze</div>
+                <div style="text-align: center; margin-bottom: 20px;">MMR: <br><span id="stat-mmr-score" style="color: var(--c-clash); font-size: var(--fs-6);">1000</span></div>
+                <div style="text-align: center; margin-bottom: 20px; font-size: var(--fs-5); font-weight: bold;" id="stat-rank-title">Bronze</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:var(--c-ink); font-size: 18px;">0 - 0 - 0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:var(--c-ink); font-size: 18px;">0%</span></div>
-                    <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:var(--c-ink); font-size: 18px;">0</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center;">Record<br><span id="stat-clash-record" style="color:var(--c-ink); font-size: var(--fs-5);">0 - 0 - 0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-clash-winrate" style="color:var(--c-ink); font-size: var(--fs-5);">0%</span></div>
+                    <div style="text-align: center;">🔥 Win Streak<br><span id="stat-clash-streak" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                 </div>
-                <div id="stat-clash-note" style="text-align: center; font-size: 12px; color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
+                <div id="stat-clash-note" style="text-align: center; font-size: var(--fs-2); color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
             </div>
 
             <!-- FFA STATS — its own rating ladder, separate from Clash's.
@@ -2107,30 +2119,30 @@
                  ffaMmr now: a win count rewards volume over skill, so it is a
                  personal stat, not a ranking. -->
             <div id="profile-ffa" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 4px;">FFA Rating: <br><span id="stat-ffa-mmr" style="color: var(--c-ffa); font-size: 28px;">—</span></div>
-                <div id="stat-ffa-rank-title" style="text-align: center; margin-bottom: 20px; font-size: 18px; font-weight: bold; text-transform: uppercase;">Unranked</div>
+                <div style="text-align: center; margin-bottom: 4px;">FFA Rating: <br><span id="stat-ffa-mmr" style="color: var(--c-ffa); font-size: var(--fs-6);">—</span></div>
+                <div id="stat-ffa-rank-title" style="text-align: center; margin-bottom: 20px; font-size: var(--fs-5); font-weight: bold;">Unranked</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Wins<br><span id="stat-ffa-wins" style="color:var(--c-ink); font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">Played<br><span id="stat-ffa-played" style="color:var(--c-ink); font-size: 18px;">0</span></div>
-                    <div style="text-align: center;">Win Rate<br><span id="stat-ffa-winrate" style="color:var(--c-ink); font-size: 18px;">0%</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center;">Wins<br><span id="stat-ffa-wins" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">Played<br><span id="stat-ffa-played" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">Win Rate<br><span id="stat-ffa-winrate" style="color:var(--c-ink); font-size: var(--fs-5);">0%</span></div>
                 </div>
-                <div id="stat-ffa-note" style="text-align: center; font-size: 12px; color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
+                <div id="stat-ffa-note" style="text-align: center; font-size: var(--fs-2); color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
             </div>
 
             <!-- GAUNTLET STATS -->
             <div id="profile-gauntlet" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 4px;">Best Gauntlet: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: 28px;">—</span> pts</div>
-                <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: 12px; color: var(--c-ink-4);">&nbsp;</div>
+                <div style="text-align: center; margin-bottom: 4px;">Best Gauntlet: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: var(--fs-6);">—</span> pts</div>
+                <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: var(--fs-2); color: var(--c-ink-4);">&nbsp;</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px; color: var(--c-ink-3); font-size: 12px; padding: 0 5px; text-transform: uppercase;">
-                    <div style="text-align: center;">Global Rank<br><span id="stat-gauntlet-rank" style="color:var(--c-ink); font-size: 18px;">—</span></div>
-                    <div style="text-align: center;">Played<br><span id="stat-gauntlet-played" style="color:var(--c-ink); font-size: 18px;">—</span></div>
-                    <div style="text-align: center;">Top 10 Finish<br><span id="stat-gauntlet-top10" style="color:var(--c-ink); font-size: 18px;">—</span></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center;">Global Rank<br><span id="stat-gauntlet-rank" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                    <div style="text-align: center;">Played<br><span id="stat-gauntlet-played" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                    <div style="text-align: center;">Top 10 Finish<br><span id="stat-gauntlet-top10" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
                 </div>
 
-                <div style="font-size: 14px; margin: 18px 0 8px; color: var(--c-gauntlet); text-transform: uppercase; text-align: center;">Today</div>
-                <div id="stat-gauntlet-today" style="text-align: center; font-size: 13px; color: var(--c-ink-3);">Checking...</div>
+                <div style="font-size: var(--fs-3); margin: 18px 0 8px; color: var(--c-gauntlet); text-align: center;">Today</div>
+                <div id="stat-gauntlet-today" style="text-align: center; font-size: var(--fs-3); color: var(--c-ink-3);">Checking...</div>
             </div>
 
             <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
@@ -2140,7 +2152,7 @@
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
-            <h2 class="modal-title" style="color: var(--c-ink);">Settings</h2>
+            <h2 class="modal-title">Settings</h2>
             <div class="modal-stats" style="text-align: left;">
                 <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
                     <span>Sound Effects</span>
@@ -2157,7 +2169,7 @@
                 <!-- The longest label of the four, so it needs an explicit gap -
                      space-between alone lets it grow until it touches the button. -->
                 <div class="stat-bar-container" style="justify-content: space-between; gap: 14px;">
-                    <span style="text-align: left;">Seasonal Themes<div id="settings-season-note" style="font-size: 11px; color: var(--c-ink-4); font-weight: normal;"></div></span>
+                    <span style="text-align: left;">Seasonal Themes<div id="settings-season-note" style="font-size: var(--fs-2); color: var(--c-ink-4); font-weight: normal;"></div></span>
                     <button id="settings-toggle-seasonal" class="action-btn" onclick="window.toggleSetting('seasonal')">ON</button>
                 </div>
             </div>
