@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexathon Gauntlet #45 — 16 October 2026</title>
+    <meta name="description" content="All 7 words from Lexathon Gauntlet #45 (16 October 2026), with the final standings, how many guesses each word took, and which one caught the most people out.">
+    <link rel="canonical" href="https://lexathon.gg/gauntlet/2026-10-16/">
+    <!-- How a shared archive link unfurls. These pages are the ones most
+         likely to be posted on their own - "look what word beat everyone
+         yesterday" - so a bare URL costs more here than on the static pages.
+         One card for the whole site; the title and description carry the day.
+         Absolute URLs are required: scrapers do not resolve relative paths. -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Lexathon">
+    <meta property="og:url" content="https://lexathon.gg/gauntlet/2026-10-16/">
+    <meta property="og:title" content="Lexathon Gauntlet #45 — 16 October 2026">
+    <meta property="og:description" content="All 7 words from Lexathon Gauntlet #45 (16 October 2026), with the final standings, how many guesses each word took, and which one caught the most people out.">
+    <meta property="og:image" content="https://lexathon.gg/og-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Lexathon Gauntlet #45 — 16 October 2026">
+    <meta name="twitter:description" content="All 7 words from Lexathon Gauntlet #45 (16 October 2026), with the final standings, how many guesses each word took, and which one caught the most people out.">
+    <meta name="twitter:image" content="https://lexathon.gg/og-card.png">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <style>
+        /* .container is width:100% PLUS padding and border, which on a 390px
+           phone rendered 404px inside a 350px slot and pushed the document
+           sideways. The hand-written pages carry the identical fix. */
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121213; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
+        .container { background-color: #1a1a1d; border: 2px solid #b967ff; border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: 0 0 15px #b967ff; line-height: 1.7; font-size: 15px; }
+        h1 { color: #b967ff; text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
+        .sub { text-align: center; color: #888; font-size: 13px; margin-top: -10px; margin-bottom: 22px; }
+        h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed #555; padding-bottom: 6px; }
+        a { color: #4caf50; text-decoration: none; font-weight: bold; }
+        a:hover { color: #00ffff; }
+        /* display:block so a table too wide for the screen scrolls inside
+           itself instead of stretching the page. The word table is six
+           columns and does not fit a phone at full size. */
+        table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #333; white-space: nowrap; }
+        th { color: #b967ff; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        td.n, th.n { text-align: right; }
+        .word { font-weight: bold; color: #00ffff; letter-spacing: 2px; }
+        .tier { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+        .lede { color: #ddd; font-size: 16px; }
+        .stat-row { display: flex; justify-content: space-between; gap: 10px; margin: 18px 0; text-align: center; }
+        .stat-row div { flex: 1; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-row b { display: block; font-size: 22px; color: #fff; font-weight: bold; letter-spacing: 0; text-transform: none; }
+        .bar { background: #222; border-radius: 3px; height: 16px; position: relative; overflow: hidden; }
+        .bar > span { display: block; height: 100%; background: #b967ff; }
+        .pager { display: flex; justify-content: space-between; margin-top: 26px; font-size: 14px; gap: 10px; }
+        .pager span { color: #555; }
+        .back-btn { background-color: #333; color: white; border: 2px solid #777; padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
+        .back-btn:hover { background-color: #555; }
+        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: #666; line-height: 2; }
+        /* Declared before the media query below: at equal specificity the
+           later rule wins, so putting this after it silently defeated the
+           override and the short label never rendered. */
+        .only-sm { display: none; }
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .container { padding: 16px; }
+            table { font-size: 13px; }
+            th, td { padding: 6px; }
+            h1 { font-size: 23px; letter-spacing: 1px; }
+            /* Four across cramped "Top score" and "Avg solved" onto two lines
+               while the other two stayed on one, so the numbers no longer
+               lined up. Two by two gives every label a full line. */
+            .stat-row { flex-wrap: wrap; }
+            .stat-row div { flex: 1 1 42%; margin-bottom: 8px; }
+            .stat-row b { font-size: 19px; }
+            /* One column per table earns its place least on a phone, and
+               dropping it is what lets the rest fit without a sideways
+               scroll: the word list's Tier (the easiest-first ordering and
+               the sentence above the table already say it) and the hub's
+               Perfect count. */
+            .hide-sm { display: none; }
+            .only-sm { display: inline; }
+            /* 2px between letters over a column of five-letter words is real width
+               on a 334px table, and the word is legible without it. */
+            .word { letter-spacing: 1px; }
+        }
+        .support { margin-top: 26px; padding: 14px 16px; border: 1px solid #333; border-radius: 6px; background: #151517; font-size: 13px; color: #999; line-height: 1.6; }
+    </style>
+    <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
+         Change the token or turn it off everywhere at once with:
+             node tools/set-analytics-token.mjs <token|--off> -->
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"21957ededacf4e538abc5a0c42767ce7"}'></script>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gauntlet #45</h1>
+        <div class="sub">16 October 2026</div>
+        <div class="stat-row">
+            <div>Players<b>1</b></div>
+            <div>Perfect<b>0</b></div>
+            <div>Top score<b>480</b></div>
+            <div>Avg solved<b>6.0</b></div>
+        </div>
+        <p class="lede">1 player finished this one. Nobody got all 7. <strong>WAVER</strong> caught the most people out — 1 missed it.</p>
+
+        <h2>The Words</h2>
+        <p>Drawn easiest-first, spread across the easy, middle and hardest thirds of the word list.</p>
+        <table>
+            <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Missed</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
+            <tr><td>1</td><td class="word">TOTAL</td><td class="tier hide-sm">Easy</td><td class="n">0</td><td class="n">100%</td><td class="n">5.0</td></tr>
+            <tr><td>2</td><td class="word">SAFER</td><td class="tier hide-sm">Easy</td><td class="n">0</td><td class="n">100%</td><td class="n">3.0</td></tr>
+            <tr><td>3</td><td class="word">AGING</td><td class="tier hide-sm">Medium</td><td class="n">0</td><td class="n">100%</td><td class="n">3.0</td></tr>
+            <tr><td>4</td><td class="word">WAVER</td><td class="tier hide-sm">Medium</td><td class="n">1</td><td class="n">0%</td><td class="n">—</td></tr>
+            <tr><td>5</td><td class="word">PUREE</td><td class="tier hide-sm">Medium</td><td class="n">0</td><td class="n">100%</td><td class="n">5.0</td></tr>
+            <tr><td>6</td><td class="word">ALLOY</td><td class="tier hide-sm">Hard</td><td class="n">0</td><td class="n">100%</td><td class="n">5.0</td></tr>
+            <tr><td>7</td><td class="word">SHORN</td><td class="tier hide-sm">Hard</td><td class="n">0</td><td class="n">100%</td><td class="n">3.0</td></tr>
+        </table>
+        <p style="font-size:13px;color:#888;">Everyone plays all 7 words, so every player saw every word here — "Solved" is the share of the whole field that got it.</p>
+
+        <h2>Final Standings</h2>
+        <table>
+            <tr><th>#</th><th>Player</th><th class="n">Solved</th><th class="n">Score</th></tr>
+            <tr><td>1</td><td>SLIZZY</td><td class="n">6/10</td><td class="n">480</td></tr>
+        </table>
+
+        <h2>How Everyone Did</h2>
+        <table>
+            <tr><td style="width:64px;">6/10</td><td><div class="bar"><span style="width:100%;"></span></div></td><td class="n" style="width:56px;">1</td></tr>
+        </table>
+
+        <div class="pager"><span>← Start of the archive</span><span>Newest →</span></div>
+
+        <p style="margin-top:24px;">Today's Gauntlet is a different set of words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
+
+        <a href="/" class="back-btn">Back to Arcade</a>
+
+        <div class="support">
+            Lexathon is a small project, free to play, with no ads and nothing to buy that affects the game.
+            If you'd like to help keep it running, <a href="https://ko-fi.com/lexathon" rel="noopener">support it on Ko-fi</a>.
+        </div>
+        <div class="nav-links">
+            <a href="/">Play</a> · <a href="/gauntlet/">Past Gauntlets</a> · <a href="/how-to-play.html">How To Play</a> · <a href="/strategy.html">Strategy Guide</a> · <a href="/faq.html">FAQ</a><br>
+            <a href="/about.html">About</a> · <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a>
+        </div>
+    </div>
+
+</body>
+</html>
