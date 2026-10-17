@@ -718,6 +718,19 @@
 
         /* BANNER COSMETICS */
         .banner_default { background: transparent; }
+        /* Every banner except the default was drawn for a dark plate: about
+           half of them are translucent washes with transparent stops, and all
+           of them carry a white name. The row under them went white with the
+           rest of the page, so the washes nearly vanished and the names went
+           with them. Giving the row its plate back is what keeps thirty bought
+           cosmetics looking like the thing that was bought — the alternative
+           is redrawing all of them for paper, which is not a repaint, it is
+           changing what people paid for.
+
+           background-color rather than background: each banner's own shorthand
+           resets the colour to transparent, so this sets the layer underneath
+           and leaves every gradient on top of it untouched. */
+        [class*="banner_"]:not(.banner_default) { background-color: #121213; }
         .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid #00ffff; border-radius: 3px;}
         .banner_magenta { background: linear-gradient(90deg, rgba(255,0,255,0.15) 0%, rgba(255,0,255,0.02) 100%); border-left: 3px solid #ff00ff; border-radius: 3px;}
         .banner_matrix::after { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(0deg, rgba(0,255,0,0.08) 0px, transparent 2px, transparent 4px); z-index: -1; animation: matrix-scroll 10s linear infinite; border-left: 3px solid #00ff00; border-radius: 3px;}
@@ -725,7 +738,45 @@
         @keyframes matrix-scroll { 0% { background-position: 0 0; } 100% { background-position: 0 200px; } }
 
         /* REFRACTOR EFFECT COSMETICS */
+        /* "Standard Font" — the no-cosmetic default, which is chrome wearing a
+           shop item's name. It stays #fff because an equipped banner paints its
+           own dark plate under the name and every one of those was drawn for a
+           dark surface. On the DEFAULT banner there is no plate, so the name
+           sits straight on the card — and the card went white, which made every
+           default player name white on white at 1:1. FFA standings, the Clash
+           plates, the Gauntlet feed and archive, the leaderboard and the daily
+           board, all at once.
+
+           Three classes beats the one-class .effect_none, so this corrects the
+           default without editing a cosmetic. */
         .effect_none { color: #fff; }
+        .banner_default .lb-name.effect_none,
+        .banner_default .daily-board-name.effect_none,
+        .banner_default.lb-name.effect_none { color: var(--c-ink); }
+        #shop-preview-monitor .lb-name.effect_none { color: #fff; }
+        /* Ten of the shop's name effects are white or neon — drawn against the
+           old #121213 UI, and still given that plate by any equipped banner.
+           On the DEFAULT banner there is no plate, and the card underneath
+           went white, so a white glitch or a cyan pulse had nothing left to
+           sit on. Each gets its own nameplate rather than being redrawn for
+           paper: the same bargain as the banner plate above, and the same
+           reason — these are things people bought.
+
+           Not in this list: Void Black and Event Horizon, whose whole design
+           is dark ink legible by its halo. They need no plate and a light one
+           would destroy them. */
+        .banner_default .lb-name.effect_pulse,
+        .banner_default .lb-name.effect_glitch,
+        .banner_default .lb-name.effect_electric,
+        .banner_default .lb-name.effect_fire,
+        .banner_default .lb-name.effect_chromatic,
+        .banner_default .lb-name.effect_supernova,
+        .banner_default .lb-name.effect_neon_outline,
+        .banner_default .lb-name.effect_static,
+        .banner_default .lb-name.effect_haunted,
+        .banner_default .lb-name.effect_countdown {
+            background-color: #121213; padding: 0 7px; border-radius: 3px;
+        }
         .effect_holo { background: linear-gradient(90deg, #ccc 0%, #fff 25%, #00ffff 50%, #fff 75%, #ccc 100%); background-size: 200% auto; color: #fff; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite;}
         @keyframes shine { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
 

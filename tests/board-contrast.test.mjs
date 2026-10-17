@@ -208,6 +208,123 @@ try {
     ck(plain[id].style === 'solid', `a graded cell (${id}) is solid`, plain[id].style);
   }
 
+  // ---- the other surface the palette paints: a player's name on a row ----
+  // Not the board, but the same failure and nothing else was watching for it.
+  // .effect_none is "Standard Font" — the no-cosmetic default, which is chrome
+  // wearing a shop item's name. It is #fff because every equipped banner paints
+  // a dark plate under the name. The card went white and the default banner
+  // paints nothing, so every default player name went white on white at 1:1 —
+  // FFA standings, the Clash plates, the Gauntlet feed and archive, the
+  // leaderboard and the daily board, all at once, with the whole suite green.
+  //
+  // Checked as the cross product, because the bug was in one cell of it: every
+  // banner against every name effect, on the card the row actually sits on.
+  // Gradient-only banners report a transparent background-color, so the
+  // effective backdrop is whatever opaque ancestor is behind them — which is
+  // the point: that is exactly what the reader sees through the wash.
+  const bannerNames = [...new Set([...css.matchAll(/\.(banner_[a-z_]+)\s*\{/g)].map((m) => m[1]))];
+  const effectNames = [...new Set([...css.matchAll(/\.(effect_[a-z_]+)\s*\{/g)].map((m) => m[1]))];
+  ck(bannerNames.length >= 30, `found the banners to check (${bannerNames.length})`);
+  ck(effectNames.length >= 20, `found the name effects to check (${effectNames.length})`);
+
+  const HALO_LEGIBLE = ['effect_void', 'effect_singularity'];
+  const nameRows = await p.evaluate(({ banners, effects, HALO_LEGIBLE }) => {
+    const parse = (c) => (c.match(/[\d.]+/g) || []).map(Number);
+    const lum = ([r, g, b]) => {
+      const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const host = document.createElement('div');
+    host.id = 'daily-board-container';
+    document.body.appendChild(host);
+    const out = [];
+    for (const bn of banners) {
+      for (const ef of effects) {
+        host.innerHTML = `<div class="lb-entry ${bn}"><div class="lb-rank">1</div>` +
+          `<div class="lb-name-col"><div class="lb-name ${ef}">PLAYER</div></div>` +
+          `<div class="lb-score">900</div></div>`;
+        const el = host.querySelector('.lb-name');
+        const cs = getComputedStyle(el);
+        // A gradient-text effect paints the glyphs with the background and
+        // makes the colour transparent; those carry their own contrast and
+        // cannot be measured this way.
+        if (cs.webkitTextFillColor === 'rgba(0, 0, 0, 0)') continue;
+        // Void Black and Event Horizon are dark ink made legible by a halo,
+        // which is their entire design ("Absorbs all light", "Where the light
+        // stops"). Colour-against-backdrop is the wrong instrument for them —
+        // the same mistake as asking a contrast ratio whether two fills are
+        // different — so they are measured by the check below instead, which
+        // pins the halo they depend on.
+        if (HALO_LEGIBLE.includes(ef)) continue;
+        let n = el, bg = [255, 255, 255];
+        while (n) {
+          const c = parse(getComputedStyle(n).backgroundColor);
+          if (c.length < 4 || c[3] > 0.99) { bg = c.slice(0, 3); break; }
+          n = n.parentElement;
+        }
+        out.push([bn, ef, ratio(parse(cs.color).slice(0, 3), bg)]);
+      }
+    }
+    host.remove();
+    return out;
+  }, { banners: bannerNames, effects: effectNames, HALO_LEGIBLE });
+
+  // The two skipped above are not exempt, they are measured differently: their
+  // legibility IS the text-shadow, so that is what gets pinned. Delete the halo
+  // and they become dark ink on a dark plate at 1.01:1 with nothing to catch it.
+  const halos = await p.evaluate((names) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const out = {};
+    for (const ef of names) {
+      host.innerHTML = `<div class="lb-name ${ef}">PLAYER</div>`;
+      const cs = getComputedStyle(host.firstChild);
+      out[ef] = { shadow: cs.textShadow, weight: cs.fontWeight };
+    }
+    host.remove();
+    return out;
+  }, HALO_LEGIBLE);
+  for (const ef of HALO_LEGIBLE) {
+    ck(halos[ef] && halos[ef].shadow && halos[ef].shadow !== 'none',
+       `${ef} keeps the halo it is read by`, halos[ef] && halos[ef].shadow);
+  }
+
+  // The shop's preview monitor is the one surface that deliberately stayed
+  // black, because everything it previews was drawn for a dark UI. So the fix
+  // that darkens a default name on a white card has to NOT reach inside it —
+  // which the rows above cannot show, since they build their own container.
+  const preview = await p.evaluate(() => {
+    const parse = (c) => (c.match(/[\d.]+/g) || []).map(Number);
+    const lum = ([r, g, b]) => {
+      const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const mon = document.createElement('div');
+    mon.id = 'shop-preview-monitor';
+    mon.innerHTML = '<div id="preview-banner-box" class="lb-entry banner_default">' +
+                    '<div class="lb-name effect_none" id="preview-name-box">HANDLE</div></div>';
+    document.body.appendChild(mon);
+    const el = mon.querySelector('.lb-name');
+    let n = el, bg = [255, 255, 255];
+    while (n) {
+      const c = parse(getComputedStyle(n).backgroundColor);
+      if (c.length < 4 || c[3] > 0.99) { bg = c.slice(0, 3); break; }
+      n = n.parentElement;
+    }
+    const r = ratio(parse(getComputedStyle(el).color).slice(0, 3), bg);
+    mon.remove();
+    return r;
+  });
+  ck(preview >= 4.5, 'a default name still reads inside the black shop preview',
+     preview.toFixed(2) + ':1');
+
+  const unreadable = nameRows.filter(([, , r]) => r < 4.5);
+  ck(unreadable.length === 0,
+     `every name reads on every banner (${nameRows.length} pairs measured)`,
+     unreadable.slice(0, 8).map(([b, e, r]) => `${b}+${e} ${r.toFixed(2)}:1`).join(' | '));
+
   const worst = Object.entries(measured).flatMap(([st, m]) =>
     Object.entries(m.cells).map(([id, c]) => [`${st}/${id}`, c.ink]))
     .sort((a, b) => a[1] - b[1])[0];
