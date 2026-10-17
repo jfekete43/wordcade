@@ -379,8 +379,12 @@ ck(/createBoard\(\); resetKeyboardColors\(\); checkDangerRow\(\); updateSkipButt
 // recognisable as the button up there. The two sets of hex values live in
 // different places (a CSS rule and inline styles), so they are compared rather
 // than trusted.
-const blurb = between(html, '<h2 style="color: var(--c-ink); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">A competitive word game</h2>',
-                      'Support the project', 'homepage blurb');
+// Anchored on the section and on the next heading's TEXT, not on a styled
+// element: the old anchor was a byte-exact copy of the h2's whole style
+// attribute, so a type pass that touched nothing this suite cares about
+// broke the extraction outright. An anchor has to be something that is not
+// itself under test.
+const blurb = between(html, '<section id="site-intro">', 'Support the project', 'homepage blurb');
 ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
 ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
 const MODE_TOKENS = ['--c-endless', '--c-gauntlet', '--c-clash', '--c-ffa'];
