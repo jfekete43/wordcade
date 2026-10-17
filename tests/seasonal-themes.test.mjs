@@ -212,7 +212,12 @@ const block = (() => {
   }
   return out;
 })();
-ck('found the seasonal CSS rules', block.length > 800 && (block.match(/body\.season-/g) || []).length >= 16,
+// One rule per season is all there is now: a tinted paper and an accent.
+// The floor was 16 when each season also carried an ::after emoji, and 24
+// before that when they carried wallpaper. Each drop is a real simplification
+// rather than lost coverage — what each rule must CONTAIN is checked above,
+// and what the player sees is measured in a browser below.
+ck('found the seasonal CSS rules', block.length > 500 && (block.match(/body\.season-/g) || []).length >= 8,
    `${block.length} chars, ${(block.match(/body\.season-/g) || []).length} rules`);
 // The floor used to be 2,000 chars and 24 rules, which was really a floor on
 // the tiled decoration. That is gone: a season is a paper tint, an accent and

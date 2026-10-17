@@ -134,10 +134,17 @@ ck(!/#ff3333|red/i.test(authBtn), 'and the sign-in button is not styled as a war
 // --- Cash Out belongs to Standard, not to the mode nav -------------------
 // In the nav it read as a fifth MODE beside Gauntlet/Clash/FFA. It is an action
 // on the score, and only Standard has one.
-const nav = (html.match(/<nav class="arcade-menu">[\s\S]*?<\/nav>/) || [''])[0];
+const nav = (html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0];
 ck(!/btn-cash-out/.test(nav), 'Cash Out is not in the mode nav', nav);
+// It finally holds what this said it held. Until the four-up row, the four
+// were Menu plus the three modes you were not in; Menu has moved to the
+// topbar and the fourth slot is the mode you ARE in.
 ck((nav.match(/<button/g) || []).length === 4, 'which now holds exactly the four modes',
    String((nav.match(/<button/g) || []).length));
+ck(!/showMainMenu/.test(nav), 'and Menu is not one of them either', nav);
+// Menu left .arcade-menu exactly as Cash Out did, so it needs its own rule
+// for the same reason: without one it falls back to a bare browser button.
+ck(/\n\s*\.menu-btn \{/.test(css), 'the Menu button has its own rule now that it has left the nav');
 // Positional, not a nested-div match. `<div id="score-board">[\s\S]*?</div>`
 // stops at the first closing tag it meets, which is the inner .score-row's —
 // so the button fell outside the extract the moment the markup gained a level.
