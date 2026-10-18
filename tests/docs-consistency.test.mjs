@@ -390,6 +390,43 @@ ok('no preset phrase is longer than the free-text limit',
     const afterRoot = style.slice(style.indexOf('}', style.indexOf('--c-shadow')));
     const stray = (afterRoot.replace(ALLOWED, '').match(/#[0-9a-fA-F]{3,6}\b/g) || []);
     ok(`${p} paints with tokens, not literals`, stray.length === 0, stray.join(' '));
+    // The MARKUP too, which this missed the first time round: how-to-play and
+    // strategy were naming the four modes in inline cyan, magenta and neon
+    // green for a week after the palette moved, because the sweep above stops
+    // at </style>. An inline style is where a stale colour is likeliest to
+    // survive, since nothing about it looks like a stylesheet.
+    const body = src.slice(src.indexOf('<body'), src.lastIndexOf('</body>'));
+    const inBody = [...body.matchAll(/style="([^"]*)"/g)].map((m) => m[1]).join(';');
+    const bodyStray = (inBody.replace(ALLOWED, '').match(/#[0-9a-fA-F]{3,6}\b/g) || []);
+    ok(`${p}'s markup paints with tokens too`, bodyStray.length === 0, bodyStray.join(' '));
+  }
+}
+
+// ---- the copy may not name a colour the game stopped using -------------
+// how-to-play labelled the two signals "Cyan" and "Magenta" for a week after
+// they became blue and amber — and rendered those words in the NEW colours,
+// so the page contradicted itself in the same line. The share card's alt text
+// said "two cyan, one magenta" on seven pages, which is the version a screen
+// reader gets.
+//
+// Shop cosmetics are exempt by name: Neon Cyan and Neon Magenta are items
+// someone bought and they really are those colours.
+{
+  const GONE = /\b(cyan|magenta)\b/gi;
+  for (const p of ['index.html', 'about.html', 'faq.html', 'how-to-play.html',
+                   'strategy.html', '404.html', 'privacy.html', 'terms.html']) {
+    const src = fs.readFileSync(REPO(p), 'utf8').replace(/\r\n/g, '\n');
+    // Player-facing only: the markup and the meta descriptions, minus comments,
+    // minus the class names and shop item names that legitimately say it.
+    const facing = src
+      .replace(/<style>[\s\S]*?<\/style>/g, '')
+      .replace(/<script[\s\S]*?<\/script>/g, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/class="[^"]*"/g, '')
+      .replace(/Neon (Cyan|Magenta)/g, '');
+    const left = [...facing.matchAll(new RegExp('.{0,45}' + GONE.source + '.{0,45}', 'gi'))].map((m) => m[0].trim());
+    ok(`${p} does not name a colour the game no longer uses`, left.length === 0,
+       left.slice(0, 2).join(' | '));
   }
 }
 

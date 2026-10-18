@@ -24,7 +24,7 @@
     <meta property="og:image" content="https://lexathon.gg/og-card.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two cyan, one magenta.">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two blue, one amber.">
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Best opening words, measured">
@@ -114,22 +114,22 @@
                the board still has a size. */
             --cell: min(58px, calc((100vw - 64px) / 5));
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
-        .container { background-color: var(--c-panel); border: 2px solid var(--c-correct); border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: 1.7; font-size: 15px; }
-        h1 { color: var(--c-correct); text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
-        h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed var(--c-ink-6); padding-bottom: 6px; }
-        h3 { color: var(--c-ink); font-size: 15px; margin-top: 22px; margin-bottom: 4px; }
+        body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'; -webkit-font-smoothing: antialiased; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; font-size: var(--fs-3); line-height: var(--lh-prose); padding: var(--s-7); margin: 0; min-height: 100vh; }
+        .container { background-color: var(--c-panel); border: var(--bw) solid var(--c-correct); border-radius: var(--r-3); padding: var(--s-8); max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: var(--lh-prose); font-size: var(--fs-4); }
+        h1 { color: var(--c-ink); text-align: center; margin-top: 0; font-size: var(--fs-6); letter-spacing: var(--ls-num); }
+        h2 { color: var(--c-ink); font-size: var(--fs-5); margin-top: var(--s-9); border-bottom: var(--bw) solid var(--c-line); padding-bottom: var(--s-3); }
+        h3 { color: var(--c-ink); font-size: var(--fs-4); margin-top: var(--s-8); margin-bottom: var(--s-2); }
         a { color: var(--c-endless); text-decoration: none; font-weight: bold; }
         a:hover { color: var(--c-correct); }
-        table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin: var(--s-6) 0; font-size: var(--fs-3); }
         th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--c-line); }
-        th { color: var(--c-correct); text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
-        code { background: var(--c-raised); color: var(--c-correct); padding: 2px 7px; border-radius: 3px; font-size: 14px; letter-spacing: 1px; }
-        .lede { color: var(--c-ink-2); font-size: 16px; }
-        .callout { background: var(--c-raised); border-left: 3px solid var(--c-clash); padding: 12px 16px; margin: 18px 0; font-size: 14px; }
-        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: var(--c-ink-4); line-height: 2; }
-        .back-btn { background-color: var(--c-line); color: var(--c-ink); border: 2px solid var(--c-ink-5); padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
-        .back-btn:hover { background-color: var(--c-ink-6); }
+        th { color: var(--c-ink-4); text-transform: uppercase; font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); }
+        code { background: var(--c-raised); color: var(--c-correct); padding: var(--s-1) var(--s-4); border-radius: var(--r-1); font-size: var(--fs-2); letter-spacing: var(--ls-ui); }
+        .lede { color: var(--c-ink-2); font-size: var(--fs-4); }
+        .callout { background: var(--c-raised); border: var(--bw) solid var(--c-line); border-left: 3px solid var(--c-clash); border-radius: var(--r-2); padding: var(--s-5) var(--s-6); margin: var(--s-7) 0; font-size: var(--fs-3); }
+        .nav-links { margin-top: var(--s-9); font-size: var(--fs-2); text-align: center; color: var(--c-ink-4); line-height: 2; }
+        .back-btn { background-color: var(--c-raised); color: var(--c-ink); border: var(--bw) solid var(--c-line-2); min-height: 46px; padding: 0 var(--s-6); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
+        .back-btn:hover { background-color: var(--c-line); border-color: var(--c-ink-5); }
 
         /* The .container above is width:100% PLUS 25px of padding and a 2px
            border, so on a 390px phone it rendered 404px wide inside a 350px
@@ -137,13 +137,16 @@
            that, and strategy.html's letter-frequency table made it 183px.
            index.html already sets box-sizing globally; these pages never did. */
         *, *::before, *::after { box-sizing: border-box; }
+        /* Same reason the game page needs it: a <button> does not inherit
+           the page's typeface on its own. */
+        button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
         /* A table too wide to fit scrolls inside itself rather than stretching
            the document — the frequency table genuinely cannot fit at 390px. */
         table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         @media (max-width: 480px) {
-            body { padding: 10px; }
-            .container { padding: 16px; }
-            table { font-size: 13px; }
+            body { padding: var(--s-5); }
+            .container { padding: var(--s-6); }
+            table { font-size: var(--fs-2); }
             th, td { padding: 6px; }
         }
     </style>
@@ -199,21 +202,21 @@
 
         <h2>Mode By Mode</h2>
 
-        <h3 style="color:#4caf50;">Endless — when to bank</h3>
+        <h3 style="color:var(--c-endless);">Endless — when to bank</h3>
         <p>The only real decision here is when to stop. Missing with no Continue left destroys the entire run, so every extra word risks everything you've banked to gain a few hundred.</p>
         <p>The asymmetry sharpens as you go: at 500 points you're risking little, at 8,000 you're risking a lot for the same upside. Watch the Continue rather than the score — <strong>once you've spent it, you're one bad word from zero</strong>. That's the honest moment to consider banking, not some round number.</p>
 
-        <h3 style="color:#ff9800;">Clash — speed beats precision</h3>
+        <h3 style="color:var(--c-clash);">Clash — speed beats precision</h3>
         <p>Seven minutes against another player, and a miss only costs 50. Against a 500-point solve, that penalty is small — which means <strong>hesitating is more expensive than being wrong</strong>. Thirty seconds agonising over a second-guess solve can cost you a whole extra word.</p>
         <p>Guess quickly, accept the occasional 50, and keep the board moving. Your two skips are for the genuine walls — the word where you have four letters placed and nothing fits. Burning a skip there costs nothing and saves thirty seconds; sitting on it costs the clock and probably 50 points anyway.</p>
         <p>The match ends instantly at a 1,000-point lead, so two fast solves early can end it before your opponent settles.</p>
 
-        <h3 style="color:#b967ff;">Gauntlet — the exact opposite</h3>
+        <h3 style="color:var(--c-gauntlet);">Gauntlet — the exact opposite</h3>
         <p>There is <strong>no clock on the Gauntlet</strong>, and you play all seven words whatever happens. That inverts the Clash advice above, though not for the reason it used to.</p>
         <p>Take as long as you want: a guess costs you nothing but accuracy. What a miss costs is that word's points and nothing else — the nine other words are still yours to play. So the question on every word is simply how many points you expect from it, with no survival premium on top. A fifth-guess solve is worth 10 points, which is better than nothing and not much better; it is no longer the save it once was.</p>
         <p>The safe two-word opening still earns its place here more than anywhere else, because scoring on all seven is what wins the day — but it is now a consistency play rather than a survival one, and the board's tiebreak rewards it directly: equal scores are split by who solved more words.</p>
 
-        <h3 style="color:#ffd700;">FFA — second place pays</h3>
+        <h3 style="color:var(--c-ffa);">FFA — second place pays</h3>
         <p>Second pays 500 and third pays 200 in every size of room, from three players to six — a bigger lobby only adds places underneath, it never pushes the good ones out of reach. Unlike Clash there's no knockout, so a player who's pulled ahead can't finish it early — the clock always runs out.</p>
         <p>Rating works the same way. Because it's scored against every other player in the match, a big room is worth more for the same finish: second of six is a solid gain, second of three barely moves. If you're choosing between waiting for a fuller lobby and starting at three, waiting pays.</p>
         <p>That means a bad start isn't fatal, and it makes quitting a mistake twice over: you forfeit the placement you'd have earned, and leaving early locks you into a worse one than leaving late. Play it out.</p>

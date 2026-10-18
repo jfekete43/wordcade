@@ -24,7 +24,7 @@
     <meta property="og:image" content="https://lexathon.gg/og-card.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two cyan, one magenta.">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two blue, one amber.">
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="How to play — rules, scoring and modes">
@@ -114,20 +114,20 @@
                the board still has a size. */
             --cell: min(58px, calc((100vw - 64px) / 5));
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
-        .container { background-color: var(--c-panel); border: 2px solid var(--c-gauntlet); border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: 1.7; font-size: 15px; }
-        h1 { color: var(--c-gauntlet); text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
-        h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed var(--c-ink-6); padding-bottom: 6px; }
-        h3 { color: var(--c-ink); font-size: 15px; margin-top: 22px; margin-bottom: 4px; }
+        body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'; -webkit-font-smoothing: antialiased; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; font-size: var(--fs-3); line-height: var(--lh-prose); padding: var(--s-7); margin: 0; min-height: 100vh; }
+        .container { background-color: var(--c-panel); border: var(--bw) solid var(--c-gauntlet); border-radius: var(--r-3); padding: var(--s-8); max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: var(--lh-prose); font-size: var(--fs-4); }
+        h1 { color: var(--c-ink); text-align: center; margin-top: 0; font-size: var(--fs-6); letter-spacing: var(--ls-num); }
+        h2 { color: var(--c-ink); font-size: var(--fs-5); margin-top: var(--s-9); border-bottom: var(--bw) solid var(--c-line); padding-bottom: var(--s-3); }
+        h3 { color: var(--c-ink); font-size: var(--fs-4); margin-top: var(--s-8); margin-bottom: var(--s-2); }
         a { color: var(--c-endless); text-decoration: none; font-weight: bold; }
         a:hover { color: var(--c-correct); }
-        table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin: var(--s-6) 0; font-size: var(--fs-3); }
         th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--c-line); }
-        th { color: var(--c-gauntlet); text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
-        .lede { color: var(--c-ink-2); font-size: 16px; }
-        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: var(--c-ink-4); line-height: 2; }
-        .back-btn { background-color: var(--c-line); color: var(--c-ink); border: 2px solid var(--c-ink-5); padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
-        .back-btn:hover { background-color: var(--c-ink-6); }
+        th { color: var(--c-ink-4); text-transform: uppercase; font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); }
+        .lede { color: var(--c-ink-2); font-size: var(--fs-4); }
+        .nav-links { margin-top: var(--s-9); font-size: var(--fs-2); text-align: center; color: var(--c-ink-4); line-height: 2; }
+        .back-btn { background-color: var(--c-raised); color: var(--c-ink); border: var(--bw) solid var(--c-line-2); min-height: 46px; padding: 0 var(--s-6); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
+        .back-btn:hover { background-color: var(--c-line); border-color: var(--c-ink-5); }
 
         /* The .container above is width:100% PLUS 25px of padding and a 2px
            border, so on a 390px phone it rendered 404px wide inside a 350px
@@ -135,13 +135,16 @@
            that, and strategy.html's letter-frequency table made it 183px.
            index.html already sets box-sizing globally; these pages never did. */
         *, *::before, *::after { box-sizing: border-box; }
+        /* Same reason the game page needs it: a <button> does not inherit
+           the page's typeface on its own. */
+        button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
         /* A table too wide to fit scrolls inside itself rather than stretching
            the document — the frequency table genuinely cannot fit at 390px. */
         table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         @media (max-width: 480px) {
-            body { padding: 10px; }
-            .container { padding: 16px; }
-            table { font-size: 13px; }
+            body { padding: var(--s-5); }
+            .container { padding: var(--s-6); }
+            table { font-size: var(--fs-2); }
             th, td { padding: 6px; }
         }
     </style>
@@ -153,12 +156,12 @@
 
         <p class="lede">Lexathon is a word game built around one familiar idea — guess the hidden five-letter word — wrapped in four very different ways to play. Every mode shares the same core: type a five-letter word, press Enter, and the tiles tell you how close you were.</p>
 
-        <h2 style="color:#00ffff;">The Basics</h2>
+        <h2 style="color:var(--c-correct);">The Basics</h2>
         <p>You get <strong>five guesses</strong> per word. After each guess, every letter is colour-coded:</p>
         <ul>
-            <li><strong style="color:#00ffff;">Cyan</strong> — right letter, right position.</li>
-            <li><strong style="color:#ff00ff;">Magenta</strong> — that letter is in the word, but somewhere else.</li>
-            <li><strong style="color:#888;">Grey</strong> — that letter isn't in the word at all.</li>
+            <li><strong style="color:var(--c-correct);">Blue</strong> — right letter, right position.</li>
+            <li><strong style="color:var(--c-present);">Amber</strong> — that letter is in the word, but somewhere else.</li>
+            <li><strong style="color:var(--c-ink-4);">Grey</strong> — that letter isn't in the word at all.</li>
         </ul>
         <p>Guesses must be real words from the dictionary. Solving faster is worth dramatically more:</p>
         <table>
@@ -166,9 +169,9 @@
             <tr><td>Points</td><td>500</td><td>250</td><td>150</td><td>50</td><td>10</td></tr>
         </table>
         <p>That curve is steep on purpose. A first-guess solve is worth fifty times a fifth-guess one, so the difference between good players isn't whether they solve words — it's how early.</p>
-        <p>Colour-blind players can swap the cyan/magenta pair for a blue/orange one under <strong>Menu → Settings → Colourblind Mode</strong>.</p>
+        <p>The blue and amber pair is already chosen to stay distinct across the common forms of colour vision deficiency. If it does not work for you, <strong>Menu → Settings → Colourblind Mode</strong> swaps it for the Okabe-Ito blue and orange.</p>
 
-        <h2 style="color:#4caf50;">Endless — The Solo Run</h2>
+        <h2 style="color:var(--c-endless);">Endless — The Solo Run</h2>
         <p>One word after another, for as long as you can keep going. There's no timer and no round limit; a run ends when you decide it ends, or when you lose it.</p>
         <h3>Continues</h3>
         <p>You start each run with <strong>one Continue</strong>. Miss a word while you still have it, and you spend the Continue and carry on with your score intact. Miss a second word with no Continue left and the run is over — and you lose <em>everything</em> you'd built up in it.</p>
@@ -176,7 +179,7 @@
         <p>This is the decision the whole mode turns on. <strong>Bank</strong> your score at any time to lock it in permanently: it's added to your Wallet and your Career Bank, and it can never be taken away. Keep playing and every word is another chance to add 500 points — or to lose the lot.</p>
         <p>There's no correct answer, which is the point. A 4,000-point run you banked beats a 12,000-point run you didn't.</p>
 
-        <h2 style="color:#ff9800;">Clash — Head-To-Head</h2>
+        <h2 style="color:var(--c-clash);">Clash — Head-To-Head</h2>
         <p>Two players, seven minutes, the same list of words in the same order. Scoring matches Endless, with one change: <strong>missing a word costs 50 points instead of ending your run</strong>. You're never knocked out, so the pressure is about pace rather than survival.</p>
         <h3>Winning</h3>
         <ul>
@@ -192,13 +195,13 @@
         <p>Matches from the <strong>public queue move your MMR</strong>. Private rooms — the ones you create with a room code or an invite link — don't, so you can play friends without risking your rank. Private rooms also offer a one-tap Share Invite link and a Rematch button.</p>
         <p><strong>Leaving a match mid-game forfeits it</strong> and your opponent is awarded the win.</p>
 
-        <h2 style="color:#b967ff;">Gauntlet — The Daily Puzzle</h2>
+        <h2 style="color:var(--c-gauntlet);">Gauntlet — The Daily Puzzle</h2>
         <p>One puzzle a day, identical for everyone: <strong>seven words, one attempt</strong>. It resets at midnight Eastern.</p>
         <p>There is no clock, and no need to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</p>
         <p>Scoring is the same 500/250/150/50/10, and <strong>you play all seven words whatever happens</strong>. Run out of guesses on one and the answer is revealed, you score nothing for it, and the next word starts. Everyone sees the same ten, so the board compares like with like. Getting all ten is genuinely hard.</p>
         <p>Afterwards you can share your result as a spoiler-free bar — one mark per word in play order, 🟩 solved or ❌ missed — plus your score and your average guesses. Equal scores are separated by who solved more words. The Gauntlet leaderboard only ever shows today's attempts, so it resets alongside the puzzle.</p>
 
-        <h2 style="color:#ffd700;">FFA — Free-For-All</h2>
+        <h2 style="color:var(--c-ffa);">FFA — Free-For-All</h2>
         <p>The same seven-minute race as Clash, opened up to <strong>three to six players</strong> at once. You also get two skips here.</p>
         <p>There's no early finish — no 1,000-point knockout. It runs the full clock and the highest score wins. Payouts scale with where you place rather than being all-or-nothing:</p>
         <table>
@@ -211,7 +214,7 @@
         <p>A bigger room only ever adds places underneath — first through fourth pay the same whether there are four of you or six — and only last place earns nothing.</p>
         <p>Leaving early doesn't end the match for everyone else — it carries on without you. You're locked into the worst placement still available, and the earlier you leave the worse that placement is, so quitting a match you're losing costs you more than finishing it.</p>
 
-        <h2 style="color:#00ffff;">Ranks</h2>
+        <h2 style="color:var(--c-correct);">Ranks</h2>
         <p>Clash and FFA keep <strong>separate ratings</strong>. Public 1v1 matches move your Clash MMR; public Free-For-All matches move your FFA rating. Both start at 1,000 and use the same tiers below, so you can sit in different ranks in the two modes. Private rooms are unranked either way.</p>
         <table>
             <tr><th>Rank</th><th>MMR</th></tr>
@@ -224,7 +227,7 @@
         </table>
         <p>Rating changes are weighted by who you played: beating a higher-rated opponent moves you further than beating a lower-rated one. In FFA it's calculated against every other player in the match, so the size of the room matters — among evenly matched players, second of six is a clear gain, while second of three is a wash. You beat one player and lost to one; that's average.</p>
 
-        <h2 style="color:#ff00ff;">Points, Shop And Challenges</h2>
+        <h2 style="color:var(--c-present);">Points, Shop And Challenges</h2>
         <h3>Wallet vs Career Bank</h3>
         <p>Two separate numbers. Your <strong>Wallet</strong> is spendable currency for the Shop. Your <strong>Career Bank</strong> is your lifetime total and is never reduced by spending — it's what the All Time leaderboard ranks you on. Buying cosmetics costs you nothing in standing.</p>
         <h3>The Shop</h3>
@@ -232,7 +235,7 @@
         <h3>Challenges</h3>
         <p>Three <strong>Daily</strong> challenges rotate every day, and <strong>Career</strong> challenges are one-time milestones. Both pay points into your Wallet, and both are claimed manually from the Challenges menu — nothing expires unclaimed mid-session, but dailies do reset.</p>
 
-        <h2 style="color:#4caf50;">Accounts</h2>
+        <h2 style="color:var(--c-endless);">Accounts</h2>
         <p>You can play immediately without signing up. The catch is that a guest profile lives only in that one browser: clear your data or switch device and it's gone, with no way to recover it. Linking a Google account or an email address keeps everything — wallet, rank, cosmetics, stats — and lets you play from anywhere. Linking preserves the progress you've already made; it doesn't start you over.</p>
 
         <p style="margin-top:28px;">Ready to play? <a href="index.html">Start a game</a>. If you want to score better, the <a href="strategy.html">strategy guide</a> covers opening words and mode-specific tactics.</p>

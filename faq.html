@@ -24,7 +24,7 @@
     <meta property="og:image" content="https://lexathon.gg/og-card.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two cyan, one magenta.">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two blue, one amber.">
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Common questions, answered">
@@ -114,17 +114,17 @@
                the board still has a size. */
             --cell: min(58px, calc((100vw - 64px) / 5));
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
-        .container { background-color: var(--c-panel); border: 2px solid var(--c-endless); border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: 1.7; font-size: 15px; }
-        h1 { color: var(--c-endless); text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
-        h2 { color: var(--c-correct); text-transform: uppercase; font-size: 16px; margin-top: 30px; border-bottom: 1px dashed var(--c-ink-6); padding-bottom: 6px; }
-        h3 { color: var(--c-ink); font-size: 15px; margin-top: 22px; margin-bottom: 4px; }
+        body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'; -webkit-font-smoothing: antialiased; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; font-size: var(--fs-3); line-height: var(--lh-prose); padding: var(--s-7); margin: 0; min-height: 100vh; }
+        .container { background-color: var(--c-panel); border: var(--bw) solid var(--c-endless); border-radius: var(--r-3); padding: var(--s-8); max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: var(--lh-prose); font-size: var(--fs-4); }
+        h1 { color: var(--c-ink); text-align: center; margin-top: 0; font-size: var(--fs-6); letter-spacing: var(--ls-num); }
+        h2 { color: var(--c-ink); font-size: var(--fs-5); margin-top: var(--s-9); border-bottom: var(--bw) solid var(--c-line); padding-bottom: var(--s-3); }
+        h3 { color: var(--c-ink); font-size: var(--fs-4); margin-top: var(--s-8); margin-bottom: var(--s-2); }
         a { color: var(--c-endless); text-decoration: none; font-weight: bold; }
         a:hover { color: var(--c-correct); }
-        .lede { color: var(--c-ink-2); font-size: 16px; }
-        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: var(--c-ink-4); line-height: 2; }
-        .back-btn { background-color: var(--c-line); color: var(--c-ink); border: 2px solid var(--c-ink-5); padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
-        .back-btn:hover { background-color: var(--c-ink-6); }
+        .lede { color: var(--c-ink-2); font-size: var(--fs-4); }
+        .nav-links { margin-top: var(--s-9); font-size: var(--fs-2); text-align: center; color: var(--c-ink-4); line-height: 2; }
+        .back-btn { background-color: var(--c-raised); color: var(--c-ink); border: var(--bw) solid var(--c-line-2); min-height: 46px; padding: 0 var(--s-6); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
+        .back-btn:hover { background-color: var(--c-line); border-color: var(--c-ink-5); }
 
         /* The .container above is width:100% PLUS 25px of padding and a 2px
            border, so on a 390px phone it rendered 404px wide inside a 350px
@@ -132,13 +132,16 @@
            that, and strategy.html's letter-frequency table made it 183px.
            index.html already sets box-sizing globally; these pages never did. */
         *, *::before, *::after { box-sizing: border-box; }
+        /* Same reason the game page needs it: a <button> does not inherit
+           the page's typeface on its own. */
+        button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
         /* A table too wide to fit scrolls inside itself rather than stretching
            the document — the frequency table genuinely cannot fit at 390px. */
         table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         @media (max-width: 480px) {
-            body { padding: 10px; }
-            .container { padding: 16px; }
-            table { font-size: 13px; }
+            body { padding: var(--s-5); }
+            .container { padding: var(--s-6); }
+            table { font-size: var(--fs-2); }
             th, td { padding: 6px; }
         }
     </style>
