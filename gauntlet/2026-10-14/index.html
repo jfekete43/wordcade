@@ -27,53 +27,128 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>
+        :root {
+            /* signals — the only thing a theme may never repaint */
+            --c-correct: #24688f;
+            --c-present: #9e6713;
+            --c-loss: #b3261e;
+            /* one per mode */
+            --c-endless: #4a7c59;
+            --c-gauntlet: #6b5b95;
+            --c-clash: #b5563f;
+            --c-ffa: #8a6b26;
+            /* a letter that is in no part of the word */
+            --c-absent: #c9c0ae;
+            --c-absent-ink: #635c4c;
+            /* surfaces, named for the job rather than the lightness: on paper
+               the ramp runs the other way, and "darkest to lightest" would be
+               a lie the next repaint inherits */
+            --c-page: #f7f3ea;     /* the paper everything sits on */
+            --c-panel: #ffffff;    /* cards, modals, lists */
+            --c-raised: #fbf7ee;   /* control faces: inputs, tabs, menu rows */
+            --c-line: #e6dece;     /* ordinary rules and borders */
+            --c-line-2: #d8cdb6;   /* the same, one step stronger */
+            /* ink, strongest to faintest */
+            --c-ink: #2a2420;
+            --c-ink-2: #403930;
+            --c-ink-3: #5c5447;
+            --c-ink-4: #6f675a;
+            --c-ink-5: #847c6c;
+            --c-ink-6: #a89e8c;
+            /* Ink that goes on top of a filled accent. Every accent above is
+               mid-tone on purpose, so this is white for all seven rather than
+               one rule per fill. It was --c-on-bright and black, which is the
+               same idea upside down. */
+            --c-on-accent: #ffffff;
+            /* Elevation, now that a glow cannot do it. */
+            --c-shadow: 0 1px 0 rgba(42, 36, 32, .05), 0 2px 8px rgba(42, 36, 32, .10);
+
+            /* ---- type, space and geometry -----------------------------
+               The page had sixteen font sizes on a 1px ramp and thirty-one
+               border-radius declarations across seven values, which is why
+               nothing on it read as more or less important than anything
+               else. A 1px step encodes nothing a reader can see.
+
+               Radius tracks OBJECT SIZE rather than the spacing rhythm, so
+               --r-2 staying 7px while --s-3 is 6px is deliberate: do not
+               "fix" one to match the other. */
+            --fs-1: 10px;   /* eyebrow, micro-label, badge */
+            --fs-2: 12px;   /* meta, caption, dense cell, mode label */
+            --fs-3: 14px;   /* body, list row, control label */
+            --fs-4: 16px;   /* item title, section head */
+            --fs-5: 20px;   /* figure: stat value, timer */
+            --fs-6: 26px;   /* hero figure: end-of-run score */
+            --fw-body: 400; --fw-med: 600; --fw-bold: 700;
+            --ls-eyebrow: 1.2px;  /* only with --fs-1 + uppercase */
+            --ls-label: .8px;     /* only with --fs-2 + uppercase */
+            --ls-ui: .2px;        /* sentence-case control labels */
+            --ls-num: -.3px;      /* figures at --fs-5 / --fs-6 */
+            --ls-glyph: .5px;     /* tile and wordmark letters */
+            --lh-tight: 1.2; --lh-ui: 1.45; --lh-prose: 1.7;
+            --r-1: 3px;     /* <=16px: swatches, bars, inline badges */
+            --r-2: 7px;     /* 20-60px: tiles, keys, inputs, tabs, pills */
+            --r-3: 10px;    /* full-width controls and panels */
+            --r-4: 14px;    /* modals */
+            --r-pill: 999px;
+            --bw: 1px;          /* every border on the page */
+            --bw-focus: 2px;    /* where you are, and this is you. Nothing else */
+            --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 12px;
+            --s-6: 16px; --s-7: 20px; --s-8: 24px; --s-9: 32px; --s-10: 48px;
+            --w-col: 460px; --pad-page: 20px;
+            /* 64 = two 20px gutters + four 6px gaps. At 320px this gives a
+               51.2px cell and a 280px board, which is exactly the content
+               width. On :root rather than #board so a tile rendered outside
+               the board still has a size. */
+            --cell: min(58px, calc((100vw - 64px) / 5));
+        }
         /* .container is width:100% PLUS padding and border, which on a 390px
            phone rendered 404px inside a 350px slot and pushed the document
            sideways. The hand-written pages carry the identical fix. */
         *, *::before, *::after { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121213; color: #ccc; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; min-height: 100vh; }
-        .container { background-color: #1a1a1d; border: 2px solid #b967ff; border-radius: 10px; padding: 25px; max-width: 700px; width: 100%; box-shadow: 0 0 15px #b967ff; line-height: 1.7; font-size: 15px; }
-        h1 { color: #b967ff; text-transform: uppercase; font-style: italic; text-align: center; margin-top: 0; font-size: 28px; letter-spacing: 2px; }
-        .sub { text-align: center; color: #888; font-size: 13px; margin-top: -10px; margin-bottom: 22px; }
-        h2 { text-transform: uppercase; font-size: 18px; margin-top: 32px; border-bottom: 1px dashed #555; padding-bottom: 6px; }
-        a { color: #4caf50; text-decoration: none; font-weight: bold; }
-        a:hover { color: #00ffff; }
+        button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
+        body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'; -webkit-font-smoothing: antialiased; background-color: var(--c-page); color: var(--c-ink-2); display: flex; flex-direction: column; align-items: center; font-size: var(--fs-3); line-height: var(--lh-prose); padding: var(--s-7); margin: 0; min-height: 100vh; }
+        .container { background-color: var(--c-panel); border: var(--bw) solid var(--c-gauntlet); border-radius: var(--r-3); padding: var(--s-8); max-width: 700px; width: 100%; box-shadow: var(--c-shadow); line-height: var(--lh-prose); font-size: var(--fs-4); }
+        h1 { color: var(--c-ink); text-align: center; margin-top: 0; font-size: var(--fs-6); letter-spacing: var(--ls-num); }
+        .sub { text-align: center; color: var(--c-ink-4); font-size: var(--fs-2); margin-top: -10px; margin-bottom: var(--s-8); }
+        h2 { color: var(--c-ink); font-size: var(--fs-5); margin-top: var(--s-9); border-bottom: var(--bw) solid var(--c-line); padding-bottom: var(--s-3); }
+        a { color: var(--c-correct); text-decoration: none; font-weight: var(--fw-bold); }
+        a:hover { text-decoration: underline; }
         /* display:block so a table too wide for the screen scrolls inside
            itself instead of stretching the page. The word table is six
            columns and does not fit a phone at full size. */
-        table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
-        th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #333; white-space: nowrap; }
-        th { color: #b967ff; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; }
+        table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; border-collapse: collapse; margin: var(--s-6) 0; font-size: var(--fs-3); }
+        th, td { text-align: left; padding: var(--s-4) var(--s-5); border-bottom: var(--bw) solid var(--c-line); white-space: nowrap; }
+        th { color: var(--c-ink-4); text-transform: uppercase; font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); }
         td.n, th.n { text-align: right; }
-        .word { font-weight: bold; color: #00ffff; letter-spacing: 2px; }
-        .tier { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; }
-        .lede { color: #ddd; font-size: 16px; }
-        .stat-row { display: flex; justify-content: space-between; gap: 10px; margin: 18px 0; text-align: center; }
-        .stat-row div { flex: 1; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-row b { display: block; font-size: 22px; color: #fff; font-weight: bold; letter-spacing: 0; text-transform: none; }
-        .bar { background: #222; border-radius: 3px; height: 16px; position: relative; overflow: hidden; }
-        .bar > span { display: block; height: 100%; background: #b967ff; }
-        .pager { display: flex; justify-content: space-between; margin-top: 26px; font-size: 14px; gap: 10px; }
-        .pager span { color: #555; }
-        .back-btn { background-color: #333; color: white; border: 2px solid #777; padding: 12px; font-size: 16px; font-weight: bold; text-transform: uppercase; cursor: pointer; border-radius: 5px; margin-top: 25px; text-decoration: none; display: block; text-align: center; transition: background 0.2s; }
-        .back-btn:hover { background-color: #555; }
-        .nav-links { margin-top: 28px; font-size: 13px; text-align: center; color: #666; line-height: 2; }
+        .word { font-weight: var(--fw-bold); color: var(--c-correct); letter-spacing: 2px; }
+        .tier { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); color: var(--c-ink-4); }
+        .lede { color: var(--c-ink-2); font-size: var(--fs-4); }
+        .stat-row { display: flex; justify-content: space-between; gap: var(--s-5); margin: var(--s-7) 0; text-align: center; }
+        .stat-row div { flex: 1; font-size: var(--fs-1); color: var(--c-ink-5); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
+        .stat-row b { display: block; font-size: var(--fs-5); color: var(--c-ink); font-weight: var(--fw-bold); letter-spacing: var(--ls-num); text-transform: none; }
+        .bar { background: var(--c-line); border-radius: var(--r-1); height: 16px; position: relative; overflow: hidden; }
+        .bar > span { display: block; height: 100%; background: var(--c-gauntlet); }
+        .pager { display: flex; justify-content: space-between; margin-top: var(--s-9); font-size: var(--fs-3); gap: var(--s-5); }
+        .pager span { color: var(--c-ink-5); }
+        .back-btn { background-color: var(--c-raised); color: var(--c-ink); border: var(--bw) solid var(--c-line-2); min-height: 46px; padding: 0 var(--s-6); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); width: 100%; margin-top: var(--s-8); }
+        .back-btn:hover { background-color: var(--c-line); border-color: var(--c-ink-5); }
+        .nav-links { margin-top: var(--s-9); font-size: var(--fs-2); text-align: center; color: var(--c-ink-4); line-height: 2; }
         /* Declared before the media query below: at equal specificity the
            later rule wins, so putting this after it silently defeated the
            override and the short label never rendered. */
         .only-sm { display: none; }
         @media (max-width: 480px) {
-            body { padding: 10px; }
-            .container { padding: 16px; }
-            table { font-size: 13px; }
-            th, td { padding: 6px; }
-            h1 { font-size: 23px; letter-spacing: 1px; }
+            body { padding: var(--s-5); }
+            .container { padding: var(--s-6); }
+            table { font-size: var(--fs-2); }
+            th, td { padding: var(--s-3); }
+            h1 { font-size: var(--fs-5); }
             /* Four across cramped "Top score" and "Avg solved" onto two lines
                while the other two stayed on one, so the numbers no longer
                lined up. Two by two gives every label a full line. */
             .stat-row { flex-wrap: wrap; }
-            .stat-row div { flex: 1 1 42%; margin-bottom: 8px; }
-            .stat-row b { font-size: 19px; }
+            .stat-row div { flex: 1 1 42%; margin-bottom: var(--s-4); }
+            .stat-row b { font-size: var(--fs-4); }
             /* One column per table earns its place least on a phone, and
                dropping it is what lets the rest fit without a sideways
                scroll: the word list's Tier (the easiest-first ordering and
@@ -85,7 +160,7 @@
                on a 334px table, and the word is legible without it. */
             .word { letter-spacing: 1px; }
         }
-        .support { margin-top: 26px; padding: 14px 16px; border: 1px solid #333; border-radius: 6px; background: #151517; font-size: 13px; color: #999; line-height: 1.6; }
+        .support { margin-top: var(--s-9); padding: var(--s-5) var(--s-6); border: var(--bw) solid var(--c-line); border-radius: var(--r-2); background: var(--c-raised); font-size: var(--fs-2); color: var(--c-ink-4); line-height: var(--lh-ui); }
     </style>
     <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
          Change the token or turn it off everywhere at once with:
@@ -117,7 +192,7 @@
             <tr><td>6</td><td class="word">SPANK</td><td class="tier hide-sm">Hard</td><td class="n">0</td><td class="n">100%</td><td class="n">4.0</td></tr>
             <tr><td>7</td><td class="word">DOWDY</td><td class="tier hide-sm">Hard</td><td class="n">1</td><td class="n">0%</td><td class="n">—</td></tr>
         </table>
-        <p style="font-size:13px;color:#888;">Everyone plays all 7 words, so every player saw every word here — "Solved" is the share of the whole field that got it.</p>
+        <p style="font-size:var(--fs-2);color:var(--c-ink-4);">Everyone plays all 7 words, so every player saw every word here — "Solved" is the share of the whole field that got it.</p>
 
         <h2>Final Standings</h2>
         <table>

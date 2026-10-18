@@ -374,16 +374,48 @@ ok('no preset phrase is longer than the free-text limit',
     roots[p] = m ? m[0] : null;
     ok(`${p} declares the palette`, !!m);
   }
-  const base = roots['index.html'];
-  for (const p of PAGES.slice(1)) {
-    ok(`${p}'s palette is identical to index.html's`, roots[p] === base,
-       roots[p] === base ? '' : 'differs');
-  }
   // A page that carries the tokens but still paints itself with a literal is
   // the same bug wearing a disguise, so check the stylesheets are actually
   // USING them. The exceptions are deliberate and named: brand marks, and the
   // shop preview that stays black on purpose.
   const ALLOWED = /#(0a0a0a|fff|3c4043|e8eaed|0072B2|E69F00|5865F2|FF5E5B|4285F4|34A853|FBBC05|EA4335)\b/gi;
+
+  const base = roots['index.html'];
+  for (const p of PAGES.slice(1)) {
+    ok(`${p}'s palette is identical to index.html's`, roots[p] === base,
+       roots[p] === base ? '' : 'differs');
+  }
+  // The Gauntlet archive is a NINTH copy, and the one that got missed: 34
+  // public pages, every one of them in the sitemap, still on the dark build a
+  // week after everything else moved — because this check only ever looked at
+  // the hand-written pages at the repo root. They are generated, so the
+  // renderer is what has to agree; the pages follow on the next daily run.
+  const renderer = fs.readFileSync(REPO('tools/gauntlet-archive-render.mjs'), 'utf8').replace(/\r\n/g, '\n');
+  const rRoot = (renderer.match(/:root \{[\s\S]*?\n        \}/) || [])[0];
+  ok('the Gauntlet archive renderer carries the palette', !!rRoot);
+  ok("and it is identical to index.html's", rRoot === base, rRoot === base ? '' : 'differs');
+  {
+    const style = renderer.slice(renderer.indexOf('const STYLE = `'), renderer.indexOf('`;', renderer.indexOf('const STYLE = `')));
+    const afterRoot = style.slice(style.indexOf('}', style.indexOf('--c-shadow')));
+    const stray = (afterRoot.replace(ALLOWED, '').match(/#[0-9a-fA-F]{3,6}\b/g) || []);
+    ok('the archive renderer paints with tokens, not literals', stray.length === 0, stray.join(' '));
+    const inline = [...renderer.matchAll(/style="([^"]*)"/g)].map((m) => m[1]).join(';');
+    const inlineStray = (inline.replace(ALLOWED, '').match(/#[0-9a-fA-F]{3,6}\b/g) || []);
+    ok('and so does the markup it writes', inlineStray.length === 0, inlineStray.join(' '));
+  }
+  // What actually SHIPPED, not just what the renderer would write next time.
+  {
+    const dirs = fs.readdirSync(REPO('gauntlet'), { withFileTypes: true })
+      .filter((d) => d.isDirectory()).map((d) => `gauntlet/${d.name}/index.html`);
+    const built = ['gauntlet/index.html', ...dirs].filter((f) => fs.existsSync(REPO(f)));
+    ok(`found the generated archive pages (${built.length})`, built.length > 5);
+    const stale = built.filter((f) => {
+      const src = fs.readFileSync(REPO(f), 'utf8').replace(/\r\n/g, '\n');
+      return !src.includes('--c-page:') || /#121213|#b967ff|#00ffff/.test(src);
+    });
+    ok('every generated archive page is on the current palette', stale.length === 0,
+       stale.slice(0, 3).join(' '));
+  }
   for (const p of PAGES.slice(1)) {
     const src = fs.readFileSync(REPO(p), 'utf8').replace(/\r\n/g, '\n');
     const style = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
