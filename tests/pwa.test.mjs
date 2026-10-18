@@ -136,14 +136,20 @@ try {
             ctx.drawImage(img, 0, 0);
             const { data } = ctx.getImageData(0, 0, c.width, c.height);
             const cx = c.width / 2, cy = c.height / 2, safe = c.width * 0.4;
+            // Whatever the corner is, is the background. Asked for a DARK
+            // pixel instead, this went vacuous the moment the icon stopped
+            // being a pale tile with a dark letter — proven by shoving the
+            // letter into a corner and watching the suite stay green. A
+            // light letter on a dark field is just as clippable.
+            const bg = [data[0], data[1], data[2]];
+            const far = (i) => Math.abs(data[i] - bg[0]) + Math.abs(data[i + 1] - bg[1])
+                             + Math.abs(data[i + 2] - bg[2]) > 90;
             let minAlpha = 255, outsideSafe = 0;
             for (let y = 0; y < c.height; y++) {
                 for (let x = 0; x < c.width; x++) {
                     const i = (y * c.width + x) * 4;
                     if (data[i + 3] < minAlpha) minAlpha = data[i + 3];
-                    // The letter is the only dark thing in the artwork, so a
-                    // dark pixel out here is one the mask would clip.
-                    if (Math.hypot(x - cx, y - cy) > safe && data[i] + data[i + 1] + data[i + 2] < 260) outsideSafe++;
+                    if (Math.hypot(x - cx, y - cy) > safe && far(i)) outsideSafe++;
                 }
             }
             return { minAlpha, outsideSafe, w: c.width };

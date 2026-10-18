@@ -20,7 +20,7 @@ That runs the sixteen suites that need no emulator, then boots the emulator for
 the other four, and shuts the emulator down
 again. A non-zero exit means something failed.
 
-Eleven suites drive a real browser instead of the emulator, so they are not part
+Twelve suites drive a real browser instead of the emulator, so they are not part
 of `npm test`:
 
 ```
@@ -318,6 +318,28 @@ Only `absent` showed, being the only verdict with a `.key`-qualified rule.
 Colorblind mode was right all along, which is why nobody caught it: its
 `body.colorblind .correct` carries an extra element and outranks `.key`.
 Needs Playwright.
+
+**`brand-assets.test.mjs`** — the baked images have to be pictures of the
+page they open. The palette moved from cyan and magenta to blue and amber and
+seven icons plus the share card stayed on the old colours, for weeks, with
+every suite green — because nothing in the repo had ever looked at a PNG. They
+were hand-drawn files with no generator, so there was not even anything to
+re-run.
+
+There is now (`tools/build-icons.mjs`, `tools/build-og-card.mjs`), and both
+read the palette out of `index.html` rather than restating it. This suite
+checks the OUTPUT, not the scripts: a generator that is correct and was never
+run is exactly the failure being pinned. Every icon is decoded in a real
+browser — canvas is the only PNG and ICO decoder available here, and it is the
+same one the people seeing these icons use — and checked for the correct-tile
+blue, a letter in `--c-on-accent`, and no surviving cyan or magenta. The share
+card is checked for the paper, both signal colours and its 1200x630 size. The
+manifest's theme colour and the inline SVG icon are checked too, since a
+correct PNG referenced by a stale colour is the same bug one layer up.
+
+Four mutations: an icon reverting to the old cyan, the share card reverting,
+the manifest colour drifting, and a generator hardcoding a colour instead of
+reading it are all caught. Needs Playwright.
 
 **`ffa-lobby.test.mjs`** — a public FFA lobby starting itself when its grace
 period elapses. The bug it pins: the deadline check lived inside the match

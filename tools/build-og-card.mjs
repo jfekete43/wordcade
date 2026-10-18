@@ -11,10 +11,11 @@
  * the one thing that cannot fail.
  *
  * It is built from markup rather than drawn by hand so it stays in step with
- * the game's own palette - the same #121213, the same cyan #00ffff for a
- * correct letter and magenta #ff00ff for a right-letter-wrong-place, and the
- * same leaning italic wordmark. A card that looked like a different product
- * than the page it opens is worse than no card.
+ * the game's own palette - and the palette is now READ OUT of index.html
+ * rather than restated here, because restating it is how this card came to be
+ * a cyan-and-magenta picture of a page that had gone to paper. A card that
+ * looks like a different product than the page it opens is worse than no
+ * card, and the only way it stays true is by not holding its own copy.
  *
  * Why a guess row and not just a logo: most people who see this have played
  * something with coloured letter tiles, and the row says "word game" in less
@@ -26,6 +27,14 @@ import { fileURLToPath } from "url";
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(REPO, "og-card.png");
+
+// One source for every colour on the card: the stylesheet the page itself uses.
+const CSS = fs.readFileSync(path.join(REPO, "index.html"), "utf8").replace(/\r\n/g, "\n");
+const C = (name) => {
+  const m = CSS.match(new RegExp("--c-" + name + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;"));
+  if (!m) throw new Error("could not read --c-" + name + " out of index.html");
+  return m[1];
+};
 
 // Content is kept inside a generous margin: every platform crops this
 // differently, and iMessage in particular squares it off.
@@ -41,41 +50,44 @@ const WORD = [
   { ch: "L", state: "correct" },
 ];
 
+// The wordmark is the page's wordmark: eight tiles, not a word in a typeface.
+// It is the most recognisable thing the redesign produced and the one element
+// that makes the card and the page read as the same product at thumbnail size.
+const MARK = "LEXATHON".split("");
+
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    width: 1200px; height: 630px; background: #121213;
+    width: 1200px; height: 630px; background: ${C("page")};
     font-family: 'Liberation Sans', 'Segoe UI', Tahoma, Verdana, sans-serif;
-    color: #fff; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 34px;
-    /* A faint magenta wash off the top-left and cyan off the bottom-right, so
-       the card is not a flat rectangle at thumbnail size. */
-    background-image:
-      radial-gradient(900px 500px at 18% 6%, rgba(255,0,255,0.13), transparent 62%),
-      radial-gradient(900px 520px at 86% 96%, rgba(0,255,255,0.11), transparent 62%);
+    color: ${C("ink")}; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 40px;
   }
-  .title {
-    font-size: 108px; font-weight: bold; font-style: italic; letter-spacing: 10px;
-    text-shadow: 0 0 8px #ff00ff, 0 0 22px #ff00ff, 0 0 48px rgba(255,0,255,0.55);
-    padding-left: 10px; /* optical, against the italic lean */
+  .mark { display: flex; gap: 10px; }
+  .mark div {
+    width: 84px; height: 91px; border-radius: 14px;
+    background: ${C("raised")}; border: 2px solid ${C("line-2")};
+    box-shadow: 0 2px 0 rgba(42,36,32,.06), 0 6px 18px rgba(42,36,32,.10);
+    font-size: 49px; font-weight: bold; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .row { display: flex; gap: 14px; }
+  .row { display: flex; gap: 12px; }
   .tile {
-    width: 92px; height: 92px; border: 3px solid #3a3a3c; border-radius: 6px;
+    width: 92px; height: 92px; border: 2px solid ${C("line-2")}; border-radius: 16px;
     font-size: 52px; font-weight: bold;
     display: flex; align-items: center; justify-content: center;
   }
-  .correct { background: #00ffff; border-color: #00ffff; color: #000; box-shadow: 0 0 26px rgba(0,255,255,0.55); }
-  .present { background: #ff00ff; border-color: #ff00ff; color: #fff; box-shadow: 0 0 26px rgba(255,0,255,0.55); }
-  .absent  { background: #1a1a1d; border-color: #2a2a2c; color: #6a6a6e; }
-  .tag { font-size: 32px; color: #c8c8cc; letter-spacing: 0.4px; }
-  .modes { font-size: 23px; color: #8a8a90; letter-spacing: 2.4px; text-transform: uppercase; }
-  .host { font-size: 26px; color: #00ffff; letter-spacing: 3px; font-weight: bold; margin-top: 6px; }
+  .correct { background: ${C("correct")}; border-color: ${C("correct")}; color: ${C("on-accent")}; }
+  .present { background: ${C("present")}; border-color: ${C("present")}; color: ${C("on-accent")}; }
+  .absent  { background: ${C("absent")};  border-color: ${C("absent")};  color: ${C("absent-ink")}; }
+  .tag { font-size: 32px; color: ${C("ink-3")}; }
+  .modes { font-size: 21px; color: ${C("ink-4")}; letter-spacing: 2.2px; text-transform: uppercase; font-weight: bold; }
+  .host { font-size: 24px; color: ${C("correct")}; letter-spacing: 1px; font-weight: bold; margin-top: 2px; }
 </style></head><body>
-  <div class="title">LEXATHON</div>
+  <div class="mark">${MARK.map((ch) => `<div>${ch}</div>`).join("")}</div>
   <div class="row">${WORD.map((w) => `<div class="tile ${w.state}">${w.ch}</div>`).join("")}</div>
   <div class="tag">A competitive five-letter word game</div>
-  <div class="modes">Standard &nbsp;·&nbsp; Clash &nbsp;·&nbsp; Gauntlet &nbsp;·&nbsp; Free-For-All</div>
+  <div class="modes">Endless &nbsp;·&nbsp; Clash &nbsp;·&nbsp; Gauntlet &nbsp;·&nbsp; Free-For-All</div>
   <div class="host">lexathon.gg</div>
 </body></html>`;
 
