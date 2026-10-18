@@ -91,7 +91,7 @@ if (ld) {
        parsed.url.replace(/\/$/, '') === (grab(home, /<link rel="canonical" href="([^"]*)"/) || '').replace(/\/$/, ''),
        `${parsed.url} vs ${grab(home, /<link rel="canonical" href="([^"]*)"/)}`);
     ck('its image is the card that exists',
-       parsed.image.endsWith('/og-card.png') && fs.existsSync(REPO('og-card.png')), parsed.image);
+       /\/og-card\.png\?v=[0-9a-f]{8}$/.test(parsed.image) && fs.existsSync(REPO('og-card.png')), parsed.image);
     ck('it says free, and the page says free too',
        parsed.isAccessibleForFree === true && /\bfree\b/i.test(home), String(parsed.isAccessibleForFree));
     ck('and prices it at zero to match', parsed.offers && parsed.offers.price === '0', JSON.stringify(parsed.offers));

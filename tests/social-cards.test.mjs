@@ -23,8 +23,17 @@ import { fileURLToPath } from 'url';
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => fs.readFileSync(path.join(REPO, f), 'utf8');
 
+import crypto from 'crypto';
 const SITE = 'https://lexathon.gg';
 const CARD = 'og-card.png';
+// The card is referenced WITH a version derived from its own bytes, because
+// Discord caches the image separately from the page and keys that cache on
+// the URL. A regenerated card at an unchanged URL is simply never fetched
+// again: the embed came back with the new title and description and the old
+// picture, for a design that had shipped hours earlier.
+const CARD_V = crypto.createHash('sha1')
+  .update(fs.readFileSync(path.join(REPO, CARD))).digest('hex').slice(0, 8);
+const CARD_URL = `${SITE}/${CARD}?v=${CARD_V}`;
 
 const t = [];
 const ok = (name, cond, detail = '') => t.push({ name, cond: !!cond, detail });
@@ -76,7 +85,11 @@ for (const page of pages) {
   // simply does not appear, and the page looks fine in a browser regardless.
   const img = attr(src, 'property', 'og:image');
   ok(`${page}: the image url is absolute`, img && img.startsWith('https://'), String(img));
-  ok(`${page}: and points at the card that exists`, img === `${SITE}/${CARD}`, String(img));
+  ok(`${page}: and points at the card that exists`, img === CARD_URL, String(img));
+  // Not cosmetic: if the version does not track the file, a new card ships
+  // behind an old URL and every scraper keeps the picture it already has.
+  ok(`${page}: the card version matches the card's own bytes`,
+     (img || '').endsWith(`?v=${CARD_V}`), `${img} wants ?v=${CARD_V}`);
   ok(`${page}: twitter:image matches og:image`, attr(src, 'name', 'twitter:image') === img);
 
   // The declared size has to be the real size, or Twitter lays out a gap.
@@ -114,7 +127,9 @@ const renderer = read('tools/gauntlet-archive-render.mjs');
 for (const k of [...need, 'twitter:card', 'twitter:image']) {
   ok(`the archive generator emits ${k}`, renderer.includes(`"${k}"`), k);
 }
-ok('the generated card url is absolute too', /content="\$\{SITE\}\/og-card\.png"/.test(renderer));
+ok('the generated card url is absolute too', /content="\$\{SITE\}\/og-card\.png\?v=/.test(renderer));
+ok('and the archive generator carries the same card version as everything else',
+   renderer.includes(`/og-card.png?v=${CARD_V}`), CARD_V);
 
 // ---- 404 ------------------------------------------------------------------
 const notFound = read('404.html');

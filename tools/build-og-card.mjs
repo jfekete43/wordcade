@@ -23,6 +23,7 @@
  */
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,8 +107,36 @@ await page.waitForTimeout(220);
 await page.screenshot({ path: OUT });
 await browser.close();
 
+/* Stamp every reference with the card's own bytes.
+ *
+ * Discord caches the IMAGE separately from the page and keys that cache on
+ * the URL, so a regenerated card behind an unchanged URL is simply never
+ * fetched again — the embed comes back with the new title and description
+ * and the old picture. That happened: the paper card went live and shares
+ * kept unfurling the cyan one for hours.
+ *
+ * Doing it here rather than by hand means the version cannot be forgotten,
+ * which is the only way a cache-busting scheme ever fails. social-cards
+ * checks the stamp against the file either way. */
+const version = crypto.createHash("sha1").update(fs.readFileSync(OUT)).digest("hex").slice(0, 8);
+const refs = [
+  "index.html", "about.html", "faq.html", "how-to-play.html", "strategy.html",
+  "404.html", "privacy.html", "terms.html", "tools/gauntlet-archive-render.mjs",
+  ...fs.readdirSync(path.join(REPO, "gauntlet"), { withFileTypes: true })
+    .filter((d) => d.isDirectory()).map((d) => `gauntlet/${d.name}/index.html`),
+  "gauntlet/index.html",
+].filter((f) => fs.existsSync(path.join(REPO, f)));
+let stamped = 0;
+for (const f of refs) {
+  const p = path.join(REPO, f);
+  const before = fs.readFileSync(p, "utf8");
+  const after = before.replace(/(\/og-card\.png)(\?v=[0-9a-f]+)?/g, `$1?v=${version}`);
+  if (after !== before) { fs.writeFileSync(p, after); stamped++; }
+}
+
 const kb = Math.round(fs.statSync(OUT).size / 1024);
-console.log(`wrote og-card.png (1200x630, ${kb} KB)`);
+console.log(`wrote og-card.png (1200x630, ${kb} KB) at ?v=${version}`);
+console.log(stamped ? `  re-stamped ${stamped} file(s)` : "  every reference already current");
 // Twitter refuses images over 5 MB and several scrapers give up well before
 // that; a flat-colour card of this size lands around 30 KB.
 if (kb > 1024) { console.error("card is over 1 MB - scrapers may skip it"); process.exit(1); }
