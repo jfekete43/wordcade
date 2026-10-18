@@ -819,23 +819,32 @@
            equal was passing by arithmetic coincidence. */
         .modal-buttons button { padding: 0 var(--s-5); min-height: 46px; font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; border-radius: var(--r-3); border: none; transition: all 0.2s; }
 
-        .btn-cyan { background-color: var(--c-correct); color: var(--c-on-accent); }
-        .btn-cyan:hover { background-color: #1d5577; }
-        /* FFA's primary action, the gold counterpart to .btn-cyan. It exists
-           because the two FFA buttons used to be .btn-cyan with the text
-           colour overridden inline to var(--c-ffa) — gold on cyan, which measures
-           1.12:1 against a 3:1 minimum for large bold text, i.e. very nearly
-           invisible. Filled buttons own their text colour; overriding one
-           half of the pair inline is what broke it. */
-        .btn-gold { background-color: var(--c-ffa); color: var(--c-on-accent); }
-        .btn-gold:hover { background-color: #73591f; }
-        /* Clash's primary action. Same reason .btn-gold exists: a filled button
-           owns its text colour, so the way to recolour one is a class, not an
-           inline override of half the pair. Black on var(--c-clash) measures 9.7:1. */
-        .btn-orange { background-color: var(--c-clash); color: var(--c-on-accent); }
-        .btn-orange:hover { background-color: #984734; }
-        .btn-dark { background-color: var(--c-line); color: var(--c-ink); border: var(--bw) solid var(--c-ink-5) !important; }
-        .btn-dark:hover { background-color: var(--c-line-2); }
+        /* The four filled-button classes, named for the JOB rather than the
+           colour. They used to be .btn-cyan, .btn-gold, .btn-orange and
+           .btn-dark, which described the old palette exactly and the new one
+           not at all — there is no cyan in the design any more, and .btn-dark
+           paints a pale fill. A class named for a colour the page does not
+           have is how someone reaches for "the blue one" and finds nothing.
+
+           They exist as classes at all because of a real bug, which is worth
+           keeping written down: the two FFA buttons were once the generic
+           primary with their text colour overridden inline to gold. Gold on
+           the old cyan measured 1.12:1 against a 3:1 minimum for large bold
+           text — not uncomfortable, invisible. A filled button owns BOTH
+           halves of its pair, so the way to recolour one is a class, never an
+           inline override of the text alone.
+
+           Hover brightens the fill rather than naming a second colour: three
+           hand-picked dark shades were the only hex literals left in this
+           block, and none of them was in the palette. */
+        .btn-primary { background-color: var(--c-correct); color: var(--c-on-accent); }
+        .btn-ffa { background-color: var(--c-ffa); color: var(--c-on-accent); }
+        .btn-clash { background-color: var(--c-clash); color: var(--c-on-accent); }
+        .btn-primary:hover, .btn-ffa:hover, .btn-clash:hover { filter: brightness(.92); }
+        /* The quiet one: a pale fill with a hairline, for the secondary action
+           beside any of the three above. */
+        .btn-quiet { background-color: var(--c-line); color: var(--c-ink); border: var(--bw) solid var(--c-ink-5) !important; }
+        .btn-quiet:hover { background-color: var(--c-line-2); }
         /* Google's own sign-in treatment rather than the arcade palette:
            players recognise this plate by sight, and a button restyled to
            match the site reads as a phishing page asking for a Google
@@ -1629,8 +1638,8 @@
                 <div style="margin-top: 15px; font-size: var(--fs-3); color: var(--c-ink-3);" id="cloud-save-status">Saving to cloud...</div>
             </div>
             <div class="modal-buttons">
-                <button class="btn-cyan" id="btn-share" onclick="window.shareStats()">Share Score</button>
-                <button class="btn-dark" id="btn-new-run" onclick="window.startNewRun()">New Run</button>
+                <button class="btn-primary" id="btn-share" onclick="window.shareStats()">Share Score</button>
+                <button class="btn-quiet" id="btn-new-run" onclick="window.startNewRun()">New Run</button>
             </div>
             
         </div>
@@ -1645,7 +1654,7 @@
                 Bank your score now, or risk it all!
             </div>
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="window.dismissWarning()">Continue Playing</button>
+                <button class="btn-quiet" onclick="window.dismissWarning()">Continue Playing</button>
             </div>
         </div>
     </div>
@@ -1665,17 +1674,17 @@
             
             <div id="lobby-action-view">
                 <div class="modal-buttons">
-                    <button class="btn-orange" onclick="window.findRandomMatch()">Find Random Match</button>
+                    <button class="btn-clash" onclick="window.findRandomMatch()">Find Random Match</button>
                     
                     <!-- NEW LIVE COUNTER DIV HERE -->
                     <div id="active-searchers-text" style="color: var(--c-clash); font-size: var(--fs-2); margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
                     
                     <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: var(--fs-2); font-weight: bold; text-align: center;">- OR PLAY WITH FRIEND -</div>
                     
-                    <button class="btn-dark" style="border-color: var(--c-clash) !important; color: var(--c-clash);" onclick="window.hostMatch()">Host Private Match</button>
+                    <button class="btn-quiet" style="border-color: var(--c-clash) !important; color: var(--c-clash);" onclick="window.hostMatch()">Host Private Match</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="join-code-input" class="input-field" maxlength="5" placeholder="Code" style="margin-bottom: 0;">
-                        <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinMatch()">Join</button>
+                        <button class="btn-quiet" style="flex-grow: 1;" onclick="window.joinMatch()">Join</button>
                     </div>
                 </div>
             </div>
@@ -1688,7 +1697,7 @@
                 <div id="display-room-code" style="font-size: 32px; color: var(--c-clash); letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
 
                 <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
-                <button id="btn-share-invite" class="btn-dark" style="display: none; border-color: var(--c-clash) !important; color: var(--c-clash); margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
+                <button id="btn-share-invite" class="btn-quiet" style="display: none; border-color: var(--c-clash) !important; color: var(--c-clash); margin-bottom: 10px;" onclick="window.shareMatchInvite()">Share Invite</button>
 
                 <!-- SUB-TEXT BLOCK -->
                 <div id="waiting-sub-text" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 20px; font-style: italic;"></div>
@@ -1702,7 +1711,7 @@
                 <button class="menu-list-btn" style="border-color: var(--c-loss); color: var(--c-loss);" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
 
-            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Endless</button>
+            <button class="btn-quiet" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Endless</button>
         </div>
     </div>
 
@@ -1713,9 +1722,9 @@
             <div class="modal-stats" id="vs-end-desc">You claimed the 2,500 pt prize!</div>
             
             <div class="modal-buttons">
-                <button class="btn-orange" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
+                <button class="btn-clash" id="btn-rematch" style="display:none;" onclick="window.rematchVersusMatch()">Rematch</button>
                 <div id="rematch-waiting-text" style="display:none; font-size: var(--fs-2); color: var(--c-ink-3); font-style: italic; margin: -5px 0 5px;">Waiting for host to start a rematch...</div>
-                <button class="btn-dark" onclick="window.leaveVersusMatch()">Leave Match</button>
+                <button class="btn-quiet" onclick="window.leaveVersusMatch()">Leave Match</button>
             </div>
         </div>
     </div>
@@ -1730,15 +1739,15 @@
 
             <div id="ffa-lobby-action-view">
                 <div class="modal-buttons">
-                    <button class="btn-gold" onclick="window.findRandomFfaMatch()">Find Public Match</button>
+                    <button class="btn-ffa" onclick="window.findRandomFfaMatch()">Find Public Match</button>
                     <div id="ffa-active-searchers-text" style="color: var(--c-ffa); font-size: var(--fs-2); margin-top: 5px; font-style: italic; text-align: center;">Checking Arcade...</div>
 
                     <div style="margin: 15px 0; color: var(--c-ink-6); font-style: italic; font-size: var(--fs-2); font-weight: bold; text-align: center;">- OR PLAY WITH FRIENDS -</div>
 
-                    <button class="btn-dark" style="border-color: var(--c-ffa) !important; color: var(--c-ffa);" onclick="window.hostFfaMatch()">Host Private Room</button>
+                    <button class="btn-quiet" style="border-color: var(--c-ffa) !important; color: var(--c-ffa);" onclick="window.hostFfaMatch()">Host Private Room</button>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <input type="text" id="ffa-join-code-input" class="input-field" maxlength="5" placeholder="Code" style="margin-bottom: 0;">
-                        <button class="btn-dark" style="flex-grow: 1;" onclick="window.joinFfaMatchByCode()">Join</button>
+                        <button class="btn-quiet" style="flex-grow: 1;" onclick="window.joinFfaMatchByCode()">Join</button>
                     </div>
                 </div>
             </div>
@@ -1749,19 +1758,19 @@
                 <div id="ffa-display-room-code" style="font-size: 32px; color: var(--c-ffa); letter-spacing: 5px; margin: 10px 0; font-weight: bold; display: none;"></div>
 
                 <!-- Only shown for a private room (a public queue match isn't "your" code to invite someone into) -->
-                <button id="ffa-btn-share-invite" class="btn-dark" style="display: none; border-color: var(--c-ffa) !important; color: var(--c-ffa); margin-bottom: 10px;" onclick="window.shareFfaInvite()">Share Invite</button>
+                <button id="ffa-btn-share-invite" class="btn-quiet" style="display: none; border-color: var(--c-ffa) !important; color: var(--c-ffa); margin-bottom: 10px;" onclick="window.shareFfaInvite()">Share Invite</button>
 
                 <div id="ffa-lobby-players-list" style="font-size: var(--fs-3); color: var(--c-ink); margin-bottom: 15px; line-height: 1.6;"></div>
 
                 <div id="ffa-lobby-sub-text" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px; font-style: italic;"></div>
 
                 <div class="modal-buttons">
-                    <button class="btn-gold" id="ffa-btn-start-early" style="display: none;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
+                    <button class="btn-ffa" id="ffa-btn-start-early" style="display: none;" onclick="window.startFfaMatchEarly()">Start Match Now</button>
                     <button class="menu-list-btn" style="border-color: var(--c-loss); color: var(--c-loss);" onclick="window.cancelFfaLobby()">Cancel</button>
                 </div>
             </div>
 
-            <button class="btn-dark" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Endless</button>
+            <button class="btn-quiet" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Endless</button>
         </div>
     </div>
 
@@ -1772,7 +1781,7 @@
             <div class="modal-stats" id="ffa-end-results" style="text-align: left; font-size: var(--fs-3);"></div>
 
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="window.leaveFfaMatch()">Leave Match</button>
+                <button class="btn-quiet" onclick="window.leaveFfaMatch()">Leave Match</button>
             </div>
         </div>
     </div>
@@ -1786,7 +1795,7 @@
             <div id="gauntlet-archive-browse">
                 <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
                 <div id="gauntlet-archive-list"></div>
-                <button class="btn-dark" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
+                <button class="btn-quiet" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
                 <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Gauntlet, with the words →</a>
             </div>
 
@@ -1799,11 +1808,11 @@
                      the full spread of results. It is also a flat file, so
                      reading it there costs no Firestore reads at all. -->
                 <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
-                <button class="btn-dark" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
+                <button class="btn-quiet" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
             </div>
 
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="document.getElementById('gauntlet-archive-modal').style.display='none'">Close</button>
+                <button class="btn-quiet" onclick="document.getElementById('gauntlet-archive-modal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -1819,12 +1828,12 @@
             <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
 
             <div class="modal-buttons">
-                <button class="btn-cyan" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
+                <button class="btn-primary" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
                 <!-- Just dismisses the modal: today's board is already live
                      underneath it, and the Gauntlet tab is now the all-time
                      hall of fame rather than today's standings. -->
-                <button class="btn-cyan" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
-                <button class="btn-dark" onclick="window.leaveDailyGauntlet()">Back to Endless</button>
+                <button class="btn-primary" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
+                <button class="btn-quiet" onclick="window.leaveDailyGauntlet()">Back to Endless</button>
             </div>
         </div>
     </div>
@@ -1844,13 +1853,13 @@
                 <button id="auth-action-btn" class="menu-list-btn" onclick="window.handleAuthAction()">Sign Up / Log In</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
-                    <button class="btn-dark" style="border-color: var(--c-ink) !important; padding: 8px 12px;" onclick="window.open('https://x.com/playlexathon', '_blank', 'noopener')">
+                    <button class="btn-quiet" style="border-color: var(--c-ink) !important; padding: 8px 12px;" onclick="window.open('https://x.com/playlexathon', '_blank', 'noopener')">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.005 4.15H5.059z"/></svg>
                     </button>
-                    <button class="btn-dark" style="border-color: #5865F2 !important; padding: 8px 12px;" onclick="window.open('https://discord.gg/xBVDym8TF9', '_blank', 'noopener')">
+                    <button class="btn-quiet" style="border-color: #5865F2 !important; padding: 8px 12px;" onclick="window.open('https://discord.gg/xBVDym8TF9', '_blank', 'noopener')">
                         <svg viewBox="0 0 127.14 96.36" width="16" height="16" fill="#5865F2"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>
                     </button>
-                    <button class="btn-dark" style="border-color: #FF5E5B !important; padding: 8px 12px;" onclick="window.open('https://ko-fi.com/lexathon', '_blank', 'noopener')">
+                    <button class="btn-quiet" style="border-color: #FF5E5B !important; padding: 8px 12px;" onclick="window.open('https://ko-fi.com/lexathon', '_blank', 'noopener')">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="#FF5E5B"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.144l.058-.008c2.813 0 6.55-1.547 6.591-7.5zM15.3 14.881H3.978l-.05-1.745c-.179-1.393-.153-2.618-.11-3.693h11.482c.158 1.487.359 3.036.001 5.438zm6.577-4.133c-.09 2.148-1.758 2.535-3.327 2.477 0-1.896-.062-3.805-.098-5.748h2.646s1.171.185 1.157 2.213a4.13 4.13 0 0 1-.378 1.058z"/></svg>
                     </button>
                 </div>
@@ -1894,11 +1903,11 @@
             <div class="auth-divider"><span>or use an email</span></div>
             <input type="email" id="email-auth-email" class="input-field" placeholder="Email" autocomplete="email" style="text-transform: none; letter-spacing: normal; text-align: left;">
             <input type="password" id="email-auth-password" class="input-field" placeholder="Password (6+ characters)" autocomplete="current-password" style="text-transform: none; letter-spacing: normal; text-align: left;">
-            <button class="btn-cyan" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer; margin-top: 5px;" onclick="window.submitEmailAuth()">Continue</button>
+            <button class="btn-primary" style="width: 100%; padding: 10px; border-radius: 5px; font-weight: bold; text-transform: uppercase; border: none; cursor: pointer; margin-top: 5px;" onclick="window.submitEmailAuth()">Continue</button>
             <div style="text-align: center; margin-top: 10px;">
                 <a href="#" style="color: var(--c-ink-5); font-size: var(--fs-2); text-decoration: underline;" onclick="window.handleForgotPassword(); return false;">Forgot password?</a>
             </div>
-            <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-dark" onclick="document.getElementById('auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
+            <div class="modal-buttons" style="margin-top: 15px;"><button class="btn-quiet" onclick="document.getElementById('auth-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
     </div>
 
@@ -1919,8 +1928,8 @@
             <input type="text" id="handle-setup-input" class="input-field" maxlength="12" placeholder="Enter name" autocomplete="off">
             <div id="handle-setup-error" style="font-size: var(--fs-2); color: var(--c-loss); line-height: 1.4; min-height: 17px;"></div>
             <div class="modal-buttons" style="margin-top: 5px;">
-                <button class="btn-cyan" id="handle-setup-save" onclick="window.saveHandleSetup()">Save Handle</button>
-                <button class="btn-dark" id="handle-setup-skip" onclick="window.skipHandleSetup()">Skip For Now</button>
+                <button class="btn-primary" id="handle-setup-save" onclick="window.saveHandleSetup()">Save Handle</button>
+                <button class="btn-quiet" id="handle-setup-skip" onclick="window.skipHandleSetup()">Skip For Now</button>
             </div>
         </div>
     </div>
@@ -1939,7 +1948,7 @@
             <h2 class="modal-title" id="mode-intro-title"></h2>
             <p id="mode-intro-text" style="color: var(--c-ink-2); font-size: var(--fs-3); line-height: 1.65; margin: 0 0 4px;"></p>
             <div class="modal-buttons">
-                <button class="btn-cyan" id="mode-intro-btn" onclick="window.dismissModeIntro()">Play</button>
+                <button class="btn-primary" id="mode-intro-btn" onclick="window.dismissModeIntro()">Play</button>
             </div>
             <a href="how-to-play.html" style="color: var(--c-ink-5); font-size: var(--fs-2); text-decoration: none;">Full rules</a>
         </div>
@@ -2005,7 +2014,7 @@
                 <a href="strategy.html" style="color: var(--c-correct);">Strategy guide</a>
             </div>
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="document.getElementById('howto-modal').style.display='none'">Close</button>
+                <button class="btn-quiet" onclick="document.getElementById('howto-modal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -2017,8 +2026,8 @@
             <p id="signup-nudge-reason" style="color: var(--c-ink); font-size: var(--fs-4); font-weight: bold; margin-bottom: 12px;"></p>
             <p id="signup-nudge-body" style="color: var(--c-ink-3); font-size: var(--fs-2); line-height: 1.6; margin-bottom: 20px;">You're playing as a Guest — everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.</p>
             <div class="modal-buttons">
-                <button class="btn-cyan" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign Up / Log In</button>
-                <button class="btn-dark" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
+                <button class="btn-primary" onclick="document.getElementById('signup-nudge-modal').style.display='none'; window.handleAuthAction();">Sign Up / Log In</button>
+                <button class="btn-quiet" onclick="document.getElementById('signup-nudge-modal').style.display='none';">Not Now</button>
             </div>
         </div>
     </div>
@@ -2033,7 +2042,7 @@
             </div>
             <div id="challenges-list" class="grid-container"></div>
             <div class="modal-buttons">
-                <button class="btn-dark" onclick="document.getElementById('challenges-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button>
+                <button class="btn-quiet" onclick="document.getElementById('challenges-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button>
             </div>
         </div>
     </div>
@@ -2059,7 +2068,7 @@
                 <button class="tab-btn" id="tab-shop-effects" onclick="window.renderShop('effects')">Effects</button>
             </div>
             <div id="shop-list" class="grid-container"></div>
-            <div class="modal-buttons"><button class="btn-dark" onclick="window.closeShop()">Back</button></div>
+            <div class="modal-buttons"><button class="btn-quiet" onclick="window.closeShop()">Back</button></div>
         </div>
     </div>
 
@@ -2072,7 +2081,7 @@
                 <div id="username-section" style="display: none;">
                     <input type="text" id="username-input" class="input-field" maxlength="12" placeholder="Enter name">
                     <div id="handle-cost-text" style="font-size: var(--fs-2); color:var(--c-ink-3); margin-bottom: 8px;">Cost: 0 pts</div>
-                    <button class="btn-cyan" onclick="window.saveUsername()" style="width: 100%;">Update Handle</button>
+                    <button class="btn-primary" onclick="window.saveUsername()" style="width: 100%;">Update Handle</button>
                 </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
                     <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px; line-height: 1.4;">
@@ -2148,7 +2157,7 @@
                 <div id="stat-gauntlet-today" style="text-align: center; font-size: var(--fs-3); color: var(--c-ink-3);">Checking...</div>
             </div>
 
-            <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
+            <div class="modal-buttons"><button class="btn-quiet" onclick="document.getElementById('profile-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
     </div>
 
@@ -2176,7 +2185,7 @@
                     <button id="settings-toggle-seasonal" class="action-btn" onclick="window.toggleSetting('seasonal')">ON</button>
                 </div>
             </div>
-            <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('settings-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
+            <div class="modal-buttons"><button class="btn-quiet" onclick="document.getElementById('settings-modal').style.display='none'; document.getElementById('main-menu-modal').style.display='flex';">Back</button></div>
         </div>
     </div>
 
@@ -2195,7 +2204,7 @@
             <!-- Your own line, pinned under every board. A top-100 list tells
                  the other 95% of players nothing about where they stand. -->
             <div id="lb-you" style="display:none;"></div>
-            <div class="modal-buttons"><button class="btn-dark" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button></div>
+            <div class="modal-buttons"><button class="btn-quiet" onclick="document.getElementById('leaderboard-modal').style.display='none'">Close</button></div>
         </div>
     </div>
 

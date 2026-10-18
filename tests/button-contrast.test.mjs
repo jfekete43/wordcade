@@ -1,11 +1,16 @@
 /*
  * Every button in the UI must have readable text.
  *
- * This exists because "Find Public Match" shipped as a .btn-cyan — a class
- * whose whole job is cyan fill with BLACK text — with the text colour
- * overridden inline to gold. Gold on cyan measures 1.12:1 against a 3:1
- * minimum for large bold text: not uncomfortable, effectively invisible. It
- * looked deliberate in the markup and nothing flagged it.
+ * This exists because "Find Public Match" shipped as the generic primary — a
+ * class whose whole job is a filled plate with ink that goes WITH it — with
+ * the text colour overridden inline to gold. Gold on the cyan of the day
+ * measured 1.12:1 against a 3:1 minimum for large bold text: not
+ * uncomfortable, invisible. It looked deliberate in the markup and nothing
+ * flagged it.
+ *
+ * (The classes were .btn-cyan / .btn-gold / .btn-orange / .btn-dark then.
+ * They are named for the job now — the palette moved and three of the four
+ * names stopped being true.)
  *
  * So the check is mechanical: render the real markup against the real
  * stylesheet, walk every button, resolve the background it actually sits on
@@ -201,15 +206,16 @@ let bad = 0;
          `${mode.name}: ${id} is bordered in the mode's own colour`, `${border} vs ${want}`);
     }
   }
-  // A filled button owns its text colour, which is why .btn-gold exists at all
-  // (gold text on a cyan fill measured 1.12:1). Each mode's primary action gets
-  // its own class rather than an inline override of half the pair.
-  const orange = src.match(/\.btn-orange \{ background-color: ([^;]+); color: ([^;]+); \}/);
+  // A filled button owns BOTH halves of its pair, which is why .btn-ffa exists
+  // at all (gold text on the old cyan fill measured 1.12:1). Each mode's
+  // primary action gets its own class rather than an inline override of the
+  // text alone.
+  const orange = src.match(/\.btn-clash \{ background-color: ([^;]+); color: ([^;]+); \}/);
   ck(orange && resolve(orange[1]) === TOKENS['--c-clash'] && resolve(orange[2]) === TOKENS['--c-on-accent'],
      'Clash has a filled button class rather than an inline override',
      orange ? orange[1] + ' / ' + orange[2] : 'missing');
-  ck(!/class="btn-cyan"[^>]*onclick="window\.(findRandomMatch|rematchVersusMatch)\(\)"/.test(src),
-     "and Clash's primary actions no longer use the generic cyan one");
+  ck(!/class="btn-primary"[^>]*onclick="window\.(findRandomMatch|rematchVersusMatch)\(\)"/.test(src),
+     "and Clash's primary actions no longer use the generic one");
 }
 
 for (const [ok, name, detail] of t) {

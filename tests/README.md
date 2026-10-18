@@ -283,11 +283,13 @@ twice must barely move off its computed score) and `pickDailyWords` (ten unique
 real words, always ordered easiest to hardest, with a real spread). Pure.
 
 **`button-contrast.test.mjs`** — every button's text must be readable. This
-exists because "Find Public Match" shipped as a `.btn-cyan` — a class whose
-whole job is cyan fill with *black* text — with the colour overridden inline to
-gold. Gold on cyan measures **1.12:1** against a 3:1 minimum for large bold
-text: not uncomfortable, effectively invisible, and it looked perfectly
-deliberate in the markup. The suite renders the real body against the real
+exists because "Find Public Match" shipped as the generic primary — a class
+whose whole job is a filled plate with ink that goes *with* it — with the
+colour overridden inline to gold. Gold on the cyan of the day measures
+**1.12:1** against a 3:1 minimum for large bold text: not uncomfortable,
+invisible, and it looked perfectly deliberate in the markup. (The classes were
+`.btn-cyan` / `.btn-gold` / `.btn-orange` / `.btn-dark` then; they are named
+for the job now, the palette having moved out from under three of the four.) The suite renders the real body against the real
 stylesheet, forces every modal open, walks all ~100 buttons, resolves the
 background each one actually sits on (a transparent button inherits its
 container's) and measures. Needs Playwright.
