@@ -154,6 +154,55 @@ try {
       .filter((h) => !/^#(1a1a1d|121213)$/i.test(h));
     ck(hard.length === 0, `${tool} states no colour of its own`, hard.join(' '));
   }
+
+  // ---- the row on the card has to be a position the game can reach -------
+  //
+  // It was not. The card showed RIVAL as blue-grey-amber-grey-blue for months.
+  // That row claims the answer is R???L, holds a V somewhere other than the
+  // middle, and contains no I and no A — and of the 25 words shaped R???L the
+  // game knows, the four with a V in them all carry it in slot 3. Nothing
+  // could produce it. It was a picture of a game state that cannot exist, on
+  // the image selling the game, and a player found it before any test did.
+  //
+  // The generator refuses to write such a row now. But a generator only runs
+  // when somebody runs it, and this suite exists precisely because a correct
+  // generator that was never re-run is how the old palette survived on these
+  // files for weeks. So the row is re-graded here, from the word list as it
+  // stands — which also catches a row that goes unreachable later because
+  // words.js changed underneath it.
+  const gen = fs.readFileSync(REPO('tools/build-og-card.mjs'), 'utf8');
+  const cells = [...gen.matchAll(/\{\s*ch:\s*"([A-Z])"\s*,\s*state:\s*"(correct|present|absent)"\s*\}/g)]
+    .map((m) => ({ ch: m[1], state: m[2] }));
+  ck(cells.length === 5, 'the card generator states a five-tile row', `found ${cells.length}`);
+  if (cells.length === 5) {
+    const answers = fs.readFileSync(REPO('words.js'), 'utf8')
+      .match(/const rawAnswers = `([\s\S]*?)`/)[1].toUpperCase().trim().split(/\s+/);
+    const guess = cells.map((c) => c.ch).join('');
+    const row = cells.map((c) => c.state).join(',');
+    const shown = cells.map((c) => ({ correct: 'blue', present: 'amber', absent: 'grey' })[c.state]).join('-');
+    // index.html's checkGuess() and functions/index.js's gradeGuess(), to the
+    // letter: exact matches first, the rest against what those left behind.
+    const grade = (g, target) => {
+      const a = [...g], t = [...target];
+      const out = ['absent', 'absent', 'absent', 'absent', 'absent'];
+      for (let i = 0; i < 5; i++) if (a[i] === t[i]) { out[i] = 'correct'; t[i] = null; }
+      for (let i = 0; i < 5; i++) {
+        if (out[i] === 'correct') continue;
+        const j = t.indexOf(a[i]);
+        if (j !== -1) { out[i] = 'present'; t[j] = null; }
+      }
+      return out;
+    };
+    ck(answers.includes(guess), `the card's word (${guess}) is one the game actually sets as an answer`);
+    const fits = answers.filter((a) => a !== guess && grade(guess, a).join(',') === row);
+    ck(fits.length > 0, `and ${guess} coloured ${shown} is a row the game can reach`,
+       'no answer in the list produces it — the card shows a position that cannot exist');
+    // The letters on the card are the letters in the generator. A hand-edited
+    // PNG, or a generator edited without re-running it, is the failure this
+    // whole file is about.
+    const onCard = (gen.match(/const MARK = "([A-Z]+)"/) || [])[1];
+    ck(onCard === 'LEXATHON', 'and the wordmark above it still spells the product', String(onCard));
+  }
 } finally {
   await browser.close();
 }

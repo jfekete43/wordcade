@@ -39,17 +39,68 @@ const C = (name) => {
 
 // Content is kept inside a generous margin: every platform crops this
 // differently, and iMessage in particular squares it off.
-// A real answer from the game's own list, mid-guess. It has to be a real word:
+//
+// A real answer from the game's own list, mid-guess. It has to be a real word -
 // a card selling a word game that spells something invented reads as a mistake,
-// and anyone who plays will check. RIVAL also happens to say the thing that
-// separates this from a daily puzzle, which is the whole pitch.
+// and anyone who plays will check.
+//
+// SCORE is the thing a daily puzzle does not have, which is the pitch; it is
+// the site's own word for it, on the Score pill and the Share Score button, on
+// the one image whose whole context is somebody sharing a score. And the amber
+// tile is the loudest thing on the card, so the letter standing on it should
+// fill it: O does, most letters do not.
 const WORD = [
-  { ch: "R", state: "correct" },
-  { ch: "I", state: "absent" },
-  { ch: "V", state: "present" },
-  { ch: "A", state: "absent" },
-  { ch: "L", state: "correct" },
+  { ch: "S", state: "correct" },
+  { ch: "C", state: "absent" },
+  { ch: "O", state: "present" },
+  { ch: "R", state: "absent" },
+  { ch: "E", state: "correct" },
 ];
+
+/* The row has to be a position the game can actually reach.
+ *
+ * It was not. This card shipped for months showing RIVAL as blue-grey-amber-
+ * grey-blue, a row which claims the answer is R???L, holds a V somewhere other
+ * than the middle, and has no I and no A in it. The game knows 25 words shaped
+ * R???L. Four of them contain a V, and all four carry it in slot 3 - so that
+ * amber V was unreachable, and no word in the answer list, nor in the 10,657
+ * extra guesses, could produce the row. A player noticed.
+ *
+ * Nothing caught it because a colouring is trivial to get wrong by hand and
+ * invisible once it is a PNG. So the generator now grades the row against the
+ * word list with the game's own rules and refuses to write a card it cannot
+ * justify. The letters are the easy part; the colours are the claim.
+ */
+const WORDS = fs.readFileSync(path.join(REPO, "words.js"), "utf8");
+const ANSWERS = WORDS.match(/const rawAnswers = `([\s\S]*?)`/)[1].toUpperCase().trim().split(/\s+/);
+
+// index.html's checkGuess() and functions/index.js's gradeGuess(), to the
+// letter: exact matches first, then the rest against what is left over, so a
+// repeated letter is only ever paid out once.
+const grade = (guess, target) => {
+  const g = [...guess], t = [...target];
+  const out = ["absent", "absent", "absent", "absent", "absent"];
+  for (let i = 0; i < 5; i++) if (g[i] === t[i]) { out[i] = "correct"; t[i] = null; }
+  for (let i = 0; i < 5; i++) {
+    if (out[i] === "correct") continue;
+    const j = t.indexOf(g[i]);
+    if (j !== -1) { out[i] = "present"; t[j] = null; }
+  }
+  return out;
+};
+
+const GUESS = WORD.map((w) => w.ch).join("");
+const ROW = WORD.map((w) => w.state).join(",");
+const SHORT = WORD.map((w) => ({ correct: "blue", present: "amber", absent: "grey" })[w.state]).join("-");
+if (!ANSWERS.includes(GUESS)) {
+  console.error(`${GUESS} is not one of the game's answers - the card would show a word it never sets`);
+  process.exit(1);
+}
+const FITS = ANSWERS.filter((a) => a !== GUESS && grade(GUESS, a).join(",") === ROW);
+if (!FITS.length) {
+  console.error(`${GUESS} coloured ${SHORT} is a position the game cannot reach - no answer produces it`);
+  process.exit(1);
+}
 
 // The wordmark is the page's wordmark: eight tiles, not a word in a typeface.
 // It is the most recognisable thing the redesign produced and the one element
@@ -136,6 +187,9 @@ for (const f of refs) {
 
 const kb = Math.round(fs.statSync(OUT).size / 1024);
 console.log(`wrote og-card.png (1200x630, ${kb} KB) at ?v=${version}`);
+console.log(`  ${GUESS} ${SHORT}: ` + (FITS.length === 1
+  ? `reachable, and the only answer that fits it is ${FITS[0]}`
+  : `reachable - ${FITS.length} answers fit it (${FITS.slice(0, 6).join(" ")})`));
 console.log(stamped ? `  re-stamped ${stamped} file(s)` : "  every reference already current");
 // Twitter refuses images over 5 MB and several scrapers give up well before
 // that; a flat-colour card of this size lands around 30 KB.
