@@ -130,6 +130,83 @@ try {
     ck(!neon, 'and no cyan or magenta anywhere in it', neon ? `rgb(${neon.c})` : '');
   }
 
+  // ---- the profile art ---------------------------------------------------
+  //
+  // Discord's server icon and X's avatar and header. They live on somebody
+  // else's site, which is why they are the likeliest thing here to go stale:
+  // nothing renders them, nobody re-exports them, and the first sign is a
+  // cyan avatar beside a paper-coloured card.
+  //
+  // Both platforms mask the avatar to a CIRCLE, so the check that matters is
+  // not "is it square" but "does anything that must be read survive the mask".
+  const SOCIAL = [
+    ['social/avatar-512-solid.png', 512, 512, 'avatar'],
+    ['social/avatar-400-solid.png', 400, 400, 'avatar'],
+    ['social/avatar-512-inset.png', 512, 512, 'avatar'],
+    ['social/avatar-400-inset.png', 400, 400, 'avatar'],
+    ['social/header-wordmark-1500x500.png', 1500, 500, 'header'],
+    ['social/header-row-1500x500.png', 1500, 500, 'header'],
+    ['social/header-board-1500x500.png', 1500, 500, 'header'],
+    ['social/header-tiles-1500x500.png', 1500, 500, 'header'],
+  ];
+  for (const [f, w, h, kind] of SOCIAL) {
+    const m = await probe(f);
+    ck(!!m, `${f} exists and decodes`);
+    if (!m) continue;
+    ck(m.w === w && m.h === h, `${f} is ${w}x${h}`, `${m.w}x${m.h}`);
+    const neon = m.top.find((x) => near(x.c, [0, 255, 255], 40) || near(x.c, [255, 0, 255], 40));
+    ck(!neon, `${f} has no cyan or magenta in it`, neon ? `rgb(${neon.c})` : '');
+    if (kind === 'avatar') {
+      ck(near(m.top[0].c, CORRECT), `${f} is the correct-tile blue`, `rgb(${m.top[0].c})`);
+      // A transparent corner shows the platform's own background through the
+      // mask, so these are opaque everywhere.
+      ck(m.clear === 0, `${f} is opaque to the edge`, `${m.clear} clear px`);
+    } else {
+      ck(near(m.top[0].c, PAGE), `${f} is printed on the page's paper`, `rgb(${m.top[0].c})`);
+    }
+  }
+
+  // The letter has to survive the circle. Both platforms inscribe a circle in
+  // the square and throw the corners away, so every pixel of the mark that
+  // carries meaning must sit inside that circle - measured here, rather than
+  // assumed from the fact that it was centred in the markup.
+  for (const f of ['social/avatar-512-solid.png', 'social/avatar-400-solid.png',
+                   'social/avatar-512-inset.png', 'social/avatar-400-inset.png']) {
+    const uri = asDataUri(f);
+    if (!uri) { ck(false, `${f} readable for the circle-mask check`); continue; }
+    const reach = await page.evaluate(async ([src, want]) => {
+      const img = new Image(); img.src = src; await img.decode();
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(0, 0, c.width, c.height);
+      const cx = (c.width - 1) / 2, cy = (c.height - 1) / 2, r = c.width / 2;
+      let far = 0, n = 0;
+      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+        const i = (y * c.width + x) * 4;
+        if (data[i + 3] < 8) continue;
+        const hit = Math.abs(data[i] - want[0]) <= 6 && Math.abs(data[i + 1] - want[1]) <= 6
+                 && Math.abs(data[i + 2] - want[2]) <= 6;
+        if (!hit) continue;
+        n++;
+        far = Math.max(far, Math.hypot(x - cx, y - cy) / r);
+      }
+      return { far, n };
+    }, [uri, ON_ACCENT]);
+    ck(reach.n > 0, `${f} has a letter on it at all`, `${reach.n} px of --c-on-accent`);
+    // 0.92 rather than 1.0: a circle mask is antialiased and platforms differ
+    // by a pixel or two about where its edge lands.
+    ck(reach.far > 0 && reach.far < 0.92, `${f} keeps its letter inside the circle mask`,
+       `reaches ${(reach.far * 100).toFixed(0)}% of the radius`);
+  }
+
+  // The board on the header is a game, not a decoration: it must show both
+  // signal colours, or it is a picture of a solved row and says nothing.
+  const board = await probe('social/header-board-1500x500.png');
+  if (board) for (const [name, want] of [['correct', CORRECT], ['present', PRESENT], ['absent', rgb(token('absent'))]]) {
+    ck(!!board.top.find((x) => near(x.c, want)), `the header board shows a ${name} tile`);
+  }
+
   // ---- what the markup and the manifest claim ---------------------------
   // A correct PNG referenced by a stale colour is the same bug one layer up.
   const manifest = JSON.parse(fs.readFileSync(REPO('site.webmanifest'), 'utf8'));
@@ -146,7 +223,7 @@ try {
 
   // Both generators must READ the palette rather than restate it — that is
   // the thing that actually stops this drifting again, and it is cheap to pin.
-  for (const tool of ['tools/build-icons.mjs', 'tools/build-og-card.mjs']) {
+  for (const tool of ['tools/build-icons.mjs', 'tools/build-og-card.mjs', 'tools/build-social-images.mjs']) {
     const src = fs.readFileSync(REPO(tool), 'utf8');
     ck(/index\.html/.test(src) && /--c-/.test(src),
        `${tool} reads the palette out of index.html`);
