@@ -726,6 +726,34 @@ function requireNonGuest(request) {
   return uid;
 }
 
+/* What a player sees when a callable throws something that is not an
+ * HttpsError: the bare word "internal". No message, no code, nothing to act
+ * on, and no trail for anyone else either unless somebody thinks to open the
+ * logs. The Gauntlet did exactly that - a dialog reading "internal" and
+ * silence everywhere else.
+ *
+ * So the real error is logged with enough context to find it, and what
+ * reaches the player names the operation and says whose problem it is.
+ * Deliberate HttpsErrors pass straight through: they already say something
+ * true, and rewriting them would bury the sign-in prompt behind a shrug.
+ */
+function readableFailures(what, handler) {
+  return async (request) => {
+    try {
+      return await handler(request);
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      console.error(`${what} failed`, {
+        uid: (request && request.auth && request.auth.uid) || null,
+        message: e && e.message,
+        stack: e && e.stack,
+      });
+      throw new HttpsError("internal",
+        `${what} failed unexpectedly. That is a problem on our side, not yours - try again in a moment.`);
+    }
+  };
+}
+
 exports.claimChallenge = onCall(async (request) => {
   const uid = requireAuth(request);
   const { id, type } = request.data || {};
@@ -1224,7 +1252,7 @@ function publicAttemptState(attempt) {
   return { date: attempt.date, wordIndex: attempt.wordIndex, wordCount: attempt.wordCount, score: attempt.score, status: attempt.status, history: attempt.history };
 }
 
-exports.startDailyGauntlet = onCall(async (request) => {
+exports.startDailyGauntlet = onCall(readableFailures("Starting today's Gauntlet", async (request) => {
   const uid = requireNonGuest(request);
   const today = getTodayDateStr();
   const ref = dailyAttemptRef(uid, today);
@@ -1235,20 +1263,30 @@ exports.startDailyGauntlet = onCall(async (request) => {
     if (snap.exists) return { attempt: publicAttemptState(snap.data()) };
 
     const puzzle = await getOrCreateTodaysPuzzle(tx, puzzleRef, today);
+    // One history slot per word, counted from the words themselves rather
+    // than read off the stored wordCount. A puzzle document missing that
+    // field made wordCount undefined, and the admin SDK is not configured
+    // with ignoreUndefinedProperties, so the tx.set below threw a plain
+    // Error - which is to say it reached the player as "internal" and told
+    // nobody anything. The words are the thing actually being played, so
+    // counting them is both safer and more obviously correct.
+    const wordCount = Array.isArray(puzzle.words) && puzzle.words.length
+      ? puzzle.words.length
+      : DAILY_GAUNTLET_WORD_COUNT;
     const attempt = {
       date: today,
       wordIndex: 0,
-      wordCount: puzzle.wordCount,
+      wordCount,
       score: 0,
       status: "active",
-      history: Array.from({ length: puzzle.wordCount }, () => ({ guesses: [], solved: false })),
+      history: Array.from({ length: wordCount }, () => ({ guesses: [], solved: false })),
     };
     tx.set(ref, attempt);
     return { attempt: publicAttemptState(attempt) };
   });
-});
+}));
 
-exports.guessDailyWord = onCall(async (request) => {
+exports.guessDailyWord = onCall(readableFailures("Submitting that Gauntlet guess", async (request) => {
   const uid = requireAuth(request);
   const raw = (request.data && request.data.guess) || "";
   const guess = String(raw).toUpperCase().trim();
@@ -1361,7 +1399,7 @@ exports.guessDailyWord = onCall(async (request) => {
       revealedWord: wordFinished ? target : null, // safe now — this word is done either way
     };
   });
-});
+}));
 
 // ============================================================================
 // CLASH SUDDEN DEATH — when a Clash match's timer runs out tied, instead of
