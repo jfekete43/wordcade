@@ -113,6 +113,64 @@ ck('and does not list the 404', !listed.some((u) => u.endsWith('404.html')));
 ck('404 is marked noindex so it cannot outrank a real page',
    /name="robots" content="noindex/.test(read('404.html')));
 
+// ---- one URL per page ----------------------------------------------------
+//
+// Google sent two "pages not indexed" notices a few days apart, and they were
+// the same duplicate at two stages. GitHub Pages serves the homepage at both
+// / and /index.html. Before canonicals existed here (they arrived 2026-10-01)
+// Google saw two identical URLs with no instruction and chose one itself:
+// "Duplicate without user-selected canonical". Once the canonical landed it
+// obeyed that instead: "Alternate page with proper canonical tag" - the same
+// pair, now resolved.
+//
+// What kept feeding the crawler that second URL was seventeen internal links
+// written href="index.html". They are all href="/" now. Both halves are
+// pinned below, because either one coming back re-opens the same notice.
+const allHtml = [];
+(function walk(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'tests' || e.name === '.git') continue;
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) walk(full);
+    else if (e.name.endsWith('.html')) allHtml.push(path.relative(REPO_DIR, full));
+  }
+})(REPO_DIR);
+// The generated Gauntlet pages are the ones most likely to drift, since they
+// come out of a renderer rather than being edited by hand.
+ck('the sweep reaches the generated pages too', allHtml.length > pages.length,
+   `${allHtml.length} html files, ${pages.length} at the root`);
+
+// Every directory on this host serves its index.html at the bare path, so a
+// link naming the file is always a link to a duplicate URL. There is no
+// legitimate one.
+const DUPE_LINK = /href=["'][^"']*index\.html(?:[#?][^"']*)?["']/;
+const offenders = allHtml.filter((f) => DUPE_LINK.test(fs.readFileSync(REPO(f), 'utf8')));
+ck('no page links to a URL that is only ever folded into another',
+   offenders.length === 0, offenders.join(', '));
+ck('and the sitemap does not list one either',
+   !listed.some((u) => /index\.html$/.test(u)),
+   listed.filter((u) => /index\.html$/.test(u)).join(' '));
+
+// A page with no canonical is exactly the state that produced the first
+// notice: a duplicate Google has to guess about.
+const noCanonical = allHtml.filter((f) => {
+  const src = fs.readFileSync(REPO(f), 'utf8');
+  if (/name="robots" content="noindex/.test(src)) return false; // deliberately out of the index
+  return !/<link rel="canonical" href="[^"]+"/.test(src);
+});
+ck('every indexable page declares a canonical', noCanonical.length === 0, noCanonical.join(', '));
+
+// Two pages claiming one canonical means one of them is asking to be dropped.
+const canonOwner = new Map();
+const collisions = [];
+for (const f of allHtml) {
+  const c = grab(fs.readFileSync(REPO(f), 'utf8'), /<link rel="canonical" href="([^"]+)"/);
+  if (!c) continue;
+  if (canonOwner.has(c)) collisions.push(`${f} and ${canonOwner.get(c)} both claim ${c}`);
+  else canonOwner.set(c, f);
+}
+ck('and no two pages claim the same one', collisions.length === 0, collisions.join('; '));
+
 for (const c of t) console.log(c.cond ? 'ok  ' : 'FAIL', c.name, c.cond ? '' : '— ' + c.detail);
 const bad = t.filter((c) => !c.cond).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
