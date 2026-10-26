@@ -2,7 +2,7 @@
  * How long it takes to open on the Gauntlet, measured as round trips rather
  * than guessed at.
  *
- * Opening the page as a signed-in player used to sit on a playable Endless
+ * Opening the page as a signed-in player used to sit on a playable Stakes
  * board for seconds and then yank you to the Gauntlet. The chain was five
  * network waits, strictly serial:
  *
@@ -47,7 +47,22 @@ const fetchSrc = 'function fetchTodaysAttempt() {' + between(html, 'function fet
 const seedSrc = 'function seedTodaysAttempt(attempt) {' + between(html, 'function seedTodaysAttempt(attempt) {', '\n        }', 'seedTodaysAttempt') + '\n}';
 console.log('extracted from index.html:', (fetchSrc + seedSrc).length, 'chars');
 
-const makeFetch = new Function('user', 'today', 'callResult', `
+// gateOn feeds GAUNTLET_REQUIRES_ACCOUNT, which the extracted function reads
+// from its enclosing scope in index.html. Passing it in rather than hardcoding
+// it is what lets both positions of the flag be tested below.
+// Read out of index.html rather than restated, so this file can never test a
+// gate setting different from the one that ships. The server is what actually
+// enforces it, so the two are checked against each other here as well - a
+// client that prompts for an account the server does not require, or the
+// reverse, is the failure the paired constants exist to avoid.
+const CLIENT_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(html) || [])[1];
+const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
+const SERVER_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(fnSrc) || [])[1];
+eq('index.html states whether the Gauntlet needs an account', typeof CLIENT_GATE, 'string');
+eq('functions/index.js states it too', typeof SERVER_GATE, 'string');
+eq('and the two agree', CLIENT_GATE, SERVER_GATE);
+
+const makeFetch = new Function('user', 'today', 'callResult', 'GAUNTLET_REQUIRES_ACCOUNT', `
   let calls = 0;
   const currentUser = user;
   const getTodayDateStr = () => today();
@@ -61,17 +76,33 @@ const makeFetch = new Function('user', 'today', 'callResult', `
 const ATT = { wordIndex: 0, status: 'active', score: 0, history: [{ guesses: [], solved: false }] };
 const ok = () => Promise.resolve({ data: { attempt: ATT } });
 
-// A guest must never reach the callable: startDailyGauntlet refuses them
-// (requireNonGuest), so firing it would be a guaranteed error every load.
+// Whether a guest may play is a constant now - GAUNTLET_REQUIRES_ACCOUNT here
+// and in functions/index.js, which is what actually enforces it. Both of its
+// positions are pinned, because the only reason to make it a constant was that
+// it is expected to be flipped back once the mode has players worth
+// protecting, and a flag tested in one position is a flag that breaks in the
+// other.
 {
-  const f = makeFetch({ uid: 'g', isAnonymous: true }, () => '2026-10-11', ok);
-  eq('a guest gets no attempt', await f.fetchTodaysAttempt(), null);
-  eq('and never calls the Gauntlet function', f.calls(), 0);
+  const f = makeFetch({ uid: 'g', isAnonymous: true }, () => '2026-10-11', ok, true);
+  eq('gate on: a guest gets no attempt', await f.fetchTodaysAttempt(), null);
+  eq('gate on: and never calls the Gauntlet function', f.calls(), 0);
+}
+{
+  const f = makeFetch({ uid: 'g', isAnonymous: true }, () => '2026-10-11', ok, false);
+  eq('gate off: a guest gets today\'s attempt', await f.fetchTodaysAttempt(), ATT);
+  eq('gate off: and does call the Gauntlet function', f.calls(), 1);
+}
+// Signed out entirely is not the same as a guest: there is no uid to attach an
+// attempt to, so this one is refused whatever the flag says.
+{
+  const f = makeFetch(null, () => '2026-10-11', ok, false);
+  eq('nobody signed in gets no attempt even with the gate off', await f.fetchTodaysAttempt(), null);
+  eq('and calls nothing', f.calls(), 0);
 }
 
 // The whole point of sharing it: many callers, one round trip.
 {
-  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => '2026-10-11', ok);
+  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => '2026-10-11', ok, false);
   const [a, b, c] = await Promise.all([f.fetchTodaysAttempt(), f.fetchTodaysAttempt(), f.fetchTodaysAttempt()]);
   eq('three concurrent callers share one call', f.calls(), 1);
   ck(a === b && b === c && a === ATT, 'and all get the same attempt');
@@ -83,7 +114,7 @@ const ok = () => Promise.resolve({ data: { attempt: ATT } });
 {
   let n = 0;
   const flaky = () => (++n === 1 ? Promise.reject(new Error('cold start timeout')) : Promise.resolve({ data: { attempt: ATT } }));
-  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => '2026-10-11', flaky);
+  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => '2026-10-11', flaky, false);
   let threw = false;
   try { await f.fetchTodaysAttempt(); } catch (e) { threw = true; }
   ck(threw, 'a failed lookup rejects rather than resolving to nothing');
@@ -94,7 +125,7 @@ const ok = () => Promise.resolve({ data: { attempt: ATT } });
 // Midnight. A cached attempt from yesterday is not today's.
 {
   let day = '2026-10-11';
-  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => day, ok);
+  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => day, ok, false);
   await f.fetchTodaysAttempt();
   day = '2026-10-12';
   await f.fetchTodaysAttempt();
@@ -103,7 +134,7 @@ const ok = () => Promise.resolve({ data: { attempt: ATT } });
 
 // Coming back from a finished run repaints the card with no network at all.
 {
-  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => '2026-10-11', ok);
+  const f = makeFetch({ uid: 'u', isAnonymous: false }, () => '2026-10-11', ok, false);
   const finished = { status: 'finished', score: 2200, wordIndex: 7 };
   f.seedTodaysAttempt(finished);
   eq('a seeded attempt is served straight back', await f.fetchTodaysAttempt(), finished);
@@ -142,6 +173,7 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
       const callRefreshProfile = async () => { await req('refreshProfile', ${slowRefresh}); return { data: { profile: { username: 'X', equipped: {} } } }; };
       const callStartDailyGauntlet = async () => { await req('startGauntlet', ${slowAttempt}); return { data: { attempt: ${JSON.stringify(ATT)} } }; };
       let gauntletAttemptCache = { date: null, promise: null };
+      const GAUNTLET_REQUIRES_ACCOUNT = ${CLIENT_GATE};
       ${fetchSrc}
       const applyEquippedCosmetics = () => {};
       const refreshGauntletCard = async () => { await fetchTodaysAttempt(); log.push({ ev: 'cardPainted', at: -1 }); };

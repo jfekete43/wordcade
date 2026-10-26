@@ -388,14 +388,14 @@ function head(title, description, canonical) {
     <meta property="og:url" content="${escapeHtml(canonical)}">
     <meta property="og:title" content="${escapeHtml(title)}">
     <meta property="og:description" content="${escapeHtml(description)}">
-    <meta property="og:image" content="${SITE}/og-card.png?v=c3587156">
+    <meta property="og:image" content="${SITE}/og-card.png?v=8bdfa4c2">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game.">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
-    <meta name="twitter:image" content="${SITE}/og-card.png?v=c3587156">
+    <meta name="twitter:image" content="${SITE}/og-card.png?v=8bdfa4c2">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>${STYLE}

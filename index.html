@@ -21,7 +21,7 @@
     <meta property="og:url" content="https://lexathon.gg/">
     <meta property="og:title" content="An endless, competitive word game">
     <meta property="og:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. Free, no install, no account.">
-    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=c3587156">
+    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=8bdfa4c2">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two blue, one amber.">
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="An endless, competitive word game">
     <meta name="twitter:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. Free, no install, no account.">
-    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=c3587156">
+    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=8bdfa4c2">
 
     <!-- Google Search Console ownership verification. Must stay on the
          homepage permanently — Search Console re-checks it periodically and
@@ -75,7 +75,7 @@
       "name": "Lexathon",
       "url": "https://lexathon.gg",
       "description": "A free five-letter word game with endless solo runs, a daily seven-word gauntlet, 1v1 races and six-player matches.",
-      "image": "https://lexathon.gg/og-card.png?v=c3587156",
+      "image": "https://lexathon.gg/og-card.png?v=8bdfa4c2",
       "genre": ["Word game", "Puzzle"],
       "applicationCategory": "Game",
       "gamePlatform": "Web browser",
@@ -207,7 +207,7 @@
             /* The emoji families are named rather than left to a last-resort
                fallback because eight seasonal ::after glyphs resolve through
                this stack. "tnum" is load-bearing, not decoration: a Clash
-               countdown, an Endless score ticking 999 to 1,000 and six live
+               countdown, an Stakes score ticking 999 to 1,000 and six live
                FFA scores all jitter on proportional figures. */
             font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'; 
             -webkit-font-smoothing: antialiased;
@@ -330,7 +330,7 @@
         #handle-setup-blurb { font-size: inherit; color: inherit; font-weight: inherit; }
 
 
-        /* ENDLESS UI */
+        /* STAKES UI */
         /* One measure for the strip, the pills and the Bank button, matching
            the page column so their outer edges line up with everything else. */
         #score-board, #daily-header, #endless-header {
@@ -1300,7 +1300,7 @@
     </div>
     
     <!-- Menu, then the three modes you are NOT in.
-         Every mode except Endless used to collapse this to a single "leave"
+         Every mode except Stakes used to collapse this to a single "leave"
          button and hide the other two, so from inside a Gauntlet there was no
          way to see that Clash and FFA existed, let alone reach one. Worse, the
          mode you were in was the only one never named: a new player landed on
@@ -1309,11 +1309,11 @@
          The three slots are filled by renderModeNav() from the mode flags.
          Nothing else writes to them. -->
     <nav class="arcade-menu" aria-label="Game mode">
-        <!-- Markup carries the Endless-default state so the nav is correct
+        <!-- Markup carries the Stakes-default state so the nav is correct
              before any script runs; renderModeNav() only moves aria-current
              after that. Order is the MODES table's order, which is also the
              homepage blurb's order. -->
-        <button class="mode-nav-btn mode-endless" id="btn-nav-1" data-mode="endless" aria-current="true" onclick="window.goToMode(this.dataset.mode)">ENDLESS</button>
+        <button class="mode-nav-btn mode-endless" id="btn-nav-1" data-mode="endless" aria-current="true" onclick="window.goToMode(this.dataset.mode)">STAKES</button>
         <button class="mode-nav-btn mode-gauntlet" id="btn-nav-2" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">GAUNTLET</button>
         <button class="mode-nav-btn mode-clash" id="btn-nav-3" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
         <button class="mode-nav-btn mode-ffa" id="btn-nav-4" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
@@ -1328,7 +1328,7 @@
          still run and still work, they just happen inside a parent that was
          already being hidden with them. -->
     <!-- The mode you are in, named. The Gauntlet has had a header since it
-         shipped; Endless had none, so the default mode was the one with no
+         shipped; Stakes had none, so the default mode was the one with no
          label anywhere on screen — which is how a player ended up complaining
          that one of "today's words" was obscure when he was not in the daily
          at all. Word count included because an endless run with no visible
@@ -1338,11 +1338,11 @@
          five, but it is still a flip, and being moved off a board you were
          about to type on is worse than being told it is coming. Never hides
          anything and always clears itself, so a slow or failed sign-in leaves
-         a playable Endless board rather than a stuck spinner. -->
+         a playable Stakes board rather than a stuck spinner. -->
     <div id="boot-notice" style="display:none; margin: 0 0 8px; font-size: var(--fs-3); color: var(--c-gauntlet); text-align: center; position: relative; z-index: 2;">Opening today's Gauntlet…</div>
 
     <div id="endless-header">
-        <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">ENDLESS</div>
+        <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">STAKES</div>
         <div class="score-text" id="endless-word-text" style="color:var(--c-ink-4);">WORD <span id="endless-word-index">1</span></div>
     </div>
 
@@ -1601,7 +1601,7 @@
              This is also the block a crawler indexes, which is why the modes
              are described in prose rather than left to the nav. -->
         <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
-            <li style="margin-bottom: 5px;"><strong style="color:var(--c-endless);">Endless</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-endless);">Stakes</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Daily Gauntlet</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-clash);">Clash</strong> — race one other player through the same words for seven minutes.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-ffa);">FFA</strong> — the same race with three to six players at once.</li>
@@ -1711,7 +1711,7 @@
                 <button class="menu-list-btn" style="border-color: var(--c-loss); color: var(--c-loss);" onclick="window.cancelVersusLobby()">Cancel</button>
             </div>
 
-            <button class="btn-quiet" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Endless</button>
+            <button class="btn-quiet" style="margin-top: 25px; width: 100%;" onclick="window.cancelVersusLobby()">Back to Stakes</button>
         </div>
     </div>
 
@@ -1770,7 +1770,7 @@
                 </div>
             </div>
 
-            <button class="btn-quiet" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Endless</button>
+            <button class="btn-quiet" style="margin-top: 25px; width: 100%;" onclick="window.cancelFfaLobby()">Back to Stakes</button>
         </div>
     </div>
 
@@ -1833,7 +1833,7 @@
                      underneath it, and the Gauntlet tab is now the all-time
                      hall of fame rather than today's standings. -->
                 <button class="btn-primary" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
-                <button class="btn-quiet" onclick="window.leaveDailyGauntlet()">Back to Endless</button>
+                <button class="btn-quiet" onclick="window.leaveDailyGauntlet()">Back to Stakes</button>
             </div>
         </div>
     </div>
@@ -1960,7 +1960,7 @@
             <h2 class="modal-title" style="text-align: center;">How To Play</h2>
 
             <div style="font-size: var(--fs-3); line-height: 1.6; color: var(--c-ink-2);">
-                <h3 style="color: var(--c-endless); text-transform: uppercase; margin-bottom: 6px;">♾️ Endless</h3>
+                <h3 style="color: var(--c-endless); text-transform: uppercase; margin-bottom: 6px;">♾️ Stakes</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>Guess a 5-letter word in up to 5 tries, one word after another.</li>
                     <li>Correct on try 1/2/3/4/5 scores 500/250/150/50/10 points.</li>
@@ -1971,7 +1971,7 @@
 
                 <h3 style="color: var(--c-clash); text-transform: uppercase; margin-bottom: 6px;">⚔️ Clash</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
-                    <li>Head-to-head, 7 minutes, both players racing through the same word list — same scoring as Endless, but a miss costs -50 points instead of ending your run.</li>
+                    <li>Head-to-head, 7 minutes, both players racing through the same word list — same scoring as Stakes, but a miss costs -50 points instead of ending your run.</li>
                     <li>First to a 1,000-point lead wins instantly; otherwise, whoever's ahead when the clock hits 0 wins.</li>
                     <li>Tied at the buzzer: Sudden Death. One shared secret word, 5 guesses each, first to solve it wins. If neither of you gets it, it's a true tie.</li>
                     <li><b>2 skips per match</b> — bail out of a word you can't crack with no points lost, instead of taking the -50.</li>
@@ -1983,7 +1983,7 @@
                 <h3 style="color: var(--c-gauntlet); text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>One shared puzzle per day — everyone gets the identical seven words, one attempt each.</li>
-                    <li>Same 5-guess, 500/250/150/50/10 scoring as Endless, and no Continues — but you play all seven words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
+                    <li>Same 5-guess, 500/250/150/50/10 scoring as Stakes, and no Continues — but you play all seven words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
                     <li>No clock, and you don't have to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</li>
                     <li>Resets at midnight Eastern.</li>
                     <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
@@ -2091,7 +2091,7 @@
             </div>
             
             <div class="tabs">
-                <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Endless</button>
+                <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Stakes</button>
                 <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
                 <button class="tab-btn" id="tab-prof-ffa" onclick="window.setProfileTab('ffa')">FFA</button>
                 <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Gauntlet</button>
@@ -2428,7 +2428,7 @@
         // single "seen the tour" flag, so each description arrives the first
         // time it is relevant and never again.
         const MODE_INTRO = {
-            endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Endless",
+            endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Stakes",
                 text: "Guess 5-letter words one after another, as long as you can keep going. Solve a word in fewer guesses to score more. Miss one and you spend a Continue \u2014 miss with none left and the run is over. Bank your score whenever you want to stop." },
             gauntlet: { icon: "\uD83D\uDD25", color: "var(--c-gauntlet)", title: "Daily Gauntlet",
                 text: "Seven words, five guesses each. Everyone plays all seven \u2014 the same seven words as everybody else, once a day. No clock: stop whenever you like and pick up where you left off. Share your result at the end and see where you finished." },
@@ -2488,6 +2488,12 @@
         // The guest copy the nudge normally shows, kept so the Gauntlet gate can
         // borrow the same modal with its own wording and hand it back after.
         const SIGNUP_NUDGE_DEFAULT_BODY = "You're playing as a Guest \u2014 everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.";
+
+        // Mirrors GAUNTLET_REQUIRES_ACCOUNT in functions/index.js, which is
+        // what actually enforces it; this one only decides whether the player
+        // is told why. Flipping one without the other gives either a prompt
+        // that refuses nothing or a refusal with no explanation, so move both.
+        const GAUNTLET_REQUIRES_ACCOUNT = false;
 
         // A gate, not a nudge: no rate limiting, because the player has just
         // been refused something rather than gently reminded.
@@ -2917,7 +2923,7 @@
                     // and the Gauntlet landing both read fields that came out of
                     // the doc above. Awaiting it put a cold-startable callable in
                     // front of everything the home screen does, which is most of
-                    // why opening the page sat on an Endless board for seconds
+                    // why opening the page sat on an Stakes board for seconds
                     // before flipping. It resolves into userProfileData whenever
                     // it lands.
                     //
@@ -3851,7 +3857,7 @@
         let isMatchHost = false;
         let isRematchTransition = false; // set right before listenToMatch() when re-entering an already-'playing' match directly (rematch), skipping the normal lobby-modal-visible check
         let myMiniBoard = [];
-        let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Endless mode
+        let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Stakes mode
 
         // --- DAILY GAUNTLET STATE ---
         let isDailyMode = false;
@@ -4000,10 +4006,10 @@
         // One table, one renderer, one router. All three nav slots used to be
         // hard-coded buttons that each toggled their own mode, with their
         // labels and display flipped inline from six different places — which
-        // is how every mode but Endless ended up showing one "leave" button
+        // is how every mode but Stakes ended up showing one "leave" button
         // and hiding the other two.
         const MODES = {
-            endless:  { label: "ENDLESS",  cls: "mode-endless",  color: "var(--c-endless)" },
+            endless:  { label: "STAKES",  cls: "mode-endless",  color: "var(--c-endless)" },
             gauntlet: { label: "GAUNTLET", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
             clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
             ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)" },
@@ -4045,7 +4051,7 @@
 
         // Leaving a mode is the mode's own business — each has its own
         // confirmation and its own cleanup, and every leave path already ends
-        // up back in Endless. So this leaves, then enters, and the modes
+        // up back in Stakes. So this leaves, then enters, and the modes
         // themselves are unchanged.
         window.goToMode = async function(target) {
             if (document.activeElement) document.activeElement.blur();
@@ -4064,8 +4070,8 @@
                 if (!confirm("Leave the FFA match? If it's in progress, the match continues without you and you're locked into the lowest remaining placement.")) return;
                 if (currentMatchId) window.leaveFfaMatch(); else window.cancelFfaLobby();
             } else if (target !== "endless" && (score > 0 || runStats.played > 0)) {
-                // Only an Endless run in progress has anything to bank.
-                if (!confirm("Switching to " + MODES[target].label + " will bank your current Endless run. Continue?")) return;
+                // Only an Stakes run in progress has anything to bank.
+                if (!confirm("Switching to " + MODES[target].label + " will bank your current Stakes run. Continue?")) return;
                 saveRunToCloud();
             }
 
@@ -4402,7 +4408,7 @@
                 return;
             }
             // Say it on the card rather than letting the tap dead-end in a gate.
-            if (userProfileData && userProfileData.isGuest) {
+            if (GAUNTLET_REQUIRES_ACCOUNT && userProfileData && userProfileData.isGuest) {
                 bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven \u2014 " +
                     "<span class=\"gcb-strong\">free account required</span>.";
                 btnEl.innerText = "Sign In To Play";
@@ -4457,11 +4463,15 @@
         // creates one when there is none — so it answers both questions, and
         // the separate read is gone.
         //
-        // Guests never call it: startDailyGauntlet refuses them (requireNonGuest),
-        // so firing it would be a guaranteed permission error on every load.
+        // Anonymous players are allowed through while GAUNTLET_REQUIRES_ACCOUNT
+        // is false. This used to refuse them outright, which mattered: the
+        // landing throws on a null attempt, so leaving it would have turned
+        // the dropped gate into "Couldn't start today's Gauntlet" rather than
+        // into a playable board.
         let gauntletAttemptCache = { date: null, promise: null };
         function fetchTodaysAttempt() {
-            if (!currentUser || currentUser.isAnonymous) return Promise.resolve(null);
+            if (!currentUser) return Promise.resolve(null);
+            if (GAUNTLET_REQUIRES_ACCOUNT && currentUser.isAnonymous) return Promise.resolve(null);
             const today = getTodayDateStr();
             if (gauntletAttemptCache.date !== today) gauntletAttemptCache = { date: today, promise: null };
             if (!gauntletAttemptCache.promise) {
@@ -4491,19 +4501,19 @@
             if (el) el.style.display = "none";
         }
 
-        // Open on the Gauntlet rather than on Endless, once per page load.
+        // Open on the Gauntlet rather than on Stakes, once per page load.
         //
         // The Gauntlet is the mode with a stated goal and an ending: a fixed
         // set of words, the same for everyone, a result and a share at the
-        // end. Endless
+        // end. Stakes
         // has none of that, and opening straight into it is how people played
         // four words and left without ever banking a score.
         //
         // Three conditions, and they are not negotiable:
-        //  - signed in and not a guest. The Gauntlet is account-only by design
+        //  - signed in. (And not a guest, while GAUNTLET_REQUIRES_ACCOUNT holds)
         //    (see openDailyGauntlet), so landing a guest here would make a
         //    sign-in wall the first thing a new visitor ever saw. Guests open
-        //    on Endless, which now at least says so on screen.
+        //    on Stakes, which now at least says so on screen.
         //  - today's Gauntlet is not already finished. Otherwise every visit
         //    after the first would open on a board with nothing left to play.
         //  - the player has not already started doing something. A run with a
@@ -4524,7 +4534,7 @@
             window.goToMode("gauntlet");
         }
 
-        // The Live Arcade Feed and the Gauntlet card both belong to an Endless
+        // The Live Arcade Feed and the Gauntlet card both belong to an Stakes
         // run, so every mode switch shows or hides them together.
         function showStandardPanels(visible) {
             document.getElementById("daily-board-container").style.display = visible ? "block" : "none";
@@ -4674,14 +4684,14 @@
             if (!currentUser) return;
             // startDailyGauntlet refuses guests outright. Catching it here means
             // a sign-in prompt rather than a raw permission error.
-            if (userProfileData && userProfileData.isGuest) {
+            if (GAUNTLET_REQUIRES_ACCOUNT && userProfileData && userProfileData.isGuest) {
                 showGuestGate(
                     "The Daily Gauntlet needs a free account.",
                     "Everyone plays the same seven words each day, so the Gauntlet is account-only \u2014 it keeps a throwaway account from being used to look the answers up. Signing in also saves the progress you have already made in this browser."
                 );
                 return;
             }
-            // Leaving whatever mode you were in, and banking an Endless run
+            // Leaving whatever mode you were in, and banking an Stakes run
             // in progress, both belong to goToMode — the single way into any
             // mode. They used to be repeated here, which is how the same
             // confirm could fire twice on one tap.
@@ -6843,7 +6853,7 @@
             // Last visit opened on the Gauntlet, so this one probably will too.
             // Say so rather than letting the board change under the player.
             // The timeout is the point: whatever happens to auth, the notice
-            // goes away and a playable Endless board is what is left.
+            // goes away and a playable Stakes board is what is left.
             let opensOnGauntlet = false;
             try { opensOnGauntlet = localStorage.getItem(BOOT_NOTICE_KEY) === "gauntlet"; } catch (e) { }
             if (opensOnGauntlet && !new URLSearchParams(location.search).has("join")) {

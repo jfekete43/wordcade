@@ -717,6 +717,21 @@ function requireAuth(request) {
 // Enforced here rather than only in the browser: the client check is a
 // courtesy so the player gets a sign-in prompt instead of an error, but this
 // is what a crafted call hits.
+/* Whether the Daily Gauntlet is account-only.
+ *
+ * It was, and the reason was real: everyone plays the same seven words, so an
+ * anonymous throwaway could be used to read the answers and then play them on
+ * a real account. Making that cost a real account was the whole point.
+ *
+ * Turned off while the mode has no players to protect. A gate in front of the
+ * one feature built to bring people back daily is a poor trade when the
+ * leaderboard it defends is empty - the archive skips whole days for having
+ * nobody on them. Flip this back to true when there is traction worth
+ * defending; index.html has a matching constant for the prompt the player
+ * sees, and the two are meant to move together.
+ */
+const GAUNTLET_REQUIRES_ACCOUNT = false;
+
 function requireNonGuest(request) {
   const uid = requireAuth(request);
   const firebase = request.auth.token && request.auth.token.firebase;
@@ -1253,7 +1268,7 @@ function publicAttemptState(attempt) {
 }
 
 exports.startDailyGauntlet = onCall(readableFailures("Starting today's Gauntlet", async (request) => {
-  const uid = requireNonGuest(request);
+  const uid = GAUNTLET_REQUIRES_ACCOUNT ? requireNonGuest(request) : requireAuth(request);
   const today = getTodayDateStr();
   const ref = dailyAttemptRef(uid, today);
   const puzzleRef = db.collection("dailyPuzzles").doc(today);

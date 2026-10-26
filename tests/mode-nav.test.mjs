@@ -1,11 +1,11 @@
 /*
  * The mode nav, and the mode you are in being named on screen.
  *
- * Every mode except Endless used to collapse the nav to a single "leave"
+ * Every mode except Stakes used to collapse the nav to a single "leave"
  * button and hide the other two, each of the six entry/exit paths flipping
  * innerText and display on three hard-coded buttons inline. From inside a
  * Gauntlet there was no way to see that Clash and FFA existed. Worse, the mode
- * you were IN was the only one never named anywhere: Endless had no header at
+ * you were IN was the only one never named anywhere: Stakes had no header at
  * all, so a new player landed on an unlabelled board flanked by buttons for
  * three other modes — which is how one of them reported that "one of today's
  * words" was obscure while playing a mode that has no daily words.
@@ -117,13 +117,13 @@ const ON_ACCENT = rgbOf('--c-on-accent');
 // The markup alone, before renderModeNav has ever run. A nav that is only
 // correct once a script has run shows four blank buttons on a slow load.
 const atRest = await page.evaluate(() => window.readNav());
-eq('the shipped markup already reads as the Endless default',
-   atRest.map((b) => b.label), ['ENDLESS', 'GAUNTLET', 'CLASH', 'FFA']);
+eq('the shipped markup already reads as the Stakes default',
+   atRest.map((b) => b.label), ['STAKES', 'GAUNTLET', 'CLASH', 'FFA']);
 // Colour used to identify the three modes you were NOT in. It identifies the
 // one you ARE in now: the current slot is filled in its own colour and the
 // other three are quiet and identical, which is the whole point of the
 // four-up row — the mode you are playing is finally the one that is marked.
-eq('and the Endless slot is already the marked one',
+eq('and the Stakes slot is already the marked one',
    atRest.filter((b) => b.current).map((b) => b.mode), ['endless']);
 ck(atRest.find((b) => b.current).bg === RGB.endless
    && atRest.find((b) => b.current).color === ON_ACCENT,
@@ -163,7 +163,7 @@ for (const [mode, flags] of [
   ck(new Set(nav.map((b) => b.mode)).size === 4, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
 }
 function MODE_LABEL(m) {
-  return { endless: 'ENDLESS', gauntlet: 'GAUNTLET', clash: 'CLASH', ffa: 'FFA' }[m];
+  return { endless: 'STAKES', gauntlet: 'GAUNTLET', clash: 'CLASH', ffa: 'FFA' }[m];
 }
 
 // Order is stable, so a slot does not jump between modes as you move around.
@@ -228,16 +228,16 @@ ck(!/window\.toggleMode\(\)|window\.toggleFfaMode\(\)/.test(html),
    'the old per-button toggles are gone, including from the invite-link path');
 
 // ===== 3. the mode you are in is named, and the button states its purpose ==
-ck(/<div id="endless-header">/.test(html), 'Endless has a header of its own');
+ck(/<div id="endless-header">/.test(html), 'Stakes has a header of its own');
 const eh = endlessHeader;
-ck(/ENDLESS/.test(eh), 'and it says ENDLESS');
+ck(/STAKES/.test(eh), 'and it says STAKES');
 ck(/endless-word-index/.test(eh), 'and shows which word you are on');
 ck(/#score-board, #daily-header, #endless-header \{/.test(html),
    'it shares the layout rules with the other headers rather than inventing its own');
 // Shown and hidden with the score board at every mode switch.
 const show = [...html.matchAll(/getElementById\("endless-header"\)\.style\.display = "(\w+)"/g)].map((m) => m[1]);
 ck(show.length >= 6 && show.includes('none') && show.includes('flex'),
-   'the Endless header is toggled at every mode switch', show.join(','));
+   'the Stakes header is toggled at every mode switch', show.join(','));
 
 const bank = grab(/<button class="cash-out-btn"[^>]*>[^<]*<\/button>/, 'bank button');
 ck(/Bank/.test(bank) && !/Cash Out/.test(bank), 'the button says Bank, not Cash Out', bank);
@@ -251,7 +251,7 @@ ck(!/\bscore\b/.test(bankFn.replace(/displayScore/g, '')),
 ck(!/>Cash Out</.test(html) && !/Cashed Out!/.test(html),
    'no player-facing surface still says Cash Out');
 
-// Standard is called Endless everywhere a player can read it — but NOT in the
+// Standard is called Stakes everywhere a player can read it — but NOT in the
 // stored mode value, which the boards, the archive and every run doc key on.
 const facing = html
   .replace(/<!--[\s\S]*?-->/g, '')            // comments
@@ -264,7 +264,7 @@ ck(leftovers.length === 0, 'no player-facing copy still calls the mode Standard'
    leftovers.slice(0, 3).join(' || '));
 ck(/mode: "standard"/.test(html) || /"standard"/.test(html),
    'the STORED mode value is untouched — renaming it would orphan every run doc');
-ck(/setProfileTab\('standard'\)">Endless</.test(html),
+ck(/setProfileTab\('standard'\)">Stakes</.test(html),
    "the profile tab is relabelled without moving the panel id it keys on");
 
 // ===== 4. one card per mode, replacing the five-slide tour ================
@@ -388,7 +388,7 @@ const blurb = between(html, '<section id="site-intro">', 'Support the project', 
 ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
 ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
 const MODE_TOKENS = ['--c-endless', '--c-gauntlet', '--c-clash', '--c-ffa'];
-for (const [mode, tok] of [['Endless', '--c-endless'], ['Daily Gauntlet', '--c-gauntlet'],
+for (const [mode, tok] of [['Stakes', '--c-endless'], ['Daily Gauntlet', '--c-gauntlet'],
                            ['Clash', '--c-clash'], ['FFA', '--c-ffa']]) {
   const re = new RegExp('<strong style="color:var\\(' + tok + '\\);">' + mode + '</strong>');
   ck(re.test(blurb), `the blurb names ${mode} in its own colour (${tok})`,
@@ -416,8 +416,8 @@ ck(!/Back to Arcade/.test(html), 'no button still offers to go "Back to Arcade"'
 const backs = [...html.matchAll(/>Back to (\w+)</g)].map((m) => m[1]);
 ck(!backs.some((x) => x === 'Arcade' || x === 'Standard'),
    'no "back" button names a mode that does not exist', backs.join(','));
-ck(backs.filter((x) => x === 'Endless').length >= 3,
-   'the three that do name a mode all say Endless, where they actually land you', backs.join(','));
+ck(backs.filter((x) => x === 'Stakes').length >= 3,
+   'the three that do name a mode all say Stakes, where they actually land you', backs.join(','));
 
 // ===== 6b. the Gauntlet's length, and the waiting that came with it ======
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
@@ -469,7 +469,7 @@ ck(!/\ball ten\b/i.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/(^|\s)\/\/
 ck(/<section id="site-intro"/.test(html), 'the support note is on the page');
 ck(/Support the project/.test(html), 'and still says what it is');
 ck(!/getElementById\("site-intro"\)/.test(html) && !/#site-intro\s*\{[^}]*display:\s*none/.test(html),
-   'nothing ever hides it, so it sits under Endless, the Gauntlet, Clash and FFA alike');
+   'nothing ever hides it, so it sits under Stakes, the Gauntlet, Clash and FFA alike');
 const panels = between(html, 'function showStandardPanels(visible) {', '\n        }', 'showStandardPanels');
 ck(!/site-intro/.test(panels), 'the mode-switch panel toggle does not touch it either');
 
