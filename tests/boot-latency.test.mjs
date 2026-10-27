@@ -176,7 +176,10 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
       const GAUNTLET_REQUIRES_ACCOUNT = ${CLIENT_GATE};
       ${fetchSrc}
       const applyEquippedCosmetics = () => {};
-      const refreshGauntletCard = async () => { await fetchTodaysAttempt(); log.push({ ev: 'cardPainted', at: -1 }); };
+      // The real one reads an already-resolved cache or nothing at all; it
+      // never calls. Giving the stub a fetch would manufacture the very round
+      // trip this file now exists to prove is gone.
+      const refreshGauntletCard = async () => { log.push({ ev: 'cardPainted', at: -1 }); };
       const showStandardPanels = () => { refreshGauntletCard(); };
       ${authSrc}
       // Let anything started-but-not-awaited finish before we read the trace.
@@ -194,13 +197,16 @@ console.log('boot trace:', order.join(' -> '));
 const startedAt = (ev) => { const e = log.find((x) => x.ev === ev + ':start'); return e ? e.at : null; };
 const doneAt = (ev) => { const e = log.find((x) => x.ev === ev + ':done'); return e ? e.at : null; };
 
-ck(order.includes('startGauntlet:start'), 'the Gauntlet attempt is fetched during boot');
-ck(startedAt('startGauntlet') === 0 && startedAt('profileRead') === 0,
-   'the attempt lookup and the profile read start together, not one after the other',
-   `attempt@${startedAt('startGauntlet')} profile@${startedAt('profileRead')}`);
-ck(doneAt('startGauntlet') <= doneAt('refreshProfile'),
-   'the attempt is in hand without waiting on refreshProfile',
-   `attempt done @${doneAt('startGauntlet')}, refreshProfile done @${doneAt('refreshProfile')}`);
+// This used to assert the opposite: that the attempt lookup raced the profile
+// read so the card could paint with live state. It was fast, and it was still
+// wrong - startDailyGauntlet CREATES the attempt, so every signed-in visitor
+// who merely loaded the page was enrolled in that day's Gauntlet and had a
+// document written for them. The fastest possible version of a call that
+// should not happen is still a call that should not happen.
+ck(!order.includes('startGauntlet:start'),
+   'boot makes no Gauntlet call at all', order.join(' -> '));
+ck(startedAt('profileRead') === 0, 'the profile read still starts immediately',
+   `profile@${startedAt('profileRead')}`);
 // The regression that hurt: refreshProfile is slow and cold-startable, and
 // used to gate everything after it.
 const cardIdx = order.indexOf('cardPainted');
@@ -214,36 +220,50 @@ const coldOrder = cold.map((x) => x.ev);
 ck(coldOrder.indexOf('cardPainted') < coldOrder.indexOf('refreshProfile:done') || !coldOrder.includes('refreshProfile:done'),
    'a five-second cold start on refreshProfile does not delay the Gauntlet at all', coldOrder.join(' -> '));
 
-// Count the round trips on the critical path: auth is given, then one
-// parallel pair. Five became two, and the two overlap.
-const criticalDone = Math.max(doneAt('profileRead') || 0, doneAt('startGauntlet') || 0);
-ck(criticalDone <= 40, 'everything the landing needs is in hand after a single round trip', String(criticalDone));
+// One round trip on the boot path, not two: the profile read, and nothing
+// paired with it.
+ck(doneAt('startGauntlet') === null, 'and nothing is waiting on a Gauntlet call that never starts');
+ck((doneAt('profileRead') || 0) <= 40, 'the profile read is the whole of the critical path',
+   String(doneAt('profileRead')));
 
-// ===== 3. the notice, which must never be able to stick ==================
-const boot = between(html, 'let opensOnGauntlet = false;', '\n        }, 300);', 'boot notice');
-ck(/localStorage\.getItem\(BOOT_NOTICE_KEY\)/.test(boot), 'the notice is armed from the remembered decision');
-ck(/setTimeout\(clearBootNotice, \d+\)/.test(boot), 'and always has a timeout behind it');
-const timeoutMs = Number((boot.match(/setTimeout\(clearBootNotice, (\d+)\)/) || [])[1]);
-ck(timeoutMs > 0 && timeoutMs <= 8000, 'the fallback fires within a few seconds', String(timeoutMs));
-ck(/has\("join"\)/.test(boot), 'and never shows on a tap-to-join invite, which is going somewhere else');
-// Everything that settles the question must take it down.
-for (const site of ['isDailyMode = true;\n            clearBootNotice();',
-                    'if (target !== "gauntlet") clearBootNotice();']) {
-  ck(html.replace(/\r\n/g, '\n').includes(site), `the notice is cleared at: ${site.split('\n')[0].trim()}`);
+// ===== 3. nothing pulls the player anywhere ==============================
+//
+// The page used to open on Stakes, fetch today's attempt, and then navigate
+// into the Gauntlet - with a notice to explain the jump. Three things that
+// only existed to hold each other up: the landing moved you, the fetch told
+// it whether to, and the notice apologised for it. The jump read as a second
+// load, and the fetch wrote a document for everyone who never played.
+//
+// All three are gone. These pin that, because each of them is the kind of
+// thing that gets added back one helpful piece at a time.
+for (const dead of ['maybeLandOnGauntlet', 'hasLanded', 'clearBootNotice',
+                    'BOOT_NOTICE_KEY', 'bootNoticeTimer', 'boot-notice']) {
+  ck(!html.includes(dead), `the landing machinery is gone: no ${dead}`);
 }
-const land = between(html, 'function maybeLandOnGauntlet() {', '\n        }', 'maybeLandOnGauntlet');
-ck(/clearBootNotice\(\)/.test(land) && /removeItem\(BOOT_NOTICE_KEY\)/.test(land),
-   'deciding NOT to land takes the notice down and forgets the promise');
-ck(/setItem\(BOOT_NOTICE_KEY, "gauntlet"\)/.test(land), 'and landing remembers it for next time');
-ck(/style="display:none;/.test(between(html, '<div id="boot-notice"', '</div>', 'notice markup')),
-   'the notice ships hidden, so a player who has never landed never sees it');
+ck(!/goToMode\("gauntlet"\)/.test(html) || !/function maybeLand/.test(html),
+   'nothing navigates into the Gauntlet on its own');
+
+// The decisive one. fetchTodaysAttempt is what costs a function invocation, a
+// transaction and a write, and it is only allowed to run when the player has
+// actually asked for the Gauntlet.
+const callSites = [...html.matchAll(/fetchTodaysAttempt\(\)/g)].map((m) => m.index)
+  .filter((i) => !html.startsWith('function fetchTodaysAttempt()', i - 'function '.length));
+ck(callSites.length === 1, 'fetchTodaysAttempt has exactly one caller left', String(callSites.length));
+const openFn = between(html, 'window.openDailyGauntlet = async function() {', '\n        };', 'openDailyGauntlet');
+ck(/await fetchTodaysAttempt\(\)/.test(openFn),
+   'and it is openDailyGauntlet - a tap, not a page load');
+
+const authBody = between(html, 'onAuthStateChanged(auth, async (user) => {', '\n        });', 'auth handler');
+ck(!/fetchTodaysAttempt/.test(authBody), 'signing in does not reach for the Gauntlet');
 
 // ===== 4. a fresh day still reads as a fresh day =========================
 // startDailyGauntlet CREATES the attempt, so "no document" stopped meaning
 // "not started". An untouched attempt is what means it now.
 const cardFn = between(html, 'async function refreshGauntletCard() {', '\n        }', 'refreshGauntletCard');
 ck(!/getDoc\(doc\(db, "dailyAttempts"/.test(cardFn), 'the card no longer makes its own read');
-ck(/await fetchTodaysAttempt\(\)/.test(cardFn), 'it shares the one call instead');
+ck(!/fetchTodaysAttempt/.test(cardFn), 'and does not fetch one either');
+ck(/gauntletAttemptCache\.promise/.test(cardFn),
+   'it renders whatever is already in hand, which after a run is the attempt just played');
 const untouchedSrc = 'const untouched = ' + between(cardFn, 'const untouched = ', ';\n', 'untouched');
 const isUntouched = new Function('attempt', `
   const firstWord = attempt && attempt.history && attempt.history[0];

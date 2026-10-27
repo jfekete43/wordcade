@@ -287,22 +287,35 @@ for (const m of ['await showModeIntro("gauntlet")', 'await showModeIntro("clash"
   ck(html.includes(m), `entering is gated on the card: ${m}`);
 }
 
-// ===== 5. landing on the Gauntlet, only where that is possible ============
-const land = between(html, 'function maybeLandOnGauntlet() {', '\n        }', 'maybeLandOnGauntlet');
-ck(/hasLanded/.test(land), 'the landing happens at most once per page load');
-ck(/currentMode\(\) !== "endless"/.test(land), 'it never overrides a mode the player chose');
-ck(/score > 0 \|\| runStats\.played > 0/.test(land), 'nor a run already under way');
-// The Gauntlet is account-only, so landing a guest there would make a sign-in
-// wall the first thing a new visitor saw.
-const callers = [...html.matchAll(/maybeLandOnGauntlet\(\);/g)].length;
-ck(callers === 2, 'it is called from the two card branches a player can still play', String(callers));
+// ===== 5. nothing changes mode on its own ================================
+//
+// The page used to land you on the Gauntlet after boot: refreshGauntletCard
+// called maybeLandOnGauntlet, which called goToMode("gauntlet"), with a notice
+// on screen apologising for the jump. It read as a second page load, and the
+// fetch that drove it enrolled every signed-in visitor in that day's Gauntlet
+// whether they played or not.
+//
+// It is gone, and the nav is the only way between modes. These pin that from
+// the nav's side: a switch nobody asked for is the failure, wherever it is
+// written.
+ck(!/maybeLandOnGauntlet/.test(html), 'the landing function is gone');
+
 const cardFn = between(html, 'async function refreshGauntletCard() {', '\n        }', 'refreshGauntletCard');
-const guestReturn = cardFn.indexOf('isGuest');
-const firstLand = cardFn.indexOf('maybeLandOnGauntlet');
-ck(guestReturn !== -1 && firstLand > guestReturn,
-   'every landing site is past the guest and signed-out early returns, so a guest is never sent to an account-only mode');
-ck(!/maybeLandOnGauntlet/.test(cardFn.slice(cardFn.indexOf('Done for today'))),
-   'and a finished Gauntlet does not land you on a board with nothing left to play');
+ck(cardFn.length > 200, 'the card function was actually found', `${cardFn.length} chars`);
+ck(!/goToMode/.test(cardFn), 'the Gauntlet card renders, it does not move you');
+
+// The other place an automatic switch would live: the moment auth resolves.
+const authBody = between(html, 'onAuthStateChanged(auth, async (user) => {', '\n        });', 'auth handler');
+ck(authBody.length > 200, 'the auth handler was actually found', `${authBody.length} chars`);
+ck(!/goToMode/.test(authBody), 'and signing in does not move you either');
+
+// Every remaining way into a mode is something the player did. onclick covers
+// the nav buttons and the card button; the invite path is a URL they opened.
+const calls = [...html.matchAll(/goToMode\(/g)].length;
+const byClick = [...html.matchAll(/onclick="window\.goToMode\(/g)].length;
+const isDefinition = /window\.goToMode = async function/.test(html);
+ck(isDefinition, 'goToMode is still defined');
+ck(byClick >= 2, 'and is reached by tapping something', `${byClick} onclick sites of ${calls} total`);
 
 // ===== 5b. the Bank button cannot fall behind the score ==================
 // It did. Both labels lived inside updateScoreBoard, and the SOLVE path never

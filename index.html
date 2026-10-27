@@ -1339,7 +1339,6 @@
          about to type on is worse than being told it is coming. Never hides
          anything and always clears itself, so a slow or failed sign-in leaves
          a playable Stakes board rather than a stuck spinner. -->
-    <div id="boot-notice" style="display:none; margin: 0 0 8px; font-size: var(--fs-3); color: var(--c-gauntlet); text-align: center; position: relative; z-index: 2;">Opening today's Gauntlet…</div>
 
     <div id="endless-header">
         <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">STAKES</div>
@@ -1561,7 +1560,13 @@
          It sits BELOW today's Standard board, deliberately: this screen is
          Standard, so the board for the mode you are actually playing comes
          first, and the cross-sell to a different mode comes after it. -->
-    <div id="gauntlet-card" style="display:none;">
+    <!-- Ships visible, like the Live Arcade Feed above it that the same
+         function toggles. It used to wait for auth and then appear, which
+         pushed the page down on every single load; nothing in it needs a
+         signed-in user, because the title, the countdown and the copy are all
+         computed from the date. showStandardPanels() still hides it for the
+         modes it does not belong to. -->
+    <div id="gauntlet-card">
         <div id="gauntlet-card-head">
             <span id="gauntlet-card-title">Daily Gauntlet</span>
             <span id="gauntlet-card-timer"></span>
@@ -2855,12 +2860,6 @@
             if (user) {
                 currentUser = user; let isGuest = user.isAnonymous;
                 document.getElementById("auth-action-btn").innerText = isGuest ? "Sign Up / Log In" : "Sign Out";
-                // Started here, before the profile read rather than after it.
-                // Both need only the uid, which we already have, so they race
-                // instead of queueing. The rejection is swallowed because the
-                // real caller below handles it; without this the pair of them
-                // cost two round trips in a row.
-                if (!isGuest) fetchTodaysAttempt().catch(() => { });
                 const userRef = doc(db, "users", user.uid); const docSnap = await getDoc(userRef);
                 let todayStr = getTodayDateStr();
 
@@ -2929,14 +2928,13 @@
                     //
                     // One case does depend on it: a guest who linked a Google
                     // account in an earlier session still has a stale
-                    // isGuest: true on the doc until this corrects it. Without
-                    // the await they would be read as a guest and skip the
-                    // landing, so the landing is re-tried once the answer is in.
+                    // isGuest: true on the doc until this corrects it, so the
+                    // card is repainted once the real answer is in.
                     callRefreshProfile().then((result) => {
                         if (result && result.data && result.data.profile) {
                             userProfileData = result.data.profile;
                             applyEquippedCosmetics();
-                            if (!hasLanded && !isDailyMode && !isVersusMode && !isFfaMode) refreshGauntletCard();
+                            if (!isDailyMode && !isVersusMode && !isFfaMode) refreshGauntletCard();
                         }
                     }).catch((e) => console.error("Profile refresh failed", e));
                 }
@@ -4056,8 +4054,6 @@
         window.goToMode = async function(target) {
             if (document.activeElement) document.activeElement.blur();
             if (!MODES[target] || target === currentMode()) return;
-            // A deliberate choice settles the question the notice was asking.
-            if (target !== "gauntlet") clearBootNotice();
 
             if (isDailyMode) {
                 window.leaveDailyGauntlet();
@@ -4415,8 +4411,19 @@
                 return;
             }
 
+            // No call of its own, ever. On a fresh load nothing is in hand,
+            // so the card says what the mode is and stops. After you have
+            // played, leaveDailyGauntlet seeds the cache with the attempt you
+            // were already holding, and this renders it for free.
+            //
+            // What it must not do is fetch: startDailyGauntlet CREATES the
+            // attempt, so a card that called it enrolled every visitor who
+            // merely loaded the page into that day's Gauntlet, and wrote a
+            // document to say so.
             let attempt = null;
-            try { attempt = await fetchTodaysAttempt(); } catch (e) { /* already logged */ }
+            if (gauntletAttemptCache.date === today && gauntletAttemptCache.promise) {
+                try { attempt = await gauntletAttemptCache.promise; } catch (e) { attempt = null; }
+            }
 
             // Untouched, not absent. The card used to read dailyAttempts
             // directly, where a player who had not started had no document at
@@ -4431,14 +4438,12 @@
             if (!attempt || untouched) {
                 bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven.";
                 btnEl.innerText = "Play Today's Gauntlet";
-                maybeLandOnGauntlet();
             } else if (attempt.status === "active") {
                 const at = Math.max(0, Number(attempt.wordIndex) || 0) + 1;
                 const of = Math.max(1, Number(attempt.wordCount) || 10);
                 bodyEl.innerHTML = `In progress — you're on word <span class="gcb-strong">${at} of ${of}</span>, ` +
                     `<span class="gcb-strong">${(Number(attempt.score) || 0).toLocaleString()}</span> pts so far.`;
                 btnEl.innerText = "Resume Gauntlet";
-                maybeLandOnGauntlet();
             } else {
                 const score = Math.max(0, Number(attempt.score) || 0);
                 bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts.`;
@@ -4491,47 +4496,6 @@
         // finished run repaints the card without going to the network at all.
         function seedTodaysAttempt(attempt) {
             gauntletAttemptCache = { date: getTodayDateStr(), promise: Promise.resolve(attempt || null) };
-        }
-
-        const BOOT_NOTICE_KEY = "wordcade_opens_on";
-        let bootNoticeTimer = null;
-        function clearBootNotice() {
-            if (bootNoticeTimer) { clearTimeout(bootNoticeTimer); bootNoticeTimer = null; }
-            const el = document.getElementById("boot-notice");
-            if (el) el.style.display = "none";
-        }
-
-        // Open on the Gauntlet rather than on Stakes, once per page load.
-        //
-        // The Gauntlet is the mode with a stated goal and an ending: a fixed
-        // set of words, the same for everyone, a result and a share at the
-        // end. Stakes
-        // has none of that, and opening straight into it is how people played
-        // four words and left without ever banking a score.
-        //
-        // Three conditions, and they are not negotiable:
-        //  - signed in. (And not a guest, while GAUNTLET_REQUIRES_ACCOUNT holds)
-        //    (see openDailyGauntlet), so landing a guest here would make a
-        //    sign-in wall the first thing a new visitor ever saw. Guests open
-        //    on Stakes, which now at least says so on screen.
-        //  - today's Gauntlet is not already finished. Otherwise every visit
-        //    after the first would open on a board with nothing left to play.
-        //  - the player has not already started doing something. A run with a
-        //    word in it, or any mode switch, means they made a choice; this
-        //    never overrides one.
-        let hasLanded = false;
-        function maybeLandOnGauntlet() {
-            if (hasLanded) return;
-            hasLanded = true;
-            if (currentMode() !== "endless" || score > 0 || runStats.played > 0 || currentGuess.length > 0) {
-                // Not landing after all: take the notice down rather than
-                // leaving it promising something that is not coming.
-                try { localStorage.removeItem(BOOT_NOTICE_KEY); } catch (e) { }
-                clearBootNotice();
-                return;
-            }
-            try { localStorage.setItem(BOOT_NOTICE_KEY, "gauntlet"); } catch (e) { }
-            window.goToMode("gauntlet");
         }
 
         // The Live Arcade Feed and the Gauntlet card both belong to an Stakes
@@ -4704,14 +4668,12 @@
                 dailyAttempt = await fetchTodaysAttempt();
                 if (!dailyAttempt) throw new Error("Couldn't start today's Gauntlet.");
             } catch (e) {
-                clearBootNotice();
                 alert(e.message || "Couldn't start today's Gauntlet.");
                 console.error(e);
                 return;
             }
 
             isDailyMode = true;
-            clearBootNotice();
             renderModeNav();
             document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
@@ -6850,16 +6812,6 @@
             renderModeNav();
             updateScoreBoard();
 
-            // Last visit opened on the Gauntlet, so this one probably will too.
-            // Say so rather than letting the board change under the player.
-            // The timeout is the point: whatever happens to auth, the notice
-            // goes away and a playable Stakes board is what is left.
-            let opensOnGauntlet = false;
-            try { opensOnGauntlet = localStorage.getItem(BOOT_NOTICE_KEY) === "gauntlet"; } catch (e) { }
-            if (opensOnGauntlet && !new URLSearchParams(location.search).has("join")) {
-                document.getElementById("boot-notice").style.display = "block";
-                bootNoticeTimer = setTimeout(clearBootNotice, 6000);
-            }
         }, 300);
     </script>
 <script>
