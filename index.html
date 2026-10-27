@@ -780,6 +780,12 @@
         .gauntlet-empty { color: var(--c-ink-5); text-align: center; padding: var(--s-4) 0; font-size: var(--fs-2); }
 
         #daily-board-title { flex: 1; }
+        /* Tighter than the modal's, which has a title above it and room to
+           spare; this one sits inside a card on the home screen. */
+        #home-board-tabs { margin-bottom: var(--s-5); }
+        #home-board-more { width: 100%; margin-top: var(--s-5); padding: var(--s-4);
+            border-radius: var(--r-2); font-size: var(--fs-2); font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-ui); cursor: pointer; font-family: inherit; }
         #daily-board-head button { background: transparent; border: 1px solid var(--c-line); color: var(--c-ink-4); border-radius: 4px;
             font-family: inherit; font-size: 15px; line-height: 1; padding: 5px 9px; cursor: pointer; transition: all 0.2s; }
         #daily-board-head button:hover:not(:disabled) { border-color: var(--c-correct); color: var(--c-correct); }
@@ -1540,14 +1546,26 @@
 
          First of the two panels under the keyboard, because it belongs to the
          mode this screen IS. The Gauntlet card below it is a cross-sell. -->
+    <!-- Three boards in one slot. All-time leads, deliberately: a daily board
+         on a day nobody has played yet is an empty list, and an empty list is
+         a worse advertisement for a game than no list at all. All-time only
+         ever grows, so the first thing a visitor sees has something on it.
+         The markup carries the all-time state so it is right before any script
+         runs, the same way the mode nav does. -->
     <div id="daily-board-container">
+        <div class="tabs" id="home-board-tabs">
+            <button class="tab-btn active" id="hb-tab-all" onclick="window.setHomeBoard('all')">All Time</button>
+            <button class="tab-btn" id="hb-tab-weekly" onclick="window.setHomeBoard('weekly')">Weekly</button>
+            <button class="tab-btn" id="hb-tab-daily" onclick="window.setHomeBoard('daily')">Daily</button>
+        </div>
         <div id="daily-board-head">
-            <button id="daily-board-prev" onclick="window.stepDailyBoard(-1)" title="Earlier day">&lsaquo;</button>
-            <div id="daily-board-title">Today's Best Runs</div>
-            <button id="daily-board-next" onclick="window.stepDailyBoard(1)" title="Later day">&rsaquo;</button>
+            <button id="daily-board-prev" onclick="window.stepDailyBoard(-1)" title="Earlier day" style="display:none;">&lsaquo;</button>
+            <div id="daily-board-title">All-Time Best Runs</div>
+            <button id="daily-board-next" onclick="window.stepDailyBoard(1)" title="Later day" style="display:none;">&rsaquo;</button>
         </div>
         <div id="daily-board-list" style="font-size: var(--fs-3); color: var(--c-ink-3); font-style: italic;">Loading…</div>
         <div id="daily-board-you"></div>
+        <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
     </div>
 
     <!-- Gauntlet headline card. The Gauntlet is the reason to come back
@@ -2744,6 +2762,26 @@
         //           and one document per day is one read however busy that day
         //           was.
         const DAILY_BOARD_SIZE = 10;
+
+        // Which of the three the home screen is showing.
+        //
+        // NOTE on ordering: loadHomeBoard() is called at the bottom of this
+        // script, which runs BEFORE `const LEADERBOARD_PERIOD` further down is
+        // initialised. The weekly board reaches it through periodKeyFor(), so
+        // weekly must never be the board loaded at start - it is reachable
+        // only by a tap, long after the whole script has run. All-time needs
+        // nothing but an orderBy, which is the other reason it is the default.
+        let homeBoard = "all";
+        const HOME_BOARDS = {
+            all:    { title: "All-Time Best Runs", field: "bestRunScore",
+                      empty: "No runs yet — play a game to get on the board.", lb: "all" },
+            weekly: { title: "This Week's Best",   field: "periodBestScore",
+                      empty: "No runs this week — play a game to get on the board.", lb: "weekly" },
+            // No lb tab: the arrows below ARE the daily board's depth, seven
+            // days of it, which a Hall of Fame tab would not add to.
+            daily:  { title: null,                 field: "dayBestScore",
+                      empty: "No runs yet today — be first.", lb: null },
+        };
         const DAILY_BOARD_MAX_BACK = 7;   // how far the arrows go
         let dailyBoardOffset = 0;         // 0 = today, 1 = yesterday, ...
         let dailyBoardUnsub = null;
@@ -2781,37 +2819,64 @@
                 || `<div style="color:var(--c-ink-4);">${escapeHtml(emptyText)}</div>`;
         }
 
-        // Your own line, for when you are playing but not on the board. Only
-        // meaningful for today: a past day's document holds its top ten and
-        // nothing else, so there is no honest way to say where you placed.
-        async function renderDailyBoardYou(rows) {
+        // Your own line, for when you are playing but not on the board. A top
+        // ten tells the other players nothing about where they stand.
+        //
+        // A stored best from an earlier day or an earlier week is not a score
+        // on THIS board, so it reads as absent rather than as a low one - the
+        // same rule the Hall of Fame applies to its own weekly board.
+        async function renderHomeBoardYou(rows) {
             const el = document.getElementById("daily-board-you");
             el.innerHTML = "";
-            if (dailyBoardOffset !== 0 || !currentUser || !userProfileData) return;
-            const key = dailyBoardDateKey(0);
+            if (!currentUser || !userProfileData) return;
+            // A past day's document holds its top ten and nothing else, so
+            // there is no honest way to say where you placed on it.
+            if (homeBoard === "daily" && dailyBoardOffset !== 0) return;
+            const cfg = HOME_BOARDS[homeBoard];
             try {
                 const snap = await getDoc(doc(db, "users", currentUser.uid));
                 const me = snap.exists() ? snap.data() : null;
-                if (!me || me.dayBestKey !== key) return;          // nothing today
-                if (rows.some((r) => r.uid === currentUser.uid)) return;  // already shown
-                const mine = Math.max(0, Number(me.dayBestScore) || 0);
+                if (!me) return;
+                if (homeBoard === "daily" && me.dayBestKey !== dailyBoardDateKey(0)) return;
+                if (homeBoard === "weekly" && me.periodBestKey !== periodKeyFor(new Date())) return;
+                if (rows.some((r) => r.uid === currentUser.uid)) return;
+                const mine = Math.max(0, Number(me[cfg.field]) || 0);
                 if (mine <= 0) return;
-                const ahead = await getCountFromServer(query(collection(db, "users"),
-                    where("dayBestKey", "==", key), where("dayBestScore", ">", mine)));
+                const constraints =
+                    homeBoard === "daily"
+                        ? [where("dayBestKey", "==", dailyBoardDateKey(0)), where("dayBestScore", ">", mine)]
+                        : homeBoard === "weekly"
+                            ? [where("periodBestKey", "==", periodKeyFor(new Date())), where("periodBestScore", ">", mine)]
+                            : [where("bestRunScore", ">", mine)];
+                const ahead = await getCountFromServer(query(collection(db, "users"), ...constraints));
                 el.innerHTML = `You: <b style="color:var(--c-ink);">#${(ahead.data().count + 1).toLocaleString()}</b>`
                     + ` &middot; <b style="color:var(--c-endless);">${mine.toLocaleString()}</b> pts`;
-            } catch (e) { console.error("Daily board rank lookup failed", e); }
+            } catch (e) { console.error("Board rank lookup failed", e); }
         }
 
-        function renderDailyBoardChrome() {
-            document.getElementById("daily-board-title").innerText = dailyBoardLabel(dailyBoardOffset);
+        function renderHomeBoardChrome() {
+            const isDaily = homeBoard === "daily";
+            document.getElementById("daily-board-title").innerText =
+                isDaily ? dailyBoardLabel(dailyBoardOffset) : HOME_BOARDS[homeBoard].title;
+            for (const k of Object.keys(HOME_BOARDS)) {
+                document.getElementById("hb-tab-" + k).classList.toggle("active", k === homeBoard);
+            }
+            // The arrows are the daily board's own depth - seven days of it -
+            // so they belong to that tab and nowhere else. The other two get
+            // the button to the Hall of Fame instead, which is theirs.
+            const arrows = isDaily ? "" : "none";
+            document.getElementById("daily-board-prev").style.display = arrows;
+            document.getElementById("daily-board-next").style.display = arrows;
             document.getElementById("daily-board-prev").disabled = dailyBoardOffset >= DAILY_BOARD_MAX_BACK;
             document.getElementById("daily-board-next").disabled = dailyBoardOffset <= 0;
+            document.getElementById("home-board-more").style.display = isDaily ? "none" : "";
         }
 
-        async function loadDailyBoard() {
-            renderDailyBoardChrome();
+        async function loadHomeBoard() {
+            renderHomeBoardChrome();
+            // Only one board is ever live, and only the daily one needs to be.
             if (dailyBoardUnsub) { dailyBoardUnsub(); dailyBoardUnsub = null; }
+            if (homeBoard !== "daily") return loadUsersBoard();
             const key = dailyBoardDateKey(dailyBoardOffset);
 
             if (dailyBoardOffset === 0) {
@@ -2823,8 +2888,8 @@
                             const u = d.data();
                             return { uid: d.id, name: u.username, score: u.dayBestScore, equipped: u.equipped };
                         });
-                        renderDailyBoardRows(rows, "No runs yet today — be first.");
-                        renderDailyBoardYou(rows);
+                        renderDailyBoardRows(rows, HOME_BOARDS.daily.empty);
+                        renderHomeBoardYou(rows);
                     },
                     (e) => {
                         console.error("Daily board listen failed", e);
@@ -2846,15 +2911,55 @@
             }
         }
 
+        // All-time and weekly: one read, no subscription. Neither changes
+        // often enough to be worth a live listener, and a listener on an
+        // unfiltered orderBy is the expensive kind.
+        async function loadUsersBoard() {
+            const cfg = HOME_BOARDS[homeBoard];
+            try {
+                const constraints = homeBoard === "weekly"
+                    ? [where("periodBestKey", "==", periodKeyFor(new Date())),
+                       orderBy("periodBestScore", "desc"), limit(DAILY_BOARD_SIZE)]
+                    : [orderBy("bestRunScore", "desc"), limit(DAILY_BOARD_SIZE)];
+                const snap = await getDocs(query(collection(db, "users"), ...constraints));
+                const rows = snap.docs.map((d) => {
+                    const u = d.data();
+                    return { uid: d.id, name: u.username, score: u[cfg.field], equipped: u.equipped };
+                }).filter((r) => Number(r.score) > 0);
+                renderDailyBoardRows(rows, cfg.empty);
+                renderHomeBoardYou(rows);
+            } catch (e) {
+                console.error("Home board load failed", e);
+                renderDailyBoardRows([], "Board unavailable right now.");
+            }
+        }
+
+        window.setHomeBoard = function(which) {
+            if (!HOME_BOARDS[which] || which === homeBoard) return;
+            homeBoard = which;
+            dailyBoardOffset = 0;   // a tab is a fresh question, not a continued one
+            loadHomeBoard();
+        };
+
+        // The Hall of Fame is the same boards at a hundred rows instead of ten,
+        // so expanding opens it on the tab you were already reading.
+        window.expandHomeBoard = function() {
+            const lb = HOME_BOARDS[homeBoard].lb;
+            if (!lb) return;
+            window.showLeaderboard();
+            window.setLbTime(lb);
+        };
+
         window.stepDailyBoard = function(dir) {
             // dir -1 steps BACK in time, which is +1 on the offset.
             const next = dailyBoardOffset - dir;
             if (next < 0 || next > DAILY_BOARD_MAX_BACK) return;
+            if (homeBoard !== "daily") return;
             dailyBoardOffset = next;
-            loadDailyBoard();
+            loadHomeBoard();
         };
 
-        loadDailyBoard();
+        loadHomeBoard();
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {

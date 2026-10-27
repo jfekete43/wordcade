@@ -187,7 +187,12 @@ ck(/getTodayDateStr\(\)/.test(onRun), 'and the day is the server\'s Eastern day,
 const boardQuery = (html.match(/query\(collection\(db, "users"\), where\("dayBestKey"[\s\S]*?limit\(DAILY_BOARD_SIZE\)\)/) || [''])[0];
 ck(boardQuery.length > 0, 'today reads /users, not /runs', boardQuery.slice(0, 80));
 ck(/orderBy\("dayBestScore", "desc"\)/.test(boardQuery), 'ordered by the denormalised field', boardQuery);
-ck(/onSnapshot\(/.test(html.slice(html.indexOf('async function loadDailyBoard'))), 'and listens live, so it still does the feed\'s job');
+// loadDailyBoard became loadHomeBoard when the slot gained all-time and
+// weekly tabs; the daily board is one branch of it now. The live listener is
+// still the point - this is the board that doubles as the arcade feed.
+const loadFrom = html.indexOf('async function loadHomeBoard');
+ck(loadFrom !== -1, 'the home board loader is findable', String(loadFrom));
+ck(/onSnapshot\(/.test(html.slice(loadFrom)), 'and listens live, so it still does the feed\'s job');
 ck(/getDoc\(doc\(db, "dailyBoards", key\)\)/.test(html), 'a past day is one document read');
 // The bug this whole shape avoids.
 ck(!/collection\(db, "runs"\), orderBy\("timestamp", "desc"\), limit\(3\)\)/.test(html), 'the old three-run feed query is gone');
