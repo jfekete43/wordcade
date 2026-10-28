@@ -139,7 +139,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   <div class="mark">${MARK.map((ch) => `<div>${ch}</div>`).join("")}</div>
   <div class="row">${WORD.map((w) => `<div class="tile ${w.state}">${w.ch}</div>`).join("")}</div>
   <div class="tag">A competitive five-letter word game</div>
-  <div class="modes">Stakes &nbsp;·&nbsp; Clash &nbsp;·&nbsp; Daily Puzzle &nbsp;·&nbsp; Free-For-All</div>
+  <div class="modes">Stakes &nbsp;·&nbsp; Daily &nbsp;·&nbsp; Clash &nbsp;·&nbsp; Free-For-All</div>
   <div class="host">lexathon.gg</div>
 </body></html>`;
 
