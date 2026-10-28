@@ -87,9 +87,25 @@ ck('there are seasonal items in both banners and effects',
 ck('every holiday with an item names a season the calendar knows',
    seasonalItems.filter((i) => i.seasonal.season).every((i) => Seasons.TABLE.some((s) => s.id === i.seasonal.season)),
    seasonalItems.map((i) => i.seasonal.season).join(','));
-// A named-season item is the new shape; the two originals keep their MM-DD.
-ck('the original two keep their fixed windows, so nothing silently changed under them',
-   seasonalItems.filter((i) => i.seasonal.fromMonthDay).map((i) => i.id).sort().join(',') === 'banner_frostbite,effect_haunted');
+// A named season is the shape now. Frostbite is the one honest exception:
+// 1 December to 5 January straddles Christmas AND New Year, so no single
+// holiday describes it. Haunted used to sit here too, on 10-15 -> 11-01 -
+// which is, to the day, what the halloween season computes. Two ways of
+// saying the same window is one way too many, so it names the season now.
+ck('frostbite is the only fixed window left, because winter is not one holiday',
+   seasonalItems.filter((i) => i.seasonal.fromMonthDay).map((i) => i.id).sort().join(',') === 'banner_frostbite',
+   seasonalItems.filter((i) => i.seasonal.fromMonthDay).map((i) => i.id).join(','));
+
+// The gap this file did not have an eye on. The shop was built to sell "a
+// cosmetic for every holiday", and whether it still does was something only a
+// person counting by hand would notice - a holiday can be added to the
+// calendar and simply never get an item, and nothing anywhere would say so.
+const holidaysWithItems = new Set(seasonalItems.map((i) => i.seasonal.season).filter(Boolean));
+// Frostbite covers no single holiday, so Christmas and New Year must each
+// still carry an item of their own; it is not allowed to stand in for them.
+const uncovered = Seasons.TABLE.map((s) => s.id).filter((id) => !holidaysWithItems.has(id));
+ck('every holiday on the calendar has a cosmetic of its own',
+   uncovered.length === 0, uncovered.join(',') || 'all covered');
 ck('every seasonal item is reachable at some point in the year',
    seasonalItems.every((i) => {
      for (let d = new Date(Date.UTC(2026, 0, 1)); d < new Date(Date.UTC(2027, 0, 1)); d.setUTCDate(d.getUTCDate() + 1)) {

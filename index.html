@@ -518,6 +518,7 @@
         body.reduce-motion .effect_tinsel,
         body.reduce-motion .effect_countdown,
         body.reduce-motion .effect_shamrock,
+        body.reduce-motion .banner_lantern,
         body.reduce-motion .banner_harvest,
         body.reduce-motion .banner_sweetheart,
         body.reduce-motion .banner_firework,
@@ -1187,6 +1188,20 @@
 
         .effect_haunted { color: #7bff6b; text-shadow: 0 0 6px #2fff00, 0 0 12px #0a5c00; animation: haunted-flicker 2.2s steps(1) infinite; font-weight: 900; }
         @keyframes haunted-flicker { 0%, 19%, 21%, 100% { opacity: 1; } 20% { opacity: 0.4; } 60% { opacity: 0.85; } 61% { opacity: 1; } }
+
+        /* Lantern — ember through cut pumpkin, carrying Halloween's own
+           --c-season (#9c4a0a) as the middle stop so the banner and the
+           season's paper are lit by the same fire. Warm on purpose: the
+           Haunted effect sold in the same window is ghost-green, and two
+           Halloween cosmetics that read the same colour would be one
+           cosmetic.
+
+           The base is midnight purple rather than ember brown: Harvest is
+           already late-autumn russet, and side by side on a leaderboard the
+           two were the same banner twice. Purple-into-orange is the half of
+           Halloween that Thanksgiving cannot claim. */
+        .banner_lantern { background: linear-gradient(135deg, #1b0b2b 0%, #9c4a0a 52%, #e08a1e 100%); background-size: 200% 200%; animation: lantern-flicker 5s ease-in-out infinite; border-left: 3px solid #ffb347; border-radius: 3px; }
+        @keyframes lantern-flicker { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
         /* Harvest — late-autumn amber over deep russet, with a wheat-gold edge. */
         .banner_harvest { background: linear-gradient(135deg, #2a1206 0%, #7a3b0c 48%, #b9741a 100%); background-size: 200% 200%; animation: harvest-drift 6s ease-in-out infinite; border-left: 3px solid #f0b429; border-radius: 3px; }
@@ -2632,6 +2647,7 @@
                     // Holiday banners. These name a season rather than a date
                     // pair, so they are buyable exactly while the site is
                     // wearing that holiday — see the Seasons module.
+                    { id: "banner_lantern", name: "Lantern", desc: "Halloween event exclusive.", cost: 4600, seasonal: { season: "halloween" } },
                     { id: "banner_harvest", name: "Harvest", desc: "Thanksgiving event exclusive.", cost: 4600, seasonal: { season: "thanksgiving" } },
                     { id: "banner_sweetheart", name: "Sweetheart", desc: "Valentine’s event exclusive.", cost: 4600, seasonal: { season: "valentines" } },
                     { id: "banner_eggshell", name: "Eggshell", desc: "Easter event exclusive.", cost: 4600, seasonal: { season: "easter" } },
@@ -2668,7 +2684,7 @@
                     { id: "effect_aurora", name: "Aurora Text", desc: "Green and violet, always shifting.", cost: 23000 },
                     { id: "effect_prism", name: "Prism Text", desc: "The full spectrum, cycling.", cost: 24500 },
                     { id: "effect_supernova", name: "Supernova", desc: "Burning brighter than fire.", cost: 31500 },
-                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive — Oct 15 to Nov 1.", cost: 4600, seasonal: { fromMonthDay: "10-15", toMonthDay: "11-01" } },
+                    { id: "effect_haunted", name: "Haunted", desc: "Halloween event exclusive.", cost: 4600, seasonal: { season: "halloween" } },
                     { id: "effect_tinsel", name: "Tinsel", desc: "Christmas event exclusive.", cost: 4600, seasonal: { season: "christmas" } },
                     { id: "effect_countdown", name: "Countdown", desc: "New Year event exclusive.", cost: 4600, seasonal: { season: "newyear" } },
                     { id: "effect_shamrock", name: "Shamrock", desc: "St Patrick’s event exclusive.", cost: 4600, seasonal: { season: "stpatricks" } },

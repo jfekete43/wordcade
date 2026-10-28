@@ -77,8 +77,16 @@ const season = (s) => { const r = Seasons.current(at(s)); return r ? r.id : null
 // unlocks, so the shop and the site agree about whether it is Halloween.
 ck('Halloween is off on 14 October', season('2026-10-14') === null, String(season('2026-10-14')));
 ck('Halloween opens on 15 October', season('2026-10-15') === 'halloween', String(season('2026-10-15')));
-ck('...which is the day effect_haunted unlocks',
-   /effect_haunted[\s\S]{0,260}?fromMonthDay: "10-15"/.test(html));
+// This used to check that effect_haunted's hand-written 10-15 matched the
+// computed opening. It names the season now, so there is no second number to
+// agree with - the shop reads the same calendar the theme does, and both
+// Halloween cosmetics are pinned to it.
+for (const id of ['effect_haunted', 'banner_lantern']) {
+  ck(`${id} is pinned to the halloween season, not to a date of its own`,
+     new RegExp(`${id}[\\s\\S]{0,260}?season: "halloween"`).test(html));
+  ck(`...and states no fixed window alongside it`,
+     !new RegExp(`${id}[\\s\\S]{0,260}?fromMonthDay`).test(html));
+}
 ck('Halloween still on, on the 31st', season('2026-10-31') === 'halloween');
 ck('Halloween closes the day after, 1 November', season('2026-11-01') === 'halloween');
 ck('and is gone on 2 November', season('2026-11-02') === null, String(season('2026-11-02')));
