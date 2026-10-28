@@ -163,8 +163,35 @@ export function computeStandings(runs, limit = 10) {
     const prev = i > 0 ? key(sorted[i - 1]) : null;
     const mine = key(r);
     if (i === 0 || prev[0] !== mine[0] || prev[1] !== mine[1]) place = i + 1;
-    return { place, name: r.username || "Player", score: r.score || 0, solved: r.wordsGuessed || 0 };
+    // uid rides along for the career counters in build-gauntlet-archive;
+    // nothing rendered uses it, and it must never be rendered - these pages
+    // are public and a uid is not a thing to publish.
+    return { place, uid: r.uid || null, name: r.username || "Player", score: r.score || 0, solved: r.wordsGuessed || 0 };
   });
+}
+
+/* Who a finished day owes a career counter to.
+ *
+ * Built on computeStandings rather than its own sort, so "won" and "top ten"
+ * mean exactly what that day's published page says - ties included, which are
+ * broken on words solved after score. A day can have several winners: the
+ * board shows them sharing first, and so does this.
+ *
+ * Pure, because the decision is this file's job and the writing is the
+ * builder's.
+ *
+ * A run with no uid is malformed data, not a departed player - the uid is on
+ * the run, so a deleted account's row still carries one. Such a row is dropped
+ * from the counters but NOT from the standings it was ranked in: if it placed
+ * first, that day simply has no winner to pay. Sliding the win down to second
+ * would award a trophy the day's published page says they did not win.
+ */
+export function computeAwards(runs, limit = 10) {
+  const standings = computeStandings(runs, limit);
+  const uid = (s) => s.uid;
+  const top10 = [...new Set(standings.map(uid).filter(Boolean))];
+  const winners = [...new Set(standings.filter((s) => s.place === 1).map(uid).filter(Boolean))];
+  return { winners, top10 };
 }
 
 export function computeDistribution(runs) {

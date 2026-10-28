@@ -40,7 +40,7 @@ const MIN_PLAYERS = val("--min-players") === null ? 1 : Math.max(0, Number(val("
 if (!Number.isFinite(MIN_PLAYERS)) { console.error("--min-players must be a number"); process.exit(1); }
 
 const { initializeApp, applicationDefault, getApps } = await import("firebase-admin/app");
-const { getFirestore } = await import("firebase-admin/firestore");
+const { getFirestore, FieldValue } = await import("firebase-admin/firestore");
 if (!getApps().length) initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
 
@@ -127,6 +127,58 @@ const write = (rel, body) => {
 };
 
 for (const day of built) write(path.join("gauntlet", day.date, "index.html"), R.renderDayPage(day));
+
+/* Career counters, settled once a day is over.
+ *
+ * Neither can be known when a run ends: somebody playing later the same day
+ * can take the win, or push you out of the ten. onRunCreated snapshots
+ * achievedTop10Daily at finish time for the one-time challenge and says so;
+ * these are the settled numbers, and they are computed HERE because this is
+ * the only place that sees a finished day's full field.
+ *
+ * They go through computeStandings rather than re-sorting, so "won" and
+ * "top ten" mean exactly what that day's published page says - including how
+ * it breaks ties, which is on words solved after score.
+ *
+ * gauntletAwards/{date} is what makes it safe to run twice. --all walks every
+ * past day, and the nightly rebuilds yesterday; a counter that incremented
+ * again on each rebuild would be worse than no counter at all.
+ */
+async function awardDay(day) {
+  const ref = db.collection("gauntletAwards").doc(day.date);
+  if ((await ref.get()).exists) return null;
+
+  // Who gets what is the renderer's decision, like everything else that
+  // reads a day; this file only writes it down.
+  const { winners, top10 } = R.computeAwards(day.runs, 10);
+  if (!top10.length) return null;
+
+  const batch = db.batch();
+  for (const uid of top10) {
+    // set+merge, not update: a player can delete their account and leave a
+    // run behind, and update() on a missing document fails the whole batch.
+    batch.set(db.collection("users").doc(uid), {
+      gauntletTop10s: FieldValue.increment(1),
+      ...(winners.includes(uid) ? { gauntletWins: FieldValue.increment(1) } : {}),
+    }, { merge: true });
+  }
+  batch.set(ref, { winners, top10, awardedAt: FieldValue.serverTimestamp() });
+  await batch.commit();
+  return { winners: winners.length, top10: top10.length };
+}
+
+if (DRY) {
+  console.log("  [dry-run] career counters not awarded");
+} else {
+  let awarded = 0, already = 0;
+  for (const day of built) {
+    const r = await awardDay(day);
+    if (!r) { already++; continue; }
+    awarded++;
+    console.log(`  awarded ${day.date}: ${r.winners} win(s), ${r.top10} top-ten finish(es)`);
+  }
+  if (awarded || already) console.log(`  career counters: ${awarded} day(s) awarded, ${already} already settled`);
+}
 
 // Pages written under an older, lower threshold would otherwise linger:
 // absent from the hub but still reachable and still in the sitemap. Only a

@@ -168,6 +168,11 @@ service cloud.firestore {
         && !('dayBestKey' in request.resource.data)
         && !('ffaMmr' in request.resource.data)
         && !('ffaWins' in request.resource.data)
+        // Settled by the nightly archive job, never by a client. Without
+        // these two a fresh account could arrive claiming a hundred wins,
+        // which the Profile would display without question.
+        && !('gauntletWins' in request.resource.data)
+        && !('gauntletTop10s' in request.resource.data)
         && !('ffaMatchesPlayed' in request.resource.data)
         && request.resource.data.totalWordsGuessed == 0
         && request.resource.data.wordsPlayed == 0

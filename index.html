@@ -2028,7 +2028,7 @@
                     <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
                     <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
                     <li><b>Challenges:</b> Daily (3 rotate each day) and Career (one-time milestones) — both pay out in points.</li>
-                    <li><b>Leaderboards:</b> All Time, Weekly (resets Monday), Clash (Clash rating) and FFA (FFA rating). The Daily Puzzle has its own board on its play screen, which resets nightly.</li>
+                    <li><b>Leaderboards:</b> All Time, Weekly (resets Monday), Daily (best single Daily Puzzle, ever), Clash (Clash rating) and FFA (FFA rating). Today's Daily Puzzle standings are separate — they live on its play screen and reset nightly.</li>
                 </ul>
             </div>
 
@@ -2114,10 +2114,14 @@
             </div>
             
             <div class="tabs">
+                <!-- Same order and the same short labels as the mode nav. These
+                     used to run Stakes/Clash/FFA/Daily Puzzle, which put the Daily
+                     last and spelled it long - two differences from the row of
+                     buttons the player had just been looking at. -->
                 <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Stakes</button>
+                <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Daily</button>
                 <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
                 <button class="tab-btn" id="tab-prof-ffa" onclick="window.setProfileTab('ffa')">FFA</button>
-                <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Daily Puzzle</button>
             </div>
 
             <!-- STANDARD STATS -->
@@ -2167,13 +2171,19 @@
 
             <!-- DAILY STATS -->
             <div id="profile-gauntlet" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 4px;">Best Daily Puzzle: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: var(--fs-6);">—</span> pts</div>
+                <!-- The rank sits beside the score it ranks. It used to head its
+                     own column as "Global Rank", which said neither what it ranked
+                     (your best ever, not today) nor against what - and pointed at a
+                     board that did not exist until the Hall of Fame gained a Daily
+                     tab. -->
+                <div style="text-align: center; margin-bottom: 4px;">Best Daily Puzzle: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: var(--fs-6);">—</span> pts <span id="stat-gauntlet-rank" style="font-size: var(--fs-3); color: var(--c-ink-4);"></span></div>
                 <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: var(--fs-2); color: var(--c-ink-4);">&nbsp;</div>
 
                 <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
-                    <div style="text-align: center;">Global Rank<br><span id="stat-gauntlet-rank" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                    <div style="text-align: center;">Avg<br><span id="stat-gauntlet-avg" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
                     <div style="text-align: center;">Played<br><span id="stat-gauntlet-played" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
-                    <div style="text-align: center;">Top 10 Finish<br><span id="stat-gauntlet-top10" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                    <div style="text-align: center;">Wins<br><span id="stat-gauntlet-wins" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                    <div style="text-align: center;">Top 10s<br><span id="stat-gauntlet-top10s" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
                 </div>
 
                 <div style="font-size: var(--fs-3); margin: 18px 0 8px; color: var(--c-gauntlet); text-align: center;">Today</div>
@@ -2220,6 +2230,10 @@
             <div class="tabs">
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
                 <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
+                <!-- Added because the Profile ranks you on this board. That rank
+                     existed for a long time with nowhere to go and check it,
+                     which is most of why it read as meaningless. -->
+                <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Daily</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
                 <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
             </div>
@@ -2236,7 +2250,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, linkWithCredential, EmailAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, orderBy, limit, where, getDocs, onSnapshot, deleteDoc, arrayUnion, getCountFromServer, getAggregateFromServer, count, average } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
         const firebaseConfig = {
@@ -3486,7 +3500,9 @@
             const whenEl = document.getElementById("stat-gauntlet-best-when");
             const rankEl = document.getElementById("stat-gauntlet-rank");
             const playedEl = document.getElementById("stat-gauntlet-played");
-            const top10El = document.getElementById("stat-gauntlet-top10");
+            const avgEl = document.getElementById("stat-gauntlet-avg");
+            const winsEl = document.getElementById("stat-gauntlet-wins");
+            const top10sEl = document.getElementById("stat-gauntlet-top10s");
             const todayEl = document.getElementById("stat-gauntlet-today");
 
             const best = Number(userProfileData.bestGauntletScore);
@@ -3494,24 +3510,45 @@
             bestEl.innerText = hasBest ? best.toLocaleString() : "—";
             const bestNum = hasBest ? gauntletNumber(userProfileData.bestGauntletDate) : null;
             whenEl.innerText = bestNum ? `set on Daily Puzzle #${bestNum}` : "\u00a0";
-            top10El.innerText = userProfileData.achievedTop10Daily ? "Yes" : "Not yet";
+            // Maintained by the nightly job once a day is final, because
+            // neither can be known when a run ends - somebody who plays later
+            // the same day can take the win, or push you out of the ten.
+            // achievedTop10Daily is left alone: it is the one-time career
+            // challenge's flag, and a different question from "how many".
+            winsEl.innerText = Number(userProfileData.gauntletWins || 0).toLocaleString();
+            top10sEl.innerText = Number(userProfileData.gauntletTop10s || 0).toLocaleString();
 
             // Global standing on the all-time Daily Puzzle board — the same board
             // the Leaderboard's Daily Puzzle tab shows, so the two agree.
             if (hasBest) {
                 getCountFromServer(query(collection(db, "users"), where("bestGauntletScore", ">", best)))
-                    .then((snap) => { rankEl.innerText = "#" + (snap.data().count + 1).toLocaleString(); })
-                    .catch((e) => { console.error("Daily Puzzle rank failed", e); rankEl.innerText = "—"; });
+                    .then((snap) => { rankEl.innerText = "· #" + (snap.data().count + 1).toLocaleString() + " all-time"; })
+                    .catch((e) => { console.error("Daily Puzzle rank failed", e); rankEl.innerText = ""; });
             } else {
-                rankEl.innerText = "—";
+                rankEl.innerText = "";
             }
 
             // How many Daily Puzzles this player has finished. Equality on uid+mode
             // is the prefix of the (uid, mode, score) index the bests backfill
             // already needs, so this costs no extra index.
-            getCountFromServer(query(collection(db, "runs"), where("uid", "==", currentUser.uid), where("mode", "==", "daily")))
-                .then((snap) => { playedEl.innerText = snap.data().count.toLocaleString(); })
-                .catch((e) => { console.error("Daily Puzzles played failed", e); playedEl.innerText = "—"; });
+            // One aggregation answers both. It used to be a count on its own;
+            // asking for the average alongside it costs nothing extra, and a
+            // second query for the same rows would have.
+            getAggregateFromServer(
+                query(collection(db, "runs"), where("uid", "==", currentUser.uid), where("mode", "==", "daily")),
+                { n: count(), avg: average("score") })
+                .then((snap) => {
+                    const n = snap.data().n || 0;
+                    const avg = snap.data().avg;
+                    playedEl.innerText = n.toLocaleString();
+                    // average() returns null over an empty set, which is not 0.
+                    avgEl.innerText = (n > 0 && avg !== null && Number.isFinite(avg))
+                        ? Math.round(avg).toLocaleString() : "—";
+                })
+                .catch((e) => {
+                    console.error("Daily Puzzles played/average failed", e);
+                    playedEl.innerText = "—"; avgEl.innerText = "—";
+                });
 
             // Today's line, phrased the same way the headline card does.
             try {
@@ -3791,6 +3828,11 @@
                     // so it reads as unset rather than as a low one.
                     weekly: { field: "periodBestScore", fallback: 0, excludesUnset: true, periodKey: true,
                               empty: "No runs this week — play a game to get on the board" },
+                    // Best single Daily Puzzle, ever. The same field and the same
+                    // ordering the Profile counts your rank against, so the two
+                    // cannot disagree.
+                    daily: { field: "bestGauntletScore", fallback: 0, excludesUnset: true,
+                             empty: "No Daily Puzzles finished yet — play today's to get on the board" },
                 };
                 const board = USERS_BOARD[mode];
                 if (board) {
@@ -3874,6 +3916,10 @@
                             // which is the right answer: they are not on this ladder.
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("ffaMmr", "desc"), limit(100)));
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().ffaMmr || 1000, equipped: doc.data().equipped }); });
+                        }
+                        else if (currentLbTime === 'daily') {
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestGauntletScore", "desc"), limit(100)));
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestGauntletScore || 0, ts: d.bestGauntletDate, equipped: d.equipped }); });
                         }
                         else if (currentLbTime === 'all') {
                             // Each player's best single run, read off their own
