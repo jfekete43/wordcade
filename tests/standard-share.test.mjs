@@ -15,7 +15,7 @@
  *     rather than calling the share with hand-fed numbers.
  *   - Three endings, three messages: cashed out, wiped out holding points, and
  *     wiped out with nothing banked (where "lost 0 pts" would be wrong).
- *   - Shape matches the Gauntlet share: heading, result, hook, bare link.
+ *   - Shape matches the Daily Puzzle share: heading, result, hook, bare link.
  *
  * Pure; no emulator needed.
  */
@@ -75,7 +75,7 @@ ck(out.captured.message === '🕹️ Lexathon\n💰 Banked 12,400 pts · 31 word
    'a cash-out says what was banked and how many words', JSON.stringify(out.captured.message));
 ck(out.captured.message.split('\n').length === 3, 'heading, result, hook', out.captured.message.split('\n').length);
 ck(out.captured.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.captured.url));
-ck(out.captured.linkLabel === undefined, 'the link carries no label, same as the Gauntlet share');
+ck(out.captured.linkLabel === undefined, 'the link carries no label, same as the Daily Puzzle share');
 ck(out.captured.buttonEl === out.els['btn-share'], 'the flash lands on the Share Score button');
 ck(out.captured.defaultLabel === 'Share Score', 'and restores its own label', JSON.stringify(out.captured.defaultLabel));
 

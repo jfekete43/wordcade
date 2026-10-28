@@ -19,7 +19,7 @@
 export const BOARD_SIZE = 10;
 
 // Eastern, matching getTodayDateStr() in functions/index.js and index.html and
-// the Gauntlet's own rollover. A day boundary that differed from the Gauntlet's
+// the Daily Puzzle's own rollover. A day boundary that differed from the Daily Puzzle's
 // would put "today" in two places at once.
 export function dayKeyET(when) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -56,7 +56,7 @@ export function toMillis(v) {
  * `runs` is [{ uid, username, score, mode, timestamp }] — every run saved that
  * day. Returns the document to store.
  *
- * Gauntlet runs are dropped: they have their own board, and ten words against
+ * Daily Puzzle runs are dropped: they have their own board, and ten words against
  * an endless run are not the same number. A wipeout scores 0 and onRunCreated
  * only counts a score above the day's prior best, so zeroes are dropped too —
  * this has to agree with the live path or a day would look different depending

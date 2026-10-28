@@ -1,7 +1,7 @@
 /*
  * What a failing callable says to the person who tripped it.
  *
- * This exists because of a real dialog on a real phone: tapping GAUNTLET
+ * This exists because of a real dialog on a real phone: tapping DAILY
  * produced an alert reading, in full, "internal". That is what the Firebase
  * client SDK surfaces when a callable throws anything that is not an
  * HttpsError — there is no message to show, so it shows the code. The player
@@ -62,12 +62,12 @@ if (readableFailures) {
   // prompt for guests, and rewriting it would replace a useful instruction
   // with a shrug.
   logged = [];
-  const deliberate = new StubHttpsError('permission-denied', 'Sign in with Google or email to play the Daily Gauntlet.');
-  const guardWrapped = readableFailures('Starting today\'s Gauntlet', async () => { throw deliberate; });
+  const deliberate = new StubHttpsError('permission-denied', 'Sign in with Google or email to play the Daily Puzzle.');
+  const guardWrapped = readableFailures('Starting today\'s Puzzle', async () => { throw deliberate; });
   let caught = null;
   try { await guardWrapped(req); } catch (e) { caught = e; }
   ck(caught === deliberate, 'a deliberate HttpsError is rethrown as the very same object');
-  ck(caught && caught.message === 'Sign in with Google or email to play the Daily Gauntlet.',
+  ck(caught && caught.message === 'Sign in with Google or email to play the Daily Puzzle.',
      'so the player still gets the instruction it carried', caught && caught.message);
   ck(logged.length === 0, 'and it is not logged as a failure — it is working as designed');
 
@@ -75,7 +75,7 @@ if (readableFailures) {
   // real error goes where it can be found.
   logged = [];
   const boom = new Error('Cannot use "undefined" as a Firestore value (found in field wordCount)');
-  const crashWrapped = readableFailures('Starting today\'s Gauntlet', async () => { throw boom; });
+  const crashWrapped = readableFailures('Starting today\'s Puzzle', async () => { throw boom; });
   caught = null;
   try { await crashWrapped(req); } catch (e) { caught = e; }
   ck(!!caught, 'an unexpected throw still rejects');
@@ -86,7 +86,7 @@ if (readableFailures) {
   ck(caught && caught.message && caught.message !== 'internal',
      'and it carries an actual message rather than the bare word "internal"',
      caught && caught.message);
-  ck(caught && /Starting today's Gauntlet/.test(caught.message),
+  ck(caught && /Starting today's Puzzle/.test(caught.message),
      'which names the operation that failed', caught && caught.message);
   ck(caught && /not yours/i.test(caught.message),
      'and tells the player it is not something they did wrong');
@@ -118,7 +118,7 @@ if (readableFailures) {
      JSON.stringify(logged[0] && logged[0][1] && logged[0][1].uid));
 }
 
-// ---- the Gauntlet's own callables are actually wrapped --------------------
+// ---- the Daily Puzzle's own callables are actually wrapped --------------------
 // The wrapper is worth nothing if the two functions that produced the bug are
 // not behind it, and nothing stops a future callable being added bare.
 for (const name of ['startDailyGauntlet', 'guessDailyWord']) {

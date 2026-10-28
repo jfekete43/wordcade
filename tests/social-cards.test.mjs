@@ -2,7 +2,7 @@
  * What a shared Lexathon link looks like when it unfurls.
  *
  * This is growth-critical rather than cosmetic: every share path in the game
- * ends in a link to this site — the Standard result, the Gauntlet result, the
+ * ends in a link to this site — the Standard result, the Daily Puzzle result, the
  * Clash invite and the FFA invite — so a missing or broken card turns the whole
  * share loop into a bare blue URL in Discord, iMessage, Slack and WhatsApp.
  *

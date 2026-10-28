@@ -1,5 +1,5 @@
 /*
- * Word difficulty: the grading that shapes a Gauntlet, and the validation that
+ * Word difficulty: the grading that shapes a Daily Puzzle, and the validation that
  * decides what a client is allowed to teach the game about its own word list.
  *
  * Three pieces, all extracted from functions/index.js:
@@ -12,12 +12,12 @@
  *                          the real target list, and a word repeated inside
  *                          one run counts once. Poisoning this would not move
  *                          points or money, but it would quietly skew which
- *                          words a Gauntlet considers hard.
+ *                          words a Daily Puzzle considers hard.
  *   effectiveDifficulty  — blends measured against computed, shrinking toward
  *                          the computed score in proportion to sample count so
  *                          a word seen four times cannot swing the grading.
  *   pickDailyWords       — three easy, four medium, three hard, ordered so the
- *                          Gauntlet ramps.
+ *                          Daily Puzzle ramps.
  *
  * Pure; no emulator needed.
  */

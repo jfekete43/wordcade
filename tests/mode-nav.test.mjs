@@ -4,7 +4,7 @@
  * Every mode except Stakes used to collapse the nav to a single "leave"
  * button and hide the other two, each of the six entry/exit paths flipping
  * innerText and display on three hard-coded buttons inline. From inside a
- * Gauntlet there was no way to see that Clash and FFA existed. Worse, the mode
+ * Daily Puzzle there was no way to see that Clash and FFA existed. Worse, the mode
  * you were IN was the only one never named anywhere: Stakes had no header at
  * all, so a new player landed on an unlabelled board flanked by buttons for
  * three other modes — which is how one of them reported that "one of today's
@@ -118,7 +118,7 @@ const ON_ACCENT = rgbOf('--c-on-accent');
 // correct once a script has run shows four blank buttons on a slow load.
 const atRest = await page.evaluate(() => window.readNav());
 eq('the shipped markup already reads as the Stakes default',
-   atRest.map((b) => b.label), ['STAKES', 'GAUNTLET', 'CLASH', 'FFA']);
+   atRest.map((b) => b.label), ['STAKES', 'DAILY', 'CLASH', 'FFA']);
 // Colour used to identify the three modes you were NOT in. It identifies the
 // one you ARE in now: the current slot is filled in its own colour and the
 // other three are quiet and identical, which is the whole point of the
@@ -163,7 +163,7 @@ for (const [mode, flags] of [
   ck(new Set(nav.map((b) => b.mode)).size === 4, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
 }
 function MODE_LABEL(m) {
-  return { endless: 'STAKES', gauntlet: 'GAUNTLET', clash: 'CLASH', ffa: 'FFA' }[m];
+  return { endless: 'STAKES', gauntlet: 'DAILY', clash: 'CLASH', ffa: 'FFA' }[m];
 }
 
 // Order is stable, so a slot does not jump between modes as you move around.
@@ -223,7 +223,7 @@ ck(navWrites === 1, 'exactly one place in the file touches a nav slot', String(n
 // cannot be half-applied by a second entry point.
 ck(/onclick="window\.goToMode\(this\.dataset\.mode\)"/.test(html), 'the nav routes through goToMode');
 ck(/id="gauntlet-card-btn" onclick="window\.goToMode\('gauntlet'\)"/.test(html),
-   "the home screen's Gauntlet card routes through it too (it used to call openDailyGauntlet directly, which double-confirmed)");
+   "the home screen's Daily Puzzle card routes through it too (it used to call openDailyGauntlet directly, which double-confirmed)");
 ck(!/window\.toggleMode\(\)|window\.toggleFfaMode\(\)/.test(html),
    'the old per-button toggles are gone, including from the invite-link path');
 
@@ -289,10 +289,10 @@ for (const m of ['await showModeIntro("gauntlet")', 'await showModeIntro("clash"
 
 // ===== 5. nothing changes mode on its own ================================
 //
-// The page used to land you on the Gauntlet after boot: refreshGauntletCard
+// The page used to land you on the Daily Puzzle after boot: refreshGauntletCard
 // called maybeLandOnGauntlet, which called goToMode("gauntlet"), with a notice
 // on screen apologising for the jump. It read as a second page load, and the
-// fetch that drove it enrolled every signed-in visitor in that day's Gauntlet
+// fetch that drove it enrolled every signed-in visitor in that day's Daily Puzzle
 // whether they played or not.
 //
 // It is gone, and the nav is the only way between modes. These pin that from
@@ -302,7 +302,7 @@ ck(!/maybeLandOnGauntlet/.test(html), 'the landing function is gone');
 
 const cardFn = between(html, 'async function refreshGauntletCard() {', '\n        }', 'refreshGauntletCard');
 ck(cardFn.length > 200, 'the card function was actually found', `${cardFn.length} chars`);
-ck(!/goToMode/.test(cardFn), 'the Gauntlet card renders, it does not move you');
+ck(!/goToMode/.test(cardFn), 'the Daily Puzzle card renders, it does not move you');
 
 // The other place an automatic switch would live: the moment auth resolves.
 const authBody = between(html, 'onAuthStateChanged(auth, async (user) => {', '\n        });', 'auth handler');
@@ -401,7 +401,7 @@ const blurb = between(html, '<section id="site-intro">', 'Support the project', 
 ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
 ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
 const MODE_TOKENS = ['--c-endless', '--c-gauntlet', '--c-clash', '--c-ffa'];
-for (const [mode, tok] of [['Stakes', '--c-endless'], ['Daily Gauntlet', '--c-gauntlet'],
+for (const [mode, tok] of [['Stakes', '--c-endless'], ['Daily Puzzle', '--c-gauntlet'],
                            ['Clash', '--c-clash'], ['FFA', '--c-ffa']]) {
   const re = new RegExp('<strong style="color:var\\(' + tok + '\\);">' + mode + '</strong>');
   ck(re.test(blurb), `the blurb names ${mode} in its own colour (${tok})`,
@@ -421,7 +421,7 @@ const items = [...blurb.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1].
 eq('one line per mode', items.length, 4);
 ck(items.every((x) => x.length <= 130), 'each stays to a line', items.map((x) => x.length).join(','));
 
-// Leaving the Gauntlet says where it puts you. It said "Back to Arcade",
+// Leaving the Daily Puzzle says where it puts you. It said "Back to Arcade",
 // which names nothing the player can see anywhere else in the app.
 ck(!/Back to Arcade/.test(html), 'no button still offers to go "Back to Arcade"');
 // Scoped to buttons that name a MODE — "Back to List" and "Back to Game" are
@@ -432,10 +432,10 @@ ck(!backs.some((x) => x === 'Arcade' || x === 'Standard'),
 ck(backs.filter((x) => x === 'Stakes').length >= 3,
    'the three that do name a mode all say Stakes, where they actually land you', backs.join(','));
 
-// ===== 6b. the Gauntlet's length, and the waiting that came with it ======
+// ===== 6b. the Daily Puzzle's length, and the waiting that came with it ======
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
 const GCOUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
-eq('the Gauntlet is seven words', GCOUNT, 7);
+eq('the Daily Puzzle is seven words', GCOUNT, 7);
 const gwant = JSON.parse(fnSrc.match(/const want = (\[[^\]]*\]);/)[1]);
 eq('and the draw still ramps across three tiers', gwant, [2, 3, 2]);
 ck(gwant.reduce((a, b) => a + b, 0) === GCOUNT, 'the tiers sum to the puzzle length',
@@ -456,7 +456,7 @@ const betweenWords = Number(html.match(/setTimeout\(startDailyRound, (\d+)\)/)[1
 ck(betweenWords <= 600, 'the gap between words is trimmed', String(betweenWords));
 // Roughly 3.7 guesses a word is a normal run; this is the dead time it buys.
 const deadMs = GCOUNT * 3.7 * perGuess + GCOUNT * betweenWords;
-ck(deadMs < 30000, 'a whole Gauntlet spends under 30s waiting on animations',
+ck(deadMs < 30000, 'a whole Daily Puzzle spends under 30s waiting on animations',
    `${Math.round(deadMs / 1000)}s`);
 
 // Nothing about the delay may claim to be a security control, because it is
@@ -468,7 +468,7 @@ ck(/guesses\.length >= DAILY_GAUNTLET_MAX_GUESSES/.test(guessFn.slice(0, 2000)),
 
 // You can stop and come back — said where players will see it, and true.
 ck(/pick up where you left off/.test(between(html, 'const MODE_INTRO = {', '\n        };', 'MODE_INTRO')),
-   'the Gauntlet intro card says you can stop and resume');
+   'the Daily Puzzle intro card says you can stop and resume');
 const startDaily = between(html, 'function startDailyRound() {', '\n        }', 'startDailyRound');
 ck(/wordEntry\.guesses\.forEach/.test(startDaily) && /currentRow = wordEntry\.guesses\.length/.test(startDaily),
    'and resuming really does replay the guesses already made on that word, so the claim is true');
@@ -482,7 +482,7 @@ ck(!/\ball ten\b/i.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/(^|\s)\/\/
 ck(/<section id="site-intro"/.test(html), 'the support note is on the page');
 ck(/Support the project/.test(html), 'and still says what it is');
 ck(!/getElementById\("site-intro"\)/.test(html) && !/#site-intro\s*\{[^}]*display:\s*none/.test(html),
-   'nothing ever hides it, so it sits under Stakes, the Gauntlet, Clash and FFA alike');
+   'nothing ever hides it, so it sits under Stakes, the Daily Puzzle, Clash and FFA alike');
 const panels = between(html, 'function showStandardPanels(visible) {', '\n        }', 'showStandardPanels');
 ck(!/site-intro/.test(panels), 'the mode-switch panel toggle does not touch it either');
 

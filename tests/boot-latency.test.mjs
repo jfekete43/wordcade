@@ -1,9 +1,9 @@
 /*
- * How long it takes to open on the Gauntlet, measured as round trips rather
+ * How long it takes to open on the Daily Puzzle, measured as round trips rather
  * than guessed at.
  *
  * Opening the page as a signed-in player used to sit on a playable Stakes
- * board for seconds and then yank you to the Gauntlet. The chain was five
+ * board for seconds and then yank you to the Daily Puzzle. The chain was five
  * network waits, strictly serial:
  *
  *   auth -> getDoc(users/{uid}) -> refreshProfile* -> getDoc(dailyAttempts/..)
@@ -58,7 +58,7 @@ console.log('extracted from index.html:', (fetchSrc + seedSrc).length, 'chars');
 const CLIENT_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(html) || [])[1];
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 const SERVER_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(fnSrc) || [])[1];
-eq('index.html states whether the Gauntlet needs an account', typeof CLIENT_GATE, 'string');
+eq('index.html states whether the Daily Puzzle needs an account', typeof CLIENT_GATE, 'string');
 eq('functions/index.js states it too', typeof SERVER_GATE, 'string');
 eq('and the two agree', CLIENT_GATE, SERVER_GATE);
 
@@ -85,12 +85,12 @@ const ok = () => Promise.resolve({ data: { attempt: ATT } });
 {
   const f = makeFetch({ uid: 'g', isAnonymous: true }, () => '2026-10-11', ok, true);
   eq('gate on: a guest gets no attempt', await f.fetchTodaysAttempt(), null);
-  eq('gate on: and never calls the Gauntlet function', f.calls(), 0);
+  eq('gate on: and never calls the Daily Puzzle function', f.calls(), 0);
 }
 {
   const f = makeFetch({ uid: 'g', isAnonymous: true }, () => '2026-10-11', ok, false);
   eq('gate off: a guest gets today\'s attempt', await f.fetchTodaysAttempt(), ATT);
-  eq('gate off: and does call the Gauntlet function', f.calls(), 1);
+  eq('gate off: and does call the Daily Puzzle function', f.calls(), 1);
 }
 // Signed out entirely is not the same as a guest: there is no uid to attach an
 // attempt to, so this one is refused whatever the flag says.
@@ -200,11 +200,11 @@ const doneAt = (ev) => { const e = log.find((x) => x.ev === ev + ':done'); retur
 // This used to assert the opposite: that the attempt lookup raced the profile
 // read so the card could paint with live state. It was fast, and it was still
 // wrong - startDailyGauntlet CREATES the attempt, so every signed-in visitor
-// who merely loaded the page was enrolled in that day's Gauntlet and had a
+// who merely loaded the page was enrolled in that day's Daily Puzzle and had a
 // document written for them. The fastest possible version of a call that
 // should not happen is still a call that should not happen.
 ck(!order.includes('startGauntlet:start'),
-   'boot makes no Gauntlet call at all', order.join(' -> '));
+   'boot makes no Daily Puzzle call at all', order.join(' -> '));
 ck(startedAt('profileRead') === 0, 'the profile read still starts immediately',
    `profile@${startedAt('profileRead')}`);
 // The regression that hurt: refreshProfile is slow and cold-startable, and
@@ -218,18 +218,18 @@ ck(cardIdx !== -1 && (refreshDoneIdx === -1 || cardIdx < refreshDoneIdx),
 const cold = await trace({ slowRefresh: 5000 });
 const coldOrder = cold.map((x) => x.ev);
 ck(coldOrder.indexOf('cardPainted') < coldOrder.indexOf('refreshProfile:done') || !coldOrder.includes('refreshProfile:done'),
-   'a five-second cold start on refreshProfile does not delay the Gauntlet at all', coldOrder.join(' -> '));
+   'a five-second cold start on refreshProfile does not delay the Daily Puzzle at all', coldOrder.join(' -> '));
 
 // One round trip on the boot path, not two: the profile read, and nothing
 // paired with it.
-ck(doneAt('startGauntlet') === null, 'and nothing is waiting on a Gauntlet call that never starts');
+ck(doneAt('startGauntlet') === null, 'and nothing is waiting on a Daily Puzzle call that never starts');
 ck((doneAt('profileRead') || 0) <= 40, 'the profile read is the whole of the critical path',
    String(doneAt('profileRead')));
 
 // ===== 3. nothing pulls the player anywhere ==============================
 //
 // The page used to open on Stakes, fetch today's attempt, and then navigate
-// into the Gauntlet - with a notice to explain the jump. Three things that
+// into the Daily Puzzle - with a notice to explain the jump. Three things that
 // only existed to hold each other up: the landing moved you, the fetch told
 // it whether to, and the notice apologised for it. The jump read as a second
 // load, and the fetch wrote a document for everyone who never played.
@@ -241,11 +241,11 @@ for (const dead of ['maybeLandOnGauntlet', 'hasLanded', 'clearBootNotice',
   ck(!html.includes(dead), `the landing machinery is gone: no ${dead}`);
 }
 ck(!/goToMode\("gauntlet"\)/.test(html) || !/function maybeLand/.test(html),
-   'nothing navigates into the Gauntlet on its own');
+   'nothing navigates into the Daily Puzzle on its own');
 
 // The decisive one. fetchTodaysAttempt is what costs a function invocation, a
 // transaction and a write, and it is only allowed to run when the player has
-// actually asked for the Gauntlet.
+// actually asked for the Daily Puzzle.
 const callSites = [...html.matchAll(/fetchTodaysAttempt\(\)/g)].map((m) => m.index)
   .filter((i) => !html.startsWith('function fetchTodaysAttempt()', i - 'function '.length));
 ck(callSites.length === 1, 'fetchTodaysAttempt has exactly one caller left', String(callSites.length));
@@ -254,7 +254,7 @@ ck(/await fetchTodaysAttempt\(\)/.test(openFn),
    'and it is openDailyGauntlet - a tap, not a page load');
 
 const authBody = between(html, 'onAuthStateChanged(auth, async (user) => {', '\n        });', 'auth handler');
-ck(!/fetchTodaysAttempt/.test(authBody), 'signing in does not reach for the Gauntlet');
+ck(!/fetchTodaysAttempt/.test(authBody), 'signing in does not reach for the Daily Puzzle');
 
 // ===== 4. a fresh day still reads as a fresh day =========================
 // startDailyGauntlet CREATES the attempt, so "no document" stopped meaning
@@ -275,10 +275,10 @@ const isUntouched = new Function('attempt', `
 ck(/if \([^)]*untouched[^)]*\)/.test(cardFn), 'the not-started branch is gated on it',
    (cardFn.match(/if \([^)]*attempt[^)]*\)/) || ['missing'])[0]);
 
-// Same for the seed: it exists, and leaving the Gauntlet uses it.
+// Same for the seed: it exists, and leaving the Daily Puzzle uses it.
 const leaveFn = between(html, 'window.leaveDailyGauntlet = function() {', '\n        }', 'leaveDailyGauntlet');
 ck(/seedTodaysAttempt\(dailyAttempt\)/.test(leaveFn),
-   'leaving the Gauntlet hands the card the attempt it was just playing');
+   'leaving the Daily Puzzle hands the card the attempt it was just playing');
 ck(leaveFn.indexOf('seedTodaysAttempt') < leaveFn.indexOf('dailyAttempt = null'),
    'and does it before clearing that attempt, or it would seed nothing');
 

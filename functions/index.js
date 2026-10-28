@@ -21,7 +21,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // A copy of words.js's word lists, generated once via a small script (see
 // the repo's DEPLOY.md) rather than parsed from words.js at runtime — keep
 // the two in sync if the dictionary ever changes. Used only by the Daily
-// Gauntlet functions below, to validate guesses and pick target words
+// Daily Puzzle functions below, to validate guesses and pick target words
 // server-side without ever sending the answer to the client.
 const { targetWords: DAILY_TARGET_WORDS, validGuesses: DAILY_VALID_GUESSES } = require("./words.json");
 const DAILY_ALL_VALID_WORDS = new Set([...DAILY_TARGET_WORDS, ...DAILY_VALID_GUESSES]);
@@ -284,7 +284,7 @@ const FFA_PAYOUT_CURVES = {
 };
 
 // Eastern-time calendar-day string (YYYY-MM-DD) — the sole source of truth
-// for when the Gauntlet puzzle, daily challenges/stats, and login streaks
+// for when the Daily Puzzle puzzle, daily challenges/stats, and login streaks
 // roll over. Must match index.html's getTodayDateStr() exactly. Using the
 // America/New_York IANA zone (rather than a fixed UTC offset) means this
 // correctly follows EST/EDT across DST changes with no manual adjustment.
@@ -300,7 +300,7 @@ function getTodayDateStr() {
  * The recurring Standard leaderboard's window.
  *
  * "weekly" resets every Monday, "monthly" on the 1st, both in Eastern so the
- * boundary matches the Gauntlet's rather than each viewer's own timezone. The
+ * boundary matches the Daily Puzzle's rather than each viewer's own timezone. The
  * board it feeds used to be built by downloading every run in the window on
  * every open, which is quadratic in playercount; it is a denormalised field on
  * the user doc now, exactly like bestRunScore.
@@ -378,7 +378,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
   const userRef = db.collection("users").doc(run.uid);
   const runRef = snap.ref;
 
-  // A Gauntlet run also gets checked against today's top 10 — Firestore
+  // A Daily Puzzle run also gets checked against today's top 10 — Firestore
   // transactions need every read up front, before any write, so this
   // query has to be prepared here alongside the plain doc reads below
   // rather than run separately afterward.
@@ -461,7 +461,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     }
     if (run.mode === "daily" && run.puzzleDate && score > Math.max(0, Number(user.bestGauntletScore) || 0)) {
       update.bestGauntletScore = score;
-      // Which Gauntlet it was, so the all-time board can cite the puzzle
+      // Which Daily Puzzle it was, so the all-time board can cite the puzzle
       // number rather than a bare date.
       update.bestGauntletDate = run.puzzleDate;
     }
@@ -484,7 +484,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // for the same reason: built from /runs it would read every run of the day
     // on every page load.
     //
-    // Gauntlet runs are excluded. They have their own board on their own
+    // Daily Puzzle runs are excluded. They have their own board on their own
     // screen, and their scores are on a different scale entirely — a fixed set of words
     // against an endless run — so mixing them would make the number on this
     // board mean two different things.
@@ -500,7 +500,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       }
     }
 
-    // Gauntlet-only: did this run land in today's top 10? The query above
+    // Daily Puzzle-only: did this run land in today's top 10? The query above
     // returns the top 10 including this run's own doc (already written by
     // guessDailyWord before this trigger fired), so it has to be filtered
     // out before comparing — otherwise a run's score is always <= the min
@@ -708,7 +708,7 @@ function requireAuth(request) {
   return request.auth.uid;
 }
 
-// The Daily Gauntlet is a fixed puzzle, so its answers can be learned once on
+// The Daily Puzzle is a fixed puzzle, so its answers can be learned once on
 // one account and replayed on another. Anonymous sign-in is free and instant,
 // which made a scout account cost literally nothing. Requiring a real account
 // does not make scouting impossible — it stops it being free, which is the
@@ -717,7 +717,7 @@ function requireAuth(request) {
 // Enforced here rather than only in the browser: the client check is a
 // courtesy so the player gets a sign-in prompt instead of an error, but this
 // is what a crafted call hits.
-/* Whether the Daily Gauntlet is account-only.
+/* Whether the Daily Puzzle is account-only.
  *
  * It was, and the reason was real: everyone plays the same seven words, so an
  * anonymous throwaway could be used to read the answers and then play them on
@@ -736,7 +736,7 @@ function requireNonGuest(request) {
   const uid = requireAuth(request);
   const firebase = request.auth.token && request.auth.token.firebase;
   if (firebase && firebase.sign_in_provider === "anonymous") {
-    throw new HttpsError("permission-denied", "Sign in with Google or email to play the Daily Gauntlet.");
+    throw new HttpsError("permission-denied", "Sign in with Google or email to play the Daily Puzzle.");
   }
   return uid;
 }
@@ -744,7 +744,7 @@ function requireNonGuest(request) {
 /* What a player sees when a callable throws something that is not an
  * HttpsError: the bare word "internal". No message, no code, nothing to act
  * on, and no trail for anyone else either unless somebody thinks to open the
- * logs. The Gauntlet did exactly that - a dialog reading "internal" and
+ * logs. The Daily Puzzle did exactly that - a dialog reading "internal" and
  * silence everywhere else.
  *
  * So the real error is logged with enough context to find it, and what
@@ -852,7 +852,7 @@ exports.changeUsername = onCall(async (request) => {
 
   // Screened here because a handle is the last free text a stranger can put in
   // front of you, and because it outlives them: `runs` documents store
-  // `username` denormalised, and the leaderboard and the static Gauntlet
+  // `username` denormalised, and the leaderboard and the static Daily Puzzle
   // archive pages both read it from there, so a slur that gets through is
   // published to a page in sitemap.xml and cannot be retracted by a rename.
   // Rejected rather than mangled — asterisks would just teach the bypass.
@@ -1047,7 +1047,7 @@ exports.refreshProfile = onCall(async (request) => {
 });
 
 // ============================================================================
-// DAILY GAUNTLET — a shared, once-per-day puzzle: everyone gets the same
+// DAILY PUZZLE — a shared, once-per-day puzzle: everyone gets the same
 // DAILY_GAUNTLET_WORD_COUNT words each Eastern-time day (see
 // getTodayDateStr), one attempt each. Everyone plays every word: running out of
 // guesses on a word reveals the answer and moves play to the next one, scoring
@@ -1102,10 +1102,10 @@ function effectiveDifficulty(word, stats) {
 }
 
 // Seven words that ramp: two from the easy third, three from the middle, two
-// from the hard third, then ordered easiest to hardest so a Gauntlet opens
+// from the hard third, then ordered easiest to hardest so a Daily Puzzle opens
 // gently and closes with its teeth out.
 //
-// Was ten. Players said a Gauntlet took too long, and length was the only one
+// Was ten. Players said a Daily Puzzle took too long, and length was the only one
 // of the obvious fixes that does not change what the mode IS — a clock would
 // have made the one unhurried mode a third race, and would have punished
 // exactly the people complaining. Seven rather than five because the tiers
@@ -1161,7 +1161,7 @@ async function loadWordStats() {
 // or cold-start race) so the word set can't change out from under players
 // mid-puzzle. Also just a backstop — getOrCreateTodaysPuzzle's lazy-
 // generate fallback (below) covers the rare case this hasn't fired yet
-// when the first player of the day opens the Gauntlet.
+// when the first player of the day opens the Daily Puzzle.
 exports.generateDailyPuzzle = onSchedule({ schedule: "0 0 * * *", timeZone: "America/New_York" }, async () => {
   const today = getTodayDateStr();
   const puzzleRef = db.collection("dailyPuzzles").doc(today);
@@ -1267,7 +1267,7 @@ function publicAttemptState(attempt) {
   return { date: attempt.date, wordIndex: attempt.wordIndex, wordCount: attempt.wordCount, score: attempt.score, status: attempt.status, history: attempt.history };
 }
 
-exports.startDailyGauntlet = onCall(readableFailures("Starting today's Gauntlet", async (request) => {
+exports.startDailyGauntlet = onCall(readableFailures("Starting today's Puzzle", async (request) => {
   const uid = GAUNTLET_REQUIRES_ACCOUNT ? requireNonGuest(request) : requireAuth(request);
   const today = getTodayDateStr();
   const ref = dailyAttemptRef(uid, today);
@@ -1301,7 +1301,7 @@ exports.startDailyGauntlet = onCall(readableFailures("Starting today's Gauntlet"
   });
 }));
 
-exports.guessDailyWord = onCall(readableFailures("Submitting that Gauntlet guess", async (request) => {
+exports.guessDailyWord = onCall(readableFailures("Submitting that Daily Puzzle guess", async (request) => {
   const uid = requireAuth(request);
   const raw = (request.data && request.data.guess) || "";
   const guess = String(raw).toUpperCase().trim();
@@ -1425,7 +1425,7 @@ exports.guessDailyWord = onCall(readableFailures("Submitting that Gauntlet guess
 // If both exhaust all 5 guesses without either solving it, a new round
 // starts with a fresh word; after SUDDEN_DEATH_MAX_ROUNDS unresolved rounds
 // it falls back to a true tie. The word is graded here, never in the
-// browser, for the same reason the Daily Gauntlet is — a devtools-savvy
+// browser, for the same reason the Daily Puzzle is — a devtools-savvy
 // player could otherwise just read the answer before guessing.
 //
 // matches/{matchId}.suddenDeath carries the public, non-spoiling state
@@ -1592,7 +1592,7 @@ exports.resolveSuddenDeathTimeout = onCall(async (request) => {
 // CLASH: FREE-FOR-ALL — the same timed Score Attack race as 1v1 Clash (shared
 // word list, 7-minute clock, most points when time's up wins), scaled to
 // 2-4 players. Deliberately reuses 1v1's trust model rather than the hidden-
-// word server-validated one Sudden Death/Gauntlet use: the word list is
+// word server-validated one Sudden Death/Daily Puzzle use: the word list is
 // still generated client-side and stored openly on the match doc, and each
 // player still self-reports their own score/board/word-index as they play
 // (see checkGuess() in index.html) — no different from what 1v1 Clash

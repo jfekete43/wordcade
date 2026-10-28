@@ -128,7 +128,7 @@ const HEADERS = {
     ${wordmark(104, 112, 60, 12, 17)}
     <div style="font-size:33px;color:${C("ink-3")};margin-top:30px">A competitive five-letter word game</div>
     <div style="font-size:19px;color:${C("ink-4")};letter-spacing:2.4px;text-transform:uppercase;
-      font-weight:bold;margin-top:17px">Stakes &nbsp;&middot;&nbsp; Clash &nbsp;&middot;&nbsp; Gauntlet &nbsp;&middot;&nbsp; Free-For-All</div>`,
+      font-weight:bold;margin-top:17px">Stakes &nbsp;&middot;&nbsp; Clash &nbsp;&middot;&nbsp; Daily Puzzle &nbsp;&middot;&nbsp; Free-For-All</div>`,
 
   // The wordmark with the guess row beside it: says "word game" in colour
   // rather than in words, and uses the 3:1 instead of fighting it.
@@ -151,7 +151,7 @@ const HEADERS = {
         ${wordmark(70, 76, 41, 9, 12)}
         <div style="font-size:24px;color:${C("ink-3")}">A competitive five-letter word game</div>
         <div style="font-size:17px;color:${C("ink-4")};letter-spacing:2.3px;text-transform:uppercase;font-weight:bold">
-          Stakes &nbsp;&middot;&nbsp; Clash &nbsp;&middot;&nbsp; Gauntlet &nbsp;&middot;&nbsp; Free-For-All</div>
+          Stakes &nbsp;&middot;&nbsp; Clash &nbsp;&middot;&nbsp; Daily Puzzle &nbsp;&middot;&nbsp; Free-For-All</div>
       </div>
       <div style="width:2px;height:206px;background:${C("line")}"></div>
       <div style="display:flex;flex-direction:column;gap:11px">

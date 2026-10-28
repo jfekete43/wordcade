@@ -5,7 +5,7 @@
  * changeUsername only ever stripped characters outside [a-zA-Z0-9_\s-], so any
  * slur spelled in letters went through. It is also the most exposed text in the
  * game — leaderboard, live feed, match cards, FFA standings, and the STATIC
- * Gauntlet archive pages, which are committed to the repo and listed in
+ * Daily Puzzle archive pages, which are committed to the repo and listed in
  * sitemap.xml. And `runs` store `username` denormalised, so a rename does not
  * retract what has already been published.
  *

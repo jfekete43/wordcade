@@ -6,7 +6,7 @@
     <title>Endless 5-Letter Word Game — Free &amp; Unlimited | Lexathon</title>
     <meta name="description" content="A free word game that doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. No install, no account.">
     <!-- How a shared link looks when it unfurls. Every share path in the
-         game ends in a link to this site - the Standard and Gauntlet
+         game ends in a link to this site - the Standard and Daily Puzzle
          results, and both invite links - so without these a share is a
          bare blue URL in Discord, iMessage, Slack or WhatsApp. One card
          serves every page; only the title and description differ.
@@ -21,7 +21,7 @@
     <meta property="og:url" content="https://lexathon.gg/">
     <meta property="og:title" content="An endless, competitive word game">
     <meta property="og:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. Free, no install, no account.">
-    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=8bdfa4c2">
+    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=5d0d6521">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two blue, one amber.">
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="An endless, competitive word game">
     <meta name="twitter:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily seven-word gauntlet, and live multiplayer. Free, no install, no account.">
-    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=8bdfa4c2">
+    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=5d0d6521">
 
     <!-- Google Search Console ownership verification. Must stay on the
          homepage permanently — Search Console re-checks it periodically and
@@ -75,7 +75,7 @@
       "name": "Lexathon",
       "url": "https://lexathon.gg",
       "description": "A free five-letter word game with endless solo runs, a daily seven-word gauntlet, 1v1 races and six-player matches.",
-      "image": "https://lexathon.gg/og-card.png?v=8bdfa4c2",
+      "image": "https://lexathon.gg/og-card.png?v=5d0d6521",
       "genre": ["Word game", "Puzzle"],
       "applicationCategory": "Game",
       "gamePlatform": "Web browser",
@@ -258,7 +258,7 @@
         .menu-btn:hover { background-color: var(--c-panel); color: var(--c-ink); }
 
         /* minmax(0, 1fr), not 1fr: with plain 1fr the min-content floor of
-           GAUNTLET widens its column and squeezes the other three, which
+           DAILY widens its column and squeezes the other three, which
            hides real overflow behind body's overflow-x: hidden. */
         .arcade-menu { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
             display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2);
@@ -273,13 +273,13 @@
         }
         @media (max-width: 385px) {
             .arcade-menu { gap: 3px; }
-            /* GAUNTLET is the only label that ever binds, and it binds here.
+            /* DAILY is the only label that ever binds, and it binds here.
                Measured in the widest stack available (DejaVu in CI; a real
                Android or iPhone gains about 5px), 11px still spills 3.1px
                at 320px. 10px fits with room. */
             .arcade-menu button { padding: var(--s-5) var(--s-1); font-size: var(--fs-1); letter-spacing: 0; }
         }
-        /* Four across cannot hold GAUNTLET at any legible size on a fold cover,
+        /* Four across cannot hold DAILY at any legible size on a fold cover,
            so below 320px the row goes 2x2 rather than shrinking the type again.
            This replaces the 3+1 wrap the old flex row produced. */
         @media (max-width: 319px) {
@@ -307,7 +307,7 @@
         .arcade-menu button:not([aria-current="true"]) { color: var(--c-ink-4); }
         .arcade-menu button:not([aria-current="true"]):hover { color: var(--c-mode); border-color: var(--c-mode); }
         .arcade-menu button[aria-current="true"] { background-color: var(--c-mode); border-color: var(--c-mode); color: var(--c-on-accent); cursor: default; }
-        /* Yesterday's Gauntlet placement strip (see #gauntlet-callout). */
+        /* Yesterday's Daily Puzzle placement strip (see #gauntlet-callout). */
         #gauntlet-callout {
             width: 100%; max-width: var(--w-col); margin: 0 auto var(--s-5); padding: var(--s-5) var(--s-6);
             background: var(--c-panel); border: var(--bw) solid var(--c-line);
@@ -319,7 +319,7 @@
         #gauntlet-callout .gc-label { color: var(--c-gauntlet); font-weight: var(--fw-bold); }
         .place-badge { vertical-align: -5px; margin-right: 4px; flex-shrink: 0; }
         /* .modal-stats span is a blanket 24px/green rule, which every stat
-           block in the Profile overrides one span at a time. The Gauntlet
+           block in the Profile overrides one span at a time. The Daily Puzzle
            tab's Today line is a sentence rather than a figure, so it opts out
            as a whole and reads at the size of the text around it. */
         #stat-gauntlet-today span { font-size: 13px; color: var(--c-ink-3); font-weight: normal; }
@@ -475,7 +475,7 @@
         .danger-tile { border-color: var(--c-loss) !important; border-style: solid !important; border-width: var(--bw-focus) !important; animation: pulse-danger 1.5s infinite; }
         @keyframes pulse-danger { 0%, 100% { box-shadow: 0 0 0 0 rgba(179, 38, 30, 0); } 50% { box-shadow: 0 0 0 4px rgba(179, 38, 30, .20); } }
 
-        /* Gauntlet/Sudden Death guesses are graded server-side (see
+        /* Daily Puzzle/Sudden Death guesses are graded server-side (see
            markRowPending) — the only visible sign anything happened between
            hitting Enter and the flip animation starting, since neither mode
            can grade locally without exposing the answer to devtools. */
@@ -753,7 +753,7 @@
         #daily-board-head, #gauntlet-card-head, #gauntlet-feed-head {
             display: flex; align-items: center; justify-content: space-between;
             gap: var(--s-5); margin-bottom: var(--s-5); }
-        /* Today's Gauntlet board, in the slot the Live Arcade Feed occupies
+        /* Today's Puzzle board, in the slot the Live Arcade Feed occupies
            during a Standard run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
         #gauntlet-card-timer { color: var(--c-ink-4); font-size: 11px; white-space: nowrap; }
@@ -769,7 +769,7 @@
         .gauntlet-archive-row .gar-date { font-size: 12px; color: var(--c-ink-4); font-weight: normal; }
         #gauntlet-archive-list, #gauntlet-archive-board { max-height: 300px; overflow-y: auto; }
         #gauntlet-feed-list { max-height: 270px; overflow-y: auto; font-size: 14px; }
-        /* Both Gauntlet boards — today's live one and the archive's detail
+        /* Both Daily Puzzle boards — today's live one and the archive's detail
            view — share renderGauntletBoard, so they share its styling too.
            Scoping either rule to one container is what silently dropped the
            "this is you" outline from the archive. */
@@ -892,7 +892,7 @@
         .lb-entry + .lb-entry { border-top: var(--bw) solid var(--c-line); }
         .lb-entry:last-child { border-bottom: none; }
         /* Not --c-clash: this class renders on the all-time leaderboard, the
-           Gauntlet feed, the archive and #lb-you, none of which are Clash. */
+           Daily Puzzle feed, the archive and #lb-you, none of which are Clash. */
         .lb-rank { font-weight: var(--fw-bold); font-size: var(--fs-2); color: var(--c-ink-4); width: 32px; z-index: 2;}
         .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; z-index: 2;}
         .lb-name { color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
@@ -928,7 +928,7 @@
            dark surface. On the DEFAULT banner there is no plate, so the name
            sits straight on the card — and the card went white, which made every
            default player name white on white at 1:1. FFA standings, the Clash
-           plates, the Gauntlet feed and archive, the leaderboard and the daily
+           plates, the Daily Puzzle feed and archive, the leaderboard and the daily
            board, all at once.
 
            Three classes beats the one-class .effect_none, so this corrects the
@@ -1231,7 +1231,7 @@
            different accent — green, purple, yellow, cyan, orange, magenta, grey,
            red — on identical plates, so the colour encoded nothing and no item
            read as more important than any other. Worse, it spent the four MODE
-           colours (Standard green, Gauntlet purple, Clash orange, FFA yellow)
+           colours (Standard green, Daily Puzzle purple, Clash orange, FFA yellow)
            on things that are not modes, which is what stopped those colours
            meaning anything anywhere else. Hierarchy here is brightness instead:
            one primary, the rest even, the two housekeeping items quiet. Hue is
@@ -1307,7 +1307,7 @@
     
     <!-- Menu, then the three modes you are NOT in.
          Every mode except Stakes used to collapse this to a single "leave"
-         button and hide the other two, so from inside a Gauntlet there was no
+         button and hide the other two, so from inside a Daily Puzzle there was no
          way to see that Clash and FFA existed, let alone reach one. Worse, the
          mode you were in was the only one never named: a new player landed on
          an unlabelled board flanked by three buttons for the OTHER modes, and
@@ -1320,26 +1320,26 @@
              after that. Order is the MODES table's order, which is also the
              homepage blurb's order. -->
         <button class="mode-nav-btn mode-endless" id="btn-nav-1" data-mode="endless" aria-current="true" onclick="window.goToMode(this.dataset.mode)">STAKES</button>
-        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-2" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">GAUNTLET</button>
+        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-2" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">DAILY</button>
         <button class="mode-nav-btn mode-clash" id="btn-nav-3" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
         <button class="mode-nav-btn mode-ffa" id="btn-nav-4" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
     </nav>
 
     <!-- STANDARD UI -->
     <!-- Cash Out lives here, not in the mode nav. Up there it read as a fifth
-         MODE sitting beside Gauntlet/Clash/FFA, when it is an action on the
+         MODE sitting beside Daily Puzzle/Clash/FFA, when it is an action on the
          score directly above it — and it is only ever Standard's. It is also
          shown and hidden at exactly the same six places as #score-board, so
          nesting it costs no JS: the existing display toggles on #btn-cash-out
          still run and still work, they just happen inside a parent that was
          already being hidden with them. -->
-    <!-- The mode you are in, named. The Gauntlet has had a header since it
+    <!-- The mode you are in, named. The Daily Puzzle has had a header since it
          shipped; Stakes had none, so the default mode was the one with no
          label anywhere on screen — which is how a player ended up complaining
          that one of "today's words" was obscure when he was not in the daily
          at all. Word count included because an endless run with no visible
          progress reads as if nothing is being kept. -->
-    <!-- Shown only when the last visit opened on the Gauntlet, and only until
+    <!-- Shown only when the last visit opened on the Daily Puzzle, and only until
          the mode settles. The flip itself is now one round trip rather than
          five, but it is still a flip, and being moved off a board you were
          about to type on is worse than being told it is coming. Never hides
@@ -1365,7 +1365,7 @@
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Bank 0 pts</button>
     </div>
 
-    <!-- DAILY GAUNTLET UI -->
+    <!-- DAILY PUZZLE UI -->
     <div id="daily-header" style="display:none;">
         <div class="score-text" id="daily-progress-text" style="color:var(--c-gauntlet);">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
         <!-- Swapped in once today's run is over, when "WORD 1/10" would be
@@ -1374,7 +1374,7 @@
         <div class="score-text">SCORE: <span id="daily-score">0</span></div>
     </div>
 
-    <!-- Yesterday's placement, shown on entering the Gauntlet. The daily
+    <!-- Yesterday's placement, shown on entering the Daily Puzzle. The daily
          board resets at midnight ET, so without this the only way to learn
          where you actually finished was to be awake when it closed. -->
     <div id="gauntlet-callout" style="display:none;"></div>
@@ -1545,7 +1545,7 @@
          Arrows step back through finished days.
 
          First of the two panels under the keyboard, because it belongs to the
-         mode this screen IS. The Gauntlet card below it is a cross-sell. -->
+         mode this screen IS. The Daily Puzzle card below it is a cross-sell. -->
     <!-- Three boards in one slot. All-time leads, deliberately: a daily board
          on a day nobody has played yet is an empty list, and an empty list is
          a worse advertisement for a game than no list at all. All-time only
@@ -1556,7 +1556,7 @@
         <div class="tabs" id="home-board-tabs">
             <button class="tab-btn active" id="hb-tab-all" onclick="window.setHomeBoard('all')">All Time</button>
             <button class="tab-btn" id="hb-tab-weekly" onclick="window.setHomeBoard('weekly')">Weekly</button>
-            <button class="tab-btn" id="hb-tab-daily" onclick="window.setHomeBoard('daily')">Daily</button>
+            <button class="tab-btn" id="hb-tab-daily" onclick="window.setHomeBoard('daily')">Today</button>
         </div>
         <div id="daily-board-head">
             <button id="daily-board-prev" onclick="window.stepDailyBoard(-1)" title="Earlier day" style="display:none;">&lsaquo;</button>
@@ -1568,7 +1568,7 @@
         <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
     </div>
 
-    <!-- Gauntlet headline card. The Gauntlet is the reason to come back
+    <!-- Daily Puzzle headline card. The Daily Puzzle is the reason to come back
          tomorrow, but as one of five equal buttons in the nav it reads as one
          of five things. This states today's puzzle, where you stand on it and
          when the next one lands, without making it the mode the site boots
@@ -1586,19 +1586,19 @@
          modes it does not belong to. -->
     <div id="gauntlet-card">
         <div id="gauntlet-card-head">
-            <span id="gauntlet-card-title">Daily Gauntlet</span>
+            <span id="gauntlet-card-title">Daily Puzzle</span>
             <span id="gauntlet-card-timer"></span>
         </div>
         <div id="gauntlet-card-body">Seven words, five guesses each. Everyone plays all seven.</div>
-        <button id="gauntlet-card-btn" onclick="window.goToMode('gauntlet')">Play Today's Gauntlet</button>
+        <button id="gauntlet-card-btn" onclick="window.goToMode('gauntlet')">Play Today's Puzzle</button>
     </div>
 
-    <!-- Today's Gauntlet board. Shown only in Gauntlet mode, taking the slot
+    <!-- Today's Puzzle board. Shown only in Daily Puzzle mode, taking the slot
          today's Standard board occupies above (the two are never both up). -->
     <div id="gauntlet-feed-container" style="display:none;">
         <div id="gauntlet-feed-head">
-            <div id="gauntlet-feed-title">Today's Gauntlet Board</div>
-            <button id="gauntlet-archive-btn" onclick="window.openGauntletArchive()">Past Gauntlets</button>
+            <div id="gauntlet-feed-title">Today's Puzzle Board</div>
+            <button id="gauntlet-archive-btn" onclick="window.openGauntletArchive()">Past Daily Puzzles</button>
         </div>
         <div id="gauntlet-feed-list"></div>
     </div>
@@ -1625,7 +1625,7 @@
              are described in prose rather than left to the nav. -->
         <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-endless);">Stakes</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Daily Gauntlet</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Daily Puzzle</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-clash);">Clash</strong> — race one other player through the same words for seven minutes.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-ffa);">FFA</strong> — the same race with three to six players at once.</li>
         </ul>
@@ -1644,7 +1644,7 @@
     <div style="margin: 20px 0 10px; font-size: var(--fs-1); color: var(--c-ink-6); text-transform: uppercase; text-align: center; letter-spacing: 1px; line-height: 2.2; max-width: 420px;">
         <a href="how-to-play.html" style="color: var(--c-ink-5); text-decoration: none;">How To Play</a> |
         <a href="strategy.html" style="color: var(--c-ink-5); text-decoration: none;">Strategy Guide</a> |
-        <a href="/gauntlet/" style="color: var(--c-ink-5); text-decoration: none;">Past Gauntlets</a> |
+        <a href="/gauntlet/" style="color: var(--c-ink-5); text-decoration: none;">Past Daily Puzzles</a> |
         <a href="about.html" style="color: var(--c-ink-5); text-decoration: none;">About</a> |
         <a href="faq.html" style="color: var(--c-ink-5); text-decoration: none;">FAQ</a><br>
         <a href="privacy.html" style="color: var(--c-ink-5); text-decoration: none;">Privacy Policy</a> |
@@ -1685,7 +1685,7 @@
     <!-- VERSUS LOBBY MODAL -->
     <!-- Clash's own colour is --c-clash, the same as its nav button. Every other
          mode already does this - FFA's lobby and end modal are gold like the FFA
-         button, the Gauntlet's are purple - and this one was cyan, so tapping
+         button, the Daily Puzzle's are purple - and this one was cyan, so tapping
          the orange button opened a blue box. The result colours inside stay as
          they are: green for a win and red for a loss are signals, not theme. -->
     <div id="versus-lobby-modal" class="modal-overlay">
@@ -1812,14 +1812,14 @@
     <!-- PAST GAUNTLETS (ARCHIVE) MODAL -->
     <div id="gauntlet-archive-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: var(--c-gauntlet);">
-            <h2 class="modal-title" id="gauntlet-archive-title">Past Gauntlets</h2>
+            <h2 class="modal-title" id="gauntlet-archive-title">Past Daily Puzzles</h2>
 
             <!-- List of past days. -->
             <div id="gauntlet-archive-browse">
-                <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Gauntlet to see the final standings.</div>
+                <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Daily Puzzle to see the final standings.</div>
                 <div id="gauntlet-archive-list"></div>
                 <button class="btn-quiet" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
-                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Gauntlet, with the words →</a>
+                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Daily Puzzle, with the words →</a>
             </div>
 
             <!-- One past day's final board. -->
@@ -1840,10 +1840,10 @@
         </div>
     </div>
 
-    <!-- DAILY GAUNTLET END MODAL -->
+    <!-- DAILY PUZZLE END MODAL -->
     <div id="daily-end-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: var(--c-gauntlet);">
-            <h2 class="modal-title" id="daily-end-title">Gauntlet Complete!</h2>
+            <h2 class="modal-title" id="daily-end-title">Daily Puzzle Complete!</h2>
             <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:var(--c-endless); font-size: var(--fs-6);">0</span></div>
 
             <div id="daily-end-standing" style="display:none; font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 12px;"></div>
@@ -1853,7 +1853,7 @@
             <div class="modal-buttons">
                 <button class="btn-primary" id="btn-daily-share" onclick="window.shareDailyStats()">Share Result</button>
                 <!-- Just dismisses the modal: today's board is already live
-                     underneath it, and the Gauntlet tab is now the all-time
+                     underneath it, and the Daily Puzzle tab is now the all-time
                      hall of fame rather than today's standings. -->
                 <button class="btn-primary" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
                 <button class="btn-quiet" onclick="window.leaveDailyGauntlet()">Back to Stakes</button>
@@ -2003,14 +2003,14 @@
                     <li>Leaving mid-match forfeits the match — your opponent wins automatically.</li>
                 </ul>
 
-                <h3 style="color: var(--c-gauntlet); text-transform: uppercase; margin-bottom: 6px;">🔥 Gauntlet</h3>
+                <h3 style="color: var(--c-gauntlet); text-transform: uppercase; margin-bottom: 6px;">🔥 Daily Puzzle</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>One shared puzzle per day — everyone gets the identical seven words, one attempt each.</li>
                     <li>Same 5-guess, 500/250/150/50/10 scoring as Stakes, and no Continues — but you play all seven words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
                     <li>No clock, and you don't have to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</li>
                     <li>Resets at midnight Eastern.</li>
                     <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
-                    <li>Today's standings are on the Gauntlet screen itself, ordered by score and then by words solved, and yesterday's stay in Past Gauntlets. There's no all-time Gauntlet board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
+                    <li>Today's standings are on the Daily Puzzle screen itself, ordered by score and then by words solved, and yesterday's stay in Past Daily Puzzles. There's no all-time Daily Puzzle board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
                 </ul>
 
                 <h3 style="color: var(--c-ffa); text-transform: uppercase; margin-bottom: 6px;">👑 FFA</h3>
@@ -2028,7 +2028,7 @@
                     <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
                     <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
                     <li><b>Challenges:</b> Daily (3 rotate each day) and Career (one-time milestones) — both pay out in points.</li>
-                    <li><b>Leaderboards:</b> All Time, Weekly (resets Monday), Clash (Clash rating) and FFA (FFA rating). The Gauntlet has its own board on its play screen, which resets nightly.</li>
+                    <li><b>Leaderboards:</b> All Time, Weekly (resets Monday), Clash (Clash rating) and FFA (FFA rating). The Daily Puzzle has its own board on its play screen, which resets nightly.</li>
                 </ul>
             </div>
 
@@ -2117,7 +2117,7 @@
                 <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Stakes</button>
                 <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
                 <button class="tab-btn" id="tab-prof-ffa" onclick="window.setProfileTab('ffa')">FFA</button>
-                <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Gauntlet</button>
+                <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Daily Puzzle</button>
             </div>
 
             <!-- STANDARD STATS -->
@@ -2165,9 +2165,9 @@
                 <div id="stat-ffa-note" style="text-align: center; font-size: var(--fs-2); color: var(--c-ink-4); line-height: 1.5;">&nbsp;</div>
             </div>
 
-            <!-- GAUNTLET STATS -->
+            <!-- DAILY STATS -->
             <div id="profile-gauntlet" class="modal-stats" style="text-align: left; display: none;">
-                <div style="text-align: center; margin-bottom: 4px;">Best Gauntlet: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: var(--fs-6);">—</span> pts</div>
+                <div style="text-align: center; margin-bottom: 4px;">Best Daily Puzzle: <br><span id="stat-gauntlet-best" style="color: var(--c-gauntlet); font-size: var(--fs-6);">—</span> pts</div>
                 <div id="stat-gauntlet-best-when" style="text-align: center; margin-bottom: 20px; font-size: var(--fs-2); color: var(--c-ink-4);">&nbsp;</div>
 
                 <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
@@ -2281,7 +2281,7 @@
         // SEASONS — which holiday, if any, today falls in.
         //
         // UTC, matching isWithinSeasonalWindow() and the server-side shop gate,
-        // rather than the Eastern getTodayDateStr() the Gauntlet rolls over on.
+        // rather than the Eastern getTodayDateStr() the Daily Puzzle rolls over on.
         // Two day boundaries already coexist in this app; a decoration sharing
         // the shop's boundary is the one that matters, because the Halloween
         // theme and the Halloween cosmetic going live together is the point.
@@ -2453,7 +2453,7 @@
         const MODE_INTRO = {
             endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Stakes",
                 text: "Guess 5-letter words one after another, as long as you can keep going. Solve a word in fewer guesses to score more. Miss one and you spend a Continue \u2014 miss with none left and the run is over. Bank your score whenever you want to stop." },
-            gauntlet: { icon: "\uD83D\uDD25", color: "var(--c-gauntlet)", title: "Daily Gauntlet",
+            gauntlet: { icon: "\uD83D\uDD25", color: "var(--c-gauntlet)", title: "Daily Puzzle",
                 text: "Seven words, five guesses each. Everyone plays all seven \u2014 the same seven words as everybody else, once a day. No clock: stop whenever you like and pick up where you left off. Share your result at the end and see where you finished." },
             clash: { icon: "\u2694\uFE0F", color: "var(--c-clash)", title: "Clash",
                 text: "Race one other player through the same words for 7 minutes. First to a 1,000-point lead, or the higher score at the buzzer, wins." },
@@ -2508,7 +2508,7 @@
         // so it's a periodic reminder rather than a wall. Naturally stops
         // firing forever once isGuest flips to false after linking.
         let signupNudgeShownThisSession = false;
-        // The guest copy the nudge normally shows, kept so the Gauntlet gate can
+        // The guest copy the nudge normally shows, kept so the Daily Puzzle gate can
         // borrow the same modal with its own wording and hand it back after.
         const SIGNUP_NUDGE_DEFAULT_BODY = "You're playing as a Guest \u2014 everything you've earned lives only in this browser and can't be recovered if it's ever cleared. Sign in to keep it forever and play from any device.";
 
@@ -2686,7 +2686,7 @@
                     { id: "c_hof", name: "Legendary Milestone", desc: "Guess 2,500 total words correctly.", req: 2500, field: "totalWordsGuessed", reward: 100000 },
                     { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
                     { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
-                    { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Gauntlet Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
+                    { id: "c_top10daily", name: "Daily Top 10", desc: "Place in the Top 10 on the Daily Puzzle Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
                     { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
                     { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 },
                     { id: "c_untouchable", name: "Untouchable", desc: "Reach a streak of 10 correct guesses without a miss.", req: 10, field: "bestNoMissStreak", reward: 20000 },
@@ -2704,7 +2704,7 @@
 
           // Eastern-time calendar-day string (YYYY-MM-DD) — must match
           // functions/index.js's getTodayDateStr() exactly, since the server is
-          // the one deciding when the Gauntlet/daily challenges/stats actually
+          // the one deciding when the Daily Puzzle/daily challenges/stats actually
           // roll over; this copy only needs to agree on what "today" is, e.g.
           // for the leaderboard's puzzleDate filter. America/New_York (an IANA
           // zone, not a fixed offset) keeps this correct across EST/EDT.
@@ -3024,7 +3024,7 @@
                     // Cloud Function does it instead and hands back the result.
                     //
                     // NOT awaited. Nothing below needs its answer: the cosmetics
-                    // and the Gauntlet landing both read fields that came out of
+                    // and the Daily Puzzle landing both read fields that came out of
                     // the doc above. Awaiting it put a cold-startable callable in
                     // front of everything the home screen does, which is most of
                     // why opening the page sat on an Stakes board for seconds
@@ -3044,7 +3044,7 @@
                     }).catch((e) => console.error("Profile refresh failed", e));
                 }
                 applyEquippedCosmetics();
-                // First paint of the Gauntlet card, once there's a signed-in
+                // First paint of the Daily Puzzle card, once there's a signed-in
                 // user to read an attempt for. Guarded because this callback
                 // also refires mid-session (linking a Google account), by
                 // which point the player may be in a match.
@@ -3333,7 +3333,7 @@
         window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; }
         window.confirmNewGame = function() {
             if (isVersusMode) { alert("Leave the match first!"); return; }
-            if (isDailyMode) { alert("Leave the Gauntlet first!"); return; }
+            if (isDailyMode) { alert("Leave the Daily Puzzle first!"); return; }
             if (isFfaMode) { alert("Leave the FFA match first!"); return; }
             if (score > 0 || runStats.played > 0) { let confirmSwitch = confirm("Start a new game? This will end your current run and bank your score."); if (!confirmSwitch) return; document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun(); } 
             else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
@@ -3473,7 +3473,7 @@
         // onRunCreated) and counts over /runs — so no new stat counters and no
         // functions change were needed.
         //
-        // Deliberately NOT memoised per session. Finishing a Gauntlet does not
+        // Deliberately NOT memoised per session. Finishing a Daily Puzzle does not
         // reload the page (leaveDailyGauntlet just starts a fresh Standard
         // run), so a cached panel would keep showing the pre-run numbers for
         // the rest of the session — and today's placement moves on its own as
@@ -3493,31 +3493,31 @@
             const hasBest = Number.isFinite(best);
             bestEl.innerText = hasBest ? best.toLocaleString() : "—";
             const bestNum = hasBest ? gauntletNumber(userProfileData.bestGauntletDate) : null;
-            whenEl.innerText = bestNum ? `set on Gauntlet #${bestNum}` : "\u00a0";
+            whenEl.innerText = bestNum ? `set on Daily Puzzle #${bestNum}` : "\u00a0";
             top10El.innerText = userProfileData.achievedTop10Daily ? "Yes" : "Not yet";
 
-            // Global standing on the all-time Gauntlet board — the same board
-            // the Leaderboard's Gauntlet tab shows, so the two agree.
+            // Global standing on the all-time Daily Puzzle board — the same board
+            // the Leaderboard's Daily Puzzle tab shows, so the two agree.
             if (hasBest) {
                 getCountFromServer(query(collection(db, "users"), where("bestGauntletScore", ">", best)))
                     .then((snap) => { rankEl.innerText = "#" + (snap.data().count + 1).toLocaleString(); })
-                    .catch((e) => { console.error("Gauntlet rank failed", e); rankEl.innerText = "—"; });
+                    .catch((e) => { console.error("Daily Puzzle rank failed", e); rankEl.innerText = "—"; });
             } else {
                 rankEl.innerText = "—";
             }
 
-            // How many Gauntlets this player has finished. Equality on uid+mode
+            // How many Daily Puzzles this player has finished. Equality on uid+mode
             // is the prefix of the (uid, mode, score) index the bests backfill
             // already needs, so this costs no extra index.
             getCountFromServer(query(collection(db, "runs"), where("uid", "==", currentUser.uid), where("mode", "==", "daily")))
                 .then((snap) => { playedEl.innerText = snap.data().count.toLocaleString(); })
-                .catch((e) => { console.error("Gauntlets played failed", e); playedEl.innerText = "—"; });
+                .catch((e) => { console.error("Daily Puzzles played failed", e); playedEl.innerText = "—"; });
 
             // Today's line, phrased the same way the headline card does.
             try {
                 const today = getTodayDateStr();
                 const num = gauntletNumber(today);
-                const label = num ? `Gauntlet #${num}` : "Today's Gauntlet";
+                const label = num ? `Daily Puzzle #${num}` : "Today's Puzzle";
                 const run = await fetchMyGauntletRun(today);
                 if (!run) {
                     todayEl.innerHTML = `${label} — <span class="gs-strong">not finished yet</span>`;
@@ -3529,7 +3529,7 @@
                 todayEl.innerHTML = `${placeBadge(place)} ${label} — <span class="gs-strong">${score.toLocaleString()}</span> pts, ` +
                     `currently <span class="gs-strong">${ordinal(place)} of ${total}</span>`;
             } catch (e) {
-                console.error("Today's Gauntlet stat failed", e);
+                console.error("Today's Puzzle stat failed", e);
             }
         }
 
@@ -3683,7 +3683,7 @@
         // periodKeyFor() in functions/index.js — the client picks which key to
         // ask for, the server decides which key a run is filed under, and a
         // disagreement shows an empty board. tests/leaderboard-period pins them
-        // together. Eastern, so the boundary matches the Gauntlet's rather than
+        // together. Eastern, so the boundary matches the Daily Puzzle's rather than
         // each viewer's own timezone; the old board windowed on the VIEWER's
         // local month, so two players in different zones saw different boards.
         const LEADERBOARD_PERIOD = "weekly"; // "weekly" | "monthly"
@@ -3776,11 +3776,11 @@
                 // Every board is /users ordered by one field; weekly adds an
                 // equality on the window in front of it.
                 //
-                // No Gauntlet entry here on purpose. The Gauntlet is a fixed
+                // No Daily Puzzle entry here on purpose. The Daily Puzzle is a fixed
                 // daily puzzle, so its answers can be scouted with a throwaway
                 // account and replayed on a main one — which a permanent
                 // all-time board would have preserved forever. Its standings
-                // live on the play screen and in Past Gauntlets, where they
+                // live on the play screen and in Past Daily Puzzles, where they
                 // reset nightly and a scouted run ages out.
                 const USERS_BOARD = {
                     all:   { field: "bestRunScore", fallback: 0,    excludesUnset: true,  empty: "No runs yet — play a game to get on the board" },
@@ -3962,7 +3962,7 @@
         let myMiniBoard = [];
         let currentWordGuesses = []; // this word's guesses so far — [{guess, colors}], reset each new word; only ever saved/restored for Stakes mode
 
-        // --- DAILY GAUNTLET STATE ---
+        // --- DAILY PUZZLE STATE ---
         let isDailyMode = false;
         let dailyAttempt = null; // server's publicAttemptState — never contains the target words
 
@@ -4113,7 +4113,7 @@
         // and hiding the other two.
         const MODES = {
             endless:  { label: "STAKES",  cls: "mode-endless",  color: "var(--c-endless)" },
-            gauntlet: { label: "GAUNTLET", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
+            gauntlet: { label: "DAILY", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
             clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
             ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)" },
         };
@@ -4215,10 +4215,10 @@
             showStandardPanels(true);
         }
 
-        // --- DAILY GAUNTLET ---
+        // --- DAILY PUZZLE ---
         function colorCodeToName(c) { return c === 2 ? "correct" : c === 1 ? "present" : "absent"; }
 
-        // A Gauntlet is one run per day, so once today's is finished there is
+        // A Daily Puzzle is one run per day, so once today's is finished there is
         // nothing left to type. Dismissing the end modal used to leave an
         // empty board and a live keyboard sitting above a header still reading
         // "WORD 1/10 · SCORE: 0" — a whole screen of dead space above the
@@ -4264,13 +4264,13 @@
             return PLACE_BADGES.plain;
         }
 
-        // --- GAUNTLET STANDINGS ---
+        // --- DAILY STANDINGS ---
         //
-        // A finished Gauntlet is written to runs/daily_{uid}_{date} — a
+        // A finished Daily Puzzle is written to runs/daily_{uid}_{date} — a
         // deterministic id (see guessDailyWord in functions/index.js), so a
         // player holds at most one run per puzzle date. That is what makes
         // every number below exact: unlike the all-time board, which has to
-        // dedup several runs down to one row per player, a single Gauntlet's
+        // dedup several runs down to one row per player, a single Daily Puzzle's
         // board is one row per player by construction, so counting rows above
         // you IS your placement.
         function dailyRunId(uid, dateStr) { return `daily_${uid}_${dateStr}`; }
@@ -4292,17 +4292,17 @@
             return `${v}${suffix}`;
         }
 
-        // Your own run for one Gauntlet, or null if you never played it.
+        // Your own run for one Daily Puzzle, or null if you never played it.
         // A single doc read rather than a query, because the id is derivable.
         async function fetchMyGauntletRun(dateStr) {
             if (!currentUser) return null;
             try {
                 const snap = await getDoc(doc(db, "runs", dailyRunId(currentUser.uid, dateStr)));
                 return snap.exists() ? snap.data() : null;
-            } catch (e) { console.error("Gauntlet run lookup failed", e); return null; }
+            } catch (e) { console.error("Daily Puzzle run lookup failed", e); return null; }
         }
 
-        // Exact placement in one Gauntlet: count the runs that beat this score
+        // Exact placement in one Daily Puzzle: count the runs that beat this score
         // and add one. Ties share a place, so two players on 3,200 are both
         // 5th and the next player down is 7th.
         //
@@ -4333,10 +4333,10 @@
             return Math.max(0, Number(attemptOrRun.wordsGuessed) || 0);
         }
 
-        // Today's Gauntlet board, live, in the slot the Live Arcade Feed uses
+        // Today's Puzzle board, live, in the slot the Live Arcade Feed uses
         // during a Standard run.
         //
-        // A Gauntlet run is only written to /runs when it FINISHES, so this
+        // A Daily Puzzle run is only written to /runs when it FINISHES, so this
         // fills in as players complete their runs rather than ticking
         // constantly — at most one write per player per day, which is what
         // makes an onSnapshot here cheap enough to leave open while you play.
@@ -4352,7 +4352,7 @@
             const listEl = document.getElementById("gauntlet-feed-list");
             const num = gauntletNumber(dateStr);
             document.getElementById("gauntlet-feed-title").innerText =
-                num ? `Gauntlet #${num} — Today's Board` : "Today's Gauntlet Board";
+                num ? `Daily Puzzle #${num} — Today's Board` : "Today's Puzzle Board";
             listEl.innerHTML = '<div class="gauntlet-empty">Loading today\'s board...</div>';
             document.getElementById("gauntlet-feed-container").style.display = "block";
 
@@ -4364,7 +4364,7 @@
             gauntletFeedUnsub = onSnapshot(q,
                 (snapshot) => renderGauntletBoard(snapshot, listEl, "No finished runs yet today — be the first."),
                 (err) => {
-                    console.error("Gauntlet feed failed", err);
+                    console.error("Daily Puzzle feed failed", err);
                     listEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load today\'s board.</div>';
                 }
             );
@@ -4424,7 +4424,7 @@
             listEl.innerHTML = html || `<div class="gauntlet-empty">${escapeHtml(emptyText)}</div>`;
         }
 
-        // --- GAUNTLET HEADLINE CARD ---
+        // --- DAILY HEADLINE CARD ---
         let gauntletCardTimer = null;
         let gauntletCardDate = null;
 
@@ -4498,14 +4498,14 @@
             gauntletCardDate = today;
 
             const num = gauntletNumber(today);
-            document.getElementById("gauntlet-card-title").innerText = num ? `Daily Gauntlet #${num}` : "Daily Gauntlet";
+            document.getElementById("gauntlet-card-title").innerText = num ? `Daily Puzzle #${num}` : "Daily Puzzle";
             stopGauntletCardTimer();
             updateGauntletCardTimer();
             gauntletCardTimer = setInterval(updateGauntletCardTimer, 30000);
 
             if (!currentUser) {
                 bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven.";
-                btnEl.innerText = "Play Today's Gauntlet";
+                btnEl.innerText = "Play Today's Puzzle";
                 return;
             }
             // Say it on the card rather than letting the tap dead-end in a gate.
@@ -4523,7 +4523,7 @@
             //
             // What it must not do is fetch: startDailyGauntlet CREATES the
             // attempt, so a card that called it enrolled every visitor who
-            // merely loaded the page into that day's Gauntlet, and wrote a
+            // merely loaded the page into that day's Daily Puzzle, and wrote a
             // document to say so.
             let attempt = null;
             if (gauntletAttemptCache.date === today && gauntletAttemptCache.promise) {
@@ -4542,13 +4542,13 @@
 
             if (!attempt || untouched) {
                 bodyEl.innerHTML = "Seven words, five guesses each. Everyone plays all seven.";
-                btnEl.innerText = "Play Today's Gauntlet";
+                btnEl.innerText = "Play Today's Puzzle";
             } else if (attempt.status === "active") {
                 const at = Math.max(0, Number(attempt.wordIndex) || 0) + 1;
                 const of = Math.max(1, Number(attempt.wordCount) || 10);
                 bodyEl.innerHTML = `In progress — you're on word <span class="gcb-strong">${at} of ${of}</span>, ` +
                     `<span class="gcb-strong">${(Number(attempt.score) || 0).toLocaleString()}</span> pts so far.`;
-                btnEl.innerText = "Resume Gauntlet";
+                btnEl.innerText = "Resume Daily Puzzle";
             } else {
                 const score = Math.max(0, Number(attempt.score) || 0);
                 bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts.`;
@@ -4560,7 +4560,7 @@
                         bodyEl.innerHTML = `Done for today — <span class="gcb-strong">${score.toLocaleString()}</span> pts, ` +
                             `currently <span class="gcb-strong">${ordinal(place)} of ${total}</span>.`;
                     })
-                    .catch((e) => console.error("Gauntlet card standing failed", e));
+                    .catch((e) => console.error("Daily Puzzle card standing failed", e));
             }
         }
 
@@ -4576,7 +4576,7 @@
         // Anonymous players are allowed through while GAUNTLET_REQUIRES_ACCOUNT
         // is false. This used to refuse them outright, which mattered: the
         // landing throws on a null attempt, so leaving it would have turned
-        // the dropped gate into "Couldn't start today's Gauntlet" rather than
+        // the dropped gate into "Couldn't start today's Puzzle" rather than
         // into a playable board.
         let gauntletAttemptCache = { date: null, promise: null };
         function fetchTodaysAttempt() {
@@ -4591,7 +4591,7 @@
                         // Do not cache a failure — the next caller should retry
                         // rather than inherit it for the rest of the session.
                         gauntletAttemptCache.promise = null;
-                        console.error("Today's Gauntlet attempt lookup failed", e);
+                        console.error("Today's Puzzle attempt lookup failed", e);
                         throw e;
                     });
             }
@@ -4603,7 +4603,7 @@
             gauntletAttemptCache = { date: getTodayDateStr(), promise: Promise.resolve(attempt || null) };
         }
 
-        // The Live Arcade Feed and the Gauntlet card both belong to an Stakes
+        // The Live Arcade Feed and the Daily Puzzle card both belong to an Stakes
         // run, so every mode switch shows or hides them together.
         function showStandardPanels(visible) {
             document.getElementById("daily-board-container").style.display = visible ? "block" : "none";
@@ -4613,7 +4613,7 @@
 
         // --- PAST GAUNTLETS ---
         //
-        // Nothing deletes a /runs doc, so every past Gauntlet's final board is
+        // Nothing deletes a /runs doc, so every past Daily Puzzle's final board is
         // still queryable with the index the live board already uses — the
         // archive is the same query with a different date.
         //
@@ -4641,7 +4641,7 @@
         window.backToGauntletArchiveList = function() {
             document.getElementById("gauntlet-archive-detail").style.display = "none";
             document.getElementById("gauntlet-archive-browse").style.display = "block";
-            document.getElementById("gauntlet-archive-title").innerText = "Past Gauntlets";
+            document.getElementById("gauntlet-archive-title").innerText = "Past Daily Puzzles";
         };
 
         window.showOlderGauntlets = function() {
@@ -4658,14 +4658,14 @@
             let shown = 0;
             while (shown < archiveShown) {
                 const num = gauntletNumber(dateStr);
-                if (!num) break; // walked back past Gauntlet #1
+                if (!num) break; // walked back past Daily Puzzle #1
                 html += `<button class="gauntlet-archive-row" onclick="window.viewPastGauntlet('${dateStr}')">` +
-                        `<span>Gauntlet #${num}</span><span class="gar-date">${escapeHtml(formatPuzzleDate(dateStr))}</span></button>`;
+                        `<span>Daily Puzzle #${num}</span><span class="gar-date">${escapeHtml(formatPuzzleDate(dateStr))}</span></button>`;
                 dateStr = shiftDateStr(dateStr, -1);
                 shown++;
             }
-            listEl.innerHTML = html || '<div class="gauntlet-empty">No Gauntlets have finished yet — today\'s is the first.</div>';
-            // Hide "Show Older" once the list has reached Gauntlet #1.
+            listEl.innerHTML = html || '<div class="gauntlet-empty">No Daily Puzzles have finished yet — today\'s is the first.</div>';
+            // Hide "Show Older" once the list has reached Daily Puzzle #1.
             document.getElementById("gauntlet-archive-more").style.display = gauntletNumber(dateStr) ? "block" : "none";
         }
 
@@ -4677,22 +4677,22 @@
 
             document.getElementById("gauntlet-archive-browse").style.display = "none";
             document.getElementById("gauntlet-archive-detail").style.display = "block";
-            document.getElementById("gauntlet-archive-title").innerText = num ? `Gauntlet #${num}` : "Past Gauntlet";
+            document.getElementById("gauntlet-archive-title").innerText = num ? `Daily Puzzle #${num}` : "Past Daily Puzzle";
             document.getElementById("gauntlet-archive-full").href = `/gauntlet/${dateStr}/`;
             standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
             boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
 
             try {
-                // One-off read, not a listener: a past Gauntlet is settled.
+                // One-off read, not a listener: a past Daily Puzzle is settled.
                 const snapshot = await getDocs(query(
                     collection(db, "runs"),
                     where("mode", "==", "daily"), where("puzzleDate", "==", dateStr),
                     orderBy("score", "desc"), orderBy("wordsGuessed", "desc"), limit(100)
                 ));
-                renderGauntletBoard(snapshot, boardEl, "No scores were recorded for this Gauntlet.");
+                renderGauntletBoard(snapshot, boardEl, "No scores were recorded for this Daily Puzzle.");
             } catch (e) {
-                console.error("Past Gauntlet board failed", e);
-                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load this Gauntlet.</div>';
+                console.error("Past Daily Puzzle board failed", e);
+                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load this Daily Puzzle.</div>';
             }
 
             // Your own line above the board. Separate from the board query so
@@ -4709,17 +4709,17 @@
                 const { place, total } = await fetchGauntletStanding(dateStr, score, gauntletSolvedCount(run));
                 line = `you finished <span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span>`;
                 badge = placeBadge(place);
-            } catch (e) { console.error("Past Gauntlet standing failed", e); }
+            } catch (e) { console.error("Past Daily Puzzle standing failed", e); }
             // Same sentence as the callout, so it gets the same badge.
             standingEl.innerHTML = `${badge} <span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
         };
 
-        // "You finished 12th of 47" for yesterday's Gauntlet, shown when you
+        // "You finished 12th of 47" for yesterday's Daily Puzzle, shown when you
         // come back for today's.
         //
         // Yesterday specifically: the point is to close the loop on the run
         // you actually just played, a placement from five days ago is noise,
-        // and finding "your most recent Gauntlet" would need an index on
+        // and finding "your most recent Daily Puzzle" would need an index on
         // (uid, mode, puzzleDate) that nothing else in the game wants.
         async function showPreviousGauntletCallout() {
             const el = document.getElementById("gauntlet-callout");
@@ -4732,7 +4732,7 @@
             if (!run) return; // didn't play yesterday — nothing to report
 
             const num = gauntletNumber(dateStr);
-            const label = num ? `Gauntlet #${num}` : "Yesterday's Gauntlet";
+            const label = num ? `Daily Puzzle #${num}` : "Yesterday's Daily Puzzle";
             const score = Math.max(0, Number(run.score) || 0);
             let detail = `you scored <span class="gc-place">${score.toLocaleString()}</span>`;
             let badge = PLACE_BADGES.plain;
@@ -4742,7 +4742,7 @@
                 badge = placeBadge(place);
             } catch (e) {
                 // Placement is the nice-to-have; the score line still lands.
-                console.error("Gauntlet standing lookup failed", e);
+                console.error("Daily Puzzle standing lookup failed", e);
             }
             el.innerHTML = `${badge} <span class="gc-label">${label}</span> — ${detail}`;
             el.style.display = "block";
@@ -4755,8 +4755,8 @@
             // a sign-in prompt rather than a raw permission error.
             if (GAUNTLET_REQUIRES_ACCOUNT && userProfileData && userProfileData.isGuest) {
                 showGuestGate(
-                    "The Daily Gauntlet needs a free account.",
-                    "Everyone plays the same seven words each day, so the Gauntlet is account-only \u2014 it keeps a throwaway account from being used to look the answers up. Signing in also saves the progress you have already made in this browser."
+                    "The Daily Puzzle needs a free account.",
+                    "Everyone plays the same seven words each day, so the Daily Puzzle is account-only \u2014 it keeps a throwaway account from being used to look the answers up. Signing in also saves the progress you have already made in this browser."
                 );
                 return;
             }
@@ -4771,9 +4771,9 @@
                 // this call — so by the time the landing needs it, it is in
                 // flight or done rather than beginning here.
                 dailyAttempt = await fetchTodaysAttempt();
-                if (!dailyAttempt) throw new Error("Couldn't start today's Gauntlet.");
+                if (!dailyAttempt) throw new Error("Couldn't start today's Puzzle.");
             } catch (e) {
-                alert(e.message || "Couldn't start today's Gauntlet.");
+                alert(e.message || "Couldn't start today's Puzzle.");
                 console.error(e);
                 return;
             }
@@ -4817,11 +4817,11 @@
             // returns the existing (not a fresh) attempt in that case.
             const wordEntry = dailyAttempt.history && dailyAttempt.history[dailyAttempt.wordIndex];
             if (wordEntry && Array.isArray(wordEntry.guesses)) {
-                console.log("Daily Gauntlet resume: replaying", wordEntry.guesses.length, "prior guess(es) on word", dailyAttempt.wordIndex + 1, wordEntry.guesses);
+                console.log("Daily Puzzle resume: replaying", wordEntry.guesses.length, "prior guess(es) on word", dailyAttempt.wordIndex + 1, wordEntry.guesses);
                 wordEntry.guesses.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
                 currentRow = wordEntry.guesses.length;
             } else {
-                console.error("Daily Gauntlet resume: no history entry for wordIndex", dailyAttempt.wordIndex, "— full attempt was:", dailyAttempt);
+                console.error("Daily Puzzle resume: no history entry for wordIndex", dailyAttempt.wordIndex, "— full attempt was:", dailyAttempt);
             }
         }
 
@@ -4888,7 +4888,7 @@
             //
             // animateRowReveal finishes at 750ms — five tiles staggered 150ms
             // apart, each flipping for 150 — so 800 is the animation plus a
-            // frame, and 1000 was 250ms of nothing. Across a whole Gauntlet
+            // frame, and 1000 was 250ms of nothing. Across a whole Daily Puzzle
             // the two numbers here were about 45 seconds of enforced waiting.
             }, 800);
         }
@@ -4936,7 +4936,7 @@
             }, 1000);
         }
 
-        // A single failed word ends the whole Gauntlet run right there — the
+        // A single failed word ends the whole Daily Puzzle run right there — the
         // rest of history stays as untouched {guesses:[], solved:false}
         // placeholders (see functions/index.js's guessDailyWord), which
         // reads identically to an actually-attempted-and-failed word unless
@@ -4949,11 +4949,11 @@
 
         async function showDailyEndModal(attempt, alreadyPlayed) {
             // Covers both routes into this screen — finishing a run now, and
-            // reopening a Gauntlet already played today — so dismissing the
+            // reopening a Daily Puzzle already played today — so dismissing the
             // modal leaves the standings as the whole page either way.
             setGauntletPlaySurfaceVisible(false);
             document.getElementById("daily-score").innerText = Math.max(0, Number(attempt.score) || 0).toLocaleString();
-            document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Gauntlet Complete!";
+            document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Daily Puzzle Complete!";
             const played = dailyPlayedWords(attempt);
             const solvedCount = played.filter((h) => h.solved).length;
             // Every finished run has played all ten, so there is one line to
@@ -4973,10 +4973,10 @@
             fetchGauntletStanding(attempt.date, Math.max(0, Number(attempt.score) || 0), solvedCount)
                 .then(({ place, total }) => {
                     standingEl.innerHTML = `Currently <span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span> on today's board` +
-                        `<div style="font-size: 11px; color: var(--c-ink-4); margin-top: 2px;">Final once today's Gauntlet closes at midnight ET.</div>`;
+                        `<div style="font-size: 11px; color: var(--c-ink-4); margin-top: 2px;">Final once today's Puzzle closes at midnight ET.</div>`;
                     standingEl.style.display = "block";
                 })
-                .catch((e) => console.error("Today's Gauntlet standing failed", e));
+                .catch((e) => console.error("Today's Puzzle standing failed", e));
 
             // Wallet/careerBank were updated server-side by onRunCreated (the
             // same trigger every other run uses) — refresh the local profile
@@ -4994,7 +4994,7 @@
             seedTodaysAttempt(dailyAttempt);
             dailyAttempt = null;
             // Standard needs the board and keyboard back, whether or not
-            // today's Gauntlet was finished when they left it.
+            // today's Puzzle was finished when they left it.
             setGauntletPlaySurfaceVisible(true);
             document.getElementById("daily-header").style.display = "none";
             document.getElementById("gauntlet-callout").style.display = "none";
@@ -5007,7 +5007,7 @@
             window.startNewRun();
         }
 
-        // Kept because the Gauntlet card on the home screen calls it. The nav
+        // Kept because the Daily Puzzle card on the home screen calls it. The nav
         // no longer toggles anything — it routes through goToMode.
         window.toggleDailyMode = function() {
             if (document.activeElement) document.activeElement.blur();
@@ -6438,7 +6438,7 @@
         }
 
         window.shareStats = function() {
-            // Shape matches the Gauntlet share on purpose: heading, one result
+            // Shape matches the Daily Puzzle share on purpose: heading, one result
             // line, one hook, then the bare link on its own line. No run bar
             // here — a Standard run has no fixed length, so a row of blocks
             // would have nothing to measure itself against.
@@ -6462,7 +6462,7 @@
         }
 
         // Puzzle number for the share heading, counted off the first-ever
-        // Gauntlet. Derived from the ATTEMPT's own date (server-issued, always
+        // Daily Puzzle. Derived from the ATTEMPT's own date (server-issued, always
         // America/New_York) rather than the viewer's clock, so a player in
         // Tokyo sharing today's run quotes the same number as one in New York,
         // and an older attempt still reports the number it was played under.
@@ -6475,7 +6475,7 @@
         // NOTE: this number is permanent the moment anyone shares it. Changing
         // the epoch later renumbers every past share, so it should only ever be
         // corrected if it's wrong from the start.
-        const GAUNTLET_EPOCH = "2026-09-02"; // date of Gauntlet #1
+        const GAUNTLET_EPOCH = "2026-09-02"; // date of Daily Puzzle #1
         function gauntletNumber(dateStr) {
             if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
             const toUTC = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
@@ -6531,13 +6531,13 @@
                 : `💰 ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`;
 
             const num = gauntletNumber(dailyAttempt.date);
-            const heading = num ? `🕹️ Lexathon Gauntlet #${num}` : "🕹️ Lexathon Gauntlet";
+            const heading = num ? `🕹️ Lexathon Daily Puzzle #${num}` : "🕹️ Lexathon Daily Puzzle";
             const shareMessage = `${heading}\n${bar}\n${resultLine}`;
-            shareViaSheetOrClipboard("Lexathon Gauntlet", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
+            shareViaSheetOrClipboard("Lexathon Daily Puzzle", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
         }
 
         // Clash/FFA don't have a shared daily puzzle to compare results
-        // against the way the Gauntlet does — a random per-match word list
+        // against the way the Daily Puzzle does — a random per-match word list
         // makes a "beat my score" share meaningless once the match is over.
         // What IS worth sharing is the private room itself, while it's
         // still open: the host's room code, so a friend can join the
@@ -6581,7 +6581,7 @@
 
         function resetKeyboardColors() { document.querySelectorAll(".key").forEach(key => { key.classList.remove("correct", "present", "absent"); }); }
 
-        // Gauntlet/Sudden Death guesses have to round-trip a Cloud Function
+        // Daily Puzzle/Sudden Death guesses have to round-trip a Cloud Function
         // to get graded (the server never hands the client the answer to
         // grade locally) — on a cold instance that can take a few real
         // seconds, and with nothing else changing on screen in that window
@@ -6594,7 +6594,7 @@
             }
         }
 
-        // Shared by standard-mode checkGuess() and the Daily Gauntlet's
+        // Shared by standard-mode checkGuess() and the Daily Puzzle's
         // submitDailyGuess() — same flip/reveal visual either way, just fed
         // colors that came from a local computation in one case and a
         // server response in the other.
@@ -6619,7 +6619,7 @@
         }
 
         // Instantly renders an already-completed guess row with no flip
-        // animation — used to redraw a Daily Gauntlet word-in-progress after
+        // animation — used to redraw a Daily Puzzle word-in-progress after
         // a page reload (its earlier guesses are already resolved, no need
         // to re-animate them).
         function renderCompletedGuessRow(rowIndex, guessArr, tileColors) {
@@ -6702,7 +6702,7 @@
         // Field name on the match doc this client owns for a given piece of
         // race state ("Score"/"Board"/"WordIndex") — hostX/guestX in 1v1
         // Clash, pNX (this client's own slot) in FFA. Shared by checkGuess.
-        // Shown only while actually racing: not in Standard or Gauntlet, and not
+        // Shown only while actually racing: not in Standard or Daily Puzzle, and not
         // during Sudden Death, where there is only ever one word and skipping it
         // would just forfeit the round.
         function updateSkipButton() {
@@ -6768,7 +6768,7 @@
                 // which never reads or persists it.
                 currentWordGuesses.push({ guess: currentGuess, colors: tileColors });
 
-                // FASTER FLIP ANIMATION (shared with the Daily Gauntlet — see animateRowReveal)
+                // FASTER FLIP ANIMATION (shared with the Daily Puzzle — see animateRowReveal)
                 animateRowReveal(currentRow, guessArr, tileColors);
 
                 if ((isVersusMode || isFfaMode) && currentMatchId) {

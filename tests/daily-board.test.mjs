@@ -46,13 +46,13 @@ ck(b.top[0].score === 5100, 'and it is that player\'s BEST of the day, not their
 ck(b.top.map((r) => r.place).join() === '1,2', 'places are numbered from 1', JSON.stringify(b.top.map((r) => r.place)));
 ck(b.date === '2026-09-29', 'the document names its own day', b.date);
 
-// Gauntlet runs have their own board and a different scale — ten words against
+// Daily Puzzle runs have their own board and a different scale — ten words against
 // an endless run. Mixing them would make the number mean two things.
 b = B.buildDayBoard('2026-09-29', [
   run({ uid: 'a', username: 'SODA', score: 500 }),
   run({ uid: 'g', username: 'GHOST', score: 99999, mode: 'daily' }),
 ]);
-ck(b.top.length === 1 && b.top[0].name === 'SODA', 'Gauntlet runs are excluded', JSON.stringify(b.top));
+ck(b.top.length === 1 && b.top[0].name === 'SODA', 'Daily Puzzle runs are excluded', JSON.stringify(b.top));
 
 // A wipeout scores 0, and onRunCreated only counts a score ABOVE the day's
 // prior best — so a 0 never puts anyone on the live board. History has to
@@ -104,8 +104,8 @@ for (const bad of ['2026-9-29', 'yesterday', '', null]) {
 }
 
 // --- the day key ----------------------------------------------------------
-// Eastern, matching getTodayDateStr() and the Gauntlet's rollover. A boundary
-// that differed from the Gauntlet's would put "today" in two places at once.
+// Eastern, matching getTodayDateStr() and the Daily Puzzle's rollover. A boundary
+// that differed from the Daily Puzzle's would put "today" in two places at once.
 ck(B.dayKeyET(new Date('2026-09-28T03:30:00Z')) === '2026-09-27',
    '03:30 UTC is still the previous day in Eastern', B.dayKeyET(new Date('2026-09-28T03:30:00Z')));
 ck(B.dayKeyET(new Date('2026-09-28T04:30:00Z')) === '2026-09-28',
@@ -152,22 +152,22 @@ ck(drift.length === 0, 'the client and the tool step through days identically', 
 // --- where the board sits on the Standard screen --------------------------
 // Two panels share the space under the keyboard, and which comes first is the
 // whole point of each: this screen IS Standard, so the board for the mode you
-// are playing leads, and the Gauntlet card below it is a cross-sell to a
+// are playing leads, and the Daily Puzzle card below it is a cross-sell to a
 // different one. They were the other way round, which put a prompt for
 // somewhere else above the thing you had just done.
 const boardAt = html.indexOf('<div id="daily-board-container"');
 const cardAt = html.indexOf('<div id="gauntlet-card"');
 const gFeedAt = html.indexOf('<div id="gauntlet-feed-container"');
 ck(boardAt > 0 && cardAt > 0, 'both panels are in the markup', `${boardAt}/${cardAt}`);
-ck(boardAt < cardAt, "today's Standard board comes before the Gauntlet card", `board@${boardAt} card@${cardAt}`);
-// The Gauntlet board replaces the Standard one in Gauntlet mode, so it belongs
+ck(boardAt < cardAt, "today's Standard board comes before the Daily Puzzle card", `board@${boardAt} card@${cardAt}`);
+// The Daily Puzzle board replaces the Standard one in Daily Puzzle mode, so it belongs
 // after both rather than between them.
-ck(cardAt < gFeedAt, 'and the Gauntlet board stays after both', `card@${cardAt} feed@${gFeedAt}`);
+ck(cardAt < gFeedAt, 'and the Daily Puzzle board stays after both', `card@${cardAt} feed@${gFeedAt}`);
 // Only one of the two boards is ever up; both start hidden and are shown by
 // mode. If the Standard board ever shipped hidden by default the home screen
 // would just be missing it.
 ck(/<div id="gauntlet-feed-container" style="display:none;">/.test(html),
-   "the Gauntlet board starts hidden, since Standard is the front door");
+   "the Daily Puzzle board starts hidden, since Standard is the front door");
 ck(/<div id="daily-board-container">\s/.test(html),
    "today's Standard board is not hidden by default");
 
@@ -176,7 +176,7 @@ const fn = read('functions/index.js');
 const onRun = (fn.match(/exports\.onRunCreated = onDocumentCreated\([\s\S]*?\n\}\);/) || [''])[0];
 ck(/update\.dayBestScore = score;/.test(onRun), 'onRunCreated maintains the day field');
 ck(/update\.dayBestKey = dayKey;/.test(onRun), 'and stamps which day it belongs to');
-ck(/if \(run\.mode !== "daily"\)/.test(onRun), 'Gauntlet runs do not reach it, same as the stored board');
+ck(/if \(run\.mode !== "daily"\)/.test(onRun), 'Daily Puzzle runs do not reach it, same as the stored board');
 // The reset. Without the key check a player who scored 9,000 yesterday would
 // need to beat 9,000 to appear on today's board at all.
 ck(/user\.dayBestKey === dayKey[\s\S]{0,120}: 0;/.test(onRun),

@@ -278,7 +278,7 @@ await create('a self-seeded weekly best is rejected', false, { periodBestScore: 
 await create('a self-seeded daily best is rejected', false, { dayBestScore: 9999999, dayBestKey: '2026-10-05' }, 'n9');
 await create('a self-seeded FFA rating is rejected', false, { ffaMmr: 4000 }, 'n10');
 await create('a self-seeded FFA record is rejected', false, { ffaWins: 500, ffaMatchesPlayed: 500 }, 'n11');
-await create('a self-seeded top-10 Gauntlet claim is rejected', false, { achievedTop10Daily: 1 }, 'n12');
+await create('a self-seeded top-10 Daily Puzzle claim is rejected', false, { achievedTop10Daily: 1 }, 'n12');
 // The guards that were already there must still hold.
 await create('a pre-loaded wallet is still rejected', false, { wallet: 1000000 }, 'n13');
 await create('a pre-loaded Clash record is still rejected', false, { clashWins: 99 }, 'n14');

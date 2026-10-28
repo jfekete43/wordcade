@@ -8,7 +8,7 @@
  * bestRunScore, so it reads 100 documents flat.
  *
  * It also windowed on `new Date()` in the BROWSER, so two players in different
- * timezones were looking at different boards, and neither matched the Gauntlet.
+ * timezones were looking at different boards, and neither matched the Daily Puzzle.
  * The key is Eastern and server-assigned now.
  *
  * The key function exists in three places — functions/index.js writes it,

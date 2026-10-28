@@ -137,7 +137,7 @@ const authBtn = (mainMenu.match(/<button[^>]*id="auth-action-btn"[^>]*>/) || [''
 ck(!/#ff3333|red/i.test(authBtn), 'and the sign-in button is not styled as a warning', authBtn);
 
 // --- Cash Out belongs to Standard, not to the mode nav -------------------
-// In the nav it read as a fifth MODE beside Gauntlet/Clash/FFA. It is an action
+// In the nav it read as a fifth MODE beside Daily Puzzle/Clash/FFA. It is an action
 // on the score, and only Standard has one.
 const nav = (html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0];
 ck(!/btn-cash-out/.test(nav), 'Cash Out is not in the mode nav', nav);
@@ -154,7 +154,7 @@ ck(/\n\s*\.menu-btn \{/.test(css), 'the Menu button has its own rule now that it
 // stops at the first closing tag it meets, which is the inner .score-row's —
 // so the button fell outside the extract the moment the markup gained a level.
 const sbStart = html.indexOf('<div id="score-board">');
-const sbEnd = html.indexOf('<!-- DAILY GAUNTLET UI -->', sbStart);
+const sbEnd = html.indexOf('<!-- DAILY PUZZLE UI -->', sbStart);
 ck(sbStart !== -1 && sbEnd > sbStart, 'found the score board', `${sbStart}..${sbEnd}`);
 const scoreBoard = html.slice(sbStart, sbEnd);
 ck(/btn-cash-out/.test(scoreBoard), 'it sits with the score it banks', scoreBoard.slice(0, 160));
@@ -166,7 +166,7 @@ let bad = 0;
 // ---- each mode's modals wear that mode's colour -------------------------
 // Not contrast, but the same family of mistake and nothing else was looking:
 // Clash's nav button is orange and its lobby was cyan, so tapping an orange
-// button opened a blue box. FFA and the Gauntlet already matched, which is
+// button opened a blue box. FFA and the Daily Puzzle already matched, which is
 // what made Clash look like an oversight rather than a choice.
 //
 // Only the chrome is checked. The colours INSIDE an end modal are signals -
@@ -192,7 +192,7 @@ let bad = 0;
   const MODES = [
     { name: 'Clash',    button: modeRe('clash'),    modals: ['versus-lobby-modal', 'versus-end-modal'] },
     { name: 'FFA',      button: modeRe('ffa'),      modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
-    { name: 'Gauntlet', button: modeRe('gauntlet'), modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
+    { name: 'Daily Puzzle', button: modeRe('gauntlet'), modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
   ];
   for (const mode of MODES) {
     const want = colourOf(mode.button);

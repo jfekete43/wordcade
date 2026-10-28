@@ -135,7 +135,7 @@ const allHtml = [];
     else if (e.name.endsWith('.html')) allHtml.push(path.relative(REPO_DIR, full));
   }
 })(REPO_DIR);
-// The generated Gauntlet pages are the ones most likely to drift, since they
+// The generated Daily Puzzle pages are the ones most likely to drift, since they
 // come out of a renderer rather than being edited by hand.
 ck('the sweep reaches the generated pages too', allHtml.length > pages.length,
    `${allHtml.length} html files, ${pages.length} at the root`);

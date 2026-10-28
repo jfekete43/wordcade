@@ -1,5 +1,5 @@
 /*
- * The Gauntlet plays all ten words, and the board breaks ties on words solved.
+ * The Daily Puzzle plays all ten words, and the board breaks ties on words solved.
  *
  * Three things with no other home:
  *

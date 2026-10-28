@@ -1,7 +1,7 @@
 /*
- * "Next in 6h 12m" on the Gauntlet headline card.
+ * "Next in 6h 12m" on the Daily Puzzle headline card.
  *
- * The trap here is DST. A Gauntlet day runs midnight-to-midnight in
+ * The trap here is DST. A Daily Puzzle day runs midnight-to-midnight in
  * America/New_York, and on the two transition days an ET day is 23 or 25 hours
  * long — so counting the seconds left on the ET wall clock puts the countdown
  * a full hour out twice a year. These cases pin the real elapsed time to the

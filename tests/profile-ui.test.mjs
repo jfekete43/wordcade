@@ -98,10 +98,10 @@ ck(shown().length === 1 && shown()[0] === 'standard', 'after switching around, s
 
 const before = loadedGauntlet;
 setProfileTab('clash');
-ck(loadedGauntlet === before, 'the Gauntlet reads are not paid for by other tabs');
+ck(loadedGauntlet === before, 'the Daily Puzzle reads are not paid for by other tabs');
 setProfileTab('gauntlet');
-ck(loadedGauntlet === before + 1, 'opening the Gauntlet tab loads its stats');
-// Not memoised on purpose: finishing a Gauntlet does not reload the page, and
+ck(loadedGauntlet === before + 1, 'opening the Daily Puzzle tab loads its stats');
+// Not memoised on purpose: finishing a Daily Puzzle does not reload the page, and
 // today's placement moves as other people finish, so a cached panel would go
 // stale for the rest of the session.
 setProfileTab('standard'); setProfileTab('gauntlet');

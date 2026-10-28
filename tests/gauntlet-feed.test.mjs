@@ -1,5 +1,5 @@
 /*
- * The renderer for today's Gauntlet board (the scrolling list under the play
+ * The renderer for today's Puzzle board (the scrolling list under the play
  * area, in the slot the Live Arcade Feed uses during a Standard run).
  *
  * Two things here are easy to get quietly wrong:
@@ -16,7 +16,7 @@
  *     fixed scoring table, equal scores are common rather than a curiosity.
  *   - The absence of a dedup pass. Every other board collapses rows by
  *     display name because a player can hold many runs; this one must not,
- *     because a Gauntlet caps a player at one run per day, so the only thing
+ *     because a Daily Puzzle caps a player at one run per day, so the only thing
  *     a dedup could achieve is collapsing two DIFFERENT players who share a
  *     handle — and if one were the viewer, erasing them from their own board.
  *

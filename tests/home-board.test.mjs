@@ -103,6 +103,19 @@ for (const k of Object.keys(HOME_BOARDS)) {
 ck((tabsMarkup.match(/class="tab-btn active"/g) || []).length === 1,
    'exactly one tab ships active', String((tabsMarkup.match(/active/g) || []).length));
 
+// The day tab must not be called "Daily", and this is not a style preference.
+// onRunCreated guards dayBestScore with `if (run.mode !== "daily")` - Daily
+// Puzzle runs are deliberately excluded, because their scores are on a
+// different scale. So a tab labelled "Daily" would show every mode EXCEPT the
+// one now named Daily. It says "Today", which is also just more accurate: it
+// is one specific day, and the arrows step back through the others.
+const dayTabLabel = (tabsMarkup.match(/id="hb-tab-daily"[^>]*>([^<]*)</) || [])[1];
+eq('the day tab is called Today', dayTabLabel, 'Today');
+const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
+ck(/if \(run\.mode !== "daily"\)/.test(fnSrc),
+   'because the Daily Puzzle is still excluded from the field that tab reads');
+ck(!/>Daily</.test(tabsMarkup), 'and no tab on this board says Daily at all', tabsMarkup.slice(0, 120));
+
 // ---- the chrome, run for real against a fake DOM -------------------------
 const chromeSrc = 'function renderHomeBoardChrome() {'
   + between(html, 'function renderHomeBoardChrome() {', '\n        }', 'renderHomeBoardChrome') + '\n}';

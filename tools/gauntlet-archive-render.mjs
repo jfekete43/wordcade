@@ -1,5 +1,5 @@
 /*
- * Turns one day of Gauntlet data into a static page, and the set of days
+ * Turns one day of Daily Puzzle data into a static page, and the set of days
  * into a hub page and sitemap entries.
  *
  * Deliberately pure: no Firestore, no filesystem, no clock beyond what is
@@ -13,7 +13,7 @@
  * the puzzle for everyone who hasn't played yet. See publishableDates.
  */
 
-export const GAUNTLET_EPOCH = "2026-09-02"; // date of Gauntlet #1 — matches index.html
+export const GAUNTLET_EPOCH = "2026-09-02"; // date of Daily Puzzle #1 — matches index.html
 export const WORD_COUNT = 10;
 // Tier sizes from pickDailyWords in functions/index.js. That function draws
 // from the easy/medium/hard thirds of the whole word list and then sorts the
@@ -22,7 +22,7 @@ export const WORD_COUNT = 10;
 // list IS the tier it was drawn from, and these counts label it.
 //
 // Derived from the day's own word count rather than fixed, because the archive
-// renders every past day and the Gauntlet has not always been the same length.
+// renders every past day and the Daily Puzzle has not always been the same length.
 // It was ten words (3/4/3) before it became seven (2/3/2); a constant here
 // would have relabelled every ten-word page the day the count changed —
 // position 8 was Hard on those days and is off the end of a seven-word puzzle.
@@ -183,7 +183,7 @@ export function computeDistribution(runs) {
  *
  * A day nobody completed renders as its words and "Nobody finished this
  * one", and unlike the rest of the archive it can never improve: a past
- * Gauntlet cannot be played retroactively, so its run count is final the
+ * Daily Puzzle cannot be played retroactively, so its run count is final the
  * moment the day ends. Those pages stay thin forever, which is why the
  * default threshold is 1 rather than 0.
  */
@@ -360,7 +360,7 @@ const STYLE = `
         .support { margin-top: var(--s-9); padding: var(--s-5) var(--s-6); border: var(--bw) solid var(--c-line); border-radius: var(--r-2); background: var(--c-raised); font-size: var(--fs-2); color: var(--c-ink-4); line-height: var(--lh-ui); }`;
 
 const NAV = `        <div class="nav-links">
-            <a href="/">Play</a> · <a href="/gauntlet/">Past Gauntlets</a> · <a href="/how-to-play.html">How To Play</a> · <a href="/strategy.html">Strategy Guide</a> · <a href="/faq.html">FAQ</a><br>
+            <a href="/">Play</a> · <a href="/gauntlet/">Past Daily Puzzles</a> · <a href="/how-to-play.html">How To Play</a> · <a href="/strategy.html">Strategy Guide</a> · <a href="/faq.html">FAQ</a><br>
             <a href="/about.html">About</a> · <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a>
         </div>`;
 
@@ -388,14 +388,14 @@ function head(title, description, canonical) {
     <meta property="og:url" content="${escapeHtml(canonical)}">
     <meta property="og:title" content="${escapeHtml(title)}">
     <meta property="og:description" content="${escapeHtml(description)}">
-    <meta property="og:image" content="${SITE}/og-card.png?v=8bdfa4c2">
+    <meta property="og:image" content="${SITE}/og-card.png?v=5d0d6521">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game.">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
-    <meta name="twitter:image" content="${SITE}/og-card.png?v=8bdfa4c2">
+    <meta name="twitter:image" content="${SITE}/og-card.png?v=5d0d6521">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>${STYLE}
@@ -449,15 +449,15 @@ export function renderDayPage(day) {
   const era = playedOn ? "all-words" : someoneStoppedShort ? "sudden-death" : "unknown";
   const distMax = Math.max(1, ...dist);
 
-  const title = `Lexathon Gauntlet #${n} — ${pretty}`;
+  const title = `Lexathon Daily Puzzle #${n} — ${pretty}`;
   const description = players
-    ? `All ${day.words.length} words from Lexathon Gauntlet #${n} (${pretty}), with the final standings, how many guesses each word took, and which one caught the most people out.`
-    : `The ${day.words.length} words from Lexathon Gauntlet #${n} (${pretty}).`;
+    ? `All ${day.words.length} words from Lexathon Daily Puzzle #${n} (${pretty}), with the final standings, how many guesses each word took, and which one caught the most people out.`
+    : `The ${day.words.length} words from Lexathon Daily Puzzle #${n} (${pretty}).`;
 
   let html = head(title, description, `${SITE}/gauntlet/${day.date}/`);
   html += `
     <div class="container">
-        <h1>Gauntlet #${n}</h1>
+        <h1>Daily Puzzle #${n}</h1>
         <div class="sub">${escapeHtml(pretty)}</div>
 `;
 
@@ -523,12 +523,12 @@ export function renderDayPage(day) {
     html += `        </table>\n`;
   }
 
-  const prevLink = day.prev ? `<a href="/gauntlet/${day.prev}/">← Gauntlet #${gauntletNumber(day.prev)}</a>` : `<span>← Start of the archive</span>`;
-  const nextLink = day.next ? `<a href="/gauntlet/${day.next}/">Gauntlet #${gauntletNumber(day.next)} →</a>` : `<span>Newest →</span>`;
+  const prevLink = day.prev ? `<a href="/gauntlet/${day.prev}/">← Daily Puzzle #${gauntletNumber(day.prev)}</a>` : `<span>← Start of the archive</span>`;
+  const nextLink = day.next ? `<a href="/gauntlet/${day.next}/">Daily Puzzle #${gauntletNumber(day.next)} →</a>` : `<span>Newest →</span>`;
   html += `
         <div class="pager">${prevLink}${nextLink}</div>
 
-        <p style="margin-top:24px;">Today's Gauntlet is a different set of words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
+        <p style="margin-top:24px;">Today's Puzzle is a different set of words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
 
         <a href="/" class="back-btn">Back to Arcade</a>
 
@@ -545,15 +545,15 @@ ${NAV}
 // The hub. `days` is newest-first: [{ date, players, perfect, topScore }]
 export function renderHubPage(days) {
   const newest = days[0];
-  const title = "Past Gauntlets — Every Lexathon Daily Puzzle";
-  const description = `Every past Lexathon Gauntlet: every word from each day, the final standings, and which word caught the most people out. ${days.length} puzzles so far.`;
+  const title = "Past Daily Puzzles — Every Lexathon Daily Puzzle";
+  const description = `Every past Lexathon Daily Puzzle: every word from each day, the final standings, and which word caught the most people out. ${days.length} puzzles so far.`;
   let html = head(title, description, `${SITE}/gauntlet/`);
   html += `
     <div class="container">
-        <h1>Past Gauntlets</h1>
+        <h1>Past Daily Puzzles</h1>
         <div class="sub">${days.length} ${days.length === 1 ? "puzzle" : "puzzles"} so far</div>
 
-        <p class="lede">The Gauntlet is one shared puzzle a day: seven words, five guesses each, and everybody plays all ten. Everybody gets the same ten. Once a day is over its words go here, along with the final standings and how hard each word turned out to be.</p>
+        <p class="lede">The Daily Puzzle is one shared puzzle a day: seven words, five guesses each, and everybody plays all ten. Everybody gets the same ten. Once a day is over its words go here, along with the final standings and how hard each word turned out to be.</p>
 
         <p>Today's puzzle is never listed — <a href="/">play it first</a>.</p>
 
@@ -567,7 +567,7 @@ export function renderHubPage(days) {
   }
   html += `        </table>
 `;
-  if (newest) html += `        <p>Most recent: <a href="/gauntlet/${newest.date}/">Gauntlet #${gauntletNumber(newest.date)}</a>.</p>\n`;
+  if (newest) html += `        <p>Most recent: <a href="/gauntlet/${newest.date}/">Daily Puzzle #${gauntletNumber(newest.date)}</a>.</p>\n`;
   html += `
         <a href="/" class="back-btn">Back to Arcade</a>
 

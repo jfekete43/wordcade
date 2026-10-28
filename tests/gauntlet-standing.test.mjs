@@ -1,5 +1,5 @@
 /*
- * The Gauntlet placement math behind the "you finished 12th of 47" callout.
+ * The Daily Puzzle placement math behind the "you finished 12th of 47" callout.
  *
  * Why this is worth a test: placement is computed by COUNTING rather than by
  * reading a position off a list, so ties are the thing most likely to be
@@ -7,13 +7,13 @@
  * score with more words solved — because the board breaks ties on words solved
  * and a placement that disagreed with the board it sits under is worse than no
  * placement at all. It also has to
- * count only the one Gauntlet being asked about: a stray standard-mode run, or
+ * count only the one Daily Puzzle being asked about: a stray standard-mode run, or
  * a run from a different puzzle date, must not inflate the field size.
  *
- * Exactness here rests on a property of the data model: a finished Gauntlet is
+ * Exactness here rests on a property of the data model: a finished Daily Puzzle is
  * written to runs/daily_{uid}_{date}, a deterministic id, so one player can
  * hold at most one run per puzzle date. The all-time board can't do this — it
- * has to dedup several runs per player first — but a single Gauntlet's board
+ * has to dedup several runs per player first — but a single Daily Puzzle's board
  * is one row per player by construction.
  */
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
@@ -42,7 +42,7 @@ const build = new Function(
 );
 const api = (uid) => build(db, collection, doc, getDoc, query, where, orderBy, getCountFromServer, uid ? { uid } : null);
 
-// ---- Seed one Gauntlet, plus noise that must not be counted ----
+// ---- Seed one Daily Puzzle, plus noise that must not be counted ----
 const DATE = '2026-09-15';
 const OTHER_DATE = '2026-09-14';
 // Scores chosen so every tie case is reachable: p2/p3 tie on score and split on
@@ -62,11 +62,11 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(adb, 'runs', `daily_${p.uid}_${DATE}`),
       { uid: p.uid, username: p.uid.toUpperCase(), score: p.score, wordsGuessed: p.wordsGuessed, mode: 'daily', puzzleDate: DATE });
   }
-  // Noise 1: a different Gauntlet. Same players, much higher scores.
+  // Noise 1: a different Daily Puzzle. Same players, much higher scores.
   await setDoc(doc(adb, 'runs', `daily_p1_${OTHER_DATE}`),
     { uid: 'p1', username: 'P1', score: 99999, mode: 'daily', puzzleDate: OTHER_DATE });
   // Noise 2: a standard-mode run tagged with the same date. Standard runs are
-  // endless and routinely outscore a Gauntlet, so if the mode filter were
+  // endless and routinely outscore a Daily Puzzle, so if the mode filter were
   // dropped this would take first place and inflate the field.
   await setDoc(doc(adb, 'runs', 'standard_p9_x'),
     { uid: 'p9', username: 'P9', score: 99999, mode: 'standard', puzzleDate: DATE });
@@ -108,10 +108,10 @@ eq('words solved never beats a higher score',
 eq('omitting the solved count places you below every tie, not above',
    await fetchGauntletStanding(DATE, 4000), { place: 4, total: N });
 
-// The field size must be this Gauntlet's alone, despite the standard-mode run
+// The field size must be this Daily Puzzle's alone, despite the standard-mode run
 // sharing the date and p1 having a second daily run.
 eq('other dates and modes excluded', (await fetchGauntletStanding(DATE, 5000, 10)).total, N);
-eq('the other Gauntlet counts only itself', await fetchGauntletStanding(OTHER_DATE, 99999, 10), { place: 1, total: 1 });
+eq('the other Daily Puzzle counts only itself', await fetchGauntletStanding(OTHER_DATE, 99999, 10), { place: 1, total: 1 });
 
 // Your own run, by derivable id.
 eq('own run found',        (await api('p1').fetchMyGauntletRun(DATE)).score, 5000);
@@ -123,7 +123,7 @@ eq('signed out is null',    await api(null).fetchMyGauntletRun(DATE), null);
 const mine = await api('p4').fetchMyGauntletRun(DATE);
 eq('end-to-end placement for p4', await fetchGauntletStanding(DATE, mine.score, mine.wordsGuessed), { place: 4, total: N });
 
-// Legacy rows: a Gauntlet played before the tiebreak existed has no
+// Legacy rows: a Daily Puzzle played before the tiebreak existed has no
 // wordsGuessed on its run document. Firestore's range filter skips documents
 // missing the field, so those rows can never be counted as "tied and ahead" —
 // they must still be counted in the field size, and still beatable on score.

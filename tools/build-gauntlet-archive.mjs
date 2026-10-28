@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Builds the static Gauntlet archive under /gauntlet/ from Firestore.
+ * Builds the static Daily Puzzle archive under /gauntlet/ from Firestore.
  *
  * Everything that decides WHAT a page says lives in
  * gauntlet-archive-render.mjs and is tested against fixtures. This file only
@@ -32,7 +32,7 @@ const has = (f) => args.includes(f);
 const val = (f) => { const a = args.find((x) => x.startsWith(f + "=")); return a ? a.slice(f.length + 1) : null; };
 const DRY = has("--dry-run");
 // A day nobody finished renders as ten words and "Nobody finished this one",
-// and unlike the rest of the archive it can never improve — a past Gauntlet
+// and unlike the rest of the archive it can never improve — a past Daily Puzzle
 // cannot be played retroactively, so its run count is final the moment the
 // day ends. Those pages are permanently thin, so they are skipped by default.
 // --min-players=0 publishes them anyway.
@@ -51,7 +51,7 @@ let dates;
 const one = val("--date");
 if (one) {
   if (!R.isPublishable(one, now)) {
-    console.error(`refusing ${one}: not a finished Gauntlet day in Eastern (today is ${R.etDateStr(now)})`);
+    console.error(`refusing ${one}: not a finished Daily Puzzle day in Eastern (today is ${R.etDateStr(now)})`);
     process.exit(1);
   }
   dates = [one];

@@ -1,7 +1,7 @@
 /*
- * The "today's Gauntlet is already done" screen.
+ * The "today's Puzzle is already done" screen.
  *
- * A Gauntlet is one run per day, so once it's finished there is nothing left
+ * A Daily Puzzle is one run per day, so once it's finished there is nothing left
  * to type. Dismissing the end modal used to leave an empty board and a live
  * keyboard above a header still reading "WORD 1/10 · SCORE: 0" — a screenful
  * of dead space above the standings the player came back to see.

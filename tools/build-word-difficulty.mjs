@@ -4,7 +4,7 @@
  *
  * Run with:  node tools/build-word-difficulty.mjs
  *
- * Why computed rather than measured: a Gauntlet has to be graded from day one,
+ * Why computed rather than measured: a Daily Puzzle has to be graded from day one,
  * and measuring 2,315 words to a useful confidence takes months of play. The
  * measured numbers (aggregateWordStats) are blended in on top of this as they
  * arrive — see effectiveDifficulty in functions/index.js — so this stays the

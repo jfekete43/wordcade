@@ -214,7 +214,7 @@ try {
   // wearing a shop item's name. It is #fff because every equipped banner paints
   // a dark plate under the name. The card went white and the default banner
   // paints nothing, so every default player name went white on white at 1:1 —
-  // FFA standings, the Clash plates, the Gauntlet feed and archive, the
+  // FFA standings, the Clash plates, the Daily Puzzle feed and archive, the
   // leaderboard and the daily board, all at once, with the whole suite green.
   //
   // Checked as the cross product, because the bug was in one cell of it: every

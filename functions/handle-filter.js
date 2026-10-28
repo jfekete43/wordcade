@@ -9,7 +9,7 @@
  *
  * It is also far more exposed than chat ever was. A handle appears on the
  * leaderboard, in the live feed, on match cards, in FFA standings, and on the
- * STATIC Gauntlet archive pages, which are committed to the repo, served by
+ * STATIC Daily Puzzle archive pages, which are committed to the repo, served by
  * GitHub Pages and listed in sitemap.xml. Chat reached five people for two
  * minutes; a handle reaches search engines. Worse, `runs` documents store
  * `username` denormalised at save time, and both the leaderboard and the

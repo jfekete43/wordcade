@@ -1,5 +1,5 @@
 /*
- * The Gauntlet share text.
+ * The Daily Puzzle share text.
  *
  * Two things this pins:
  *
@@ -68,7 +68,7 @@ const untouched = (howMany) => Array(howMany).fill({ guesses: [], solved: false 
 
 // A clean sweep — the run from the screenshot that prompted this.
 let out = buildShare(attempt(solvedRun([4, 4, 5, 4, 5, 5, 3, 5, 4, 3]), 540));
-ck(out.message === '🕹️ Lexathon Gauntlet #15\n🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩\n🏆 PERFECT · 10/10 · 540 pts · 4.2 avg',
+ck(out.message === '🕹️ Lexathon Daily Puzzle #15\n🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩\n🏆 PERFECT · 10/10 · 540 pts · 4.2 avg',
    'a perfect run is ten greens and no cross', JSON.stringify(out.message));
 ck(out.message.split('\n').length === 3, 'heading, bar, result', out.message.split('\n').length);
 // The per-word GUESS-COUNT grid stays gone — this is not that.
@@ -77,12 +77,12 @@ ck(!/[0-9]️⃣/.test(out.message), 'no per-word guess-count digits');
 // --- legacy: attempts recorded before everyone played all ten ------------
 // Out on word 9 after solving 8. The remaining slot is never touched.
 out = buildShare(attempt([...solvedRun([3, 4, 4, 5, 3, 4, 5, 4]), word(5, false), ...untouched(1)], 430));
-ck(out.message === '🕹️ Lexathon Gauntlet #15\n🟩🟩🟩🟩🟩🟩🟩🟩❌⬜\n💰 8/10 · 430 pts · 4.1 avg',
+ck(out.message === '🕹️ Lexathon Daily Puzzle #15\n🟩🟩🟩🟩🟩🟩🟩🟩❌⬜\n💰 8/10 · 430 pts · 4.1 avg',
    'eight solved, a cross on the ninth, one never reached', JSON.stringify(out.message));
 
 // Out on the very first word.
 out = buildShare(attempt([word(5, false), ...untouched(9)], 0));
-ck(out.message === '🕹️ Lexathon Gauntlet #15\n❌⬜⬜⬜⬜⬜⬜⬜⬜⬜\n💰 0/10 · 0 pts · 5.0 avg',
+ck(out.message === '🕹️ Lexathon Daily Puzzle #15\n❌⬜⬜⬜⬜⬜⬜⬜⬜⬜\n💰 0/10 · 0 pts · 5.0 avg',
    'out on word 1 is a cross and nine blanks', JSON.stringify(out.message));
 
 // Nine solved then a miss is still not "perfect".
@@ -168,7 +168,7 @@ for (const [solved, label] of [[0, 'none'], [1, 'one'], [5, 'half'], [9, 'nine']
      `${label} solved: exactly one cross unless perfect`, bar);
 }
 
-// A short Gauntlet (an unnumbered test day has wordCount 2) must not emit a
+// A short Daily Puzzle (an unnumbered test day has wordCount 2) must not emit a
 // ten-wide bar — the width comes from the puzzle, not a constant.
 const shortBar = barOf(buildShare({ ...attempt(solvedRun([3, 3]), 100), date: '2020-01-01', wordCount: 2 }).message);
 ck(glyphs(shortBar) === 2, 'the bar is as long as the puzzle, not always ten', JSON.stringify(shortBar));
@@ -182,7 +182,7 @@ ck(mid.split('\n')[2].length <= 34, 'the result line stays short', String(mid.sp
 // A date before the epoch has no number, so the heading drops it rather than
 // printing "#null".
 out = buildShare({ ...attempt(solvedRun([3, 3]), 100), date: '2020-01-01', wordCount: 2 });
-ck(out.message.startsWith('🕹️ Lexathon Gauntlet\n'), 'an unnumbered Gauntlet heading has no "#"', JSON.stringify(out.message));
+ck(out.message.startsWith('🕹️ Lexathon Daily Puzzle\n'), 'an unnumbered Daily Puzzle heading has no "#"', JSON.stringify(out.message));
 
 // --- the link's own line --------------------------------------------------
 const shareRun = (native) => new Function('NATIVE', `

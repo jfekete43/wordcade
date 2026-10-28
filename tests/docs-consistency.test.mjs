@@ -4,8 +4,8 @@
  * This exists because they quietly stopped agreeing, three separate times,
  * and nothing noticed:
  *
- *   - The Gauntlet was taken off the leaderboard, but the in-app How To Play
- *     still listed a "Gauntlet (today only)" tab and told players where to
+ *   - The Daily Puzzle was taken off the leaderboard, but the in-app How To Play
+ *     still listed a "Daily Puzzle (today only)" tab and told players where to
  *     find a board that no longer existed.
  *   - FFA got its own rating, but faq.html and how-to-play.html both still
  *     said Clash and FFA "feed one MMR rating" — the exact claim the change
@@ -144,23 +144,23 @@ ok('the in-app list names a leaderboard line at all', !!lbLine, lbLine);
 for (const { label } of tabButtons) {
   ok(`the documented leaderboards include ${label}`, lbLine.includes(label), lbLine);
 }
-ok('no Gauntlet leaderboard tab is documented, because none exists',
-   actualTabs.includes('gauntlet') === /Gauntlet \(today only\)|Gauntlet leaderboard tab/i.test(allProse));
+ok('no Daily Puzzle leaderboard tab is documented, because none exists',
+   actualTabs.includes('gauntlet') === /Daily Puzzle \(today only\)|Daily Puzzle leaderboard tab/i.test(allProse));
 ok('FFA is no longer documented as ranking on wins',
    !/FFA \(win count\)|FFA.{0,20}ranked by (?:total )?wins/i.test(allProse));
 
-// ---- 4b. the Gauntlet's finish rule, stated in one place and described in many
+// ---- 4b. the Daily Puzzle's finish rule, stated in one place and described in many
 // The rule lives in one expression in functions/index.js. The last time it
 // changed, the sentence describing it had spread to seven pages — the in-app
-// How To Play, the onboarding slide, the Gauntlet card (in four separate string
+// How To Play, the onboarding slide, the Daily Puzzle card (in four separate string
 // literals that had to agree), how-to-play, faq, about, strategy, and the
 // archive generator — and a survey of the repo was the only thing that found
 // them all. So the rule is read out of the code, and the prose is held to it.
 const suddenDeath = /gauntletFinished\s*=\s*wordFinished\s*&&\s*\(/.test(fn);
-ok('the Gauntlet finish rule is readable in the server', /const gauntletFinished\s*=/.test(fn));
+ok('the Daily Puzzle finish rule is readable in the server', /const gauntletFinished\s*=/.test(fn));
 ok('the server plays every word', !suddenDeath && /gauntletFinished = wordFinished && newWordIndex >= attempt\.wordCount/.test(fn));
 // Phrases that are only true when a miss ends the run. Scoped to sentences that
-// also mention the Gauntlet, so Standard's own wipeout rule is left alone.
+// also mention the Daily Puzzle, so Standard's own wipeout rule is left alone.
 const gauntletSentences = allProse.split(/(?<=[.!?])\s+/)
   .filter((x) => /gauntlet/i.test(x) || /seven words|all seven/i.test(x));
 const suddenDeathClaims = gauntletSentences.filter((x) =>
@@ -169,7 +169,7 @@ const suddenDeathClaims = gauntletSentences.filter((x) =>
   || /one shot each/i.test(x)
   || /staying alive/i.test(x)
   || /the run stops there/i.test(x));
-ok('no page still says a missed word ends the Gauntlet run',
+ok('no page still says a missed word ends the Daily Puzzle run',
    suddenDeath || suddenDeathClaims.length === 0, suddenDeathClaims.join(' || ').slice(0, 300));
 // And the rule is actually stated somewhere a player will read it, rather than
 // merely not contradicted.
@@ -177,7 +177,7 @@ ok('the rules page says you play every word',
    /play all seven|plays all seven|all seven words whatever happens/i.test(text['how-to-play.html']),
    text['how-to-play.html'].slice(0, 0));
 // One sentence, written out six times: once in the card's markup, three times
-// as string literals in the card's branches, once in the Gauntlet's intro card
+// as string literals in the card's branches, once in the Daily Puzzle's intro card
 // and once in the homepage blurb. Three of them carry a tail after an em-dash
 // ("free account required", and the two that add "the same ten, once a day"),
 // so the comparison is of the shared opening — the part that has to agree.
@@ -185,13 +185,13 @@ const cardLines = [...pages['index.html'].matchAll(/Seven words,[^"<]{0,120}/g)]
   .map((m) => m[0].split('\\u2014')[0].split('\u2014')[0])
   .map((x) => x.slice(0, x.indexOf('all seven') + 'all seven'.length))
   .map((x) => x.replace(/[.\s]+$/, '').trim());
-ok('the Gauntlet sentence is written in all six places', cardLines.length === 6, JSON.stringify(cardLines));
+ok('the Daily Puzzle sentence is written in all six places', cardLines.length === 6, JSON.stringify(cardLines));
 ok('and says the same thing in every one of them',
    cardLines.length > 0 && new Set(cardLines).size === 1, JSON.stringify(cardLines));
 
 // ---- 4c. the board's tiebreak, documented because players can see it -----
 const boardOrders = [...pages['index.html'].matchAll(/orderBy\("score", "desc"\), orderBy\("(\w+)", "desc"\)/g)].map((m) => m[1]);
-ok('the Gauntlet board breaks ties on a second key', boardOrders.length >= 2, boardOrders.join(','));
+ok('the Daily Puzzle board breaks ties on a second key', boardOrders.length >= 2, boardOrders.join(','));
 ok('and that key is words solved', boardOrders.every((f) => f === 'wordsGuessed'), boardOrders.join(','));
 ok('the rules page itself says what the tiebreak is, since the board shows it',
    /solved more words|who solved more|then by words solved/i.test(text['how-to-play.html']),
@@ -385,14 +385,14 @@ ok('no preset phrase is longer than the free-text limit',
     ok(`${p}'s palette is identical to index.html's`, roots[p] === base,
        roots[p] === base ? '' : 'differs');
   }
-  // The Gauntlet archive is a NINTH copy, and the one that got missed: 34
+  // The Daily Puzzle archive is a NINTH copy, and the one that got missed: 34
   // public pages, every one of them in the sitemap, still on the dark build a
   // week after everything else moved — because this check only ever looked at
   // the hand-written pages at the repo root. They are generated, so the
   // renderer is what has to agree; the pages follow on the next daily run.
   const renderer = fs.readFileSync(REPO('tools/gauntlet-archive-render.mjs'), 'utf8').replace(/\r\n/g, '\n');
   const rRoot = (renderer.match(/:root \{[\s\S]*?\n        \}/) || [])[0];
-  ok('the Gauntlet archive renderer carries the palette', !!rRoot);
+  ok('the Daily Puzzle archive renderer carries the palette', !!rRoot);
   ok("and it is identical to index.html's", rRoot === base, rRoot === base ? '' : 'differs');
   {
     const style = renderer.slice(renderer.indexOf('const STYLE = `'), renderer.indexOf('`;', renderer.indexOf('const STYLE = `')));

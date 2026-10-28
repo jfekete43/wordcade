@@ -157,7 +157,7 @@ Two of those are on a schedule rather than called by the game:
 `generateDailyPuzzle` at 00:00 Eastern and `aggregateWordStats` at 01:30.
 
 (If you are reading an older copy of this file with a smaller count, it was
-written before Clash sudden-death, the Daily Gauntlet, FFA or word-difficulty
+written before Clash sudden-death, the Daily Puzzle, FFA or word-difficulty
 tracking existed.)
 
 Note: this repo's `firebase.json` intentionally has no `hosting` section
@@ -302,7 +302,7 @@ one currently has.
 ### Why a tool rather than find-and-replace
 
 Eight files carry the block: the seven static pages, plus the shared `head()` in
-`tools/gauntlet-archive-render.mjs`, which covers **every generated Gauntlet
+`tools/gauntlet-archive-render.mjs`, which covers **every generated Daily Puzzle
 archive page**. Those archive pages are the ones in `sitemap.xml`, so they are a
 real way in — and because they come out of a renderer rather than the repo, they
 are exactly the ones a manual edit misses. The failure is silent: the page just
@@ -314,7 +314,7 @@ immediately with `node tools/build-gauntlet-archive.mjs --all`.
 
 ### What it does not cover
 
-Gameplay. How many people finished the Gauntlet, how far runs get, which modes
+Gameplay. How many people finished the Daily Puzzle, how far runs get, which modes
 get played — all of that is already in Firestore, and a query over your own data
 answers it better than event tracking would. This is only for acquisition: how
 many people arrived, and from where.
@@ -331,7 +331,7 @@ publisher requirements when you actually apply.
 
 A handle is the last free text a stranger can put in front of you, and the most
 exposed text in the game: leaderboard, live feed, match cards, FFA standings,
-and the **static Gauntlet archive pages**, which are committed to the repo and
+and the **static Daily Puzzle archive pages**, which are committed to the repo and
 listed in `sitemap.xml`. `runs` documents also store `username` denormalised, and
 both the leaderboard and the archive read it from there — so a slur that gets
 through is published to a page search engines index, and **a rename does not
@@ -399,7 +399,7 @@ in Firestore for good, with its chat inside it, in a collection any signed-in
 account can read (matchmaking has to query for open lobbies).
 
 The daily **Daily maintenance** workflow now deletes matches older than 24
-hours, in the same job as the Gauntlet archive and using the same
+hours, in the same job as the Daily Puzzle archive and using the same
 `FIREBASE_SERVICE_ACCOUNT` secret. **No Firebase deploy is involved** — but the
 `createdAt` field it ages matches by does need the rules deployed, see below.
 
@@ -495,9 +495,9 @@ Unranked players still *play* at 1000 — that is what `calculateEloChange` read
 them as. The Profile screen says `Unranked` rather than showing a position on a
 board they are not on, the same as the FFA panel beside it.
 
-## The Gauntlet archive (`/gauntlet/`)
+## The Daily Puzzle archive (`/gauntlet/`)
 
-Static pages, one per finished Gauntlet, built from Firestore and committed
+Static pages, one per finished Daily Puzzle, built from Firestore and committed
 to the repo. GitHub Pages serves them — **no Firebase deploy is involved**.
 
 ### One-time setup
@@ -518,13 +518,13 @@ cd ~/wordcade && git pull origin main
 npm install --no-save firebase-admin
 node tools/build-gauntlet-archive.mjs --all --dry-run   # look first
 node tools/build-gauntlet-archive.mjs --all
-git add gauntlet sitemap.xml && git commit -m "Backfill Gauntlet archive" && git push
+git add gauntlet sitemap.xml && git commit -m "Backfill Daily Puzzle archive" && git push
 ```
 
 ### Which days get a page
 
 A day nobody finished renders as ten words and "Nobody finished this one",
-and it can never improve — a past Gauntlet cannot be played retroactively,
+and it can never improve — a past Daily Puzzle cannot be played retroactively,
 so its run count is final once the day ends. Those pages stay thin forever,
 so **days with no finishers are skipped by default**.
 
@@ -542,7 +542,7 @@ refuses rather than deleting it — a transient Firestore failure looks
 exactly like "no day qualifies", and only one of those should wipe the
 archive.
 
-After that the `Build Gauntlet archive` workflow runs daily at 07:30 UTC and
+After that the `Build Daily Puzzle archive` workflow runs daily at 07:30 UTC and
 commits yesterday's page by itself. `--all` is also available from the
 Actions tab (Run workflow → tick "Rebuild every past day") if a template
 change means every page needs regenerating.
