@@ -354,6 +354,38 @@ ck('skipping still reloads, so the page stops looking like a guest’s', skipped
 }
 
 await browser.close();
+// ---- the generated guest handle --------------------------------------
+//
+// It used to be "G_" + word + 4 digits, and the prefix looked like a guest
+// marker. It was not one: changeUsername takes any signed-in caller and the
+// first change is free, so a guest could clear it in one tap at no cost. All
+// it marked was a guest who had not got round to renaming - a signal that
+// reads as reliable and is not.
+//
+// It was also spending the entire budget. "G_Stoke_1542" is exactly 12
+// characters, which is the ceiling changeUsername enforces, so every
+// generated name sat at the cap with no room to be anything else.
+// Anchored on randWord, not on the line's current shape: an earlier version
+// matched `defaultUsername = (randWord`, so putting the prefix back broke the
+// anchor, left genLine empty, and the no-prefix check below passed against an
+// empty string. A check that a regression can silence is not a check.
+const genLine = (html.match(/defaultUsername = [^\n]*randWord[^\n]*/) || [''])[0];
+ck('the guest handle generator is findable', !!genLine, genLine);
+ck('it no longer prefixes guests', !/"G_"/.test(genLine), genLine);
+ck('but still reads as generated: a word and four digits',
+   /randWord/.test(genLine) && /Math\.floor\(1000 \+ Math\.random\(\) \* 9000\)/.test(genLine), genLine);
+
+// The cap the server enforces, read from the server rather than restated.
+const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
+const cap = Number((fnSrc.match(/\.substring\(0, (\d+)\)/) || [])[1]);
+ck('changeUsername caps a handle somewhere sane', Number.isFinite(cap) && cap >= 8, String(cap));
+// Longest word in the pool is 5 (the answers are five-letter words), so the
+// worst case is word + "_" + 4 digits.
+const worst = 5 + 1 + 4;
+ck(`the longest generated handle (${worst}) fits inside the cap (${cap})`, worst <= cap);
+ck('and leaves room, rather than sitting exactly at the ceiling the way "G_" did',
+   worst < cap, `${worst} of ${cap}`);
+
 for (const c of t) console.log(c.cond ? 'ok  ' : 'FAIL', c.name, c.cond ? '' : '— ' + c.detail);
 const bad = t.filter(c => !c.cond).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

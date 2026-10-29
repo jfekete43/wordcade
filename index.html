@@ -1953,7 +1953,7 @@
          Signing up is the first moment a player is allowed to pick a handle at
          all: the Profile modal hides that field for guests. Until this existed
          the generated guest name simply carried over, so leaderboards filled up
-         with G_Crane_4821 and the one place that mentioned a custom handle was
+         with Crane_4821 and the one place that mentioned a custom handle was
          the guest promo, which stops being shown the moment you sign up.
          Skippable, because the free change is still sitting in the Profile
          afterwards — a name is a bad thing to make someone hurry over. -->
@@ -3002,7 +3002,22 @@
                     let defaultUsername = "";
                     if (isGuest) {
                         let randWord = (window.targetWords && window.targetWords.length > 0) ? window.targetWords[Math.floor(Math.random() * window.targetWords.length)] : "Player";
-                        defaultUsername = "G_" + (randWord.charAt(0).toUpperCase() + randWord.slice(1).toLowerCase()) + "_" + Math.floor(1000 + Math.random() * 9000);
+                        // No "G_" in front of it any more. It looked like a guest
+                        // marker and was not one: changeUsername takes any signed-in
+                        // caller and the first change is free, so a guest could clear
+                        // the prefix in one tap at no cost. All it ever marked was a
+                        // guest who had not bothered - a signal that looks reliable
+                        // and is not.
+                        //
+                        // It also spent the whole budget: "G_Stoke_1542" is exactly
+                        // 12 characters, which is the cap changeUsername enforces,
+                        // so every generated name sat pinned at the ceiling. Without
+                        // it they are 10.
+                        //
+                        // The word and the four digits stay. They still read as
+                        // generated rather than chosen, which is the part worth
+                        // keeping, and the collision odds are unchanged.
+                        defaultUsername = (randWord.charAt(0).toUpperCase() + randWord.slice(1).toLowerCase()) + "_" + Math.floor(1000 + Math.random() * 9000);
                     } else {
                         // Google always provides displayName; an email/password
                         // account never has one, so fall back to the part of the
