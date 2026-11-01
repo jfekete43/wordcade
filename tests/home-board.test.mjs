@@ -88,7 +88,15 @@ ck(declared !== 'weekly',
 // check. (It found the comment first, which is exactly how this read backwards
 // on the first run.)
 const periodConstAt = html.indexOf('const LEADERBOARD_PERIOD = "');
-const bootCallAt = html.lastIndexOf('loadHomeBoard();');
+// The boot call is the TOP-LEVEL one, at eight spaces. lastIndexOf used to
+// find it only because nothing else called loadHomeBoard() later in the
+// file; the moment a mode's leave path did, this anchor silently moved to
+// that call instead and the hazard check started comparing the wrong two
+// offsets. Indentation is what distinguishes them.
+const BOOT_CALL = '\n        loadHomeBoard();';
+const bootCallAt = html.indexOf(BOOT_CALL);
+ck(bootCallAt !== -1 && html.indexOf(BOOT_CALL, bootCallAt + 1) === -1,
+   'the boot call to loadHomeBoard() is findable and unambiguous', String(bootCallAt));
 ck(periodConstAt > bootCallAt,
    'the hazard is real: LEADERBOARD_PERIOD is still declared after the boot call',
    `const@${periodConstAt} boot@${bootCallAt}`);
@@ -112,8 +120,16 @@ ck((tabsMarkup.match(/class="tab-btn active"/g) || []).length === 1,
 const dayTabLabel = (tabsMarkup.match(/id="hb-tab-daily"[^>]*>([^<]*)</) || [])[1];
 eq('the day tab is called Today', dayTabLabel, 'Today');
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
-ck(/if \(run\.mode !== "daily"\)/.test(fnSrc),
-   'because the Daily Puzzle is still excluded from the field that tab reads');
+// Both fixed-word modes are kept off this board, and for the same reason:
+// their scores are capped by a word count while a Stakes run is not. Sprint
+// is the harder case - one word caps it at 500 - so a player whose only game
+// was Sprint would otherwise appear here with a score nothing else on the
+// board can be compared to.
+const dayGuard = (fnSrc.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
+ck(/run\.mode !== "daily"/.test(dayGuard),
+   'because the Daily Puzzle is still excluded from the field that tab reads', dayGuard);
+ck(/run\.mode !== "sprint"/.test(dayGuard),
+   'and Sprint is excluded from it too', dayGuard);
 ck(!/>Daily</.test(tabsMarkup), 'and no tab on this board says Daily at all', tabsMarkup.slice(0, 120));
 
 // ---- the chrome, run for real against a fake DOM -------------------------

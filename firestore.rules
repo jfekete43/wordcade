@@ -173,6 +173,13 @@ service cloud.firestore {
         // which the Profile would display without question.
         && !('gauntletWins' in request.resource.data)
         && !('gauntletTop10s' in request.resource.data)
+        && !('sprintPlayed' in request.resource.data)
+        && !('sprintSolved' in request.resource.data)
+        && !('sprintGuessTotal' in request.resource.data)
+        && !('sprintBestScore' in request.resource.data)
+        && !('sprintBestTimeMs' in request.resource.data)
+        && !('sprintStreak' in request.resource.data)
+        && !('sprintBestStreak' in request.resource.data)
         && !('ffaMatchesPlayed' in request.resource.data)
         && request.resource.data.totalWordsGuessed == 0
         && request.resource.data.wordsPlayed == 0
@@ -345,6 +352,24 @@ service cloud.firestore {
     // never the unsolved target words), but every write goes through
     // startDailyGauntlet/guessDailyWord (Admin SDK), never the client SDK.
     match /dailyAttempts/{userId}/days/{date} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Sprint's one word for the day. Same reasoning as dailyPuzzles, and the
+    // same rule: one word shared by everybody is the most valuable secret in
+    // the game, since reading it once wins the whole day outright.
+    match /sprintPuzzles/{date} {
+      allow read, write: if false;
+    }
+
+    // A player's own Sprint progress. Readable by its owner so a refresh
+    // restores the board — guesses already made and their colours, never an
+    // unsolved answer. The clock fields live here too, which is exactly why
+    // writes go through startSprint/guessSprintWord (Admin SDK) and never the
+    // client SDK: a client-writable elapsedMs would make the tiebreaker
+    // worthless.
+    match /sprintAttempts/{userId}/days/{date} {
       allow read: if isOwner(userId);
       allow write: if false;
     }

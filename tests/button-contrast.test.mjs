@@ -144,7 +144,12 @@ ck(!/btn-cash-out/.test(nav), 'Cash Out is not in the mode nav', nav);
 // It finally holds what this said it held. Until the four-up row, the four
 // were Menu plus the three modes you were not in; Menu has moved to the
 // topbar and the fourth slot is the mode you ARE in.
-ck((nav.match(/<button/g) || []).length === 4, 'which now holds exactly the four modes',
+// Counted against the mode table rather than against the number four, which
+// is what broke when a fifth mode was added.
+const MODE_COUNT = (((html.match(/const MODES = \{[\s\S]*?\n        \};/) || [''])[0]
+  .match(/^\s{12}\w+:/gm)) || []).length;
+ck(MODE_COUNT >= 2 && (nav.match(/<button/g) || []).length === MODE_COUNT,
+   `which now holds exactly the ${MODE_COUNT} modes`,
    String((nav.match(/<button/g) || []).length));
 ck(!/showMainMenu/.test(nav), 'and Menu is not one of them either', nav);
 // Menu left .arcade-menu exactly as Cash Out did, so it needs its own rule

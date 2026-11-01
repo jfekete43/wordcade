@@ -167,7 +167,7 @@ ck(cardAt < gFeedAt, 'and the Daily Puzzle board stays after both', `card@${card
 // mode. If the Standard board ever shipped hidden by default the home screen
 // would just be missing it.
 ck(/<div id="gauntlet-feed-container" style="display:none;">/.test(html),
-   "the Daily Puzzle board starts hidden, since Standard is the front door");
+   "the Daily Puzzle board starts hidden; Sprint is the front door now, and it brings its own board");
 ck(/<div id="daily-board-container">\s/.test(html),
    "today's Standard board is not hidden by default");
 
@@ -176,7 +176,12 @@ const fn = read('functions/index.js');
 const onRun = (fn.match(/exports\.onRunCreated = onDocumentCreated\([\s\S]*?\n\}\);/) || [''])[0];
 ck(/update\.dayBestScore = score;/.test(onRun), 'onRunCreated maintains the day field');
 ck(/update\.dayBestKey = dayKey;/.test(onRun), 'and stamps which day it belongs to');
-ck(/if \(run\.mode !== "daily"\)/.test(onRun), 'Daily Puzzle runs do not reach it, same as the stored board');
+// Matched as the whole guard rather than as one mode's clause: the guard now
+// excludes Sprint too, and a regex pinned to the exact original text failed
+// on a change that made it MORE correct.
+const dayGuard = (onRun.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
+ck(/run\.mode !== "daily"/.test(dayGuard), 'Daily Puzzle runs do not reach it, same as the stored board', dayGuard);
+ck(/run\.mode !== "sprint"/.test(dayGuard), 'and neither do Sprint runs, which are capped at one word', dayGuard);
 // The reset. Without the key check a player who scored 9,000 yesterday would
 // need to beat 9,000 to appear on today's board at all.
 ck(/user\.dayBestKey === dayKey[\s\S]{0,120}: 0;/.test(onRun),

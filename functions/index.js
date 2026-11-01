@@ -297,6 +297,17 @@ function getTodayDateStr() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
+// Calendar arithmetic on a YYYY-MM-DD string, used by the Sprint streak to
+// ask "was the last solve yesterday". Parsed as UTC deliberately: the string
+// is already an Eastern calendar date, so re-anchoring it to a timezone would
+// shift it. UTC has no DST, which makes the day arithmetic plain addition and
+// keeps month and year boundaries the Date object's problem rather than ours.
+function shiftDateStr(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /*
  * The recurring Standard leaderboard's window.
  *
@@ -467,6 +478,51 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       update.bestGauntletDate = run.puzzleDate;
     }
 
+    // ---- Sprint's career record -------------------------------------------
+    // Everything the finish popup shows, kept on the user doc so opening it
+    // costs no extra read. Counters increment; the two "best" fields compare
+    // first, the same way bestRunScore does, so a worse later run cannot
+    // clobber a better earlier one.
+    if (run.mode === "sprint" && run.puzzleDate) {
+      const didSolve = (Number(run.wordsGuessed) || 0) > 0;
+      update.sprintPlayed = FieldValue.increment(1);
+      update.sprintSolved = FieldValue.increment(didSolve ? 1 : 0);
+      // Guesses used, so the popup can divide by sprintSolved for an average.
+      // Only counted on a solve: a miss always costs the full five and would
+      // drag the average toward a number nobody actually played.
+      update.sprintGuessTotal = FieldValue.increment(didSolve ? (g1 + g2 * 2 + g3 * 3 + g4 * 4 + g5 * 5) : 0);
+
+      if (score > Math.max(0, Number(user.sprintBestScore) || 0)) {
+        update.sprintBestScore = score;
+        update.sprintBestDate = run.puzzleDate;
+      }
+      const t = Number(run.elapsedMs);
+      const priorBestTime = Number(user.sprintBestTimeMs);
+      if (didSolve && Number.isFinite(t) && t > 0 && (!Number.isFinite(priorBestTime) || priorBestTime <= 0 || t < priorBestTime)) {
+        update.sprintBestTimeMs = t;
+      }
+
+      // The streak. Only a solve extends it; a miss ends it, which is the
+      // whole point of having one. Compared against the run's OWN puzzle date
+      // rather than today, so a late-arriving trigger cannot break a streak
+      // that the player did not break.
+      if (didSolve) {
+        const last = String(user.sprintLastDate || "");
+        const continued = last && last === shiftDateStr(run.puzzleDate, -1);
+        // Replaying the same day is not a second day: keep the streak where
+        // it is rather than counting the day twice.
+        const streak = last === run.puzzleDate
+          ? Math.max(1, Number(user.sprintStreak) || 0)
+          : (continued ? (Number(user.sprintStreak) || 0) + 1 : 1);
+        update.sprintStreak = streak;
+        update.sprintLastDate = run.puzzleDate;
+        if (streak > Math.max(0, Number(user.sprintBestStreak) || 0)) update.sprintBestStreak = streak;
+      } else {
+        update.sprintStreak = 0;
+        update.sprintLastDate = run.puzzleDate;
+      }
+    }
+
     // The recurring board. Same shape as bestRunScore, with one extra move: a
     // stored best from a PREVIOUS window does not count against this one, so
     // the comparison floor drops back to 0 when the key changes. That is what
@@ -489,7 +545,13 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // screen, and their scores are on a different scale entirely — a fixed set of words
     // against an endless run — so mixing them would make the number on this
     // board mean two different things.
-    if (run.mode !== "daily") {
+    //
+    // Sprint is excluded for the same reason, only more so: one word caps it
+    // at 500 against a Stakes run with no ceiling at all, so a Sprint can
+    // never be a meaningful row here, and a player whose only game is Sprint
+    // would otherwise sit on the Stakes board with a score that cannot be
+    // compared to anything else on it.
+    if (run.mode !== "daily" && run.mode !== "sprint") {
       const dayKey = getTodayDateStr();
       const priorToday = user.dayBestKey === dayKey
         ? Math.max(0, Number(user.dayBestScore) || 0)
@@ -1117,8 +1179,15 @@ function effectiveDifficulty(word, stats) {
 // `stats` is optional. The nightly generator passes the measured table; the
 // lazy fallback inside getOrCreateTodaysPuzzle deliberately does not, because
 // that path runs inside a player's own request and is not worth a read.
-function pickDailyWords(stats) {
+// `exclude` is a Set of uppercase words this draw may not use. It exists so
+// the day's Sprint word cannot also appear in the day's Daily Puzzle: a player
+// who does both would otherwise learn one answer from the other. Sprint is
+// drawn first and handed in here, which makes the collision impossible rather
+// than merely unlikely.
+function pickDailyWords(stats, exclude) {
+  const banned = exclude instanceof Set ? exclude : new Set();
   const ranked = DAILY_TARGET_WORDS
+    .filter((w) => !banned.has(w.toUpperCase()))
     .map((w) => ({ w, d: effectiveDifficulty(w.toUpperCase(), stats) }))
     .sort((a, b) => a.d - b.d);
 
@@ -1135,11 +1204,36 @@ function pickDailyWords(stats) {
   });
   // Defensive: if the tiers somehow came up short (a truncated word list),
   // top up at random rather than publishing a puzzle with missing words.
-  while (picked.length < DAILY_GAUNTLET_WORD_COUNT) {
+  // Bounded. This draws at random and rejects, so if `banned` ever left fewer
+  // than DAILY_GAUNTLET_WORD_COUNT words to choose from, an unbounded loop
+  // would spin forever inside a Cloud Function — billed by the second, with
+  // no error to look at. In practice `banned` holds one word, so the cap is
+  // never approached; it is here because the failure mode is a hang rather
+  // than a wrong puzzle.
+  for (let tries = 0; picked.length < DAILY_GAUNTLET_WORD_COUNT && tries < 10000; tries++) {
     const w = DAILY_TARGET_WORDS[Math.floor(Math.random() * DAILY_TARGET_WORDS.length)];
+    if (banned.has(w.toUpperCase())) continue;
     if (!picked.some((p) => p.w === w)) picked.push({ w, d: effectiveDifficulty(w.toUpperCase(), stats) });
   }
   return picked.sort((a, b) => a.d - b.d).slice(0, DAILY_GAUNTLET_WORD_COUNT).map((p) => p.w);
+}
+
+// Sprint's one word for the day, drawn uniformly from the whole target list
+// rather than from a chosen tier. That is a deliberate product call: every
+// word in the list is fair game, so some mornings open gently and some open
+// on the hardest word in the game, and everybody meets the same one.
+//
+// The tier is recorded alongside it. Nothing reads it yet; it costs one sort
+// a day and means the archive and the stats can group Sprints by difficulty
+// later without a backfill.
+function pickSprintWord(stats) {
+  const ranked = DAILY_TARGET_WORDS
+    .map((w) => ({ w, d: effectiveDifficulty(w.toUpperCase(), stats) }))
+    .sort((a, b) => a.d - b.d);
+  const i = Math.floor(Math.random() * ranked.length);
+  const third = Math.floor(ranked.length / 3);
+  const tier = i < third ? "easy" : i < third * 2 ? "medium" : "hard";
+  return { word: ranked[i].w.toUpperCase(), tier };
 }
 
 const WORD_STATS_REF = () => db.collection("wordStats").doc("aggregate");
@@ -1166,12 +1260,28 @@ async function loadWordStats() {
 exports.generateDailyPuzzle = onSchedule({ schedule: "0 0 * * *", timeZone: "America/New_York" }, async () => {
   const today = getTodayDateStr();
   const puzzleRef = db.collection("dailyPuzzles").doc(today);
+  const sprintRef = db.collection("sprintPuzzles").doc(today);
   // One read, once a day, on a schedule with no player waiting on it.
   const stats = await loadWordStats();
   await db.runTransaction(async (tx) => {
-    const snap = await tx.get(puzzleRef);
-    if (snap.exists) return;
-    tx.set(puzzleRef, { words: pickDailyWords(stats), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() });
+    const [daySnap, sprintSnap] = await Promise.all([tx.get(puzzleRef), tx.get(sprintRef)]);
+
+    // Sprint is settled FIRST so its word can be kept out of the Daily's
+    // seven. Each document is guarded on its own rather than returning early
+    // on the first one that exists, so a day that somehow published only one
+    // of the two still gets the other rather than staying half-generated.
+    const sprint = sprintSnap.exists
+      ? sprintSnap.data()
+      : { ...pickSprintWord(stats), generatedAt: FieldValue.serverTimestamp() };
+    if (!sprintSnap.exists) tx.set(sprintRef, sprint);
+
+    if (!daySnap.exists) {
+      tx.set(puzzleRef, {
+        words: pickDailyWords(stats, new Set([String(sprint.word || "").toUpperCase()])),
+        wordCount: DAILY_GAUNTLET_WORD_COUNT,
+        generatedAt: FieldValue.serverTimestamp(),
+      });
+    }
   });
 });
 
@@ -1253,9 +1363,64 @@ async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
   // Fallback for the rare case the 00:00 Eastern schedule hasn't run yet
   // (the first day after deploy, or a missed trigger) — generate it lazily so
   // the feature doesn't hard-fail for whoever hits this first that day.
-  const puzzle = { words: pickDailyWords(), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
+  //
+  // Still honours the Sprint exclusion. The scheduled path draws Sprint first
+  // and hands its word in; here the order is whichever mode a player opened
+  // first, so the word is read back instead. Done before any write, because a
+  // transaction cannot read after it writes.
+  const sprintSnap = await tx.get(db.collection("sprintPuzzles").doc(today));
+  const exclude = sprintSnap.exists
+    ? new Set([String(sprintSnap.data().word || "").toUpperCase()])
+    : new Set();
+  const puzzle = { words: pickDailyWords(null, exclude), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
   tx.set(puzzleRef, puzzle);
   return puzzle;
+}
+
+// Sprint's mirror of the above, with the exclusion running the other way: if
+// a player opened the Daily first today and generated its seven lazily, the
+// Sprint word must not be one of them.
+async function getOrCreateTodaysSprint(tx, sprintRef, today) {
+  const snap = await tx.get(sprintRef);
+  if (snap.exists) return snap.data();
+  const daySnap = await tx.get(db.collection("dailyPuzzles").doc(today));
+  const taken = new Set(
+    daySnap.exists && Array.isArray(daySnap.data().words)
+      ? daySnap.data().words.map((w) => String(w).toUpperCase())
+      : [],
+  );
+  let drawn = pickSprintWord(null);
+  for (let i = 0; i < 20 && taken.has(drawn.word); i++) drawn = pickSprintWord(null);
+  const sprint = { ...drawn, generatedAt: FieldValue.serverTimestamp() };
+  tx.set(sprintRef, sprint);
+  return sprint;
+}
+
+function sprintAttemptRef(uid, date) {
+  return db.collection("sprintAttempts").doc(uid).collection("days").doc(date);
+}
+
+// Shape returned to the client. The word itself is never in here while the
+// attempt is live — only the guesses already made and their colours. Once the
+// attempt is finished the answer is allowed out, so a player who missed can
+// be shown what it was.
+function publicSprintState(attempt, answer) {
+  const out = {
+    date: attempt.date,
+    guesses: attempt.guesses || [],
+    solved: !!attempt.solved,
+    score: attempt.score || 0,
+    status: attempt.status,
+    elapsedMs: attempt.elapsedMs == null ? null : attempt.elapsedMs,
+    // The player's own start time, so a board resumed after a reload can show
+    // a clock that has been running rather than one starting from zero. Not a
+    // secret — it is their own timestamp and tells them nothing about the
+    // word — and the number that actually ranks them is still computed server
+    // side from this same value.
+    startedAtMs: attempt.startedAtMs == null ? null : attempt.startedAtMs,
+  };
+  if (attempt.status === "finished" && answer) out.answer = String(answer).toUpperCase();
+  return out;
 }
 
 function dailyAttemptRef(uid, date) {
@@ -1413,6 +1578,149 @@ exports.guessDailyWord = onCall(readableFailures("Submitting that Daily Puzzle g
       colors, solved, wordFinished, gauntletFinished,
       earned, score: newScore, wordIndex: newWordIndex,
       revealedWord: wordFinished ? target : null, // safe now — this word is done either way
+    };
+  });
+}));
+
+// ============================================================================
+// SPRINT — one word a day, everyone the same word. Fewest guesses wins; the
+// tie is broken by how long the solve took.
+//
+// Architecturally this is the Daily Puzzle with the word count set to one and
+// a clock added, and that is on purpose: the Daily's shape (answer in a
+// collection no client may read, attempt owned and readable by its player,
+// every write through the Admin SDK, a /runs document on finish that the
+// existing onRunCreated payout picks up) has already survived production.
+//
+// THE CLOCK. Both ends are stamped server-side, because the time is a
+// competitive tiebreaker and a client clock is a suggestion. They use
+// Date.now() rather than FieldValue.serverTimestamp(), which is not a
+// shortcut: a server-timestamp sentinel resolves at commit and cannot be read
+// back inside the transaction that writes it, so two of them cannot be
+// subtracted to get a duration. Date.now() runs on the function's own clock —
+// still out of the client's reach — and instances are NTP-synced, so the skew
+// between the call that starts the clock and the one that stops it is well
+// under the precision anyone can perceive here.
+//
+// Stored raw and sorted raw, displayed to a tenth. Rounding to whole seconds
+// would blunt the fact that a slow connection loses ties it should win, but
+// rounding can be applied later over raw data and the reverse cannot.
+// ============================================================================
+
+exports.startSprint = onCall(readableFailures("Starting today's Sprint", async (request) => {
+  const uid = requireAuth(request); // guests included, same as the Daily
+  const today = getTodayDateStr();
+  const ref = sprintAttemptRef(uid, today);
+  const sprintRef = db.collection("sprintPuzzles").doc(today);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      // Resuming. The answer only comes back out if they already finished.
+      const existing = snap.data();
+      let answer = null;
+      if (existing.status === "finished") {
+        const s = await tx.get(sprintRef);
+        answer = s.exists ? s.data().word : null;
+      }
+      return { attempt: publicSprintState(existing, answer) };
+    }
+
+    // Draws the word if the 00:00 schedule has not fired yet. Note this runs
+    // before any write in this transaction, which Firestore requires.
+    await getOrCreateTodaysSprint(tx, sprintRef, today);
+
+    const attempt = {
+      date: today,
+      guesses: [],
+      solved: false,
+      score: 0,
+      status: "active",
+      startedAtMs: null,
+      solvedAtMs: null,
+      elapsedMs: null,
+    };
+    tx.set(ref, attempt);
+    return { attempt: publicSprintState(attempt, null) };
+  });
+}));
+
+exports.guessSprintWord = onCall(readableFailures("Submitting that Sprint guess", async (request) => {
+  const uid = requireAuth(request);
+  const raw = (request.data && request.data.guess) || "";
+  const guess = String(raw).toUpperCase().trim();
+  if (!/^[A-Z]{5}$/.test(guess)) throw new HttpsError("invalid-argument", "Guess must be a 5-letter word.");
+  if (!DAILY_ALL_VALID_WORDS.has(guess)) throw new HttpsError("invalid-argument", "Not in word list.");
+
+  const today = getTodayDateStr();
+  const ref = sprintAttemptRef(uid, today);
+  const sprintRef = db.collection("sprintPuzzles").doc(today);
+  const userRef = db.collection("users").doc(uid);
+
+  return db.runTransaction(async (tx) => {
+    const [attemptSnap, sprintSnap, userSnap] = await Promise.all([tx.get(ref), tx.get(sprintRef), tx.get(userRef)]);
+    if (!attemptSnap.exists) throw new HttpsError("failed-precondition", "Start today's Sprint first.");
+    if (!sprintSnap.exists) throw new HttpsError("not-found", "Today's Sprint word is missing.");
+    const attempt = attemptSnap.data();
+    const sprint = sprintSnap.data();
+    const username = userSnap.exists ? userSnap.data().username : null;
+    const equipped = userSnap.exists ? userSnap.data().equipped : null;
+    if (attempt.status !== "finished" && attempt.status !== "active") throw new HttpsError("failed-precondition", "Today's Sprint is in an unknown state.");
+    if (attempt.status === "finished") throw new HttpsError("failed-precondition", "Today's Sprint is already finished.");
+
+    const prior = Array.isArray(attempt.guesses) ? attempt.guesses : [];
+    if (prior.length >= DAILY_GAUNTLET_MAX_GUESSES) throw new HttpsError("failed-precondition", "No guesses left today.");
+
+    const target = String(sprint.word).toUpperCase();
+    const colors = gradeGuess(guess, target);
+    const solved = colors.every((c) => c === 2);
+    const guessNumber = prior.length + 1; // 1-indexed, for scoring
+    const newGuesses = [...prior, { guess, colors }];
+
+    // The clock starts on the first guess and never restarts. Written only
+    // when it is still null, so a retried call cannot reset it.
+    const now = Date.now();
+    const startedAtMs = attempt.startedAtMs == null ? now : attempt.startedAtMs;
+
+    const finished = solved || guessNumber >= DAILY_GAUNTLET_MAX_GUESSES;
+    const score = solved ? SCORE_POINTS[guessNumber - 1] : 0;
+    const elapsedMs = solved ? Math.max(0, now - startedAtMs) : null;
+
+    tx.update(ref, {
+      guesses: newGuesses,
+      solved,
+      score,
+      status: finished ? "finished" : "active",
+      startedAtMs,
+      solvedAtMs: solved ? now : null,
+      elapsedMs,
+    });
+
+    if (finished) {
+      // Same payout path as every other mode. The deterministic id blocks a
+      // second submission for the day — a repeat write lands on the same doc,
+      // and onRunCreated's payoutApplied guard makes the retry a no-op.
+      const g = [0, 0, 0, 0, 0];
+      if (solved) g[guessNumber - 1] = 1;
+      const runRef = db.collection("runs").doc(`sprint_${uid}_${today}`);
+      tx.set(runRef, {
+        uid, username, equipped, score, isWipeout: false, lostScore: 0,
+        wordsGuessed: solved ? 1 : 0, wordsPlayed: 1,
+        guess1: g[0], guess2: g[1], guess3: g[2], guess4: g[3], guess5: g[4],
+        fails: solved ? 0 : 1, kobeCount: 0, bestStreak: solved ? 1 : 0,
+        // Null rather than absent when unsolved: the board orders on this
+        // field, and Firestore drops documents missing an ordered field from
+        // the result entirely.
+        elapsedMs,
+        mode: "sprint", puzzleDate: today,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    }
+
+    return {
+      colors, solved, finished, score, elapsedMs,
+      guessNumber,
+      answer: finished ? target : null, // safe now — the attempt is over either way
     };
   });
 }));

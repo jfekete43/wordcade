@@ -131,6 +131,7 @@
             --c-gauntlet: #6b5b95;
             --c-clash: #b5563f;
             --c-ffa: #8a6b26;
+            --c-sprint: #7a4a73;
             /* a letter that is in no part of the word */
             --c-absent: #c9c0ae;
             --c-absent-ink: #635c4c;
@@ -261,7 +262,7 @@
            DAILY widens its column and squeezes the other three, which
            hides real overflow behind body's overflow-x: hidden. */
         .arcade-menu { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
-            display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2);
+            display: grid; grid-template-columns: repeat(var(--mode-cols, 4), minmax(0, 1fr)); gap: var(--s-2);
             margin-bottom: var(--s-6); position: relative; z-index: 2;}
         .arcade-menu button {
             background-color: var(--c-raised); color: var(--c-ink-4);
@@ -299,6 +300,7 @@
         .arcade-menu .mode-gauntlet { color: var(--c-gauntlet); --c-mode: var(--c-gauntlet); }
         .arcade-menu .mode-clash { color: var(--c-clash); --c-mode: var(--c-clash); }
         .arcade-menu .mode-ffa { color: var(--c-ffa); --c-mode: var(--c-ffa); }
+        .arcade-menu .mode-sprint { color: var(--c-sprint); --c-mode: var(--c-sprint); }
         /* Colour arrives when a mode is selected, or on hover. The quiet rule
            is (0,2,1) and beats .mode-* at (0,2,0), so no !important is needed.
            No `disabled` attribute on the current one: a disabled button loses
@@ -1329,15 +1331,16 @@
          had no way to tell which game they were playing.
          The three slots are filled by renderModeNav() from the mode flags.
          Nothing else writes to them. -->
-    <nav class="arcade-menu" aria-label="Game mode">
-        <!-- Markup carries the Stakes-default state so the nav is correct
+    <nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: 5;">
+        <!-- Markup carries the Sprint-default state so the nav is correct
              before any script runs; renderModeNav() only moves aria-current
              after that. Order is the MODES table's order, which is also the
              homepage blurb's order. -->
-        <button class="mode-nav-btn mode-endless" id="btn-nav-1" data-mode="endless" aria-current="true" onclick="window.goToMode(this.dataset.mode)">STAKES</button>
-        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-2" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">DAILY</button>
-        <button class="mode-nav-btn mode-clash" id="btn-nav-3" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
-        <button class="mode-nav-btn mode-ffa" id="btn-nav-4" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
+        <button class="mode-nav-btn mode-sprint" id="btn-nav-1" data-mode="sprint" aria-current="true" onclick="window.goToMode(this.dataset.mode)">SPRINT</button>
+        <button class="mode-nav-btn mode-endless" id="btn-nav-2" data-mode="endless" onclick="window.goToMode(this.dataset.mode)">STAKES</button>
+        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-3" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">DAILY</button>
+        <button class="mode-nav-btn mode-clash" id="btn-nav-4" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
+        <button class="mode-nav-btn mode-ffa" id="btn-nav-5" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
     </nav>
 
     <!-- STANDARD UI -->
@@ -1381,6 +1384,23 @@
     </div>
 
     <!-- DAILY PUZZLE UI -->
+    <!-- Sprint. One word, so there is no progress fraction to show — the
+         clock takes that slot instead. It ticks locally for feedback; the
+         number that reaches the leaderboard is stamped by the server on
+         both ends and is the one shown once the word is done. -->
+    <!-- The landing gate. Ships visible: arriving on Sprint paints this
+         from markup and calls nothing. startSprint runs on the tap, not
+         on arrival \u2014 the whole point of landing here is that it is cheap. -->
+    <div id="sprint-gate" style="display:none; text-align:center; margin-bottom: var(--s-6);">
+        <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">One word. Five guesses. Everyone gets the same word today.</div>
+        <button class="btn-primary" id="btn-sprint-start" onclick="window.goToMode('sprint')">Play Today\u2019s Word</button>
+    </div>
+
+    <div id="sprint-header" style="display:none;">
+        <div class="score-text" id="sprint-clock" style="color:var(--c-sprint);">0.0s</div>
+        <div class="score-text">SCORE: <span id="sprint-score">0</span></div>
+    </div>
+
     <div id="daily-header" style="display:none;">
         <div class="score-text" id="daily-progress-text" style="color:var(--c-gauntlet);">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
         <!-- Swapped in once today's run is over, when "WORD 1/10" would be
@@ -1633,12 +1653,13 @@
         <h2 style="color: var(--c-ink); font-size: var(--fs-4); letter-spacing: var(--ls-ui); margin-bottom: var(--s-4);">A competitive word game</h2>
         <p style="margin-top: 0; margin-bottom: 10px;">Lexathon is a five-letter word game for people who finish the daily puzzle and want to keep going. If you have done today's Wordle and want more than one, this is your place. Free, runs in your browser, no account needed to start.</p>
 
-        <!-- Four lines, one per mode, each in that mode's own colour — the
-             same green/purple/orange/gold the nav buttons and the intro cards
+        <!-- One line per mode, each in that mode's own colour — the
+             same colours the nav buttons and the intro cards
              use, so a name read here is recognisable as a button up there.
              This is also the block a crawler indexes, which is why the modes
              are described in prose rather than left to the nav. -->
         <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-sprint);">Sprint</strong> — one word a day, the same word for everyone. Fewest guesses wins; the faster solve breaks a tie.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-endless);">Stakes</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Daily Puzzle</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-clash);">Clash</strong> — race one other player through the same words for seven minutes.</li>
@@ -1872,6 +1893,25 @@
                      hall of fame rather than today's standings. -->
                 <button class="btn-primary" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
                 <button class="btn-quiet" onclick="window.leaveDailyGauntlet()">Back to Stakes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPRINT END -->
+    <!-- One word means the result is over in a breath, so this carries the
+         career record as well as today's line: without it the mode has
+         nothing to show for itself between one word and the next. The
+         numbers come off userProfileData, which is already loaded, so
+         opening this costs no read. -->
+    <div id="sprint-end-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: var(--c-sprint);">
+            <h2 class="modal-title" id="sprint-end-title">Solved!</h2>
+            <div class="modal-stats" id="sprint-end-desc"></div>
+            <div id="sprint-end-career" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px; line-height: 1.7;"></div>
+            <div class="modal-buttons">
+                <button class="btn-primary" onclick="window.dismissSprintEnd()">Today's Leaderboard</button>
+                <button class="btn-primary" onclick="window.leaveSprint()">Play Another Mode</button>
+                <button class="btn-quiet" id="btn-sprint-share" onclick="window.shareSprintResult()">Share Result</button>
             </div>
         </div>
     </div>
@@ -2293,6 +2333,8 @@
         const callRefreshProfile = httpsCallable(cloudFunctions, "refreshProfile");
         const callStartDailyGauntlet = httpsCallable(cloudFunctions, "startDailyGauntlet");
         const callGuessDailyWord = httpsCallable(cloudFunctions, "guessDailyWord");
+        const callStartSprint = httpsCallable(cloudFunctions, "startSprint");
+        const callGuessSprintWord = httpsCallable(cloudFunctions, "guessSprintWord");
         const callFinishClashMatch = httpsCallable(cloudFunctions, "finishClashMatch");
         const callForfeitClashMatch = httpsCallable(cloudFunctions, "forfeitClashMatch");
         const callStartSuddenDeath = httpsCallable(cloudFunctions, "startSuddenDeath");
@@ -2480,6 +2522,8 @@
         // single "seen the tour" flag, so each description arrives the first
         // time it is relevant and never again.
         const MODE_INTRO = {
+            sprint: { icon: "\u23F1\uFE0F", color: "var(--c-sprint)", title: "Sprint",
+                text: "One word a day, the same word for everyone, five guesses. Fewest guesses wins \u2014 and if two of you tie, the faster solve takes it. The clock starts the moment you submit your first guess, so take as long as you like before that." },
             endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Stakes",
                 text: "Guess 5-letter words one after another, as long as you can keep going. Solve a word in fewer guesses to score more. Miss one and you spend a Continue \u2014 miss with none left and the run is over. Bank your score whenever you want to stop." },
             gauntlet: { icon: "\uD83D\uDD25", color: "var(--c-gauntlet)", title: "Daily Puzzle",
@@ -4041,6 +4085,10 @@
 
         // --- DAILY PUZZLE STATE ---
         let isDailyMode = false;
+        let isSprintMode = false;
+        let sprintAttempt = null;
+        let sprintClockTimer = null;
+        let sprintClockStartedAt = 0;
         let dailyAttempt = null; // server's publicAttemptState — never contains the target words
 
         // --- CLASH SUDDEN DEATH STATE ---
@@ -4189,6 +4237,7 @@
         // is how every mode but Stakes ended up showing one "leave" button
         // and hiding the other two.
         const MODES = {
+            sprint:   { label: "SPRINT",   cls: "mode-sprint",   color: "var(--c-sprint)" },
             endless:  { label: "STAKES",  cls: "mode-endless",  color: "var(--c-endless)" },
             gauntlet: { label: "DAILY", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
             clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
@@ -4199,6 +4248,7 @@
         // Derived from the flags that already drive everything else, rather
         // than stored a second time and kept in sync by hand.
         function currentMode() {
+            if (isSprintMode) return "sprint";
             if (isDailyMode) return "gauntlet";
             if (isVersusMode) return "clash";
             if (isFfaMode) return "ffa";
@@ -4218,6 +4268,11 @@
         // future [aria-current] selector would not.
         function renderModeNav() {
             const here = currentMode();
+            // The nav grid takes its column count from the table rather
+            // than a hardcoded repeat(), so adding or retiring a mode is
+            // a one-line table edit. The narrow-screen rule still
+            // overrides this to two columns and wraps.
+            document.querySelector(".arcade-menu").style.setProperty("--mode-cols", String(MODE_ORDER.length));
             MODE_ORDER.forEach((m, i) => {
                 const btn = document.getElementById("btn-nav-" + (i + 1));
                 if (!btn) return;
@@ -4237,7 +4292,9 @@
             if (document.activeElement) document.activeElement.blur();
             if (!MODES[target] || target === currentMode()) return;
 
-            if (isDailyMode) {
+            if (isSprintMode) {
+                window.leaveSprint();
+            } else if (isDailyMode) {
                 window.leaveDailyGauntlet();
             } else if (isVersusMode) {
                 if (!confirm("Leave Head-to-Head match? If a match is in progress, this counts as a forfeit.")) return;
@@ -4253,7 +4310,8 @@
                 saveRunToCloud();
             }
 
-            if (target === "gauntlet") await window.openDailyGauntlet();
+            if (target === "sprint") await window.openSprint();
+            else if (target === "gauntlet") await window.openDailyGauntlet();
             else if (target === "clash") await window.openClashLobby();
             else if (target === "ffa") await window.openFfaLobby();
             else { renderModeNav(); await showModeIntro("endless"); }
@@ -4310,6 +4368,325 @@
             document.getElementById("keyboard").style.display = visible ? "flex" : "none";
             document.getElementById("daily-progress-text").style.display = visible ? "block" : "none";
             document.getElementById("daily-complete-text").style.display = visible ? "none" : "block";
+        }
+
+
+        // --- SPRINT ---------------------------------------------------------
+        //
+        // One word a day, the same word for everyone. Fewest guesses wins and
+        // the clock breaks the tie, which is the whole reason the server owns
+        // both ends of the timing (see guessSprintWord).
+        //
+        // The clock on screen is a local one. It is display only: it starts
+        // when this browser sends the first guess and is there so the player
+        // can see time passing. The number that reaches the leaderboard is
+        // the server's, computed from its own two stamps, and replaces the
+        // local reading the moment the word is done. They will differ by the
+        // round trip, which is exactly the amount the player should not be
+        // able to influence.
+
+        function formatSprintTime(ms) {
+            const n = Math.max(0, Number(ms) || 0);
+            const total = n / 1000;
+            if (total < 60) return total.toFixed(1) + "s";
+            const m = Math.floor(total / 60);
+            const s = total - m * 60;
+            return m + ":" + (s < 10 ? "0" : "") + s.toFixed(1);
+        }
+
+        function setSprintClock(ms) {
+            const el = document.getElementById("sprint-clock");
+            if (el) el.innerText = formatSprintTime(ms);
+        }
+
+        function startSprintClock(fromMs) {
+            stopSprintClock();
+            sprintClockStartedAt = Number(fromMs) || Date.now();
+            setSprintClock(Date.now() - sprintClockStartedAt);
+            // 100ms rather than per-frame: this is a readout to a tenth, and a
+            // rAF loop would repaint sixty times for every change of digit.
+            sprintClockTimer = setInterval(() => setSprintClock(Date.now() - sprintClockStartedAt), 100);
+        }
+
+        function stopSprintClock() {
+            if (sprintClockTimer) { clearInterval(sprintClockTimer); sprintClockTimer = null; }
+        }
+
+        function setSprintPlaySurfaceVisible(visible) {
+            document.getElementById("legend").style.display = visible ? "flex" : "none";
+            document.getElementById("board").style.display = visible ? "grid" : "none";
+            document.getElementById("keyboard").style.display = visible ? "flex" : "none";
+        }
+
+        window.openSprint = async function() {
+            document.getElementById("main-menu-modal").style.display = "none";
+            if (!currentUser) return;
+            // Guests welcome, same as the Daily. Nothing here is worth gating:
+            // one word a day is the cheapest possible first impression.
+            await showModeIntro("sprint");
+
+            try {
+                sprintAttempt = (await callStartSprint()).data.attempt;
+                if (!sprintAttempt) throw new Error("Couldn't start today's Sprint.");
+            } catch (e) {
+                alert(e.message || "Couldn't start today's Sprint.");
+                console.error(e);
+                return;
+            }
+
+            isSprintMode = true;
+            document.getElementById("sprint-gate").style.display = "none";
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "none";
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            document.getElementById("versus-track-container").style.display = "none";
+            document.getElementById("daily-header").style.display = "none";
+            showStandardPanels(false);
+            document.getElementById("sprint-header").style.display = "flex";
+
+            loadSprintBoard();
+
+            if (sprintAttempt.status === "finished") {
+                boardDisplay.innerHTML = ""; resetKeyboardColors();
+                setSprintPlaySurfaceVisible(false);
+                setSprintClock(sprintAttempt.elapsedMs || 0);
+                showSprintEndModal(sprintAttempt, true);
+            } else {
+                startSprintRound();
+            }
+        }
+
+        function startSprintRound() {
+            setSprintPlaySurfaceVisible(true);
+            currentGuess = ""; currentRow = 0; isAnimating = false;
+            createBoard(); resetKeyboardColors();
+            document.getElementById("sprint-score").innerText = (sprintAttempt.score || 0).toLocaleString();
+
+            // Replay whatever this player already did today. startSprint hands
+            // back the existing attempt rather than a fresh one, so a reload
+            // mid-word lands back where they left off.
+            const prior = Array.isArray(sprintAttempt.guesses) ? sprintAttempt.guesses : [];
+            prior.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
+            currentRow = prior.length;
+
+            if (prior.length > 0 && sprintAttempt.startedAtMs) startSprintClock(sprintAttempt.startedAtMs);
+            else setSprintClock(0);
+        }
+
+        async function submitSprintGuess() {
+            if (isAnimating) return;
+            isAnimating = true;
+            const guessArr = currentGuess.split("");
+            const rowIndex = currentRow;
+            const wasFirst = (sprintAttempt.guesses || []).length === 0;
+            markRowPending(rowIndex, true);
+
+            // Started here rather than on the response so the clock reflects
+            // when the player committed, not when the network came back.
+            if (wasFirst) startSprintClock(Date.now());
+
+            let result;
+            try {
+                result = (await callGuessSprintWord({ guess: currentGuess })).data;
+            } catch (e) {
+                markRowPending(rowIndex, false);
+                isAnimating = false;
+                if (wasFirst) { stopSprintClock(); setSprintClock(0); }
+                alert(e.message || "Couldn't submit that guess — try again.");
+                console.error(e);
+                return;
+            }
+            markRowPending(rowIndex, false);
+
+            sprintAttempt.guesses = (sprintAttempt.guesses || []).concat([{ guess: currentGuess, colors: result.colors }]);
+            sprintAttempt.solved = result.solved;
+            sprintAttempt.score = result.score;
+            sprintAttempt.status = result.finished ? "finished" : "active";
+            sprintAttempt.elapsedMs = result.elapsedMs;
+
+            animateRowReveal(rowIndex, guessArr, result.colors.map(colorCodeToName));
+
+            setTimeout(() => {
+                document.getElementById("sprint-score").innerText = (result.score || 0).toLocaleString();
+
+                if (result.solved) {
+                    stopSprintClock();
+                    // The server's number, not the local one.
+                    setSprintClock(result.elapsedMs || 0);
+                    SFX.correctWord();
+                    showMessage("+" + (result.score || 0) + " POINTS!");
+                } else if (result.finished) {
+                    stopSprintClock();
+                    SFX.wrongWord();
+                    showMessage("WORD WAS " + result.answer + ".");
+                }
+
+                currentGuess = "";
+                currentRow = rowIndex + 1;
+                isAnimating = false;
+
+                if (result.finished) {
+                    reflectSprintLocally(result);
+                    setTimeout(() => {
+                        setSprintPlaySurfaceVisible(false);
+                        showSprintEndModal(sprintAttempt, false, result.answer);
+                        loadSprintBoard();
+                    }, 1200);
+                }
+            }, 800);
+        }
+
+        // onRunCreated writes the career fields, which takes a moment to come
+        // back. Reflecting the finished run locally means the popup shows the
+        // run the player just did rather than the one before it; the next
+        // profile read replaces all of this with the server's own totals.
+        function reflectSprintLocally(result) {
+            if (!userProfileData) return;
+            const solved = !!result.solved;
+            userProfileData.sprintPlayed = (Number(userProfileData.sprintPlayed) || 0) + 1;
+            if (solved) {
+                userProfileData.sprintSolved = (Number(userProfileData.sprintSolved) || 0) + 1;
+                userProfileData.sprintGuessTotal = (Number(userProfileData.sprintGuessTotal) || 0) + (Number(result.guessNumber) || 0);
+                const t = Number(result.elapsedMs);
+                const best = Number(userProfileData.sprintBestTimeMs);
+                if (Number.isFinite(t) && t > 0 && (!Number.isFinite(best) || best <= 0 || t < best)) userProfileData.sprintBestTimeMs = t;
+                userProfileData.sprintStreak = (Number(userProfileData.sprintStreak) || 0) + 1;
+                userProfileData.sprintBestStreak = Math.max(Number(userProfileData.sprintBestStreak) || 0, userProfileData.sprintStreak);
+            } else {
+                userProfileData.sprintStreak = 0;
+            }
+            userProfileData.wallet = (Number(userProfileData.wallet) || 0) + (Number(result.score) || 0);
+        }
+
+        function showSprintEndModal(attempt, resumed, answer) {
+            const solved = !!attempt.solved;
+            const used = (attempt.guesses || []).length;
+            document.getElementById("sprint-end-title").innerText =
+                solved ? ("Solved in " + used) : "Not today";
+
+            const line = solved
+                ? (attempt.score || 0).toLocaleString() + " pts &middot; " + formatSprintTime(attempt.elapsedMs)
+                : "The word was " + escapeHtml(String(answer || "").toUpperCase() || "\u2014");
+            document.getElementById("sprint-end-desc").innerHTML =
+                '<span style="color:var(--c-sprint); font-size: var(--fs-5);">' + line + "</span>";
+
+            const p = userProfileData || {};
+            const played = Number(p.sprintPlayed) || 0;
+            const won = Number(p.sprintSolved) || 0;
+            const rate = played ? Math.round((won / played) * 100) : 0;
+            const avg = won ? ((Number(p.sprintGuessTotal) || 0) / won) : 0;
+            const bestT = Number(p.sprintBestTimeMs);
+            const streak = Number(p.sprintStreak) || 0;
+            const bestStreak = Number(p.sprintBestStreak) || 0;
+
+            const bits = ["Played " + played + " &middot; Solved " + won + (played ? " (" + rate + "%)" : "")];
+            if (won) bits.push("Avg " + avg.toFixed(1) + " guesses" + (Number.isFinite(bestT) && bestT > 0 ? " &middot; Best " + formatSprintTime(bestT) : ""));
+            bits.push("Streak " + streak + (bestStreak ? " (best " + bestStreak + ")" : ""));
+            document.getElementById("sprint-end-career").innerHTML =
+                '<div style="color:var(--c-ink-4); letter-spacing:1px; margin-bottom:4px;">CAREER</div>' + bits.join("<br>");
+
+            document.getElementById("btn-sprint-share").style.display = solved ? "inline-block" : "none";
+            document.getElementById("sprint-end-modal").style.display = "flex";
+        }
+
+        window.dismissSprintEnd = function() {
+            document.getElementById("sprint-end-modal").style.display = "none";
+        }
+
+        window.shareSprintResult = function() {
+            if (!sprintAttempt) return;
+            const used = (sprintAttempt.guesses || []).length;
+            const grid = (sprintAttempt.guesses || []).map((g) =>
+                g.colors.map((c) => (c === 2 ? "\u{1F7E6}" : c === 1 ? "\u{1F7E7}" : "\u2B1C")).join("")).join("\n");
+            const text = "Lexathon Sprint \u2014 " + (sprintAttempt.solved ? used + "/5" : "X/5")
+                + (sprintAttempt.solved ? " in " + formatSprintTime(sprintAttempt.elapsedMs) : "")
+                + "\n\n" + grid + "\n\nlexathon.gg";
+            if (navigator.share) navigator.share({ text }).catch(() => {});
+            else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => showMessage("COPIED!"));
+        }
+
+        // Today's Sprint board. One word means everyone's score is one of six
+        // values, so the clock is what actually orders the rows — it is shown
+        // because without it the board looks arbitrary.
+        async function loadSprintBoard() {
+            const titleEl = document.getElementById("daily-board-title");
+            if (titleEl) titleEl.innerText = "Today's Sprint";
+            const prev = document.getElementById("daily-board-prev");
+            const next = document.getElementById("daily-board-next");
+            if (prev) prev.style.display = "none";
+            if (next) next.style.display = "none";
+            const more = document.getElementById("home-board-more");
+            if (more) more.style.display = "none";
+
+            const list = document.getElementById("daily-board-list");
+            if (!list) return;
+            try {
+                const snap = await getDocs(query(
+                    collection(db, "runs"),
+                    where("mode", "==", "sprint"),
+                    where("puzzleDate", "==", sprintAttempt ? sprintAttempt.date : getTodayDateStr()),
+                    orderBy("score", "desc"),
+                    orderBy("elapsedMs", "asc"),
+                    limit(10)));
+                const rows = [];
+                snap.forEach((d) => { const v = d.data(); rows.push({ name: v.username, score: v.score, elapsedMs: v.elapsedMs, equipped: v.equipped }); });
+                list.innerHTML = rows.length
+                    ? rows.map((r, i) => {
+                        const eq = r.equipped || {};
+                        const bannerClass = safeCosmetic(eq.banner, "banner_default");
+                        const nameClass = safeCosmetic(eq.effect, "effect_none");
+                        return '<div class="daily-board-row ' + bannerClass + '">'
+                            + '<span class="daily-board-place">#' + (i + 1) + "</span>"
+                            + '<span class="daily-board-name ' + nameClass + '">' + escapeHtml(r.name || "Player") + "</span>"
+                            + '<span class="daily-board-score">' + Number(r.score || 0).toLocaleString()
+                            + (r.elapsedMs ? ' <span style="color:var(--c-ink-4);">' + formatSprintTime(r.elapsedMs) + "</span>" : "")
+                            + "</span></div>";
+                    }).join("")
+                    : '<div style="color:var(--c-ink-4);">Nobody has finished today\u2019s word yet. Be first.</div>';
+            } catch (e) {
+                console.error("Sprint board failed", e);
+                list.innerHTML = '<div style="color:var(--c-ink-4);">Board unavailable right now.</div>';
+            }
+        }
+
+
+        // The landing view. Sprint is what a visitor arrives on, but arriving
+        // is not playing: this paints the gate and today's board and touches
+        // no Cloud Function. Stakes stays initialised underneath, so leaving
+        // Sprint drops straight into a live run rather than booting one.
+        function showSprintLanding() {
+            isSprintMode = true;
+            sprintAttempt = null;
+            document.getElementById("endless-header").style.display = "none";
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            document.getElementById("daily-header").style.display = "none";
+            document.getElementById("sprint-header").style.display = "none";
+            document.getElementById("sprint-gate").style.display = "block";
+            setSprintPlaySurfaceVisible(false);
+            renderModeNav();
+            loadSprintBoard();
+        }
+
+        window.leaveSprint = function() {
+            document.getElementById("sprint-end-modal").style.display = "none";
+            stopSprintClock();
+            isSprintMode = false;
+            sprintAttempt = null;
+            document.getElementById("sprint-header").style.display = "none";
+            document.getElementById("sprint-gate").style.display = "none";
+            document.getElementById("endless-header").style.display = "flex";
+            document.getElementById("score-board").style.display = "flex";
+            document.getElementById("btn-cash-out").style.display = "inline-block";
+            setSprintPlaySurfaceVisible(true);
+            renderModeNav();
+            showStandardPanels(true);
+            // Only start a run if there is not one already. A player who
+            // had a Stakes run restored from localStorage and then looked
+            // at Sprint must not lose it on the way back.
+            if (!targetWord) window.startNewRun();
+            loadHomeBoard();
         }
 
         // --- PLACEMENT BADGES ---
@@ -6753,7 +7130,7 @@
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (validWordSet && !validWordSet.has(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
-                if (isDailyMode) { submitDailyGuess(); } else if (isSuddenDeathMode) { submitSuddenDeathGuess(); } else { checkGuess(); }
+                if (isSprintMode) { submitSprintGuess(); } else if (isDailyMode) { submitDailyGuess(); } else if (isSuddenDeathMode) { submitSuddenDeathGuess(); } else { checkGuess(); }
             } else if (key === "BACKSPACE" || key === "⌫") {
                 SFX.del();
                 currentGuess = currentGuess.slice(0, -1);
@@ -6993,6 +7370,12 @@
             }
             renderModeNav();
             updateScoreBoard();
+
+            // Sprint is the landing mode. Stakes has just been restored
+            // or started above and stays live underneath; this only
+            // changes what is on screen, and calls no Cloud Function --
+            // the gate's button does that when the player taps it.
+            showSprintLanding();
 
         }, 300);
     </script>

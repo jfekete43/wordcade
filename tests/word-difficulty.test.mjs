@@ -16,7 +16,7 @@
  *   effectiveDifficulty  — blends measured against computed, shrinking toward
  *                          the computed score in proportion to sample count so
  *                          a word seen four times cannot swing the grading.
- *   pickDailyWords       — three easy, four medium, three hard, ordered so the
+ *   pickDailyWords       — two easy, three medium, two hard, ordered so the
  *                          Daily Puzzle ramps.
  *
  * Pure; no emulator needed.
@@ -31,7 +31,7 @@ const grab = (re) => { const m = fn.match(re); if (!m) throw new Error('could no
 const src = [
   grab(/const WORD_STATS_PRIOR = \d+;/),
   grab(/function effectiveDifficulty\(word, stats\) \{\n[\s\S]*?\n\}/),
-  grab(/function pickDailyWords\(stats\) \{\n[\s\S]*?\n\}/),
+  grab(/function pickDailyWords\(stats, exclude\) \{\n[\s\S]*?\n\}/),
   grab(/function foldRunWordLog\(run, words\) \{\n[\s\S]*?\n\}/),
 ].join('\n\n');
 console.log('extracted from functions/index.js:', src.length, 'chars');

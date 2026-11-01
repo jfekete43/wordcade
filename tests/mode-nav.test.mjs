@@ -62,6 +62,16 @@ const modesSrc = 'const MODES = {' + between(html, 'const MODES = {', '\n       
   // walks is the same one the page ships with.
   + grab(/const MODE_ORDER = [^\n]*/, 'MODE_ORDER');
 const renderSrc = 'function renderModeNav() {' + between(html, 'function renderModeNav() {', '\n        }', 'renderModeNav') + '\n}';
+// Lifted, not restated. A hand-written copy of currentMode() in the harness
+// went stale the moment a fifth mode was added: the copy still knew four
+// flags, so the new mode could never be "current" here and the suite blew up
+// on an undefined colour instead of reporting a missing mode.
+const currentSrc = 'function currentMode() {' + between(html, 'function currentMode() {', '\n        }', 'currentMode') + '\n}';
+// Every mode the page ships, in the table's own order.
+const MODE_KEYS = (modesSrc.match(/^\s{12}(\w+):/gm) || []).map((m) => m.trim().replace(':', ''));
+const MODE_LABELS = Object.fromEntries((modesSrc.match(/^\s{12}(\w+):\s*\{\s*label:\s*"([^"]+)"/gm) || [])
+  .map((m) => { const g = m.match(/(\w+):\s*\{\s*label:\s*"([^"]+)"/); return [g[1], g[2]]; }));
+if (MODE_KEYS.length < 2) throw new Error('could not read the MODES table');
 console.log('extracted from index.html:', (modesSrc + renderSrc + nav).length, 'chars');
 
 // ===== 1. the renderer, in a browser, against the shipped markup ===========
@@ -76,17 +86,16 @@ ${nav}
 ${endlessHeader}
 ${scoreBoard}
 <script>
-let isDailyMode = false, isVersusMode = false, isFfaMode = false;
+let isSprintMode = false, isDailyMode = false, isVersusMode = false, isFfaMode = false;
 ${modesSrc}
-function currentMode() {
-  if (isDailyMode) return "gauntlet";
-  if (isVersusMode) return "clash";
-  if (isFfaMode) return "ffa";
-  return "endless";
-}
+${currentSrc}
 ${renderSrc}
-window.setFlags = (d, v, f) => { isDailyMode = d; isVersusMode = v; isFfaMode = f; renderModeNav(); };
-window.readNav = () => [1,2,3,4].map((i) => {
+window.setFlags = (o) => {
+  isSprintMode = !!o.sprint; isDailyMode = !!o.gauntlet;
+  isVersusMode = !!o.clash; isFfaMode = !!o.ffa;
+  renderModeNav();
+};
+window.readNav = () => MODE_ORDER.map((_, n) => n + 1).map((i) => {
   const b = document.getElementById("btn-nav-" + i);
   const cs = getComputedStyle(b);
   return { label: b.innerText.trim(), mode: b.dataset.mode, color: cs.color,
@@ -109,7 +118,9 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await page.goto('file://' + tmp);
 await page.waitForTimeout(120);
 
-const RGB = { endless: rgbOf('--c-endless'), gauntlet: rgbOf('--c-gauntlet'), clash: rgbOf('--c-clash'), ffa: rgbOf('--c-ffa') };
+// Built from the table rather than listed, so a new mode without a colour
+// fails as a missing custom property here instead of as a TypeError.
+const RGB = Object.fromEntries(MODE_KEYS.map((m) => [m, rgbOf(m === 'gauntlet' ? '--c-gauntlet' : '--c-' + m)]));
 
 const QUIET = rgbOf('--c-ink-4');
 const ON_ACCENT = rgbOf('--c-on-accent');
@@ -117,39 +128,38 @@ const ON_ACCENT = rgbOf('--c-on-accent');
 // The markup alone, before renderModeNav has ever run. A nav that is only
 // correct once a script has run shows four blank buttons on a slow load.
 const atRest = await page.evaluate(() => window.readNav());
-eq('the shipped markup already reads as the Stakes default',
-   atRest.map((b) => b.label), ['STAKES', 'DAILY', 'CLASH', 'FFA']);
+eq('the shipped markup already reads as the Sprint default',
+   atRest.map((b) => b.label), MODE_KEYS.map((m) => MODE_LABELS[m]));
 // Colour used to identify the three modes you were NOT in. It identifies the
 // one you ARE in now: the current slot is filled in its own colour and the
 // other three are quiet and identical, which is the whole point of the
 // four-up row — the mode you are playing is finally the one that is marked.
-eq('and the Stakes slot is already the marked one',
-   atRest.filter((b) => b.current).map((b) => b.mode), ['endless']);
-ck(atRest.find((b) => b.current).bg === RGB.endless
+// Sprint is the landing mode, so the markup marks Sprint. This is the
+// assertion that pins the landing page: change which button ships with
+// aria-current and this fails rather than silently moving the front door.
+eq('and the Sprint slot is already the marked one',
+   atRest.filter((b) => b.current).map((b) => b.mode), ['sprint']);
+ck(atRest.find((b) => b.current).bg === RGB.sprint
    && atRest.find((b) => b.current).color === ON_ACCENT,
    'filled in its own colour, before any script runs',
    atRest.find((b) => b.current).bg + ' / ' + atRest.find((b) => b.current).color);
 ck(atRest.filter((b) => !b.current).every((b) => b.color === QUIET),
-   'and the other three are quiet and identical',
+   'and the others are quiet and identical',
    atRest.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
 
-for (const [mode, flags] of [
-  ['endless', [false, false, false]],
-  ['gauntlet', [true, false, false]],
-  ['clash', [false, true, false]],
-  ['ffa', [false, false, true]],
-]) {
-  const nav = await page.evaluate((f) => { window.setFlags(f[0], f[1], f[2]); return window.readNav(); }, flags);
+const N = MODE_KEYS.length;
+for (const mode of MODE_KEYS) {
+  const nav = await page.evaluate((m) => { window.setFlags({ [m]: true }); return window.readNav(); }, mode);
   const here = await page.evaluate(() => window.currentModeIs());
   eq(`in ${mode}, currentMode() agrees with the flags`, here, mode);
   // The whole point: four slots, always shown, and the mode you are in is
   // the marked one rather than the missing one.
-  ck(nav.length === 4 && nav.every((b) => b.shown), `in ${mode}, all four slots are shown`,
+  ck(nav.length === N && nav.every((b) => b.shown), `in ${mode}, all ${N} slots are shown`,
      JSON.stringify(nav.map((b) => b.shown)));
   eq(`in ${mode}, the mode you are in IS a button, and it is the marked one`,
      nav.filter((b) => b.current).map((b) => b.mode), [mode]);
-  eq(`in ${mode}, all four modes are reachable`,
-     nav.map((b) => b.mode).sort(), ['clash', 'endless', 'ffa', 'gauntlet']);
+  eq(`in ${mode}, every mode is reachable`,
+     nav.map((b) => b.mode).sort(), [...MODE_KEYS].sort());
   ck(nav.every((b) => b.label === MODE_LABEL(b.mode)), `in ${mode}, each slot is labelled with its mode`,
      nav.map((b) => b.mode + '=' + b.label).join(' '));
   // Colour travels with the mode, not with the button id. It now arrives as
@@ -158,26 +168,23 @@ for (const [mode, flags] of [
      `in ${mode}, the marked slot is filled in that mode's colour`,
      nav.find((b) => b.current).bg + ' want ' + RGB[mode]);
   ck(nav.filter((b) => !b.current).every((b) => b.color === QUIET),
-     `in ${mode}, the other three stay quiet`,
+     `in ${mode}, the others stay quiet`,
      nav.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
-  ck(new Set(nav.map((b) => b.mode)).size === 4, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
+  ck(new Set(nav.map((b) => b.mode)).size === N, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
 }
-function MODE_LABEL(m) {
-  return { endless: 'STAKES', gauntlet: 'DAILY', clash: 'CLASH', ffa: 'FFA' }[m];
-}
+function MODE_LABEL(m) { return MODE_LABELS[m]; }
 
 // Order is stable, so a slot does not jump between modes as you move around.
 const orders = {};
-for (const [mode, flags] of [['endless', [false,false,false]], ['gauntlet', [true,false,false]],
-                             ['clash', [false,true,false]], ['ffa', [false,false,true]]]) {
-  orders[mode] = (await page.evaluate((f) => { window.setFlags(f[0], f[1], f[2]); return window.readNav(); }, flags))
+for (const mode of MODE_KEYS) {
+  orders[mode] = (await page.evaluate((m) => { window.setFlags({ [m]: true }); return window.readNav(); }, mode))
     .map((b) => b.mode);
 }
 // Stronger than it used to be: "stable" meant the relative order survived
 // while the SET changed. Now a mode's button never moves at all.
-const ORDER = ['endless', 'gauntlet', 'clash', 'ffa'];
+const ORDER = MODE_KEYS;
 eq('a mode\'s slot never moves, in any mode', orders,
-   { endless: ORDER, gauntlet: ORDER, clash: ORDER, ffa: ORDER });
+   Object.fromEntries(MODE_KEYS.map((m) => [m, ORDER])));
 
 // The nav must still fit on a phone now that no slot is ever hidden.
 // The harness injects index.html's whole stylesheet, which carries
@@ -205,8 +212,13 @@ for (const width of [280, 320, 360, 390, 428]) {
     };
   });
   ck(r.worst <= 0, `${width}px: no nav label spills out of its own button`, r.spill.join(' '));
-  ck(r.rows === (width < 320 ? 2 : 1),
-     `${width}px: the nav is ${width < 320 ? 'two rows' : 'one row'}`, String(r.rows));
+  // Below 320px the stylesheet drops to two columns, so the row count is
+  // whatever MODE_KEYS needs at two-up; at and above it, every mode is on
+  // one row. Derived rather than stated: this is the assertion that caught
+  // the nav still laying out four-up after a fifth mode was added.
+  const wantRows = width < 320 ? Math.ceil(N / 2) : 1;
+  ck(r.rows === wantRows,
+     `${width}px: the nav is ${wantRows} row(s) for ${N} modes`, String(r.rows));
   await p.close();
 }
 await browser.close();
@@ -276,7 +288,7 @@ for (const mode of ['endless', 'gauntlet', 'clash', 'ffa']) {
 }
 // Short on purpose: the tour was five screens of reading before a first guess.
 const texts = [...intro.matchAll(/text: "([^"]*)"/g)].map((m) => m[1]);
-eq('all four modes have intro text', texts.length, 4);
+eq('every mode has intro text', texts.length, MODE_KEYS.length);
 ck(texts.every((x) => x.length <= 260), 'each card stays to a few lines',
    texts.map((x) => x.length).join(','));
 ck(/localStorage\.getItem\(modeIntroKey\(mode\)\)/.test(html), 'a card is shown once per mode');
@@ -400,14 +412,15 @@ ck(/createBoard\(\); resetKeyboardColors\(\); checkDangerRow\(\); updateSkipButt
 const blurb = between(html, '<section id="site-intro">', 'Support the project', 'homepage blurb');
 ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
 ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
-const MODE_TOKENS = ['--c-endless', '--c-gauntlet', '--c-clash', '--c-ffa'];
-for (const [mode, tok] of [['Stakes', '--c-endless'], ['Daily Puzzle', '--c-gauntlet'],
+const MODE_TOKENS = MODE_KEYS.map((m) => m === 'gauntlet' ? '--c-gauntlet' : '--c-' + m);
+for (const [mode, tok] of [['Sprint', '--c-sprint'], ['Stakes', '--c-endless'],
+                           ['Daily Puzzle', '--c-gauntlet'],
                            ['Clash', '--c-clash'], ['FFA', '--c-ffa']]) {
   const re = new RegExp('<strong style="color:var\\(' + tok + '\\);">' + mode + '</strong>');
   ck(re.test(blurb), `the blurb names ${mode} in its own colour (${tok})`,
      (blurb.match(new RegExp('<strong[^>]*>' + mode + '</strong>')) || ['missing'])[0]);
 }
-// And those four colours are the mode table's, not a second opinion.
+// And those colours are the mode table's, not a second opinion.
 const tableTokens = [...between(html, 'const MODES = {', '\n        };', 'MODES')
   .matchAll(/color: "var\((--c-[\w-]+)\)"/g)].map((m) => m[1]);
 eq('the blurb colours are the nav colours', tableTokens, MODE_TOKENS);
@@ -418,7 +431,7 @@ ck(!/color: "#/.test(between(html, 'const MODES = {', '\n        };', 'MODES')),
 // Four lines, not four paragraphs: this block was trimmed once already for
 // being too much text on a game you are meant to click and play.
 const items = [...blurb.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1].replace(/<[^>]+>/g, '').trim());
-eq('one line per mode', items.length, 4);
+eq('one line per mode', items.length, MODE_KEYS.length);
 ck(items.every((x) => x.length <= 130), 'each stays to a line', items.map((x) => x.length).join(','));
 
 // Leaving the Daily Puzzle says where it puts you. It said "Back to Arcade",
