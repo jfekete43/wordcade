@@ -1443,7 +1443,13 @@
         <!-- Score first, clock second, matching the board row below it. The
              clock is the tiebreaker, not the result, and leading with it put
              the secondary number in the primary position. -->
-        <div class="score-text">SCORE: <span id="sprint-score">0</span></div>
+        <!-- WORTH while playing, SCORE once the word is done. Two labels
+             for one slot rather than one label that quietly changes
+             meaning: before you solve this is what is on the table, after
+             you solve it is what you banked, and those are not the same
+             claim. No colon - "WORTH 500" reads as a quantity, "WORTH:
+             500" reads like a form field. -->
+        <div class="score-text"><span id="sprint-score-label">WORTH</span> <span id="sprint-score">500</span></div>
         <div class="score-text" id="sprint-clock" style="color:var(--c-sprint);">0.0s</div>
     </div>
 
@@ -4164,6 +4170,7 @@
         let sprintAttempt = null;
         let sprintClockTimer = null;
         let sprintClockStartedAt = 0;
+        let sprintWorthTimer = null;
         let dailyAttempt = null; // server's publicAttemptState — never contains the target words
 
         // --- CLASH SUDDEN DEATH STATE ---
@@ -4728,6 +4735,51 @@
             if (sprintClockTimer) { clearInterval(sprintClockTimer); sprintClockTimer = null; }
         }
 
+        // What solving on the NEXT guess pays. The ladder is steep - a
+        // first-guess solve is worth fifty times a fifth-guess one - and
+        // nothing on screen said so: the number only ever appeared after it
+        // had already been decided.
+        //
+        // The value shown IS the value banked. Solving does not move the
+        // number, only its label, which is what makes it worth watching
+        // rather than something to reconcile afterwards.
+        function sprintWorth(guessesMade) {
+            return guessesMade < scorePoints.length ? scorePoints[guessesMade] : 0;
+        }
+
+        function setSprintScoreLabel(text) {
+            const el = document.getElementById("sprint-score-label");
+            if (el) el.innerText = text;
+        }
+
+        // Counts down rather than snapping, because the drop IS the point:
+        // a wrong guess should visibly cost something. Eased so most of the
+        // movement lands early and it reads as a fall rather than a crawl.
+        // Honours the reduce-motion setting, where it goes straight to the
+        // number.
+        function setSprintWorth(to, animate) {
+            const el = document.getElementById("sprint-score");
+            if (!el) return;
+            if (sprintWorthTimer) { clearInterval(sprintWorthTimer); sprintWorthTimer = null; }
+            const target = Math.max(0, Number(to) || 0);
+            const from = Number(String(el.innerText).replace(/[^0-9]/g, "")) || 0;
+            if (!animate || from === target || document.body.classList.contains("reduce-motion")) {
+                el.innerText = target.toLocaleString();
+                return;
+            }
+            const DURATION = 420;
+            const started = Date.now();
+            sprintWorthTimer = setInterval(() => {
+                const p = Math.min(1, (Date.now() - started) / DURATION);
+                const eased = 1 - Math.pow(1 - p, 3);
+                el.innerText = Math.round(from + (target - from) * eased).toLocaleString();
+                if (p >= 1) {
+                    clearInterval(sprintWorthTimer); sprintWorthTimer = null;
+                    el.innerText = target.toLocaleString();
+                }
+            }, 28);
+        }
+
         function setSprintPlaySurfaceVisible(visible) {
             document.getElementById("legend").style.display = visible ? "flex" : "none";
             document.getElementById("board").style.display = visible ? "grid" : "none";
@@ -4767,6 +4819,9 @@
                 boardDisplay.innerHTML = ""; resetKeyboardColors();
                 setSprintPlaySurfaceVisible(false);
                 setSprintClock(sprintAttempt.elapsedMs || 0);
+                // Already done today: this is a result, not an offer.
+                setSprintScoreLabel("SCORE");
+                setSprintWorth(sprintAttempt.score || 0, false);
                 showSprintEndModal(sprintAttempt, true);
             } else {
                 startSprintRound();
@@ -4777,12 +4832,15 @@
             setSprintPlaySurfaceVisible(true);
             currentGuess = ""; currentRow = 0; isAnimating = false;
             createBoard(); resetKeyboardColors();
-            document.getElementById("sprint-score").innerText = (sprintAttempt.score || 0).toLocaleString();
 
             // Replay whatever this player already did today. startSprint hands
             // back the existing attempt rather than a fresh one, so a reload
             // mid-word lands back where they left off.
             const prior = Array.isArray(sprintAttempt.guesses) ? sprintAttempt.guesses : [];
+            // Resuming lands on the worth for the guess they are ABOUT to
+            // make, not a stale 500 - the guesses already spent are spent.
+            setSprintScoreLabel("WORTH");
+            setSprintWorth(sprintWorth(prior.length), false);
             prior.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
             currentRow = prior.length;
 
@@ -4824,18 +4882,28 @@
             animateRowReveal(rowIndex, guessArr, result.colors.map(colorCodeToName));
 
             setTimeout(() => {
-                document.getElementById("sprint-score").innerText = (result.score || 0).toLocaleString();
-
                 if (result.solved) {
                     stopSprintClock();
                     // The server's number, not the local one.
                     setSprintClock(result.elapsedMs || 0);
+                    // Nothing moves here on purpose: the figure they have been
+                    // watching is the figure they just banked. Only the label
+                    // changes, which is the point of having two.
+                    setSprintScoreLabel("SCORE");
+                    setSprintWorth(result.score, false);
                     SFX.correctWord();
                     showMessage("+" + (result.score || 0) + " POINTS!");
                 } else if (result.finished) {
                     stopSprintClock();
+                    // Out of guesses: the last 10 on the table falls to zero.
+                    setSprintScoreLabel("SCORE");
+                    setSprintWorth(0, true);
                     SFX.wrongWord();
                     showMessage("WORD WAS " + result.answer + ".");
+                } else {
+                    // Wrong, but still in it. This is the drop the whole
+                    // feature exists for.
+                    setSprintWorth(sprintWorth((sprintAttempt.guesses || []).length), true);
                 }
 
                 currentGuess = "";
