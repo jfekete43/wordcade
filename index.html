@@ -5064,8 +5064,14 @@
                         return '<div class="daily-board-row ' + bannerClass + '">'
                             + '<span class="daily-board-place">#' + (i + 1) + "</span>"
                             + '<span class="daily-board-name ' + nameClass + '">' + escapeHtml(r.name || "Player") + "</span>"
-                            + '<span class="daily-board-score">' + Number(r.score || 0).toLocaleString()
-                            + (r.elapsedMs ? ' <span style="color:var(--c-ink-4);">' + formatSprintTime(r.elapsedMs) + "</span>" : "")
+                            // Time first, score last. Reading left to right the
+                            // row ends on the number that decides the order, and
+                            // the clock reads as the detail behind it rather than
+                            // competing with it. A margin, not a space: a single
+                            // space put two numbers close enough to scan as one.
+                            + '<span class="daily-board-score">'
+                            + (r.elapsedMs ? '<span style="color:var(--c-ink-4); margin-right: var(--s-5);">' + formatSprintTime(r.elapsedMs) + "</span>" : "")
+                            + Number(r.score || 0).toLocaleString()
                             + "</span></div>";
                     }).join("")
                     : '<div style="color:var(--c-ink-4);">Nobody has finished today\u2019s word yet. Be first.</div>';

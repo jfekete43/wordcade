@@ -418,6 +418,32 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
      'and the two numbers sit further apart than the shared header gap', `${gap} vs ${shared}`);
 }
 
+
+// ---- the board row reads time, then score -----------------------------------
+// Score last, so reading left to right the row ends on the number that decides
+// the order, and the clock sits behind it as the detail rather than competing
+// with it. The header leads with score for the opposite reason: there it is
+// the readout, not the ranking.
+{
+  // Anchored on the DEFINITION of leaveSprint. The bare name is also an
+  // onclick in the end-modal markup thousands of lines earlier, which has
+  // sliced a check backwards into an empty string three times in this repo.
+  const from = html.indexOf('async function loadSprintBoard()');
+  const to = html.indexOf('window.leaveSprint = function');
+  ck(from !== -1 && to > from, 'the Sprint board builder is findable', `${from}..${to}`);
+  const board = html.slice(from, to);
+
+  const timeAt = board.indexOf('formatSprintTime(r.elapsedMs)');
+  const scoreAt = board.indexOf('Number(r.score || 0).toLocaleString()');
+  ck(timeAt !== -1 && scoreAt !== -1, 'the row carries both a time and a score', `${timeAt}/${scoreAt}`);
+  ck(timeAt < scoreAt, 'and the time comes first, with the score last', `time@${timeAt} score@${scoreAt}`);
+
+  // A single space put two numbers close enough to scan as one value.
+  const timeSpan = board.slice(board.lastIndexOf('<span', timeAt), timeAt);
+  ck(/margin-right: var\(--s-\d+\)/.test(timeSpan),
+     'separated by a real margin rather than a space', timeSpan);
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
