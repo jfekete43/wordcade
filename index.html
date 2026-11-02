@@ -2997,6 +2997,9 @@
         }
 
         async function loadHomeBoard() {
+            // Sprint and Marathon are showing their own standings in this
+            // container. Repainting over them is what a tab tap did.
+            if (modeOwnsHomeBoard()) return;
             renderHomeBoardChrome();
             // Only one board is ever live, and only the daily one needs to be.
             if (dailyBoardUnsub) { dailyBoardUnsub(); dailyBoardUnsub = null; }
@@ -3008,6 +3011,7 @@
                     query(collection(db, "users"), where("dayBestKey", "==", key),
                           orderBy("dayBestScore", "desc"), limit(DAILY_BOARD_SIZE)),
                     (snap) => {
+                        if (modeOwnsHomeBoard()) return; // a live listener outlives the screen it was opened for
                         const rows = snap.docs.map((d) => {
                             const u = d.data();
                             return { uid: d.id, name: u.username, score: u.dayBestScore, equipped: u.equipped };
@@ -3046,6 +3050,11 @@
                        orderBy("periodBestScore", "desc"), limit(DAILY_BOARD_SIZE)]
                     : [orderBy("bestRunScore", "desc"), limit(DAILY_BOARD_SIZE)];
                 const snap = await getDocs(query(collection(db, "users"), ...constraints));
+                // Checked AGAIN after the await: the boot call starts this
+                // query before the landing has decided which mode it is in,
+                // so an in-flight read can land on top of a Sprint board
+                // painted while it was waiting.
+                if (modeOwnsHomeBoard()) return;
                 const rows = snap.docs.map((d) => {
                     const u = d.data();
                     return { uid: d.id, name: u.username, score: u[cfg.field], equipped: u.equipped };
@@ -3178,7 +3187,7 @@
                         if (result && result.data && result.data.profile) {
                             userProfileData = result.data.profile;
                             applyEquippedCosmetics();
-                            if (!isDailyMode && !isVersusMode && !isFfaMode) refreshGauntletCard();
+                            if (!inAltMode()) refreshGauntletCard();
                         }
                     }).catch((e) => console.error("Profile refresh failed", e));
                 }
@@ -3187,7 +3196,7 @@
                 // user to read an attempt for. Guarded because this callback
                 // also refires mid-session (linking a Google account), by
                 // which point the player may be in a match.
-                if (!isDailyMode && !isVersusMode && !isFfaMode) showStandardPanels(true);
+                if (!inAltMode()) showStandardPanels(true);
                 tryAutoJoinFromUrl();
             } else { signInAnonymously(auth); }
         });
@@ -4303,6 +4312,20 @@
         const MODE_ORDER = Object.keys(MODES);
         // Derived from the flags that already drive everything else, rather
         // than stored a second time and kept in sync by hand.
+        // "Am I anywhere other than Stakes?" Derived from currentMode()
+        // rather than listing flags, because the hand-written list went stale
+        // the moment a mode was added: the auth handler below still asked
+        // about Daily, Clash and FFA only, so it put the Stakes panels back
+        // over the Sprint landing a moment after it had painted. currentMode()
+        // is the one place that knows the flags, and mode-nav enforces that
+        // every mode in the table is reachable from it.
+        function inAltMode() { return currentMode() !== "endless"; }
+
+        // The two modes that BORROW the home board container for their own
+        // standings rather than hiding it. An explicit pair, not "everything
+        // except Stakes": Daily, Clash and FFA each have their own surface.
+        function modeOwnsHomeBoard() { return isSprintMode || isMarathonMode; }
+
         function currentMode() {
             if (isSprintMode) return "sprint";
             if (isMarathonMode) return "marathon";
@@ -4587,6 +4610,8 @@
             // Same borrow as Sprint, and the same bug without it.
             document.getElementById("daily-board-container").style.display = "block";
             document.getElementById("home-board-tabs").style.display = "none";
+            const youEl = document.getElementById("daily-board-you");
+            if (youEl) youEl.innerHTML = "";
             const titleEl = document.getElementById("daily-board-title");
             if (titleEl) titleEl.innerText = "This Month's Marathon";
             for (const id of ["daily-board-prev", "daily-board-next", "home-board-more"]) {
@@ -4926,6 +4951,8 @@
             // hidden element and the Sprint board simply never appeared.
             document.getElementById("daily-board-container").style.display = "block";
             document.getElementById("home-board-tabs").style.display = "none";
+            const youEl = document.getElementById("daily-board-you");
+            if (youEl) youEl.innerHTML = ""; // a Stakes "your line" under a Sprint board
             const titleEl = document.getElementById("daily-board-title");
             if (titleEl) titleEl.innerText = "Today's Sprint";
             const prev = document.getElementById("daily-board-prev");

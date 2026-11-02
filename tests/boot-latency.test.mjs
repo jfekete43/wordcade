@@ -55,6 +55,20 @@ console.log('extracted from index.html:', (fetchSrc + seedSrc).length, 'chars');
 // enforces it, so the two are checked against each other here as well - a
 // client that prompts for an account the server does not require, or the
 // reverse, is the failure the paired constants exist to avoid.
+// currentMode() and inAltMode() are lifted rather than stubbed, and the mode
+// flags are declared from currentMode()'s OWN source. The harness used to
+// hand-declare `isDailyMode, isVersusMode, isFfaMode`, which is the same list
+// the auth handler itself used to keep — and both went stale on the same day,
+// for the same reason. Reading the flags out of the function that reads them
+// means a new mode cannot leave this scope behind.
+const currentModeSrc = 'function currentMode() {'
+  + between(html, 'function currentMode() {', '\n        }', 'currentMode') + '\n}';
+const inAltModeSrc = (html.match(/function inAltMode\(\) \{[^\n]*\}/) || [])[0];
+if (!inAltModeSrc) throw new Error('could not extract inAltMode()');
+const MODE_FLAGS = [...currentModeSrc.matchAll(/if \((\w+)\) return/g)].map((m) => m[1]);
+if (MODE_FLAGS.length < 3) throw new Error('could not read the mode flags out of currentMode()');
+const FLAG_DECL = MODE_FLAGS.map((f) => `let ${f} = false;`).join(' ');
+
 const CLIENT_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(html) || [])[1];
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 const SERVER_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(fnSrc) || [])[1];
@@ -164,7 +178,10 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
     return (async () => {
       const user = { uid: 'u', isAnonymous: false };
       let currentUser = null, userProfileData = null;
-      let isDailyMode = false, isVersusMode = false, isFfaMode = false, hasLanded = false;
+      ${FLAG_DECL}
+      let hasLanded = false;
+      ${currentModeSrc}
+      ${inAltModeSrc}
       const document = { getElementById: () => ({ set innerText(v) {}, style: {} }) };
       const getTodayDateStr = () => '2026-10-11';
       const doc = () => ({});

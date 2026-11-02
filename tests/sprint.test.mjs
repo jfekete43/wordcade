@@ -303,6 +303,51 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
      'showStandardPanels restores the tab row, so any way back to Stakes restores it');
 }
 
+
+// ---- nobody hand-maintains a list of mode flags ----------------------------
+// The auth handler asked `!isDailyMode && !isVersusMode && !isFfaMode` before
+// putting the Stakes panels back. That list was written before Sprint and
+// Marathon existed, so once auth resolved it restored the Stakes tab row and
+// card over the Sprint landing that had painted a moment earlier — and the
+// restored tabs were then tappable, which repainted the Stakes board over
+// Sprint's standings. The screen looked right for about a second.
+//
+// The bug is the hand-written list, not the missing entry, so what is pinned
+// here is that no such list decides whether the Stakes furniture comes back.
+{
+  const handRolled = [...html.matchAll(/if \(!is\w+Mode(?: && !is\w+Mode)+\)\s*(showStandardPanels\(true\)|refreshGauntletCard\(\))/g)]
+    .map((m) => m[0]);
+  eq('no hand-written list of mode flags decides whether the Stakes panels return', handRolled, []);
+  ck(/function inAltMode\(\) \{ return currentMode\(\) !== "endless"; \}/.test(html),
+     'inAltMode is derived from currentMode(), which is the one place that knows the flags');
+  ck(/if \(!inAltMode\(\)\) showStandardPanels\(true\);/.test(html),
+     'and the auth handler asks it rather than a list of its own');
+}
+
+// ---- one container, one owner ------------------------------------------------
+// Sprint and Marathon borrow #daily-board-container. Every path that could
+// repaint it has to ask first, including the two asynchronous ones: the boot
+// query is already in flight before the landing decides which mode it is in,
+// and the daily listener outlives the screen it was opened for.
+{
+  const guards = (html.match(/if \(modeOwnsHomeBoard\(\)\) return;/g) || []).length;
+  ck(guards >= 3, 'every repaint path checks whether a mode owns the board', `${guards} guard(s)`);
+  // Anchored on the DEFINITION. `window.setHomeBoard` also appears as an
+  // onclick in the tab markup thousands of lines earlier, so the bare name
+  // slices backwards and hands this an empty string — the third check in this
+  // repo to be caught out by a handler name that is also in an attribute.
+  const usersFrom = html.indexOf('async function loadUsersBoard()');
+  const usersTo = html.indexOf('window.setHomeBoard = function');
+  ck(usersFrom !== -1 && usersTo > usersFrom, 'loadUsersBoard is findable', `${usersFrom}..${usersTo}`);
+  const users = html.slice(usersFrom, usersTo);
+  const awaitAt = users.indexOf('await getDocs');
+  const guardAt = users.indexOf('if (modeOwnsHomeBoard()) return;');
+  ck(guardAt > awaitAt, 'and loadUsersBoard checks AFTER its await, not only before it',
+     `await@${awaitAt} guard@${guardAt}`);
+  ck(/function modeOwnsHomeBoard\(\) \{ return isSprintMode \|\| isMarathonMode; \}/.test(html),
+     'the owners are named explicitly, because this is not "every mode except Stakes"');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
