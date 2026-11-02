@@ -264,6 +264,52 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
      'showStandardPanels restores the tab row, so any way back to Stakes restores it');
 }
 
+
+// ---- days left in the month --------------------------------------------------
+// A month-long mode with no visible deadline is just a long list; the clock on
+// it is the only thing that makes it a marathon. The arithmetic is the part
+// that fails quietly - an off-by-one reads as plausible all month and is only
+// wrong on the day it matters, and a hardcoded month length is right eleven
+// times a year.
+{
+  const daysSrc = (html.match(/function marathonDaysLeft\(monthKey, todayStr\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!daysSrc, 'marathonDaysLeft is findable', daysSrc.slice(0, 60));
+  // eslint-disable-next-line no-new-func
+  const daysLeft = new Function(`${daysSrc}; return marathonDaysLeft;`)();
+
+  // Counting today: on the 2nd of a 30-day month there are 29 days to play.
+  eq('the first of a 30-day month has the whole month', daysLeft('2026-11', '2026-11-01'), 30);
+  eq('the second has one fewer', daysLeft('2026-11', '2026-11-02'), 29);
+  eq('and the last day has one', daysLeft('2026-11', '2026-11-30'), 1);
+
+  // Month length is read, not assumed.
+  eq('a 31-day month is 31', daysLeft('2026-12', '2026-12-01'), 31);
+  eq('February is 28 in a common year', daysLeft('2027-02', '2027-02-01'), 28);
+  eq('and 29 in a leap year', daysLeft('2028-02', '2028-02-01'), 29);
+  eq('the leap day itself is the last one', daysLeft('2028-02', '2028-02-29'), 1);
+  // 2100 is not a leap year, which a naive divisible-by-four check gets wrong.
+  eq('and a century that is not a leap year is still 28', daysLeft('2100-02', '2100-02-01'), 28);
+
+  // A page left open across the boundary must not report a negative count or
+  // a number from the wrong month.
+  eq('a month that has already rolled over has nothing left', daysLeft('2026-11', '2026-12-01'), 0);
+  eq('nor does a date before it somehow gain days', daysLeft('2026-11', '2026-10-31'), 0);
+
+  eq('a malformed month yields nothing rather than a number', daysLeft('nonsense', '2026-11-02'), null);
+  eq('and so does a malformed date', daysLeft('2026-11', ''), null);
+}
+
+// The wording, and the one case where a count is the wrong thing to show.
+{
+  const render = (html.match(/function renderMarathonDaysLeft\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/"LAST DAY"/.test(render), 'the final day says so rather than counting to one', render.slice(0, 80));
+  ck(/"DAYS LEFT: "/.test(render), 'and every other day carries the count');
+  ck(/var\(--c-loss\)/.test(render), 'the last few days are marked, so the deadline is felt before it arrives');
+  ck(/getTodayDateStr\(\)/.test(render), 'today comes from the Eastern date helper, like every other boundary');
+  ck(/marathonAttempt && marathonAttempt\.month/.test(render),
+     "and the month comes from the server-issued attempt rather than the browser's idea of it");
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

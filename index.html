@@ -1437,6 +1437,10 @@
         <div class="score-text" id="marathon-progress-text" style="color:var(--c-marathon);">WORD <span id="marathon-word-index">1</span>/<span id="marathon-word-count">50</span></div>
         <div class="score-text" id="marathon-complete-text" style="color:var(--c-marathon); display:none;">COMPLETE</div>
         <div class="score-text">SCORE: <span id="marathon-score">0</span></div>
+        <!-- Last, so that on a narrow screen it is the field that wraps.
+             A month-long mode with no visible deadline is just a long list;
+             the clock on it is the only thing making it a marathon. -->
+        <div class="score-text" id="marathon-days"></div>
     </div>
 
     <div id="sprint-header" style="display:none;">
@@ -4492,6 +4496,35 @@
         // onRunCreated denormalises the running total onto the user doc. That
         // is why the standings can show people who are still going.
 
+        // Days left in the marathon's own month, counting today. The month
+        // ends when its last Eastern day does, so on the 2nd of a 30-day
+        // month there are 29 days to play, not 28.
+        //
+        // Day 0 of the NEXT month is the last day of this one, which is how
+        // February and the leap year are somebody else's problem. Both dates
+        // are Eastern strings already, so they are read as UTC and never
+        // re-anchored to a timezone.
+        function marathonDaysLeft(monthKey, todayStr) {
+            if (!/^\d{4}-\d{2}$/.test(monthKey || "") || !/^\d{4}-\d{2}-\d{2}$/.test(todayStr || "")) return null;
+            // A month that rolled over while the page sat open has nothing
+            // left, rather than a negative count or a wrong one.
+            if (todayStr.slice(0, 7) !== monthKey) return 0;
+            const [y, m] = monthKey.split("-").map(Number);
+            const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+            return Math.max(0, daysInMonth - Number(todayStr.slice(8, 10)) + 1);
+        }
+
+        function renderMarathonDaysLeft() {
+            const el = document.getElementById("marathon-days");
+            if (!el) return;
+            const left = marathonDaysLeft(marathonAttempt && marathonAttempt.month, getTodayDateStr());
+            if (left === null) { el.innerText = ""; return; }
+            // "1 DAY LEFT" is true but reads as a number to compare. On the
+            // last day the point is that there is no tomorrow.
+            el.innerText = left === 0 ? "MONTH OVER" : left === 1 ? "LAST DAY" : "DAYS LEFT: " + left;
+            el.style.color = left <= 3 ? "var(--c-loss)" : "";
+        }
+
         function setMarathonPlaySurfaceVisible(visible) {
             document.getElementById("legend").style.display = visible ? "flex" : "none";
             document.getElementById("board").style.display = visible ? "grid" : "none";
@@ -4528,6 +4561,8 @@
 
             loadMarathonBoard();
 
+            renderMarathonDaysLeft();
+
             if (marathonAttempt.status === "finished") {
                 boardDisplay.innerHTML = ""; resetKeyboardColors();
                 setMarathonPlaySurfaceVisible(false);
@@ -4544,6 +4579,7 @@
             document.getElementById("marathon-word-index").innerText = marathonAttempt.wordIndex + 1;
             document.getElementById("marathon-word-count").innerText = marathonAttempt.wordCount;
             document.getElementById("marathon-score").innerText = (marathonAttempt.score || 0).toLocaleString();
+            renderMarathonDaysLeft();
 
             // Replay anything already guessed on this position. startMarathon
             // returns the existing attempt, so a reload lands mid-word.
