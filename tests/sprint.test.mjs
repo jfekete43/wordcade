@@ -243,15 +243,45 @@ for (const f of ['sprintPlayed', 'sprintSolved', 'sprintBestTimeMs', 'sprintStre
 ck(/<button class="mode-nav-btn mode-sprint" id="btn-nav-1" data-mode="sprint" aria-current="true"/.test(html),
    'the shipped markup marks Sprint as the landing mode before any script runs');
 ck(/id="sprint-card"/.test(html), 'and ships a card rather than a live board');
-ck(/id="sprint-card-btn"/.test(html) && /window\.goToMode\('sprint'\)/.test(html),
-   'whose button is what actually calls the server');
+ck(/id="sprint-card-btn"/.test(html), 'whose button is what actually calls the server');
 const bootBlock = html.slice(html.lastIndexOf('setTimeout(() => {'));
 ck(/showSprintLanding\(\);/.test(bootBlock), 'boot lands on Sprint');
 ck(!/callStartSprint\(\)/.test(bootBlock),
    'and boot does not call startSprint — arriving is not playing');
 const landing = html.slice(html.indexOf('function showSprintLanding()'), html.indexOf('window.leaveSprint'));
 ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
-ck(/window\.goToMode\('sprint'\)/.test(html), 'the gate routes through goToMode like every other way into a mode');
+// The landing button must NOT be a mode change, and this says why rather
+// than just what. showSprintLanding sets isSprintMode before the card is
+// tappable, so currentMode() already reads "sprint" — and goToMode's first
+// line refuses a change to the mode you are already in. Routed through it the
+// button did nothing at all, and the only way to start a Sprint was to visit
+// another mode and come back.
+{
+  const currentSrc = (html.match(/function currentMode\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  if (!currentSrc) throw new Error('could not extract currentMode() from index.html');
+  // eslint-disable-next-line no-new-func
+  const modeOnLanding = new Function(`
+    let isSprintMode = true, isMarathonMode = false, isDailyMode = false,
+        isVersusMode = false, isFfaMode = false;
+    ${currentSrc}
+    return currentMode();
+  `)();
+  eq('the landing is already IN sprint mode by the time the card is tappable', modeOnLanding, 'sprint');
+
+  const guard = (html.match(/if \(!MODES\[target\][^\n]*\) return;/) || [''])[0];
+  ck(/target === currentMode\(\)/.test(guard),
+     'and goToMode refuses a change to the mode you are already in', guard);
+
+  const cardFrom = html.indexOf('<div id="sprint-card"');
+  const cardTo = html.indexOf('</div>', html.indexOf('id="sprint-card-btn"'));
+  ck(cardFrom !== -1 && cardTo > cardFrom, 'the landing card is findable', `${cardFrom}..${cardTo}`);
+  const card = html.slice(cardFrom, cardTo);
+  ck(!new RegExp(`goToMode\\('${modeOnLanding}'\\)`).test(card),
+     'so the landing button does not ask goToMode for the mode it is already in', card.slice(-220));
+  ck(/onclick="window\.openSprint\(\)"/.test(card),
+     'it calls openSprint directly — starting the mode you are on is not a mode change',
+     card.slice(-220));
+}
 
 // A restored Stakes run must survive a look at Sprint.
 const leave = html.slice(html.indexOf('window.leaveSprint = function()'));

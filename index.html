@@ -1416,7 +1416,13 @@
             <span id="sprint-card-title">Sprint</span>
         </div>
         <div id="sprint-card-body">One word, five guesses. Everyone gets the same word today - fewest guesses wins, fastest solve breaks the tie.</div>
-        <button id="sprint-card-btn" onclick="window.goToMode('sprint')">Play Today's Word</button>
+        <!-- openSprint, NOT goToMode. The landing already sets isSprintMode,
+             so currentMode() is "sprint" by the time this is tappable, and
+             goToMode correctly refuses a mode change to the mode you are
+             already in - the button did nothing at all. This is not a mode
+             change; it is "start playing the mode I am already on". The
+             nav is still the only way BETWEEN modes. -->
+        <button id="sprint-card-btn" onclick="window.openSprint()">Play Today's Word</button>
     </div>
 
     <!-- Marathon. The position is the month's shape, so it carries the
