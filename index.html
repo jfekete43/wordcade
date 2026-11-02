@@ -132,6 +132,7 @@
             --c-clash: #b5563f;
             --c-ffa: #8a6b26;
             --c-sprint: #7a4a73;
+            --c-marathon: #1d5c5c;
             /* a letter that is in no part of the word */
             --c-absent: #c9c0ae;
             --c-absent-ink: #635c4c;
@@ -274,17 +275,27 @@
         }
         @media (max-width: 385px) {
             .arcade-menu { gap: 3px; }
-            /* DAILY is the only label that ever binds, and it binds here.
+            /* MARATHON is the longest label and the one that binds now.
                Measured in the widest stack available (DejaVu in CI; a real
-               Android or iPhone gains about 5px), 11px still spills 3.1px
-               at 320px. 10px fits with room. */
+               Android or iPhone gains about 5px). The type shrink alone is
+               not enough for it — see the column cap below, which is what
+               actually makes it fit. */
             .arcade-menu button { padding: var(--s-5) var(--s-1); font-size: var(--fs-1); letter-spacing: 0; }
         }
-        /* Four across cannot hold DAILY at any legible size on a fold cover,
-           so below 320px the row goes 2x2 rather than shrinking the type again.
-           This replaces the 3+1 wrap the old flex row produced. */
+        /* The nav wraps rather than shrinking the type past legibility. Six
+           across spills MARATHON by about 20px on every phone width, so a
+           phone gets three columns and wraps; a fold cover gets two. Both
+           are caps on --mode-cols, not replacements for it, so a sixth or
+           seventh mode just adds a row instead of needing another rule.
+
+           mode-nav derives its expected row count from these same two
+           breakpoints, so changing one here fails there rather than quietly
+           re-laying out the front door. */
+        @media (max-width: 600px) {
+            .arcade-menu { grid-template-columns: repeat(min(var(--mode-cols, 4), 3), minmax(0, 1fr)); }
+        }
         @media (max-width: 319px) {
-            .arcade-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .arcade-menu { grid-template-columns: repeat(min(var(--mode-cols, 4), 2), minmax(0, 1fr)); }
         }
         
         /* Four slots, one per mode, in the table's order — a mode's button
@@ -301,6 +312,7 @@
         .arcade-menu .mode-clash { color: var(--c-clash); --c-mode: var(--c-clash); }
         .arcade-menu .mode-ffa { color: var(--c-ffa); --c-mode: var(--c-ffa); }
         .arcade-menu .mode-sprint { color: var(--c-sprint); --c-mode: var(--c-sprint); }
+        .arcade-menu .mode-marathon { color: var(--c-marathon); --c-mode: var(--c-marathon); }
         /* Colour arrives when a mode is selected, or on hover. The quiet rule
            is (0,2,1) and beats .mode-* at (0,2,0), so no !important is needed.
            No `disabled` attribute on the current one: a disabled button loses
@@ -1331,7 +1343,7 @@
          had no way to tell which game they were playing.
          The three slots are filled by renderModeNav() from the mode flags.
          Nothing else writes to them. -->
-    <nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: 5;">
+    <nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: 6;">
         <!-- Markup carries the Sprint-default state so the nav is correct
              before any script runs; renderModeNav() only moves aria-current
              after that. Order is the MODES table's order, which is also the
@@ -1341,6 +1353,7 @@
         <button class="mode-nav-btn mode-gauntlet" id="btn-nav-3" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">DAILY</button>
         <button class="mode-nav-btn mode-clash" id="btn-nav-4" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
         <button class="mode-nav-btn mode-ffa" id="btn-nav-5" data-mode="ffa" onclick="window.goToMode(this.dataset.mode)">FFA</button>
+        <button class="mode-nav-btn mode-marathon" id="btn-nav-6" data-mode="marathon" onclick="window.goToMode(this.dataset.mode)">MARATHON</button>
     </nav>
 
     <!-- STANDARD UI -->
@@ -1394,6 +1407,15 @@
     <div id="sprint-gate" style="display:none; text-align:center; margin-bottom: var(--s-6);">
         <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">One word. Five guesses. Everyone gets the same word today.</div>
         <button class="btn-primary" id="btn-sprint-start" onclick="window.goToMode('sprint')">Play Today\u2019s Word</button>
+    </div>
+
+    <!-- Marathon. The position is the month's shape, so it carries the
+         fraction the way the Daily Puzzle does; the score beside it is the
+         running month total rather than one word's. -->
+    <div id="marathon-header" style="display:none;">
+        <div class="score-text" id="marathon-progress-text" style="color:var(--c-marathon);">WORD <span id="marathon-word-index">1</span>/<span id="marathon-word-count">50</span></div>
+        <div class="score-text" id="marathon-complete-text" style="color:var(--c-marathon); display:none;">COMPLETE</div>
+        <div class="score-text">SCORE: <span id="marathon-score">0</span></div>
     </div>
 
     <div id="sprint-header" style="display:none;">
@@ -1664,6 +1686,7 @@
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Daily Puzzle</strong> — Seven words, five guesses each. Everyone plays all seven — the same seven, once a day.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-clash);">Clash</strong> — race one other player through the same words for seven minutes.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-ffa);">FFA</strong> — the same race with three to six players at once.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-marathon);">Marathon</strong> — fifty words a month at your own pace. Same fifty for everyone, in your own order.</li>
         </ul>
 
         <p style="margin-top: 12px; margin-bottom: 4px;">Read <a href="how-to-play.html" style="color:var(--c-gauntlet);">the full rules</a> or the <a href="strategy.html" style="color:var(--c-correct);">strategy guide</a>.</p>
@@ -1893,6 +1916,19 @@
                      hall of fame rather than today's standings. -->
                 <button class="btn-primary" onclick="document.getElementById('daily-end-modal').style.display='none'">View Today's Board</button>
                 <button class="btn-quiet" onclick="window.leaveDailyGauntlet()">Back to Stakes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MARATHON END -->
+    <div id="marathon-end-modal" class="modal-overlay">
+        <div class="modal-box" style="border-color: var(--c-marathon);">
+            <h2 class="modal-title" id="marathon-end-title">Marathon Complete!</h2>
+            <div class="modal-stats" id="marathon-end-desc"></div>
+            <div id="marathon-end-note" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px;"></div>
+            <div class="modal-buttons">
+                <button class="btn-primary" onclick="document.getElementById('marathon-end-modal').style.display='none'">View the Standings</button>
+                <button class="btn-quiet" onclick="window.leaveMarathon()">Play Another Mode</button>
             </div>
         </div>
     </div>
@@ -2335,6 +2371,8 @@
         const callGuessDailyWord = httpsCallable(cloudFunctions, "guessDailyWord");
         const callStartSprint = httpsCallable(cloudFunctions, "startSprint");
         const callGuessSprintWord = httpsCallable(cloudFunctions, "guessSprintWord");
+        const callStartMarathon = httpsCallable(cloudFunctions, "startMarathon");
+        const callGuessMarathonWord = httpsCallable(cloudFunctions, "guessMarathonWord");
         const callFinishClashMatch = httpsCallable(cloudFunctions, "finishClashMatch");
         const callForfeitClashMatch = httpsCallable(cloudFunctions, "forfeitClashMatch");
         const callStartSuddenDeath = httpsCallable(cloudFunctions, "startSuddenDeath");
@@ -2522,6 +2560,8 @@
         // single "seen the tour" flag, so each description arrives the first
         // time it is relevant and never again.
         const MODE_INTRO = {
+            marathon: { icon: "\uD83C\uDFC3", color: "var(--c-marathon)", title: "Marathon",
+                text: "Fifty words, one calendar month, at whatever pace suits you. Everyone gets the same fifty \u2014 in a different order, so nobody can spoil anybody. The standings update as you go and show how far through you are. A new set arrives on the 1st." },
             sprint: { icon: "\u23F1\uFE0F", color: "var(--c-sprint)", title: "Sprint",
                 text: "One word a day, the same word for everyone, five guesses. Fewest guesses wins \u2014 and if two of you tie, the faster solve takes it. The clock starts the moment you submit your first guess, so take as long as you like before that." },
             endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Stakes",
@@ -4086,6 +4126,8 @@
         // --- DAILY PUZZLE STATE ---
         let isDailyMode = false;
         let isSprintMode = false;
+        let isMarathonMode = false;
+        let marathonAttempt = null;
         let sprintAttempt = null;
         let sprintClockTimer = null;
         let sprintClockStartedAt = 0;
@@ -4242,6 +4284,7 @@
             gauntlet: { label: "DAILY", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
             clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
             ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)" },
+            marathon: { label: "MARATHON", cls: "mode-marathon", color: "var(--c-marathon)" },
         };
         // Derived, not restated: the slot order and the table cannot drift.
         const MODE_ORDER = Object.keys(MODES);
@@ -4249,6 +4292,7 @@
         // than stored a second time and kept in sync by hand.
         function currentMode() {
             if (isSprintMode) return "sprint";
+            if (isMarathonMode) return "marathon";
             if (isDailyMode) return "gauntlet";
             if (isVersusMode) return "clash";
             if (isFfaMode) return "ffa";
@@ -4294,6 +4338,8 @@
 
             if (isSprintMode) {
                 window.leaveSprint();
+            } else if (isMarathonMode) {
+                window.leaveMarathon();
             } else if (isDailyMode) {
                 window.leaveDailyGauntlet();
             } else if (isVersusMode) {
@@ -4311,6 +4357,7 @@
             }
 
             if (target === "sprint") await window.openSprint();
+            else if (target === "marathon") await window.openMarathon();
             else if (target === "gauntlet") await window.openDailyGauntlet();
             else if (target === "clash") await window.openClashLobby();
             else if (target === "ffa") await window.openFfaLobby();
@@ -4370,6 +4417,220 @@
             document.getElementById("daily-complete-text").style.display = visible ? "none" : "block";
         }
 
+
+
+        // --- MARATHON -------------------------------------------------------
+        //
+        // Fifty words a month at your own pace. Mechanically this is the Daily
+        // Puzzle stretched out: a position, a per-word board, and a score that
+        // accumulates. Two differences worth knowing when reading this:
+        //
+        // The month's words are ONE list, but each player walks it through
+        // their own permutation (shuffled inside difficulty bands, server
+        // side). Nothing here knows or needs the order — the server resolves
+        // position to word. So "word 12" is a different word for every player
+        // and nobody can spoil anybody.
+        //
+        // The board is live, because each finished word writes its own run and
+        // onRunCreated denormalises the running total onto the user doc. That
+        // is why the standings can show people who are still going.
+
+        function setMarathonPlaySurfaceVisible(visible) {
+            document.getElementById("legend").style.display = visible ? "flex" : "none";
+            document.getElementById("board").style.display = visible ? "grid" : "none";
+            document.getElementById("keyboard").style.display = visible ? "flex" : "none";
+            document.getElementById("marathon-progress-text").style.display = visible ? "block" : "none";
+            document.getElementById("marathon-complete-text").style.display = visible ? "none" : "block";
+        }
+
+        window.openMarathon = async function() {
+            document.getElementById("main-menu-modal").style.display = "none";
+            if (!currentUser) return;
+            await showModeIntro("marathon");
+
+            try {
+                marathonAttempt = (await callStartMarathon()).data.attempt;
+                if (!marathonAttempt) throw new Error("Couldn't start this month's Marathon.");
+            } catch (e) {
+                alert(e.message || "Couldn't start this month's Marathon.");
+                console.error(e);
+                return;
+            }
+
+            isMarathonMode = true;
+            renderModeNav();
+            document.getElementById("endless-header").style.display = "none";
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            document.getElementById("versus-track-container").style.display = "none";
+            document.getElementById("daily-header").style.display = "none";
+            document.getElementById("sprint-header").style.display = "none";
+            document.getElementById("sprint-gate").style.display = "none";
+            showStandardPanels(false);
+            document.getElementById("marathon-header").style.display = "flex";
+
+            loadMarathonBoard();
+
+            if (marathonAttempt.status === "finished") {
+                boardDisplay.innerHTML = ""; resetKeyboardColors();
+                setMarathonPlaySurfaceVisible(false);
+                showMarathonEndModal(marathonAttempt);
+            } else {
+                startMarathonRound();
+            }
+        }
+
+        function startMarathonRound() {
+            setMarathonPlaySurfaceVisible(true);
+            currentGuess = ""; currentRow = 0; isAnimating = false;
+            createBoard(); resetKeyboardColors();
+            document.getElementById("marathon-word-index").innerText = marathonAttempt.wordIndex + 1;
+            document.getElementById("marathon-word-count").innerText = marathonAttempt.wordCount;
+            document.getElementById("marathon-score").innerText = (marathonAttempt.score || 0).toLocaleString();
+
+            // Replay anything already guessed on this position. startMarathon
+            // returns the existing attempt, so a reload lands mid-word.
+            const prior = Array.isArray(marathonAttempt.guesses) ? marathonAttempt.guesses : [];
+            prior.forEach((g, i) => { renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)); });
+            currentRow = prior.length;
+        }
+
+        async function submitMarathonGuess() {
+            if (isAnimating) return;
+            isAnimating = true;
+            const guessArr = currentGuess.split("");
+            const rowIndex = currentRow;
+            markRowPending(rowIndex, true);
+
+            let result;
+            try {
+                result = (await callGuessMarathonWord({ guess: currentGuess })).data;
+            } catch (e) {
+                markRowPending(rowIndex, false);
+                isAnimating = false;
+                alert(e.message || "Couldn't submit that guess — try again.");
+                console.error(e);
+                return;
+            }
+            markRowPending(rowIndex, false);
+
+            // The server returns this guess only, so the local copy is kept in
+            // step here rather than re-fetching the whole attempt.
+            marathonAttempt.guesses = (marathonAttempt.guesses || []).concat([{ guess: currentGuess, colors: result.colors }]);
+            marathonAttempt.score = result.score;
+            marathonAttempt.wordsSolved = result.wordsSolved;
+            marathonAttempt.wordIndex = result.wordIndex;
+            if (result.marathonFinished) marathonAttempt.status = "finished";
+
+            animateRowReveal(rowIndex, guessArr, result.colors.map(colorCodeToName));
+
+            setTimeout(() => {
+                document.getElementById("marathon-score").innerText = (result.score || 0).toLocaleString();
+
+                if (result.solved) {
+                    SFX.correctWord();
+                    showMessage(`+${result.earned} POINTS!`);
+                } else if (result.wordFinished) {
+                    SFX.wrongWord();
+                    showMessage(`WORD WAS ${result.revealedWord}.`);
+                }
+
+                currentGuess = "";
+                currentRow = rowIndex + 1;
+                isAnimating = false;
+
+                if (result.marathonFinished) {
+                    setTimeout(() => {
+                        setMarathonPlaySurfaceVisible(false);
+                        showMarathonEndModal(marathonAttempt);
+                        loadMarathonBoard();
+                    }, 1200);
+                } else if (result.wordFinished) {
+                    // Next position. The guesses array is per-word, so it
+                    // resets with the board.
+                    marathonAttempt.guesses = [];
+                    setTimeout(() => { startMarathonRound(); loadMarathonBoard(); }, 600);
+                }
+            }, 800);
+        }
+
+        function showMarathonEndModal(attempt) {
+            const solved = Number(attempt.wordsSolved) || 0;
+            const count = Number(attempt.wordCount) || 0;
+            document.getElementById("marathon-end-title").innerText = "Marathon Complete!";
+            document.getElementById("marathon-end-desc").innerHTML =
+                `<span style="color:var(--c-marathon); font-size: var(--fs-6);">${(attempt.score || 0).toLocaleString()}</span>`
+                + `<div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-top:6px;">${solved} of ${count} words solved`
+                + (solved ? ` &middot; ${((attempt.score || 0) / solved).toFixed(0)} avg per word` : "") + "</div>";
+            document.getElementById("marathon-end-note").innerText =
+                "That is the month. A new set of words arrives on the 1st.";
+            document.getElementById("marathon-end-modal").style.display = "flex";
+        }
+
+        // This month's standings. Read off /users rather than aggregated from
+        // /runs, which is what lets it show players who are still going: the
+        // running total is denormalised there by onRunCreated.
+        async function loadMarathonBoard() {
+            const titleEl = document.getElementById("daily-board-title");
+            if (titleEl) titleEl.innerText = "This Month's Marathon";
+            for (const id of ["daily-board-prev", "daily-board-next", "home-board-more"]) {
+                const el = document.getElementById(id);
+                if (el) el.style.display = "none";
+            }
+            const list = document.getElementById("daily-board-list");
+            if (!list) return;
+            try {
+                const month = marathonAttempt ? marathonAttempt.month : monthKeyFor(new Date());
+                const snap = await getDocs(query(
+                    collection(db, "users"),
+                    where("marathonKey", "==", month),
+                    orderBy("marathonScore", "desc"),
+                    limit(10)));
+                const rows = [];
+                snap.forEach((d) => {
+                    const v = d.data();
+                    rows.push({ name: v.username, score: v.marathonScore, words: v.marathonWords, equipped: v.equipped });
+                });
+                list.innerHTML = rows.length
+                    ? rows.map((r, i) => {
+                        const eq = r.equipped || {};
+                        const bannerClass = safeCosmetic(eq.banner, "banner_default");
+                        const nameClass = safeCosmetic(eq.effect, "effect_none");
+                        const words = Number(r.words) || 0;
+                        const avg = words ? Math.round((Number(r.score) || 0) / words) : 0;
+                        return `<div class="daily-board-row ${bannerClass}">`
+                            + `<span class="daily-board-place">#${i + 1}</span>`
+                            + `<span class="daily-board-name ${nameClass}">${escapeHtml(r.name || "Player")}</span>`
+                            + `<span class="daily-board-score">${Number(r.score || 0).toLocaleString()}`
+                            + ` <span style="color:var(--c-ink-4);">${words}w &middot; ${avg}/w</span></span></div>`;
+                    }).join("")
+                    : `<div style="color:var(--c-ink-4);">Nobody has started this month yet. Be first.</div>`;
+            } catch (e) {
+                console.error("Marathon board failed", e);
+                list.innerHTML = `<div style="color:var(--c-ink-4);">Standings unavailable right now.</div>`;
+            }
+        }
+
+        // Eastern calendar month, matching getMonthKeyStr() in functions/index.js.
+        // Only used when there is no attempt to read the month off.
+        function monthKeyFor(d) {
+            return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(d);
+        }
+
+        window.leaveMarathon = function() {
+            document.getElementById("marathon-end-modal").style.display = "none";
+            isMarathonMode = false;
+            marathonAttempt = null;
+            document.getElementById("marathon-header").style.display = "none";
+            document.getElementById("endless-header").style.display = "flex";
+            document.getElementById("score-board").style.display = "flex";
+            document.getElementById("btn-cash-out").style.display = "inline-block";
+            setMarathonPlaySurfaceVisible(true);
+            renderModeNav();
+            showStandardPanels(true);
+            if (!targetWord) window.startNewRun();
+            loadHomeBoard();
+        }
 
         // --- SPRINT ---------------------------------------------------------
         //
@@ -4662,6 +4923,7 @@
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("daily-header").style.display = "none";
+            document.getElementById("marathon-header").style.display = "none";
             document.getElementById("sprint-header").style.display = "none";
             document.getElementById("sprint-gate").style.display = "block";
             setSprintPlaySurfaceVisible(false);
@@ -7130,7 +7392,7 @@
 
             if (key === "ENTER" && currentGuess.length === 5) {
                 if (validWordSet && !validWordSet.has(currentGuess)) { SFX.invalid(); showMessage("Not in word list"); return; }
-                if (isSprintMode) { submitSprintGuess(); } else if (isDailyMode) { submitDailyGuess(); } else if (isSuddenDeathMode) { submitSuddenDeathGuess(); } else { checkGuess(); }
+                if (isSprintMode) { submitSprintGuess(); } else if (isMarathonMode) { submitMarathonGuess(); } else if (isDailyMode) { submitDailyGuess(); } else if (isSuddenDeathMode) { submitSuddenDeathGuess(); } else { checkGuess(); }
             } else if (key === "BACKSPACE" || key === "⌫") {
                 SFX.del();
                 currentGuess = currentGuess.slice(0, -1);

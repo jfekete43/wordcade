@@ -256,6 +256,14 @@ const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "b
 const SCORE_POINTS = [500, 250, 150, 50, 10];
 const DAILY_GAUNTLET_WORD_COUNT = 7;
 const DAILY_GAUNTLET_MAX_GUESSES = 5;
+// Marathon: one set of words per calendar month, played at whatever pace you
+// like. Fifty rather than a hundred to start — the question this mode is
+// being run to answer is whether anyone finishes, and fifty answers it inside
+// one month instead of never.
+const MARATHON_WORD_COUNT = 50;
+// Easy / medium / hard, summing to MARATHON_WORD_COUNT. Drawn from the same
+// three difficulty thirds the Daily Puzzle uses.
+const MARATHON_TIER_SPLIT = [17, 16, 17];
 const SUDDEN_DEATH_ROUND_MS = 90000; // a full 5-guess board per side, not one quick guess — needs real thinking time
 const SUDDEN_DEATH_MAX_ROUNDS = 1; // one word decides it — if neither side solves it, the match is a genuine tie rather than dragging a drawn 7-minute match out by another 90s per extra round
 
@@ -295,6 +303,15 @@ const FFA_PAYOUT_CURVES = {
 // sense for everyone.
 function getTodayDateStr() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+// The Eastern calendar MONTH, "YYYY-MM". Marathon's whole identity: the word
+// set, the attempt and the board are all keyed by it, and it rolling over is
+// what ends one marathon and starts the next. Eastern for the same reason
+// every other boundary in the game is — so the month turns at one moment for
+// everybody rather than at each viewer's midnight.
+function getMonthKeyStr() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date());
 }
 
 // Calendar arithmetic on a YYYY-MM-DD string, used by the Sprint streak to
@@ -478,6 +495,36 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       update.bestGauntletDate = run.puzzleDate;
     }
 
+    // ---- Marathon's live standing -----------------------------------------
+    // The board reads these off /users rather than aggregating /runs, the
+    // same denormalisation the weekly and daily boards use and for the same
+    // reason: built from runs it would read every run of the month on every
+    // page load.
+    //
+    // SET from the totals the run carries, not incremented. Each finished
+    // word writes a run, and a retried trigger would increment twice — these
+    // fields would then climb on their own and look like play. Carrying the
+    // running total makes a replay idempotent.
+    //
+    // A total from a PREVIOUS month does not count against this one, so the
+    // comparison floor drops to 0 when the key changes. That is what makes
+    // the month reset without anything having to sweep it.
+    if (run.mode === "marathon" && run.marathonKey) {
+      const priorInMonth = user.marathonKey === run.marathonKey
+        ? Math.max(0, Number(user.marathonScore) || 0)
+        : -1;
+      const incoming = Math.max(0, Number(run.marathonScore) || 0);
+      // Only move forward. Two words finished close together can have their
+      // triggers delivered out of order, and the later-arriving earlier word
+      // must not drag the standing backwards.
+      if (incoming > priorInMonth) {
+        update.marathonKey = run.marathonKey;
+        update.marathonScore = incoming;
+        update.marathonWords = Math.max(0, Number(run.marathonWords) || 0);
+        update.marathonAt = run.timestamp || FieldValue.serverTimestamp();
+      }
+    }
+
     // ---- Sprint's career record -------------------------------------------
     // Everything the finish popup shows, kept on the user doc so opening it
     // costs no extra read. Counters increment; the two "best" fields compare
@@ -551,7 +598,9 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // never be a meaningful row here, and a player whose only game is Sprint
     // would otherwise sit on the Stakes board with a score that cannot be
     // compared to anything else on it.
-    if (run.mode !== "daily" && run.mode !== "sprint") {
+    // Marathon is excluded on the same grounds, and more sharply still: it
+    // writes one run per WORD, so its score here is a single word's payout.
+    if (run.mode !== "daily" && run.mode !== "sprint" && run.mode !== "marathon") {
       const dayKey = getTodayDateStr();
       const priorToday = user.dayBestKey === dayKey
         ? Math.max(0, Number(user.dayBestScore) || 0)
@@ -1236,6 +1285,86 @@ function pickSprintWord(stats) {
   return { word: ranked[i].w.toUpperCase(), tier };
 }
 
+// Marathon's month of words: MARATHON_TIER_SPLIT drawn from each difficulty
+// third, stored easy-to-hard. The stored order is canonical and the same for
+// everybody; the order a given player MEETS them in is a per-player shuffle
+// of this one (see marathonOrderFor).
+function pickMarathonWords(stats) {
+  const ranked = DAILY_TARGET_WORDS
+    .map((w) => ({ w, d: effectiveDifficulty(w.toUpperCase(), stats) }))
+    .sort((a, b) => a.d - b.d);
+  const third = Math.floor(ranked.length / 3);
+  const tiers = [ranked.slice(0, third), ranked.slice(third, third * 2), ranked.slice(third * 2)];
+
+  const picked = [];
+  tiers.forEach((tier, i) => {
+    const pool = [...tier];
+    for (let k = 0; k < MARATHON_TIER_SPLIT[i] && pool.length; k++) {
+      picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    }
+  });
+  // Bounded for the same reason pickDailyWords' top-up is: a loop that draws
+  // at random and rejects must not be able to spin inside a billed function.
+  for (let tries = 0; picked.length < MARATHON_WORD_COUNT && tries < 20000; tries++) {
+    const w = DAILY_TARGET_WORDS[Math.floor(Math.random() * DAILY_TARGET_WORDS.length)];
+    if (!picked.some((p) => p.w === w)) picked.push({ w, d: effectiveDifficulty(w.toUpperCase(), stats) });
+  }
+  return picked.sort((a, b) => a.d - b.d).slice(0, MARATHON_WORD_COUNT).map((p) => p.w.toUpperCase());
+}
+
+// A small deterministic PRNG, so one player's running order is reproducible
+// from their uid and the month alone. Math.random would do the job once and
+// then be unable to explain itself; this can be re-derived when somebody asks
+// why they got the words in the order they did.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seedFrom(str) {
+  let h = 2166136261 >>> 0; // FNV-1a
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// The order ONE player meets the month's words in: a shuffle WITHIN each
+// difficulty band, never across them.
+//
+// Across-the-board shuffling was the obvious version and it is wrong: it
+// throws away the ramp, so a player can meet the hardest word of the month at
+// position three. Shuffling inside each band keeps the month opening gently
+// and closing hard for everyone, while still meaning no two players hit the
+// same word at the same position — which is the point, because it makes
+// "word 12 is brutal" unspoilable.
+function marathonOrderFor(uid, month, wordCount) {
+  const rng = mulberry32(seedFrom(`${uid}:${month}`));
+  const order = [];
+  let start = 0;
+  for (const size of MARATHON_TIER_SPLIT) {
+    const band = [];
+    for (let i = start; i < Math.min(start + size, wordCount); i++) band.push(i);
+    // Fisher-Yates, inside this band only.
+    for (let i = band.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [band[i], band[j]] = [band[j], band[i]];
+    }
+    order.push(...band);
+    start += size;
+  }
+  // Anything past the declared bands (a short or over-long word list) keeps
+  // its canonical position rather than being dropped.
+  for (let i = start; i < wordCount; i++) order.push(i);
+  return order;
+}
+
 const WORD_STATS_REF = () => db.collection("wordStats").doc("aggregate");
 
 // The measured table, or null. Only ever called from the scheduled generator,
@@ -1375,6 +1504,47 @@ async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
   const puzzle = { words: pickDailyWords(null, exclude), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
   tx.set(puzzleRef, puzzle);
   return puzzle;
+}
+
+// Marathon's month of words. Lazily created the same way the other two are,
+// so the first player of a month is not blocked by a schedule that has not
+// fired. No exclusion against the Daily or Sprint: fifty words over a month
+// will overlap a few of the month's dailies by chance, and that is fine —
+// meeting a word twice weeks apart is not learning the answer, and excluding
+// thirty-odd days of other modes' words up front would mean generating them
+// up front too.
+async function getOrCreateThisMonthsMarathon(tx, ref, month) {
+  const snap = await tx.get(ref);
+  if (snap.exists) return snap.data();
+  const puzzle = {
+    words: pickMarathonWords(null),
+    wordCount: MARATHON_WORD_COUNT,
+    generatedAt: FieldValue.serverTimestamp(),
+  };
+  tx.set(ref, puzzle);
+  return puzzle;
+}
+
+function marathonAttemptRef(uid, month) {
+  return db.collection("marathonAttempts").doc(uid).collection("months").doc(month);
+}
+
+// What the client is allowed to know about its own marathon. The month's
+// words never appear: the player is told only which position they are on and
+// what their own guesses scored. `order` is theirs and is safe — it is a
+// permutation of indices into a list they cannot read.
+function publicMarathonState(attempt, currentWord) {
+  return {
+    month: attempt.month,
+    wordIndex: attempt.wordIndex,
+    wordCount: attempt.wordCount,
+    score: attempt.score,
+    wordsSolved: attempt.wordsSolved || 0,
+    status: attempt.status,
+    guesses: (attempt.history && attempt.history[attempt.wordIndex] && attempt.history[attempt.wordIndex].guesses) || [],
+    // Only ever the word already finished and revealed, never the live one.
+    revealedWord: currentWord || null,
+  };
 }
 
 // Sprint's mirror of the above, with the exclusion running the other way: if
@@ -1721,6 +1891,167 @@ exports.guessSprintWord = onCall(readableFailures("Submitting that Sprint guess"
       colors, solved, finished, score, elapsedMs,
       guessNumber,
       answer: finished ? target : null, // safe now — the attempt is over either way
+    };
+  });
+}));
+
+// ============================================================================
+// MARATHON — one set of fifty words per calendar month, at your own pace.
+//
+// The two things that make this different from the Daily Puzzle, beyond
+// length:
+//
+// IT IS SCORED WHILE IT IS STILL RUNNING. A month-long mode whose board only
+// populates at the end has no board for most of its life, so each finished
+// word writes its own /runs document and the existing onRunCreated payout
+// applies it immediately. That also means points arrive as you play rather
+// than thirty days later, and the board — which reads denormalised fields on
+// the user doc, the same way the weekly and daily boards do — is live.
+//
+// EVERYONE GETS THE SAME WORDS IN A DIFFERENT ORDER. The month's fifty are
+// one list, stored easy-to-hard; each player walks it through their own
+// permutation, shuffled within difficulty bands so the ramp survives. Two
+// players comparing notes cannot spoil each other, because "word 12" is not
+// the same word for them.
+//
+// Joining late is not catered for, deliberately: there is one marathon a
+// month and it starts when the month does.
+// ============================================================================
+
+exports.generateMarathonPuzzle = onSchedule({ schedule: "5 0 1 * *", timeZone: "America/New_York" }, async () => {
+  const month = getMonthKeyStr();
+  const ref = db.collection("marathonPuzzles").doc(month);
+  const stats = await loadWordStats();
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    // Never overwrite a month already in progress — people are partway
+    // through it, and changing the words under them would void their score.
+    if (snap.exists) return;
+    tx.set(ref, { words: pickMarathonWords(stats), wordCount: MARATHON_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() });
+  });
+});
+
+exports.startMarathon = onCall(readableFailures("Starting this month's Marathon", async (request) => {
+  const uid = requireAuth(request); // guests included, same as Sprint and the Daily
+  const month = getMonthKeyStr();
+  const ref = marathonAttemptRef(uid, month);
+  const puzzleRef = db.collection("marathonPuzzles").doc(month);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) return { attempt: publicMarathonState(snap.data(), null) };
+
+    const puzzle = await getOrCreateThisMonthsMarathon(tx, puzzleRef, month);
+    const wordCount = Array.isArray(puzzle.words) && puzzle.words.length
+      ? puzzle.words.length
+      : MARATHON_WORD_COUNT;
+    const attempt = {
+      month,
+      wordIndex: 0,
+      wordCount,
+      score: 0,
+      wordsSolved: 0,
+      status: "active",
+      // Stored rather than re-derived on every guess: it is this player's
+      // month and it must not be able to change halfway through, whatever
+      // happens to the seeding code later.
+      order: marathonOrderFor(uid, month, wordCount),
+      history: Array.from({ length: wordCount }, () => ({ guesses: [], solved: false })),
+    };
+    tx.set(ref, attempt);
+    return { attempt: publicMarathonState(attempt, null) };
+  });
+}));
+
+exports.guessMarathonWord = onCall(readableFailures("Submitting that Marathon guess", async (request) => {
+  const uid = requireAuth(request);
+  const raw = (request.data && request.data.guess) || "";
+  const guess = String(raw).toUpperCase().trim();
+  if (!/^[A-Z]{5}$/.test(guess)) throw new HttpsError("invalid-argument", "Guess must be a 5-letter word.");
+  if (!DAILY_ALL_VALID_WORDS.has(guess)) throw new HttpsError("invalid-argument", "Not in word list.");
+
+  const month = getMonthKeyStr();
+  const ref = marathonAttemptRef(uid, month);
+  const puzzleRef = db.collection("marathonPuzzles").doc(month);
+  const userRef = db.collection("users").doc(uid);
+
+  return db.runTransaction(async (tx) => {
+    const [attemptSnap, puzzleSnap, userSnap] = await Promise.all([tx.get(ref), tx.get(puzzleRef), tx.get(userRef)]);
+    if (!attemptSnap.exists) throw new HttpsError("failed-precondition", "Start this month's Marathon first.");
+    if (!puzzleSnap.exists) throw new HttpsError("not-found", "This month's Marathon is missing.");
+    const attempt = attemptSnap.data();
+    const puzzle = puzzleSnap.data();
+    const username = userSnap.exists ? userSnap.data().username : null;
+    const equipped = userSnap.exists ? userSnap.data().equipped : null;
+    if (attempt.status !== "active") throw new HttpsError("failed-precondition", "This month's Marathon is already finished.");
+
+    const wordIndex = attempt.wordIndex;
+    const wordEntry = attempt.history[wordIndex];
+    if (wordEntry.guesses.length >= DAILY_GAUNTLET_MAX_GUESSES) throw new HttpsError("failed-precondition", "No guesses left on this word.");
+
+    // The player's own permutation decides which of the month's words this
+    // position actually is. Falls back to the canonical order for an attempt
+    // written before `order` existed, rather than throwing on it.
+    const order = Array.isArray(attempt.order) && attempt.order.length === attempt.wordCount
+      ? attempt.order
+      : attempt.history.map((_, i) => i);
+    const target = String(puzzle.words[order[wordIndex]]).toUpperCase();
+
+    const colors = gradeGuess(guess, target);
+    const solved = colors.every((c) => c === 2);
+    const guessNumber = wordEntry.guesses.length + 1;
+    const newHistory = attempt.history.map((entry, i) =>
+      (i === wordIndex ? { ...entry, guesses: [...entry.guesses, { guess, colors }], solved } : entry));
+
+    let earned = 0;
+    let wordFinished = false;
+    if (solved) {
+      earned = SCORE_POINTS[guessNumber - 1];
+      wordFinished = true;
+    } else if (guessNumber >= DAILY_GAUNTLET_MAX_GUESSES) {
+      wordFinished = true;
+    }
+
+    const newScore = attempt.score + earned;
+    const newSolved = (attempt.wordsSolved || 0) + (solved ? 1 : 0);
+    const newWordIndex = wordFinished ? wordIndex + 1 : wordIndex;
+    const marathonFinished = wordFinished && newWordIndex >= attempt.wordCount;
+
+    tx.update(ref, {
+      history: newHistory,
+      score: newScore,
+      wordsSolved: newSolved,
+      wordIndex: newWordIndex,
+      status: marathonFinished ? "finished" : "active",
+    });
+
+    if (wordFinished) {
+      // One /runs document per finished WORD, not per month. That is what
+      // makes the board live and the points arrive as you play; onRunCreated
+      // does the rest, exactly as it does for every other mode. The id is
+      // deterministic on the position, so a retry lands on the same document
+      // and its payoutApplied guard makes it a no-op.
+      const g = [0, 0, 0, 0, 0];
+      if (solved) g[guessNumber - 1] = 1;
+      const runRef = db.collection("runs").doc(`marathon_${uid}_${month}_${wordIndex}`);
+      tx.set(runRef, {
+        uid, username, equipped, score: earned, isWipeout: false, lostScore: 0,
+        wordsGuessed: solved ? 1 : 0, wordsPlayed: 1,
+        guess1: g[0], guess2: g[1], guess3: g[2], guess4: g[3], guess5: g[4],
+        fails: solved ? 0 : 1, kobeCount: 0, bestStreak: solved ? 1 : 0,
+        mode: "marathon", marathonKey: month,
+        // The running totals this word leaves the player on, so onRunCreated
+        // can set the board fields outright instead of incrementing them —
+        // an increment would double-count the moment a trigger is retried.
+        marathonScore: newScore, marathonWords: newWordIndex,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+    }
+
+    return {
+      colors, solved, wordFinished, marathonFinished,
+      earned, score: newScore, wordIndex: newWordIndex, wordsSolved: newSolved,
+      revealedWord: wordFinished ? target : null,
     };
   });
 }));

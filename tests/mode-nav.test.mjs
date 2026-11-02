@@ -72,6 +72,21 @@ const MODE_KEYS = (modesSrc.match(/^\s{12}(\w+):/gm) || []).map((m) => m.trim().
 const MODE_LABELS = Object.fromEntries((modesSrc.match(/^\s{12}(\w+):\s*\{\s*label:\s*"([^"]+)"/gm) || [])
   .map((m) => { const g = m.match(/(\w+):\s*\{\s*label:\s*"([^"]+)"/); return [g[1], g[2]]; }));
 if (MODE_KEYS.length < 2) throw new Error('could not read the MODES table');
+// The flags currentMode() actually reads, parsed out of currentMode() itself,
+// along with the mode each one selects. Hand-listing these is what broke the
+// harness twice: it knew four flags, then five, while the page had one more
+// each time, and the failure arrived as a ReferenceError rather than as a
+// report of the missing mode. Declared from the source, it cannot drift.
+const FLAG_FOR = Object.fromEntries([...currentSrc.matchAll(/if \((\w+)\) return "(\w+)";/g)]
+  .map((m) => [m[2], m[1]]));
+const FALLBACK_MODE = (currentSrc.match(/return "(\w+)";\s*\n\}/) || [])[1];
+const FLAG_DECL = Object.values(FLAG_FOR).map((f) => `let ${f} = false;`).join(' ');
+if (!Object.keys(FLAG_FOR).length || !FALLBACK_MODE) throw new Error('could not read currentMode()\'s flags');
+// Every mode in the table is either flag-selected or the fallback; a mode
+// that is neither can never be entered.
+for (const m of MODE_KEYS) {
+  if (!FLAG_FOR[m] && m !== FALLBACK_MODE) throw new Error(`mode "${m}" is in MODES but currentMode() can never return it`);
+}
 console.log('extracted from index.html:', (modesSrc + renderSrc + nav).length, 'chars');
 
 // ===== 1. the renderer, in a browser, against the shipped markup ===========
@@ -86,13 +101,15 @@ ${nav}
 ${endlessHeader}
 ${scoreBoard}
 <script>
-let isSprintMode = false, isDailyMode = false, isVersusMode = false, isFfaMode = false;
+${FLAG_DECL}
 ${modesSrc}
 ${currentSrc}
 ${renderSrc}
+const FLAG_FOR = ${JSON.stringify(FLAG_FOR)};
 window.setFlags = (o) => {
-  isSprintMode = !!o.sprint; isDailyMode = !!o.gauntlet;
-  isVersusMode = !!o.clash; isFfaMode = !!o.ffa;
+  for (const f of Object.values(FLAG_FOR)) eval(f + ' = false');
+  const want = Object.keys(o).find((k) => o[k]);
+  if (want && FLAG_FOR[want]) eval(FLAG_FOR[want] + ' = true');
   renderModeNav();
 };
 window.readNav = () => MODE_ORDER.map((_, n) => n + 1).map((i) => {
@@ -121,6 +138,13 @@ await page.waitForTimeout(120);
 // Built from the table rather than listed, so a new mode without a colour
 // fails as a missing custom property here instead of as a TypeError.
 const RGB = Object.fromEntries(MODE_KEYS.map((m) => [m, rgbOf(m === 'gauntlet' ? '--c-gauntlet' : '--c-' + m)]));
+
+// The column caps, read from the stylesheet rather than restated. A nav that
+// shrinks type instead of wrapping is how MARATHON came to spill 20px out of
+// its own button on every phone width.
+const CAP_PHONE = Number((css.match(/max-width: 600px\)[\s\S]*?min\(var\(--mode-cols, \d+\), (\d+)\)/) || [])[1]);
+const CAP_FOLD = Number((css.match(/max-width: 319px\)[\s\S]*?min\(var\(--mode-cols, \d+\), (\d+)\)/) || [])[1]);
+if (!CAP_PHONE || !CAP_FOLD) throw new Error('could not read the nav column caps from the stylesheet');
 
 const QUIET = rgbOf('--c-ink-4');
 const ON_ACCENT = rgbOf('--c-on-accent');
@@ -216,9 +240,14 @@ for (const width of [280, 320, 360, 390, 428]) {
   // whatever MODE_KEYS needs at two-up; at and above it, every mode is on
   // one row. Derived rather than stated: this is the assertion that caught
   // the nav still laying out four-up after a fifth mode was added.
-  const wantRows = width < 320 ? Math.ceil(N / 2) : 1;
+  // The stylesheet caps columns at 2 below 320px and at 3 below 600px, so
+  // the row count follows from the mode count rather than being a constant.
+  // Both numbers are read out of the CSS, so a breakpoint moved there fails
+  // here instead of silently re-laying out the front door.
+  const cap = width < 320 ? CAP_FOLD : width <= 600 ? CAP_PHONE : N;
+  const wantRows = Math.ceil(N / Math.min(N, cap));
   ck(r.rows === wantRows,
-     `${width}px: the nav is ${wantRows} row(s) for ${N} modes`, String(r.rows));
+     `${width}px: the nav is ${wantRows} row(s) for ${N} modes at ${Math.min(N, cap)} across`, String(r.rows));
   await p.close();
 }
 await browser.close();

@@ -259,7 +259,10 @@ ck(/if \(!targetWord\) window\.startNewRun\(\);/.test(leave.slice(0, 1200)),
 // ---- the nav scales ---------------------------------------------------------
 ck(/grid-template-columns: repeat\(var\(--mode-cols, 4\), minmax\(0, 1fr\)\)/.test(html),
    'the nav takes its column count from a variable rather than a hardcoded four');
-ck(/<nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: 5;">/.test(html),
+// Presence only. The VALUE is checked against the mode table below, which is
+// the assertion that cannot go stale — this one hardcoded 5 and broke the
+// moment a sixth mode arrived, reporting a layout bug that did not exist.
+ck(/<nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: \d+;">/.test(html),
    'and the markup carries it, so the nav is laid out correctly before any script runs');
 {
   const modes = (html.match(/const MODES = \{[\s\S]*?\n        \};/) || [''])[0];

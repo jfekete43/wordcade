@@ -180,6 +180,9 @@ service cloud.firestore {
         && !('sprintBestTimeMs' in request.resource.data)
         && !('sprintStreak' in request.resource.data)
         && !('sprintBestStreak' in request.resource.data)
+        && !('marathonScore' in request.resource.data)
+        && !('marathonWords' in request.resource.data)
+        && !('marathonKey' in request.resource.data)
         && !('ffaMatchesPlayed' in request.resource.data)
         && request.resource.data.totalWordsGuessed == 0
         && request.resource.data.wordsPlayed == 0
@@ -352,6 +355,23 @@ service cloud.firestore {
     // never the unsolved target words), but every write goes through
     // startDailyGauntlet/guessDailyWord (Admin SDK), never the client SDK.
     match /dailyAttempts/{userId}/days/{date} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // This month's fifty Marathon words. Unreadable for the same reason the
+    // other two answer stores are: the client learns one word's colours at a
+    // time from guessMarathonWord and nothing else. It matters more here, if
+    // anything - one read would hand over a whole month.
+    match /marathonPuzzles/{month} {
+      allow read, write: if false;
+    }
+
+    // A player's own Marathon progress: which position they are on, what
+    // they have scored, and the guesses already made. Readable by its owner
+    // so a reload resumes; never writable, because `order` and `score` live
+    // here and a client that could write either could rewrite its month.
+    match /marathonAttempts/{userId}/months/{month} {
       allow read: if isOwner(userId);
       allow write: if false;
     }
