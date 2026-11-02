@@ -522,6 +522,99 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
      'none of which costs a read', renderFn.slice(0, 120));
 }
 
+
+// ---- the end-of-round statistics ---------------------------------------------
+// Four pills and a guess distribution, drawn with the same .stat-pill and
+// .stat-bar-* the Profile already uses, so this is one design rather than two.
+{
+  const statsSrc = (html.match(/        function renderSprintStats\(todayRow\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!statsSrc, 'renderSprintStats is findable', statsSrc.slice(0, 60));
+
+  const draw = (profile, todayRow) => {
+    const dist = { innerHTML: '' };
+    const els = {
+      'sprint-end-stats': { innerHTML: '' },
+      'sprint-dist-wrap': { style: {}, querySelector: () => dist },
+    };
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'userProfileData', `${statsSrc}; renderSprintStats(${todayRow});`)(
+      { getElementById: (id) => els[id] || null }, profile);
+    return { pills: els['sprint-end-stats'].innerHTML, dist: dist.innerHTML, wrap: els['sprint-dist-wrap'].style };
+  };
+
+  const P = { sprintPlayed: 12, sprintSolved: 11, sprintStreak: 5, sprintBestStreak: 7,
+              sprintG1: 0, sprintG2: 1, sprintG3: 4, sprintG4: 5, sprintG5: 1 };
+
+  {
+    const o = draw(P, 4);
+    // The four Wordle numbers, in that order.
+    const nums = [...o.pills.matchAll(/<b>([^<]*)<\/b>/g)].map((m) => m[1]);
+    eq('four pills: played, win rate, current streak, max streak', nums, ['12', '92', '5', '7']);
+    ck(/Played/.test(o.pills) && /Win %/.test(o.pills), 'labelled', o.pills.slice(0, 120));
+    ck(/Current<br>Streak/.test(o.pills) && /Max<br>Streak/.test(o.pills),
+       'with the two streaks on two lines so four fit across a phone');
+
+    // 1-5 and X.
+    const rows = [...o.dist.matchAll(/stat-label">([^<]*)</g)].map((m) => m[1]);
+    eq('six rows, one per guess count plus a miss row', rows, ['1', '2', '3', '4', '5', 'X']);
+    // Derived, not counted: 12 played - 11 solved.
+    const counts = [...o.dist.matchAll(/">(\d*)<\/div><\/div><\/div>/g)].map((m) => m[1]);
+    eq('and the X row is played minus solved', counts[5], '1');
+
+    // The row you just landed on is the one lit, which is the entire reason
+    // this chart is worth showing on the screen where you finished.
+    const bars = o.dist.split('stat-bar-fill');
+    ck(/var\(--c-sprint\)/.test(bars[4]), "today's row is highlighted", bars[4].slice(0, 90));
+    ck(!/var\(--c-sprint\)/.test(bars[3]) && !/var\(--c-sprint\)/.test(bars[5]),
+       'and only that row', bars[3].slice(0, 80));
+    // The tallest bar is full width; everything else is relative to it.
+    ck(/width: 100%/.test(o.dist), 'the tallest bar fills the row', o.dist.slice(0, 160));
+  }
+  {
+    // A miss lands on X, not on a guess row.
+    const o = draw({ ...P, sprintPlayed: 13, sprintSolved: 11 }, 0);
+    const bars = o.dist.split('stat-bar-fill');
+    ck(/var\(--c-sprint\)/.test(bars[6]), 'a missed word highlights the X row instead', bars[6].slice(0, 90));
+  }
+  {
+    // Before the counters are deployed there is nothing to draw, and an
+    // all-zero chart under a heading reads as broken rather than empty.
+    const o = draw({ sprintPlayed: 0, sprintSolved: 0 }, 0);
+    eq('with no history at all the whole distribution section is hidden', o.wrap.display, 'none');
+    const nums = [...o.pills.matchAll(/<b>([^<]*)<\/b>/g)].map((m) => m[1]);
+    eq('but the pills still render, at zero rather than NaN', nums, ['0', '0', '0', '0']);
+  }
+  {
+    // A player who has played but whose per-guess counters predate the
+    // deploy: X alone is still a distribution worth drawing.
+    const o = draw({ sprintPlayed: 3, sprintSolved: 1 }, 0);
+    ck(o.wrap.display !== 'none', 'a miss-only history still draws', JSON.stringify(o.wrap));
+  }
+}
+
+// The counters it reads have to be maintained, and a client cannot seed them.
+{
+  const career = fn.slice(fn.indexOf("Sprint's career record"), fn.indexOf("The recurring board"));
+  for (let i = 1; i <= 5; i++) {
+    ck(new RegExp(`update\\.sprintG${i} = FieldValue\\.increment\\(g${i}\\)`).test(career),
+       `onRunCreated counts a solve on guess ${i}`, career.slice(0, 80));
+  }
+  for (let i = 1; i <= 5; i++) {
+    ck(new RegExp(`!\\('sprintG${i}' in request\\.resource\\.data\\)`).test(rules),
+       `a new account cannot arrive with sprintG${i} already set`);
+  }
+}
+
+// Share leads. In a one-word-a-day mode it is the only action that brings
+// anyone else in; the other two are navigation.
+{
+  const modal = html.slice(html.indexOf('<div id="sprint-end-modal"'), html.indexOf('<!-- MAIN MENU MODAL -->'));
+  const buttons = [...modal.matchAll(/<button class="(btn-\w+)"[^>]*>([^<]*)</g)].map((m) => [m[1], m[2]]);
+  eq('exactly one primary action in the end modal',
+     buttons.filter(([c]) => c === 'btn-primary').length, 1);
+  eq('and it is Share', (buttons.find(([c]) => c === 'btn-primary') || [])[1], 'Share Result');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

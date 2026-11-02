@@ -1259,6 +1259,15 @@
         .grid-item.locked { opacity: 0.5; cursor: default; }
         .grid-item.locked:hover { background: var(--c-raised); border-color: var(--c-line-2); }
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
+        /* Sprint's end-of-round statistics. The pills are the ones the
+           score board uses, widened and unboxed so four sit in a row. */
+        .sprint-stat-head { font-size: var(--fs-1); letter-spacing: var(--ls-ui); color: var(--c-ink-4);
+            text-transform: uppercase; margin: 18px 0 8px; text-align: left; }
+        .sprint-stat-row { display: flex; justify-content: space-between; gap: var(--s-2); margin-bottom: 4px; }
+        .sprint-stat-row .stat-pill { flex: 1 1 0; min-width: 0; background: none; border: none; padding: 0; }
+        .sprint-stat-row .stat-pill b { font-size: var(--fs-6); line-height: 1.1; color: var(--c-ink); }
+        .sprint-stat-row .stat-pill em { color: var(--c-ink-4); margin-top: 2px; line-height: 1.2;
+            white-space: normal; text-align: center; }
         .stat-label { width: 25px; text-align: right; margin-right: 10px; color: var(--c-ink-3); font-weight: bold;}
         .stat-bar-bg { flex-grow: 1; background: var(--c-line); height: 18px; border-radius: var(--r-1); overflow: hidden; position: relative;}
         .stat-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-out; display: flex; align-items: center; font-weight: bold; font-size: 12px;}
@@ -1981,11 +1990,24 @@
         <div class="modal-box" style="border-color: var(--c-sprint);">
             <h2 class="modal-title" id="sprint-end-title">Solved!</h2>
             <div class="modal-stats" id="sprint-end-desc"></div>
-            <div id="sprint-end-career" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px; line-height: 1.7;"></div>
+            <!-- Four pills and a distribution, reusing .stat-pill and the
+                 .stat-bar-* set the Profile already draws its own with, so
+                 this reads as part of the game rather than a second design.
+                 The distribution hides itself until there is one. -->
+            <div class="sprint-stat-head">STATISTICS</div>
+            <div id="sprint-end-stats" class="sprint-stat-row"></div>
+            <div id="sprint-dist-wrap" style="display:none;">
+                <div class="sprint-stat-head">GUESS DISTRIBUTION</div>
+                <div id="sprint-end-dist"></div>
+            </div>
             <div class="modal-buttons">
-                <button class="btn-primary" onclick="window.dismissSprintEnd()">Today's Leaderboard</button>
-                <button class="btn-primary" onclick="window.leaveSprint()">Play Another Mode</button>
+                <!-- Share leads. In a one-word-a-day mode it is the only
+                     action that brings anyone else in; the other two are
+                     navigation. Three identical buttons said they mattered
+                     equally, which they do not. -->
                 <button class="btn-primary" id="btn-sprint-share" onclick="window.shareSprintResult()">Share Result</button>
+                <button class="btn-quiet" onclick="window.dismissSprintEnd()">Today's Leaderboard</button>
+                <button class="btn-quiet" onclick="window.leaveSprint()">Play Another Mode</button>
             </div>
         </div>
     </div>
@@ -5026,6 +5048,54 @@
             userProfileData.wallet = (Number(userProfileData.wallet) || 0) + (Number(result.score) || 0);
         }
 
+        // The four numbers and the distribution, drawn with the same pills and
+        // bars the Profile uses so this is one design rather than two.
+        //
+        // `todayRow` is the guess count just achieved, or 0 for a miss, so the
+        // row the player landed on is the one lit up - the whole reason the
+        // chart is worth looking at on the screen where you just finished.
+        function renderSprintStats(todayRow) {
+            const p = userProfileData || {};
+            const played = Number(p.sprintPlayed) || 0;
+            const won = Number(p.sprintSolved) || 0;
+            const pill = (value, label) => '<div class="stat-pill"><b>' + value + '</b><em>' + label + "</em></div>";
+            document.getElementById("sprint-end-stats").innerHTML =
+                pill(played, "Played")
+                + pill(played ? Math.round((won / played) * 100) : 0, "Win %")
+                + pill(Number(p.sprintStreak) || 0, "Current<br>Streak")
+                + pill(Number(p.sprintBestStreak) || 0, "Max<br>Streak");
+
+            // 1..5 plus X. The misses are derived rather than counted: exactly
+            // one of sprintG1..5 moves on a solve and none on a miss, so
+            // played minus solved is the X row by construction.
+            const counts = [1, 2, 3, 4, 5].map((i) => Number(p["sprintG" + i]) || 0);
+            counts.push(Math.max(0, played - won));
+            const wrap = document.getElementById("sprint-dist-wrap");
+            // Nothing to draw until the counters exist. An all-zero chart
+            // under a heading reads as a broken feature rather than an empty
+            // one, so the whole section goes.
+            if (!counts.some((c) => c > 0)) { wrap.style.display = "none"; return; }
+            wrap.style.display = "block";
+
+            const labels = ["1", "2", "3", "4", "5", "X"];
+            const max = Math.max(...counts, 1);
+            wrap.querySelector("#sprint-end-dist").innerHTML = counts.map((n, i) => {
+                const pct = Math.round((n / max) * 100);
+                const isToday = todayRow > 0 ? (i === todayRow - 1) : (i === 5);
+                const colour = isToday ? "var(--c-sprint)" : i === 5 ? "var(--c-loss)" : "var(--c-correct)";
+                // A bar under about a tenth has no room for its own number, so
+                // the count sits outside it in body ink instead of white on
+                // nothing.
+                const inside = pct > 10;
+                const style = "width: " + pct + "%; background: " + colour
+                    + "; justify-content: " + (inside ? "flex-end" : "flex-start")
+                    + (inside ? "; padding-right: 8px;" : "; padding-left: 8px; color: var(--c-ink-3);");
+                return '<div class="stat-bar-container"><div class="stat-label">' + labels[i] + "</div>"
+                    + '<div class="stat-bar-bg"><div class="stat-bar-fill" style="' + style + '">'
+                    + (n > 0 ? n : "") + "</div></div></div>";
+            }).join("");
+        }
+
         function showSprintEndModal(attempt, resumed, answer) {
             const solved = !!attempt.solved;
             const used = (attempt.guesses || []).length;
@@ -5038,20 +5108,7 @@
             document.getElementById("sprint-end-desc").innerHTML =
                 '<span style="color:var(--c-sprint); font-size: var(--fs-5);">' + line + "</span>";
 
-            const p = userProfileData || {};
-            const played = Number(p.sprintPlayed) || 0;
-            const won = Number(p.sprintSolved) || 0;
-            const rate = played ? Math.round((won / played) * 100) : 0;
-            const avg = won ? ((Number(p.sprintGuessTotal) || 0) / won) : 0;
-            const bestT = Number(p.sprintBestTimeMs);
-            const streak = Number(p.sprintStreak) || 0;
-            const bestStreak = Number(p.sprintBestStreak) || 0;
-
-            const bits = ["Played " + played + " &middot; Solved " + won + (played ? " (" + rate + "%)" : "")];
-            if (won) bits.push("Avg " + avg.toFixed(1) + " guesses" + (Number.isFinite(bestT) && bestT > 0 ? " &middot; Best " + formatSprintTime(bestT) : ""));
-            bits.push("Streak " + streak + (bestStreak ? " (best " + bestStreak + ")" : ""));
-            document.getElementById("sprint-end-career").innerHTML =
-                '<div style="color:var(--c-ink-4); letter-spacing:1px; margin-bottom:4px;">CAREER</div>' + bits.join("<br>");
+            renderSprintStats(solved ? used : 0);
 
             document.getElementById("btn-sprint-share").style.display = "inline-block";
             document.getElementById("sprint-end-modal").style.display = "flex";

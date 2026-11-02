@@ -539,6 +539,17 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       // drag the average toward a number nobody actually played.
       update.sprintGuessTotal = FieldValue.increment(didSolve ? (g1 + g2 * 2 + g3 * 3 + g4 * 4 + g5 * 5) : 0);
 
+      // The guess distribution, Sprint's own. The guess1..guess5 counters
+      // above are career-wide across every mode, so they cannot answer "how
+      // do my Sprints usually go". Exactly one of these is 1 on a solve and
+      // all are 0 on a miss, which is what makes the misses derivable as
+      // sprintPlayed - sprintSolved rather than needing a sixth counter.
+      update.sprintG1 = FieldValue.increment(g1);
+      update.sprintG2 = FieldValue.increment(g2);
+      update.sprintG3 = FieldValue.increment(g3);
+      update.sprintG4 = FieldValue.increment(g4);
+      update.sprintG5 = FieldValue.increment(g5);
+
       if (score > Math.max(0, Number(user.sprintBestScore) || 0)) {
         update.sprintBestScore = score;
         update.sprintBestDate = run.puzzleDate;
