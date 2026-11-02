@@ -752,7 +752,7 @@
            this page — the object has a tile face, or it floats above the
            page — and spending it on panels too would make the distinction
            say nothing, which is exactly how the glow failed. */
-        #daily-board-container, #gauntlet-card, #gauntlet-feed-container,
+        #daily-board-container, #gauntlet-card, #sprint-card, #gauntlet-feed-container,
         #clash-chat-container, #versus-track-container, #ffa-track-container {
             width: 100%; max-width: var(--w-col); margin-left: auto; margin-right: auto;
             background: var(--c-panel); border: var(--bw) solid var(--c-line);
@@ -762,20 +762,23 @@
         #site-intro { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
             margin: var(--s-5) auto 0; color: var(--c-ink-3); font-size: var(--fs-2);
             line-height: var(--lh-prose); position: relative; z-index: 2; }
-        #daily-board-title, #gauntlet-card-title, #gauntlet-feed-title {
+        #daily-board-title, #gauntlet-card-title, #sprint-card-title, #gauntlet-feed-title {
             font-size: var(--fs-1); font-weight: var(--fw-bold); letter-spacing: var(--ls-eyebrow);
             text-transform: uppercase; color: var(--c-ink-4); }
-        #daily-board-head, #gauntlet-card-head, #gauntlet-feed-head {
+        #daily-board-head, #gauntlet-card-head, #sprint-card-head, #gauntlet-feed-head {
             display: flex; align-items: center; justify-content: space-between;
             gap: var(--s-5); margin-bottom: var(--s-5); }
         /* Today's Puzzle board, in the slot the Live Arcade Feed occupies
            during a Standard run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
         #gauntlet-card-timer { color: var(--c-ink-4); font-size: 11px; white-space: nowrap; }
-        #gauntlet-card-body { color: var(--c-ink-3); font-size: 14px; margin-bottom: 10px; }
+        #gauntlet-card-body, #sprint-card-body { color: var(--c-ink-3); font-size: 14px; margin-bottom: 10px; }
         #gauntlet-card-body .gcb-strong { color: var(--c-ink); font-weight: bold; }
         #gauntlet-card-btn { width: 100%; background: var(--c-gauntlet); color: var(--c-on-accent); border: none; border-radius: var(--r-3); padding: var(--s-5); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; font-family: inherit; transition: background 0.2s; }
-        #gauntlet-card-btn:hover { filter: brightness(1.07); }
+        #gauntlet-card-btn:hover, #sprint-card-btn:hover { filter: brightness(1.07); }
+        /* Same shape as the Daily Puzzle's call to action, in Sprint's own
+           colour — the two sit one above the other on the landing screen. */
+        #sprint-card-btn { width: 100%; background: var(--c-sprint); color: var(--c-on-accent); border: none; border-radius: var(--r-3); padding: var(--s-5); font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-ui); cursor: pointer; font-family: inherit; transition: background 0.2s; }
 
         #gauntlet-archive-btn { background: transparent; color: var(--c-ink-4); border: var(--bw) solid var(--c-line); border-radius: var(--r-1); height: 28px; padding: 0 11px; font-size: var(--fs-1); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
         #gauntlet-archive-btn:hover { border-color: var(--c-gauntlet); color: var(--c-gauntlet); }
@@ -1401,12 +1404,19 @@
          clock takes that slot instead. It ticks locally for feedback; the
          number that reaches the leaderboard is stamped by the server on
          both ends and is the one shown once the word is done. -->
-    <!-- The landing gate. Ships visible: arriving on Sprint paints this
-         from markup and calls nothing. startSprint runs on the tap, not
-         on arrival \u2014 the whole point of landing here is that it is cheap. -->
-    <div id="sprint-gate" style="display:none; text-align:center; margin-bottom: var(--s-6);">
-        <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">One word. Five guesses. Everyone gets the same word today.</div>
-        <button class="btn-primary" id="btn-sprint-start" onclick="window.goToMode('sprint')">Play Today\u2019s Word</button>
+    <!-- The landing card. Ships visible: arriving on Sprint paints this from
+         markup and calls nothing. startSprint runs on the tap, not on
+         arrival - the whole point of landing here is that it is cheap.
+
+         Built as a card rather than a line of text and a button, because
+         this is the first thing a visitor sees and it sat directly above the
+         Daily Puzzle card looking like an unfinished version of it. -->
+    <div id="sprint-card" style="display:none;">
+        <div id="sprint-card-head">
+            <span id="sprint-card-title">Sprint</span>
+        </div>
+        <div id="sprint-card-body">One word, five guesses. Everyone gets the same word today - fewest guesses wins, fastest solve breaks the tie.</div>
+        <button id="sprint-card-btn" onclick="window.goToMode('sprint')">Play Today's Word</button>
     </div>
 
     <!-- Marathon. The position is the month's shape, so it carries the
@@ -4468,7 +4478,7 @@
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("daily-header").style.display = "none";
             document.getElementById("sprint-header").style.display = "none";
-            document.getElementById("sprint-gate").style.display = "none";
+            document.getElementById("sprint-card").style.display = "none";
             showStandardPanels(false);
             document.getElementById("marathon-header").style.display = "flex";
 
@@ -4574,6 +4584,9 @@
         // /runs, which is what lets it show players who are still going: the
         // running total is denormalised there by onRunCreated.
         async function loadMarathonBoard() {
+            // Same borrow as Sprint, and the same bug without it.
+            document.getElementById("daily-board-container").style.display = "block";
+            document.getElementById("home-board-tabs").style.display = "none";
             const titleEl = document.getElementById("daily-board-title");
             if (titleEl) titleEl.innerText = "This Month's Marathon";
             for (const id of ["daily-board-prev", "daily-board-next", "home-board-more"]) {
@@ -4699,7 +4712,7 @@
             }
 
             isSprintMode = true;
-            document.getElementById("sprint-gate").style.display = "none";
+            document.getElementById("sprint-card").style.display = "none";
             renderModeNav();
             document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
@@ -4907,6 +4920,12 @@
         // values, so the clock is what actually orders the rows — it is shown
         // because without it the board looks arbitrary.
         async function loadSprintBoard() {
+            // Borrow the board container. openSprint calls showStandardPanels(false)
+            // to clear the Stakes furniture, which hides this whole container -
+            // so without taking it back, every row written below landed in a
+            // hidden element and the Sprint board simply never appeared.
+            document.getElementById("daily-board-container").style.display = "block";
+            document.getElementById("home-board-tabs").style.display = "none";
             const titleEl = document.getElementById("daily-board-title");
             if (titleEl) titleEl.innerText = "Today's Sprint";
             const prev = document.getElementById("daily-board-prev");
@@ -4961,7 +4980,7 @@
             document.getElementById("daily-header").style.display = "none";
             document.getElementById("marathon-header").style.display = "none";
             document.getElementById("sprint-header").style.display = "none";
-            document.getElementById("sprint-gate").style.display = "block";
+            document.getElementById("sprint-card").style.display = "block";
             setSprintPlaySurfaceVisible(false);
             renderModeNav();
             loadSprintBoard();
@@ -4973,7 +4992,7 @@
             isSprintMode = false;
             sprintAttempt = null;
             document.getElementById("sprint-header").style.display = "none";
-            document.getElementById("sprint-gate").style.display = "none";
+            document.getElementById("sprint-card").style.display = "none";
             document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
@@ -5360,6 +5379,12 @@
         function showStandardPanels(visible) {
             document.getElementById("daily-board-container").style.display = visible ? "block" : "none";
             document.getElementById("gauntlet-card").style.display = visible ? "block" : "none";
+            // Sprint and Marathon borrow the board container for their own
+            // standings and hide this tab row, which switches between the three
+            // STAKES boards and is not what is on screen in those modes.
+            // Restored here rather than in each leave path, so every route back
+            // to Stakes brings it with it.
+            if (visible) document.getElementById("home-board-tabs").style.display = "";
             if (visible) refreshGauntletCard(); else stopGauntletCardTimer();
         }
 

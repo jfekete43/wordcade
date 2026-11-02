@@ -75,6 +75,20 @@ console.log(`read from source: FFA ${MIN}-${MAX} players, ${MATCH_MIN}min, ${SKI
 const t = [];
 const ok = (name, cond, detail = '') => t.push({ name, cond, detail });
 
+// ---- escapes that only mean something to JavaScript ----------------------
+// A button on the Sprint landing card shipped reading "Play Today\u2019s Word",
+// literally, with the backslash-u on screen. It came from a \u escape written
+// into MARKUP, where nothing interprets it — it is a JavaScript string escape
+// and HTML has never heard of it. Nothing caught it because every suite that
+// reads index.html reads it as source, where \u2019 looks perfectly normal.
+//
+// Checked against rendered prose, so the many legitimate \u escapes inside
+// <script> are not findings.
+for (const [name, body] of Object.entries(text)) {
+  const esc = body.match(/\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\n(?![a-z])/g) || [];
+  ok(`${name} renders no raw JavaScript escape sequences`, esc.length === 0, esc.join(' '));
+}
+
 // If the prose extraction breaks, every case below starts passing on an
 // empty string. Pin the size of what we actually extracted.
 for (const [file, body] of Object.entries(text)) {

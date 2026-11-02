@@ -242,7 +242,9 @@ for (const f of ['sprintPlayed', 'sprintSolved', 'sprintBestTimeMs', 'sprintStre
 // removed for. The gate paints from markup; the server is touched on the tap.
 ck(/<button class="mode-nav-btn mode-sprint" id="btn-nav-1" data-mode="sprint" aria-current="true"/.test(html),
    'the shipped markup marks Sprint as the landing mode before any script runs');
-ck(/id="sprint-gate"/.test(html), 'and ships a gate rather than a live board');
+ck(/id="sprint-card"/.test(html), 'and ships a card rather than a live board');
+ck(/id="sprint-card-btn"/.test(html) && /window\.goToMode\('sprint'\)/.test(html),
+   'whose button is what actually calls the server');
 const bootBlock = html.slice(html.lastIndexOf('setTimeout(() => {'));
 ck(/showSprintLanding\(\);/.test(bootBlock), 'boot lands on Sprint');
 ck(!/callStartSprint\(\)/.test(bootBlock),
@@ -271,6 +273,34 @@ ck(/<nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: \d+;">/.
   eq('the markup\'s column count matches the number of modes in the table', declared, count);
   const buttons = ((html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0].match(/<button/g) || []).length;
   eq('and so does the number of buttons', buttons, count);
+}
+
+
+const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
+  html.indexOf('async function loadSprintBoard()') + 2500);
+
+// ---- the board is not painted into a hidden container -----------------------
+// openSprint calls showStandardPanels(false) to clear the Stakes furniture,
+// and that hides #daily-board-container outright — the very element this
+// board's rows are written into. Without taking the container back, every row
+// landed in a hidden element and the board simply never appeared while
+// playing. It looked fine on the landing screen, which does not call
+// showStandardPanels at all, which is exactly why it survived review.
+{
+  const open = html.slice(html.indexOf('window.openSprint = async function'), html.indexOf('function startSprintRound'));
+  ck(/showStandardPanels\(false\)/.test(open), 'openSprint clears the Stakes panels', open.slice(0, 80));
+  ck(/document\.getElementById\("daily-board-container"\)\.style\.display = "block";/.test(boardSrc),
+     'and the board takes the container back before writing into it');
+  // The tab row switches between the three STAKES boards. Leaving it up over
+  // a Sprint board shows "All Time" highlighted above today's standings.
+  ck(/document\.getElementById\("home-board-tabs"\)\.style\.display = "none";/.test(boardSrc),
+     'and hides the Stakes tab row, which does not apply to this board');
+}
+// ...and the tab row comes back on every route out, not just this mode's.
+{
+  const panels = html.slice(html.indexOf('function showStandardPanels(visible)'));
+  ck(/if \(visible\) document\.getElementById\("home-board-tabs"\)\.style\.display = "";/.test(panels.slice(0, 900)),
+     'showStandardPanels restores the tab row, so any way back to Stakes restores it');
 }
 
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);

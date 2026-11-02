@@ -236,6 +236,34 @@ ck(/if \(!targetWord\) window\.startNewRun\(\);/.test(leave.slice(0, 1200)),
   eq('which is six now', count, 6);
 }
 
+
+const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
+  html.indexOf('async function loadMarathonBoard()') + 2500);
+
+// ---- the board is not painted into a hidden container -----------------------
+// openMarathon calls showStandardPanels(false) to clear the Stakes furniture,
+// and that hides #daily-board-container outright — the very element this
+// board's rows are written into. Without taking the container back, every row
+// landed in a hidden element and the board simply never appeared while
+// playing. It looked fine on the landing screen, which does not call
+// showStandardPanels at all, which is exactly why it survived review.
+{
+  const open = html.slice(html.indexOf('window.openMarathon = async function'), html.indexOf('function startMarathonRound'));
+  ck(/showStandardPanels\(false\)/.test(open), 'openMarathon clears the Stakes panels', open.slice(0, 80));
+  ck(/document\.getElementById\("daily-board-container"\)\.style\.display = "block";/.test(boardSrc),
+     'and the board takes the container back before writing into it');
+  // The tab row switches between the three STAKES boards. Leaving it up over
+  // a Marathon board shows "All Time" highlighted above today's standings.
+  ck(/document\.getElementById\("home-board-tabs"\)\.style\.display = "none";/.test(boardSrc),
+     'and hides the Stakes tab row, which does not apply to this board');
+}
+// ...and the tab row comes back on every route out, not just this mode's.
+{
+  const panels = html.slice(html.indexOf('function showStandardPanels(visible)'));
+  ck(/if \(visible\) document\.getElementById\("home-board-tabs"\)\.style\.display = "";/.test(panels.slice(0, 900)),
+     'showStandardPanels restores the tab row, so any way back to Stakes restores it');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
