@@ -354,6 +354,11 @@
             display: flex; gap: var(--s-4); position: relative; z-index: 2;
             align-items: center; justify-content: flex-start; flex-wrap: wrap;
         }
+        /* The shared gap is 8px, which is right for "WORD 3/7  SCORE: 120"
+           where the two read as one sentence. Sprint and Marathon put two
+           independent numbers side by side instead, and at 8px they ran
+           together into one string. */
+        #sprint-header, #marathon-header { gap: var(--s-7); }
         /* A COLUMN, not a wrapping row. As one row it fitted beside the score
            while the score was short and wrapped underneath once it grew — so
            the button moved, mid-run, at a threshold that differed per screen
@@ -1435,8 +1440,11 @@
     </div>
 
     <div id="sprint-header" style="display:none;">
-        <div class="score-text" id="sprint-clock" style="color:var(--c-sprint);">0.0s</div>
+        <!-- Score first, clock second, matching the board row below it. The
+             clock is the tiebreaker, not the result, and leading with it put
+             the secondary number in the primary position. -->
         <div class="score-text">SCORE: <span id="sprint-score">0</span></div>
+        <div class="score-text" id="sprint-clock" style="color:var(--c-sprint);">0.0s</div>
     </div>
 
     <div id="daily-header" style="display:none;">

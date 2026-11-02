@@ -399,6 +399,25 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   eq('every header shown as a flex row is in that rule', missing, []);
 }
 
+
+// ---- the header reads score first -------------------------------------------
+// The clock is the TIEBREAKER, not the result. Leading with it put the
+// secondary number in the primary position, and it disagreed with the board
+// row below, which has always been score-then-time.
+{
+  const hdr = html.slice(html.indexOf('<div id="sprint-header"'),
+                         html.indexOf('</div>', html.indexOf('id="sprint-clock"')));
+  const scoreAt = hdr.indexOf('id="sprint-score"');
+  const clockAt = hdr.indexOf('id="sprint-clock"');
+  ck(scoreAt !== -1 && clockAt !== -1, 'the header carries both a score and a clock', `${scoreAt}/${clockAt}`);
+  ck(scoreAt < clockAt, 'and the score comes first, matching the board row', `score@${scoreAt} clock@${clockAt}`);
+  // 8px ran them together into one string on a phone.
+  const gap = (html.match(/#sprint-header, #marathon-header \{ gap: var\(--s-(\d+)\); \}/) || [])[1];
+  const shared = (html.match(/display: flex; gap: var\(--s-(\d+)\)/) || [])[1];
+  ck(gap && shared && Number(gap) > Number(shared),
+     'and the two numbers sit further apart than the shared header gap', `${gap} vs ${shared}`);
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
