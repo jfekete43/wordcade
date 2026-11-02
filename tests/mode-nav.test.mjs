@@ -273,8 +273,13 @@ ck(/<div id="endless-header">/.test(html), 'Stakes has a header of its own');
 const eh = endlessHeader;
 ck(/STAKES/.test(eh), 'and it says STAKES');
 ck(/endless-word-index/.test(eh), 'and shows which word you are on');
-ck(/#score-board, #daily-header, #endless-header \{/.test(html),
-   'it shares the layout rules with the other headers rather than inventing its own');
+// Membership, not the whole selector list. Pinned as an exact string, this
+// broke every time a mode was ADDED to the rule - which is the correct
+// change - and reported it as Stakes inventing its own layout.
+const headerRule = (html.match(/^\s*#score-board[^{]*\{/m) || [''])[0];
+ck(/#endless-header/.test(headerRule),
+   'it shares the layout rules with the other headers rather than inventing its own',
+   headerRule.trim());
 // Shown and hidden with the score board at every mode switch.
 const show = [...html.matchAll(/getElementById\("endless-header"\)\.style\.display = "(\w+)"/g)].map((m) => m[1]);
 ck(show.length >= 6 && show.includes('none') && show.includes('flex'),

@@ -378,6 +378,27 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
      'the owners are named explicitly, because this is not "every mode except Stakes"');
 }
 
+
+// ---- a header shown as flex must be styled as one ---------------------------
+// #sprint-header and #marathon-header were both shown with style.display =
+// "flex" while sitting outside the rule that gives that row its gap, padding
+// and width. The result was "0.0sSCORE: 0" - two fields with nothing between
+// them - and it looked like a text bug rather than a missing selector.
+//
+// The invariant is not "every header": #sudden-death-header is deliberately a
+// centred block with its own inline styles. It is "every header the code
+// shows as a flex row shares the rule that makes flex rows work".
+{
+  const flexHeaders = [...html.matchAll(/getElementById\("([a-z-]+-header)"\)\.style\.display = "flex"/g)]
+    .map((m) => m[1]);
+  ck(flexHeaders.length >= 2, 'the mode headers are findable', flexHeaders.join(' '));
+  const rule = (html.match(/^\s*#score-board[^{]*\{/m) || [''])[0];
+  ck(/display: flex/.test(html.slice(html.indexOf(rule), html.indexOf(rule) + 400)),
+     'and the shared header rule is the flex one', rule.trim());
+  const missing = [...new Set(flexHeaders)].filter((h) => !rule.includes('#' + h));
+  eq('every header shown as a flex row is in that rule', missing, []);
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
