@@ -444,6 +444,84 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
      'separated by a real margin rather than a space', timeSpan);
 }
 
+
+// ---- the card knows whether today is already spent ---------------------------
+// It said "Play Today's Word" to somebody who had already played it, and only
+// admitted otherwise after they tapped. The answer was on the profile the page
+// had already loaded the whole time: sprintLastDate is written by onRunCreated
+// on BOTH a solve and a miss, so it answers "have I played" rather than "have
+// I won" - and reading it costs nothing, which matters on a landing that
+// deliberately calls no server.
+{
+  const lift = (re, what) => {
+    const m = html.match(re);
+    if (!m) throw new Error('could not extract ' + what);
+    return m[0];
+  };
+  const cardSrc = [
+    lift(/        function sprintPlayedToday\(\) \{\n[\s\S]*?\n        \}/, 'sprintPlayedToday'),
+    lift(/        function renderSprintCard\(\) \{\n[\s\S]*?\n        \}/, 'renderSprintCard'),
+  ].join('\n\n');
+
+  const render = (profile, today) => {
+    const els = {
+      'sprint-card-body': { innerText: '' },
+      'sprint-card-btn': { innerText: '' },
+      'sprint-card-stats': { innerText: '' },
+    };
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'userProfileData', 'getTodayDateStr', `
+      ${cardSrc}
+      renderSprintCard();
+    `)({ getElementById: (id) => els[id] || null }, profile, () => today);
+    return els;
+  };
+
+  const TODAY = '2026-11-02';
+
+  {
+    const e = render({ sprintPlayed: 0 }, TODAY);
+    ck(/Play Today/.test(e['sprint-card-btn'].innerText), 'an unplayed day offers to play', e['sprint-card-btn'].innerText);
+    ck(/five guesses/.test(e['sprint-card-body'].innerText), 'and explains the mode', e['sprint-card-body'].innerText);
+    // "Played 0 - 0% solved" reads as a judgement rather than a stat.
+    eq('a first-time visitor is shown no career line at all', e['sprint-card-stats'].innerText, '');
+  }
+  {
+    const e = render({ sprintLastDate: TODAY, sprintPlayed: 13, sprintSolved: 12, sprintStreak: 6, sprintBestStreak: 7 }, TODAY);
+    ck(/already played/.test(e['sprint-card-body'].innerText), 'a spent day says so', e['sprint-card-body'].innerText);
+    ck(/View Today/.test(e['sprint-card-btn'].innerText), 'and the button offers the result, not another go', e['sprint-card-btn'].innerText);
+    eq('with the career line beside it',
+       e['sprint-card-stats'].innerText, 'Played 13 \u00B7 92% solved \u00B7 Streak 6 (best 7)');
+  }
+  {
+    // Yesterday is not today. The streak survives; the day does not.
+    const e = render({ sprintLastDate: '2026-11-01', sprintPlayed: 12, sprintSolved: 11, sprintStreak: 5, sprintBestStreak: 7 }, TODAY);
+    ck(/Play Today/.test(e['sprint-card-btn'].innerText),
+       'having played YESTERDAY still offers today', e['sprint-card-btn'].innerText);
+  }
+  {
+    // The landing paints before auth resolves, so this runs with no profile.
+    const e = render(null, TODAY);
+    ck(/Play Today/.test(e['sprint-card-btn'].innerText), 'no profile yet offers to play rather than throwing');
+    eq('and shows no career line', e['sprint-card-stats'].innerText, '');
+  }
+  {
+    // The best streak is only worth saying when it is not the one you are on.
+    const e = render({ sprintLastDate: TODAY, sprintPlayed: 7, sprintSolved: 7, sprintStreak: 7, sprintBestStreak: 7 }, TODAY);
+    eq('a personal best in progress is not also reported as a past one',
+       e['sprint-card-stats'].innerText, 'Played 7 \u00B7 100% solved \u00B7 Streak 7');
+  }
+
+  // It has to be repainted when the profile lands, or it is permanently the
+  // pre-auth version of itself.
+  const repaints = (html.match(/renderSprintCard\(\);/g) || []).length;
+  ck(repaints >= 3, 'the card is painted on the landing AND again once the profile arrives', `${repaints} call(s)`);
+  // And still nothing is fetched to decide any of it.
+  const renderFn = lift(/        function renderSprintCard\(\) \{\n[\s\S]*?\n        \}/, 'renderSprintCard');
+  ck(!/await|callStartSprint|getDoc|getDocs/.test(renderFn),
+     'none of which costs a read', renderFn.slice(0, 120));
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

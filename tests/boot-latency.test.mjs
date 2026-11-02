@@ -198,6 +198,12 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
       // trip this file now exists to prove is gone.
       const refreshGauntletCard = async () => { log.push({ ev: 'cardPainted', at: -1 }); };
       const showStandardPanels = () => { refreshGauntletCard(); };
+      // Stubbed rather than lifted: this file measures round trips on
+      // boot, and the Sprint card's render is pure - it reads the profile
+      // already in memory and fetches nothing. That it fetches nothing is
+      // asserted in sprint.test.mjs, where it belongs; here it would just
+      // be DOM noise between the calls being counted.
+      const renderSprintCard = () => {};
       ${authSrc}
       // Let anything started-but-not-awaited finish before we read the trace.
       await new Promise((r) => setTimeout(r, 120));

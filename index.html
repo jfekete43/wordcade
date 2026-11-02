@@ -1421,6 +1421,10 @@
             <span id="sprint-card-title">Sprint</span>
         </div>
         <div id="sprint-card-body">One word, five guesses. Everyone gets the same word today - fewest guesses wins, fastest solve breaks the tie.</div>
+        <!-- Career line. Empty until there is a career, so a first-time
+             visitor is not shown "Played 0 - 0% solved", which reads as a
+             judgement rather than a stat. -->
+        <div id="sprint-card-stats" style="font-size: var(--fs-2); color: var(--c-ink-4); margin-bottom: 10px;"></div>
         <!-- openSprint, NOT goToMode. The landing already sets isSprintMode,
              so currentMode() is "sprint" by the time this is tappable, and
              goToMode correctly refuses a mode change to the mode you are
@@ -3211,11 +3215,16 @@
                         if (result && result.data && result.data.profile) {
                             userProfileData = result.data.profile;
                             applyEquippedCosmetics();
+                            renderSprintCard();
                             if (!inAltMode()) refreshGauntletCard();
                         }
                     }).catch((e) => console.error("Profile refresh failed", e));
                 }
                 applyEquippedCosmetics();
+                // The landing paints before auth resolves, so the card first
+                // renders with no profile and has to be told again once there
+                // is one. Both branches above converge here.
+                renderSprintCard();
                 // First paint of the Daily Puzzle card, once there's a signed-in
                 // user to read an attempt for. Guarded because this callback
                 // also refires mid-session (linking a Google account), by
@@ -4822,6 +4831,42 @@
             document.getElementById("keyboard").style.display = visible ? "flex" : "none";
         }
 
+        // Whether today is already spent. Read off the profile the page has
+        // already loaded rather than from the server: sprintLastDate is
+        // written by onRunCreated on BOTH a solve and a miss, so it answers
+        // "have I played" rather than "have I won", and it costs no read.
+        // That matters here - the landing deliberately calls nothing.
+        function sprintPlayedToday() {
+            return !!(userProfileData && userProfileData.sprintLastDate === getTodayDateStr());
+        }
+
+        // The card said "Play Today's Word" to somebody who had already
+        // played it, and only admitted otherwise after they tapped it.
+        function renderSprintCard() {
+            const body = document.getElementById("sprint-card-body");
+            const btn = document.getElementById("sprint-card-btn");
+            const stats = document.getElementById("sprint-card-stats");
+            if (!body || !btn || !stats) return;
+
+            if (sprintPlayedToday()) {
+                body.innerText = "You have already played today's word. A new one arrives at midnight Eastern.";
+                btn.innerText = "View Today's Result";
+            } else {
+                body.innerText = "One word, five guesses. Everyone gets the same word today - fewest guesses wins, fastest solve breaks the tie.";
+                btn.innerText = "Play Today's Word";
+            }
+
+            const p = userProfileData || {};
+            const n = Number(p.sprintPlayed) || 0;
+            if (!n) { stats.innerText = ""; return; }
+            const won = Number(p.sprintSolved) || 0;
+            const streak = Number(p.sprintStreak) || 0;
+            const best = Number(p.sprintBestStreak) || 0;
+            // The best is only worth saying when it is not the one you are on.
+            stats.innerText = "Played " + n + " \u00B7 " + Math.round((won / n) * 100) + "% solved"
+                + " \u00B7 Streak " + streak + (best > streak ? " (best " + best + ")" : "");
+        }
+
         window.openSprint = async function() {
             document.getElementById("main-menu-modal").style.display = "none";
             if (!currentUser) return;
@@ -4972,9 +5017,11 @@
                 const best = Number(userProfileData.sprintBestTimeMs);
                 if (Number.isFinite(t) && t > 0 && (!Number.isFinite(best) || best <= 0 || t < best)) userProfileData.sprintBestTimeMs = t;
                 userProfileData.sprintStreak = (Number(userProfileData.sprintStreak) || 0) + 1;
+                userProfileData.sprintLastDate = getTodayDateStr();
                 userProfileData.sprintBestStreak = Math.max(Number(userProfileData.sprintBestStreak) || 0, userProfileData.sprintStreak);
             } else {
                 userProfileData.sprintStreak = 0;
+                userProfileData.sprintLastDate = getTodayDateStr();
             }
             userProfileData.wallet = (Number(userProfileData.wallet) || 0) + (Number(result.score) || 0);
         }
@@ -5134,6 +5181,7 @@
             document.getElementById("sprint-card").style.display = "block";
             setSprintPlaySurfaceVisible(false);
             renderModeNav();
+            renderSprintCard();
             loadSprintBoard();
         }
 
