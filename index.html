@@ -1947,7 +1947,7 @@
             <div class="modal-buttons">
                 <button class="btn-primary" onclick="window.dismissSprintEnd()">Today's Leaderboard</button>
                 <button class="btn-primary" onclick="window.leaveSprint()">Play Another Mode</button>
-                <button class="btn-quiet" id="btn-sprint-share" onclick="window.shareSprintResult()">Share Result</button>
+                <button class="btn-primary" id="btn-sprint-share" onclick="window.shareSprintResult()">Share Result</button>
             </div>
         </div>
     </div>
@@ -4249,6 +4249,9 @@
         // Capped because the run doc has a 1 MiB ceiling and nothing else here
         // bounds a run's length. 300 words is far beyond any real run, and a
         // run that somehow passes it still contributes its first 300.
+        // Mirrors DAILY_GAUNTLET_MAX_GUESSES on the server, which is what
+        // actually enforces it; this copy only ever labels the share.
+        const SPRINT_MAX_GUESSES = 5;
         const RUN_WORD_LOG_MAX = 300;
         let runWordLog = [];
         function logWordResult(word, guesses, solved) {
@@ -4847,7 +4850,7 @@
             document.getElementById("sprint-end-career").innerHTML =
                 '<div style="color:var(--c-ink-4); letter-spacing:1px; margin-bottom:4px;">CAREER</div>' + bits.join("<br>");
 
-            document.getElementById("btn-sprint-share").style.display = solved ? "inline-block" : "none";
+            document.getElementById("btn-sprint-share").style.display = "inline-block";
             document.getElementById("sprint-end-modal").style.display = "flex";
         }
 
@@ -4855,16 +4858,49 @@
             document.getElementById("sprint-end-modal").style.display = "none";
         }
 
+        // Sprint #N, counted from the first Sprint the way the Daily Puzzle
+        // counts from its own epoch. A shared result is worth nothing without
+        // it: "3/5" means nothing unless the reader knows it is TODAY's word,
+        // which is the whole basis of comparing two of these.
+        const SPRINT_EPOCH = "2026-11-02"; // date of Sprint #1
+        function sprintNumber(dateStr) {
+            if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+            const toUTC = (x) => { const [y, m, d] = x.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+            const days = Math.floor((toUTC(dateStr) - toUTC(SPRINT_EPOCH)) / 86400000) + 1;
+            return days >= 1 ? days : null;
+        }
+
         window.shareSprintResult = function() {
             if (!sprintAttempt) return;
-            const used = (sprintAttempt.guesses || []).length;
-            const grid = (sprintAttempt.guesses || []).map((g) =>
+            const guesses = sprintAttempt.guesses || [];
+            const used = guesses.length;
+
+            // The grid, in the game's own colours rather than Wordle's. Blue
+            // and amber is the pairing the board already uses, chosen because
+            // it survives the common colour vision deficiencies where green
+            // against yellow does not - so the squares stay readable for the
+            // same people the board stays readable for, and a Lexathon result
+            // does not read as a Wordle one pasted into the wrong channel.
+            const grid = guesses.map((g) =>
                 g.colors.map((c) => (c === 2 ? "\u{1F7E6}" : c === 1 ? "\u{1F7E7}" : "\u2B1C")).join("")).join("\n");
-            const text = "Lexathon Sprint \u2014 " + (sprintAttempt.solved ? used + "/5" : "X/5")
-                + (sprintAttempt.solved ? " in " + formatSprintTime(sprintAttempt.elapsedMs) : "")
-                + "\n\n" + grid + "\n\nlexathon.gg";
-            if (navigator.share) navigator.share({ text }).catch(() => {});
-            else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => showMessage("COPIED!"));
+
+            // A miss is shareable too. It is the half of the distribution
+            // that makes the other half worth posting, and hiding it makes
+            // every shared result look like a win.
+            const resultLine = sprintAttempt.solved
+                ? `\u23F1\uFE0F ${used}/${SPRINT_MAX_GUESSES} \u00B7 ${formatSprintTime(sprintAttempt.elapsedMs)} \u00B7 ${(sprintAttempt.score || 0).toLocaleString()} pts`
+                : `\u274C X/${SPRINT_MAX_GUESSES}`;
+
+            const num = sprintNumber(sprintAttempt.date);
+            const heading = num ? `\u{1F579}\uFE0F Lexathon Sprint #${num}` : "\u{1F579}\uFE0F Lexathon Sprint";
+            const shareMessage = `${heading}\n${grid}\n${resultLine}`;
+            // Routed through the shared helper rather than calling
+            // navigator.share directly: that is what keeps desktop on the
+            // clipboard (the native sheet there opens an OS contacts panel
+            // and drops the score text), reports a failed copy honestly, and
+            // produces byte-identical output on both paths.
+            shareViaSheetOrClipboard("Lexathon Sprint", shareMessage, "https://lexathon.gg",
+                document.getElementById("btn-sprint-share"), "Share Result");
         }
 
         // Today's Sprint board. One word means everyone's score is one of six
