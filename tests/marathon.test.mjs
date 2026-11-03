@@ -310,6 +310,51 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
      "and the month comes from the server-issued attempt rather than the browser's idea of it");
 }
 
+
+// ---- the board row reads detail, then score ----------------------------------
+// Same shape as the Sprint row, and that is the point: the two boards share
+// one slot on the home screen, so ending on different things would read worse
+// than either choice alone. Both end on the number that decides the order.
+{
+  // Anchored on the DEFINITION of leaveMarathon - the bare name is also an
+  // onclick in the end-modal markup thousands of lines earlier, which has
+  // sliced checks in this repo backwards into an empty string repeatedly.
+  const from = html.indexOf('async function loadMarathonBoard()');
+  const to = html.indexOf('window.leaveMarathon = function');
+  ck(from !== -1 && to > from, 'the Marathon board builder is findable', `${from}..${to}`);
+  const board = html.slice(from, to);
+
+  const paceAt = board.indexOf('w &middot; ${avg}/w');
+  const scoreAt = board.indexOf('${Number(r.score || 0).toLocaleString()}</span>');
+  ck(paceAt !== -1 && scoreAt !== -1, 'the row carries both a pace and a score', `${paceAt}/${scoreAt}`);
+  ck(paceAt < scoreAt, 'and the pace comes first, with the score last', `pace@${paceAt} score@${scoreAt}`);
+
+  const paceSpan = board.slice(board.lastIndexOf('<span', paceAt), paceAt);
+  ck(/margin-right: var\(--s-\d+\)/.test(paceSpan),
+     'separated by a margin rather than a space, as on the Sprint row', paceSpan);
+
+  // Words completed is what stops the score meaning two things at once: 380
+  // over ten words and 380 over twenty are a different player.
+  ck(/\$\{words\}w/.test(board), 'and the row says how far through the month the player is');
+}
+
+// Both boards in the shared slot agree about where the score goes. A test per
+// board would pass while they disagreed with each other.
+{
+  const builder = (name) => {
+    const from = html.indexOf(`async function load${name}Board()`);
+    const to = html.indexOf(`window.leave${name} = function`);
+    return html.slice(from, to);
+  };
+  const endsOnScore = (src) => {
+    const score = src.indexOf('Number(r.score || 0).toLocaleString()');
+    const muted = src.indexOf('color:var(--c-ink-4); margin-right');
+    return muted !== -1 && score !== -1 && muted < score;
+  };
+  ck(endsOnScore(builder('Sprint')), 'the Sprint row ends on its score');
+  ck(endsOnScore(builder('Marathon')), 'and so does the Marathon row, in the same slot');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

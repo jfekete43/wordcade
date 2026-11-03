@@ -4730,8 +4730,18 @@
                         return `<div class="daily-board-row ${bannerClass}">`
                             + `<span class="daily-board-place">#${i + 1}</span>`
                             + `<span class="daily-board-name ${nameClass}">${escapeHtml(r.name || "Player")}</span>`
-                            + `<span class="daily-board-score">${Number(r.score || 0).toLocaleString()}`
-                            + ` <span style="color:var(--c-ink-4);">${words}w &middot; ${avg}/w</span></span></div>`;
+                            // Detail first, score last, matching the Sprint row
+                            // that shares this slot. Both boards end on the
+                            // number that decides the order; ending on different
+                            // things would be worse than either choice alone.
+                            //
+                            // The pace is not redundant with the score, which is
+                            // why it is here at all: 380 over ten words and 380
+                            // over twenty are a different player, and the score
+                            // alone conflates skill with how far through you are.
+                            + `<span class="daily-board-score">`
+                            + `<span style="color:var(--c-ink-4); margin-right: var(--s-5);">${words}w &middot; ${avg}/w</span>`
+                            + `${Number(r.score || 0).toLocaleString()}</span></div>`;
                     }).join("")
                     : `<div style="color:var(--c-ink-4);">Nobody has started this month yet. Be first.</div>`;
             } catch (e) {
