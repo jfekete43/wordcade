@@ -38,7 +38,7 @@ const src = [
   grab(/        const SPRINT_EPOCH = "[^"]*";/),
   grab(/        function sprintNumber\(dateStr\) \{\n[\s\S]*?\n        \}/),
   grab(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/),
-  grab(/        window\.shareSprintResult = function\(\) \{\n[\s\S]*?\n        \}/),
+  grab(/        window\.shareSprintResult = function\(btnId\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
 console.log('extracted from index.html:', src.length, 'chars');
 
@@ -49,7 +49,7 @@ const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want),
 
 // The real function, run against a stubbed share helper that captures rather
 // than shares.
-const buildShare = new Function('attempt', `
+const buildShare = new Function('attempt', 'btnId', `
   let captured = null;
   function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
     captured = { title, message, url, defaultLabel, buttonEl };
@@ -68,7 +68,7 @@ const buildShare = new Function('attempt', `
   };
   let sprintAttempt = attempt;
   ${src}
-  window.shareSprintResult();
+  window.shareSprintResult(btnId);
   return captured ? { ...captured, bypassed } : { bypassed, message: '', url: null };
 `);
 
@@ -148,6 +148,17 @@ eq('it hands the link to the helper rather than baking it into the text',
   eq('the button is handed over so its label can report success or failure',
      out.buttonEl && out.buttonEl.id, 'btn-sprint-share');
   eq('with the label to restore', out.defaultLabel, 'Share Result');
+
+  // Two buttons now share this one function: the modal's, and the one on the
+  // panel under the board. The helper flashes COPIED! on the button it is
+  // handed, so the one that was actually pressed has to be the one named -
+  // flashing the modal's while the panel is on screen reports a successful
+  // copy as nothing happening at all.
+  const fromPanel = buildShare(attempt([row('22222')], { solved: true, score: 500, elapsedMs: 1000 }),
+                               'btn-sprint-share-panel');
+  eq("a caller that names its own button gets that button reported on",
+     fromPanel.buttonEl && fromPanel.buttonEl.id, 'btn-sprint-share-panel');
+  eq('and the text it shares is the same either way', fromPanel.message, out.message);
 }
 
 // The raw APIs must not be called directly — that is what the helper is for,
@@ -155,7 +166,7 @@ eq('it hands the link to the helper rather than baking it into the text',
 // Comments stripped first. The function's own comment explains WHY it does
 // not call navigator.share directly, and a check that a comment can fail is
 // as broken as one a comment can satisfy — this failed on its own rationale.
-const shareFn = grab(/        window\.shareSprintResult = function\(\) \{\n[\s\S]*?\n        \}/)
+const shareFn = grab(/        window\.shareSprintResult = function\(btnId\) \{\n[\s\S]*?\n        \}/)
   .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
 ck(!/navigator\.share\(|navigator\.clipboard/.test(shareFn),
    'the share function never touches navigator.share or the clipboard itself', shareFn.slice(0, 160));

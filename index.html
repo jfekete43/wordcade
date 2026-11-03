@@ -757,7 +757,7 @@
            this page — the object has a tile face, or it floats above the
            page — and spending it on panels too would make the distinction
            say nothing, which is exactly how the glow failed. */
-        #daily-board-container, #gauntlet-card, #sprint-card, #gauntlet-feed-container,
+        #daily-board-container, #gauntlet-card, #sprint-card, #sprint-done-panel, #gauntlet-feed-container,
         #clash-chat-container, #versus-track-container, #ffa-track-container {
             width: 100%; max-width: var(--w-col); margin-left: auto; margin-right: auto;
             background: var(--c-panel); border: var(--bw) solid var(--c-line);
@@ -1672,6 +1672,22 @@
         <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
     </div>
 
+    <!-- Sprint, once today is done. The end modal says all of this, but
+         dismissing it to look at the board left a header, one row and then
+         the site blurb - the screen you land on after finishing was the
+         emptiest in the game. Same content, below the standings rather than
+         over them, so the board stays what the button promised. -->
+    <div id="sprint-done-panel" style="display:none;">
+        <div class="sprint-stat-head">STATISTICS</div>
+        <div id="sprint-panel-stats" class="sprint-stat-row"></div>
+        <div id="sprint-panel-dist-wrap" style="display:none;">
+            <div class="sprint-stat-head">GUESS DISTRIBUTION</div>
+            <div id="sprint-panel-dist"></div>
+        </div>
+        <button class="btn-primary" id="btn-sprint-share-panel" style="width:100%; margin-top: var(--s-6);"
+                onclick="window.shareSprintResult('btn-sprint-share-panel')">Share Result</button>
+    </div>
+
     <!-- Daily Puzzle headline card. The Daily Puzzle is the reason to come back
          tomorrow, but as one of five equal buttons in the nav it reads as one
          of five things. This states today's puzzle, where you stand on it and
@@ -1996,7 +2012,7 @@
                  The distribution hides itself until there is one. -->
             <div class="sprint-stat-head">STATISTICS</div>
             <div id="sprint-end-stats" class="sprint-stat-row"></div>
-            <div id="sprint-dist-wrap" style="display:none;">
+            <div id="sprint-end-dist-wrap" style="display:none;">
                 <div class="sprint-stat-head">GUESS DISTRIBUTION</div>
                 <div id="sprint-end-dist"></div>
             </div>
@@ -4566,6 +4582,7 @@
 
         window.openMarathon = async function() {
             document.getElementById("main-menu-modal").style.display = "none";
+            document.getElementById("sprint-done-panel").style.display = "none";
             if (!currentUser) return;
             await showModeIntro("marathon");
 
@@ -4758,6 +4775,7 @@
 
         window.leaveMarathon = function() {
             document.getElementById("marathon-end-modal").style.display = "none";
+            document.getElementById("sprint-done-panel").style.display = "none";
             isMarathonMode = false;
             marathonAttempt = null;
             document.getElementById("marathon-header").style.display = "none";
@@ -4917,6 +4935,7 @@
 
             isSprintMode = true;
             document.getElementById("sprint-card").style.display = "none";
+            document.getElementById("sprint-done-panel").style.display = "none";
             renderModeNav();
             document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
@@ -5073,12 +5092,16 @@
         // `todayRow` is the guess count just achieved, or 0 for a miss, so the
         // row the player landed on is the one lit up - the whole reason the
         // chart is worth looking at on the screen where you just finished.
-        function renderSprintStats(todayRow) {
+        function renderSprintStats(todayRow, prefix) {
+            // Two destinations, one renderer: the end modal and the panel
+            // under the board. Drawing them from one function is what keeps
+            // them from drifting into two slightly different stats screens.
+            const at = (part) => document.getElementById(prefix + "-" + part);
             const p = userProfileData || {};
             const played = Number(p.sprintPlayed) || 0;
             const won = Number(p.sprintSolved) || 0;
             const pill = (value, label) => '<div class="stat-pill"><b>' + value + '</b><em>' + label + "</em></div>";
-            document.getElementById("sprint-end-stats").innerHTML =
+            at("stats").innerHTML =
                 pill(played, "Played")
                 + pill(played ? Math.round((won / played) * 100) : 0, "Win %")
                 + pill(Number(p.sprintStreak) || 0, "Current<br>Streak")
@@ -5089,7 +5112,7 @@
             // played minus solved is the X row by construction.
             const counts = [1, 2, 3, 4, 5].map((i) => Number(p["sprintG" + i]) || 0);
             counts.push(Math.max(0, played - won));
-            const wrap = document.getElementById("sprint-dist-wrap");
+            const wrap = at("dist-wrap");
             // Nothing to draw until the counters exist. An all-zero chart
             // under a heading reads as a broken feature rather than an empty
             // one, so the whole section goes.
@@ -5098,7 +5121,7 @@
 
             const labels = ["1", "2", "3", "4", "5", "X"];
             const max = Math.max(...counts, 1);
-            wrap.querySelector("#sprint-end-dist").innerHTML = counts.map((n, i) => {
+            at("dist").innerHTML = counts.map((n, i) => {
                 const pct = Math.round((n / max) * 100);
                 const isToday = todayRow > 0 ? (i === todayRow - 1) : (i === 5);
                 const colour = isToday ? "var(--c-sprint)" : i === 5 ? "var(--c-loss)" : "var(--c-correct)";
@@ -5127,7 +5150,11 @@
             document.getElementById("sprint-end-desc").innerHTML =
                 '<span style="color:var(--c-sprint); font-size: var(--fs-5);">' + line + "</span>";
 
-            renderSprintStats(solved ? used : 0);
+            renderSprintStats(solved ? used : 0, "sprint-end");
+            // The panel under the board carries the same thing, for after
+            // this is dismissed.
+            renderSprintStats(solved ? used : 0, "sprint-panel");
+            document.getElementById("sprint-done-panel").style.display = "block";
 
             document.getElementById("btn-sprint-share").style.display = "inline-block";
             document.getElementById("sprint-end-modal").style.display = "flex";
@@ -5149,7 +5176,7 @@
             return days >= 1 ? days : null;
         }
 
-        window.shareSprintResult = function() {
+        window.shareSprintResult = function(btnId) {
             if (!sprintAttempt) return;
             const guesses = sprintAttempt.guesses || [];
             const used = guesses.length;
@@ -5178,8 +5205,11 @@
             // clipboard (the native sheet there opens an OS contacts panel
             // and drops the score text), reports a failed copy honestly, and
             // produces byte-identical output on both paths.
+            // Whichever button was pressed is the one whose label reports
+            // COPIED! or COPY FAILED; flashing the hidden one would say
+            // nothing at all.
             shareViaSheetOrClipboard("Lexathon Sprint", shareMessage, "https://lexathon.gg",
-                document.getElementById("btn-sprint-share"), "Share Result");
+                document.getElementById(btnId || "btn-sprint-share"), "Share Result");
         }
 
         // Today's Sprint board. One word means everyone's score is one of six
@@ -5248,6 +5278,7 @@
         function showSprintLanding() {
             isSprintMode = true;
             sprintAttempt = null;
+            document.getElementById("sprint-done-panel").style.display = "none";
             document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
@@ -5263,6 +5294,7 @@
 
         window.leaveSprint = function() {
             document.getElementById("sprint-end-modal").style.display = "none";
+            document.getElementById("sprint-done-panel").style.display = "none";
             stopSprintClock();
             isSprintMode = false;
             sprintAttempt = null;

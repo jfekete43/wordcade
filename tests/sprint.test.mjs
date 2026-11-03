@@ -526,20 +526,31 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
 // ---- the end-of-round statistics ---------------------------------------------
 // Four pills and a guess distribution, drawn with the same .stat-pill and
 // .stat-bar-* the Profile already uses, so this is one design rather than two.
+//
+// TWO DESTINATIONS, ONE RENDERER. The same content is drawn into the end modal
+// and into the panel under the board, by one function given a prefix rather
+// than by two copies. Two copies is how the modal and the panel end up
+// disagreeing about a player's streak.
 {
-  const statsSrc = (html.match(/        function renderSprintStats\(todayRow\) \{\n[\s\S]*?\n        \}/) || [''])[0];
-  ck(!!statsSrc, 'renderSprintStats is findable', statsSrc.slice(0, 60));
+  const statsSrc = (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!statsSrc, 'renderSprintStats is findable, and takes the prefix', statsSrc.slice(0, 60));
 
-  const draw = (profile, todayRow) => {
-    const dist = { innerHTML: '' };
-    const els = {
-      'sprint-end-stats': { innerHTML: '' },
-      'sprint-dist-wrap': { style: {}, querySelector: () => dist },
-    };
+  const draw = (profile, todayRow, prefix = 'sprint-end') => {
+    // Exactly the three elements the prefix builds, and nothing else. A
+    // lookup the prefix did not build - the way a half-done rename shows up -
+    // gets null and throws here, rather than quietly writing into whichever
+    // real element still answers to the old id.
+    const els = {};
+    for (const part of ['stats', 'dist-wrap', 'dist']) els[prefix + '-' + part] = { innerHTML: '', style: {} };
     // eslint-disable-next-line no-new-func
-    new Function('document', 'userProfileData', `${statsSrc}; renderSprintStats(${todayRow});`)(
+    new Function('document', 'userProfileData',
+      `${statsSrc}; renderSprintStats(${todayRow}, ${JSON.stringify(prefix)});`)(
       { getElementById: (id) => els[id] || null }, profile);
-    return { pills: els['sprint-end-stats'].innerHTML, dist: dist.innerHTML, wrap: els['sprint-dist-wrap'].style };
+    return {
+      pills: els[prefix + '-stats'].innerHTML,
+      dist: els[prefix + '-dist'].innerHTML,
+      wrap: els[prefix + '-dist-wrap'].style,
+    };
   };
 
   const P = { sprintPlayed: 12, sprintSolved: 11, sprintStreak: 5, sprintBestStreak: 7,
@@ -590,6 +601,23 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
     const o = draw({ sprintPlayed: 3, sprintSolved: 1 }, 0);
     ck(o.wrap.display !== 'none', 'a miss-only history still draws', JSON.stringify(o.wrap));
   }
+  {
+    // The panel under the board is not a summary of the modal, it is the same
+    // screen in a second place, so it has to come out character for character
+    // the same - including which row is lit, which is the only part that
+    // depends on today.
+    const modal = draw(P, 4, 'sprint-end');
+    const panel = draw(P, 4, 'sprint-panel');
+    eq('the panel under the board draws the modal\'s pills', panel.pills, modal.pills);
+    eq('and the modal\'s distribution, today\'s row and all', panel.dist, modal.dist);
+    eq('and reveals its chart on the same condition', panel.wrap.display, modal.wrap.display);
+  }
+  {
+    // Each destination hides its OWN chart. Reaching for the wrap by a fixed
+    // id would leave one of the two sections standing empty under a heading.
+    const panel = draw({ sprintPlayed: 0, sprintSolved: 0 }, 0, 'sprint-panel');
+    eq('with nothing to draw the panel hides the panel\'s chart', panel.wrap.display, 'none');
+  }
 }
 
 // The counters it reads have to be maintained, and a client cannot seed them.
@@ -613,6 +641,103 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   eq('exactly one primary action in the end modal',
      buttons.filter(([c]) => c === 'btn-primary').length, 1);
   eq('and it is Share', (buttons.find(([c]) => c === 'btn-primary') || [])[1], 'Share Result');
+}
+
+
+// ---- the screen you land on after finishing ----------------------------------
+// "Today's Leaderboard" dismisses the end modal, and what was left behind it
+// was a header, one row and then the site blurb - the emptiest screen in the
+// game, reached by finishing the thing the game is about. The stats and the
+// share button live under the standings as well, so there is something there.
+{
+  const panel = html.slice(html.indexOf('<div id="sprint-done-panel"'),
+                           html.indexOf('<!-- Daily Puzzle headline card'));
+  ck(panel.length > 100 && panel.length < 2000, 'the panel is findable', 'length ' + panel.length);
+
+  // Under the board, not over it. The button that gets you here promised the
+  // leaderboard, so the standings stay the first thing on the screen - which
+  // is the one thing the modal could not do.
+  ck(html.indexOf('<button id="home-board-more"') < html.indexOf('<div id="sprint-done-panel"'),
+     'and sits below the standings rather than above them');
+
+  for (const id of ['sprint-panel-stats', 'sprint-panel-dist-wrap', 'sprint-panel-dist']) {
+    ck(new RegExp('id="' + id + '"').test(panel), 'it carries ' + id + ', which the renderer writes into');
+  }
+  ck(/STATISTICS/.test(panel) && /GUESS DISTRIBUTION/.test(panel),
+     'under the same two headings as the modal');
+  ck(/id="sprint-panel-dist-wrap"[^>]*display:none/.test(panel),
+     'with its chart hidden until the renderer finds one to draw');
+  ck(/<div id="sprint-done-panel" style="display:none;"/.test(panel),
+     'and the whole panel hidden until the word is done');
+  // It is a card like the others on that screen, not loose text under the
+  // board: the shared shell is what makes it read as part of the page.
+  const shell = (html.match(/^[^\n]*#sprint-done-panel[^\n]*$/m) || [''])[0];
+  ck(/#daily-board-container/.test(shell) && /#sprint-card/.test(shell),
+     'and takes the same card shell as the board and the card above it', shell.trim().slice(0, 120));
+}
+
+// Its own share button, which has to be the one that reports back.
+{
+  const panel = html.slice(html.indexOf('<div id="sprint-done-panel"'),
+                           html.indexOf('<!-- Daily Puzzle headline card'));
+  ck(/id="btn-sprint-share-panel"/.test(panel), 'the panel has a share button of its own');
+  ck(/class="btn-primary" id="btn-sprint-share-panel"/.test(panel),
+     'styled as the primary action, since on this screen it is the only one');
+  // The helper flashes COPIED! or COPY FAILED on the button it is handed.
+  // Handed none, it would flash the modal's - which by then is hidden, so a
+  // successful copy would look like nothing happening.
+  ck(/shareSprintResult\('btn-sprint-share-panel'\)/.test(panel),
+     'and names itself, so the label that reports the copy is the one on screen');
+
+  const share = html.slice(html.indexOf('window.shareSprintResult = function'),
+                           html.indexOf('// Today\'s Sprint board.'));
+  ck(/window\.shareSprintResult = function\(btnId\)/.test(share),
+     'shareSprintResult takes the button to report on');
+  ck(/getElementById\(btnId \|\| "btn-sprint-share"\)/.test(share),
+     "defaulting to the modal's, which is still how the modal calls it",
+     (share.match(/getElementById\(btnId[^)]*\)/) || [''])[0]);
+}
+
+// When it is up. Nobody maintains a list of the screens that have to take it
+// down - the list is derived from the source, so a seventh way out of Sprint
+// is caught by this rather than by a player staring at a dead button.
+{
+  const JS = html.slice(html.indexOf('<script type="module">'));
+  // The nearest preceding top-level declaration owns a line. Brace matching
+  // would be prettier and is not safe here: loadLeaderboardData is indented
+  // twenty spaces and never closes at eight, so a body scan swallows the four
+  // functions after it.
+  const starts = [...JS.matchAll(/^        (?:function (\w+)|window\.(\w+) = (?:async )?function)/gm)]
+    .map((m) => ({ name: m[1] || m[2], at: m.index }));
+  const owner = (i) => { let best = null; for (const f of starts) { if (f.at < i) best = f; else break; } return best && best.name; };
+  const owners = (re) => [...JS.matchAll(re)].map((m) => owner(m.index)).sort();
+
+  const shows = owners(/sprint-done-panel"\)\.style\.display = "block"/g);
+  const hides = owners(/sprint-done-panel"\)\.style\.display = "none"/g);
+  eq('the panel goes up in exactly one place, where the word finishes', shows, ['showSprintEndModal']);
+
+  // And is filled on the way up. Revealed without being rendered it is two
+  // headings over nothing, which is worse than the bare screen it replaced.
+  const end = JS.slice(JS.indexOf('        function showSprintEndModal('), JS.indexOf('window.dismissSprintEnd'));
+  const into = [...end.matchAll(/renderSprintStats\([^,]+, "([^"]+)"\)/g)].map((m) => m[1]).sort();
+  eq('and the one place that raises it draws both copies first', into, ['sprint-end', 'sprint-panel']);
+
+  // Its share button returns early without an attempt, so the panel standing
+  // on a screen with no attempt is a button that silently does nothing. Every
+  // path that drops the attempt therefore has to drop the panel with it.
+  ck(/if \(!sprintAttempt\) return;/.test(html), 'sharing does nothing without an attempt to share');
+  // `let sprintAttempt = null` is the declaration, not a path out.
+  const clears = owners(/(?<!let )sprintAttempt = null;/g);
+  ck(clears.length >= 2, 'there is more than one way out of Sprint', clears.join(', '));
+  eq('and every one of them takes the panel down', clears.filter((n) => !hides.includes(n)), []);
+  // Entering is the same problem from the other side: the panel describes a
+  // finished word, and the attempt openSprint starts may be half played.
+  ck(hides.includes('openSprint'),
+     'as does starting a word, which the panel would otherwise describe as done');
+  // Marathon paints the same board area, and reaches it from the main menu
+  // without passing through leaveSprint.
+  ck(hides.includes('openMarathon') && hides.includes('leaveMarathon'),
+     'and so does Marathon, which lands on the same board', hides.join(', '));
 }
 
 
