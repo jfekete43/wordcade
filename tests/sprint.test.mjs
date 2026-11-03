@@ -448,6 +448,71 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
      'and names the mode in its own colour, out of the one table', enter);
 }
 
+// ---- coming back to Stakes lands on a board with tiles on it -------------------
+// The header said WORD 1 over an empty grid. Several modes empty boardDisplay
+// on their way out - a finished Sprint does, and so does the mode-switch
+// waiting state - and the way back to Stakes only ever STARTED a run, which
+// it correctly skips when one is already going. So the run survived, the
+// score survived, and the board did not.
+//
+// Run, not read: the bug was a function that did the right thing and stopped
+// one step early, which reads fine.
+{
+  const surfaceSrc = (html.match(/        function showStandardSurface\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  const paintSrc = (html.match(/        function paintStandardBoard\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!surfaceSrc && !!paintSrc, 'both halves are findable', (surfaceSrc + paintSrc).slice(0, 50));
+
+  const back = (word, priorGuesses) => {
+    const board = { innerHTML: 'LEFT OVER FROM THE LAST MODE', children: [], appendChild(n) { this.children.push(n); } };
+    const called = [];
+    const el = () => ({ style: {}, innerText: '', set innerHTML(v) {}, get innerHTML() { return ''; } });
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'boardDisplay', 'targetWord', 'currentWordGuesses', 'maxGuesses',
+      'window', 'renderModeNav', 'showStandardPanels', 'loadHomeBoard', 'resetKeyboardColors',
+      'renderCompletedGuessRow', 'checkDangerRow', 'updateSkipButton', 'updateWordLabel', 'called', `
+        let currentGuess = '', currentRow = 0, isAnimating = false, myMiniBoard = [];
+        function createBoard(rows = maxGuesses) {
+          boardDisplay.innerHTML = '';
+          for (let i = 0; i < rows; i++) boardDisplay.appendChild({ row: i });
+        }
+        ${paintSrc}
+        ${surfaceSrc}
+        showStandardSurface();`)(
+      { getElementById: el }, board, word, priorGuesses, 5,
+      { startNewRun: () => called.push('startNewRun') },
+      () => {}, () => {}, () => {}, () => {},
+      (row) => called.push('row' + row), () => {}, () => {}, () => {}, called);
+    return { board, called };
+  };
+
+  {
+    // The case in the screenshot: a Stakes run was live underneath Sprint.
+    const o = back('CRANE', []);
+    ck(!o.called.includes('startNewRun'), 'a live run is not thrown away on the way back',
+       o.called.join(','));
+    eq('and its board is drawn rather than left empty', o.board.children.length, 5);
+    ck(o.board.innerHTML !== 'LEFT OVER FROM THE LAST MODE',
+       'so nothing from the mode just left is still on screen', String(o.board.innerHTML));
+  }
+  {
+    // Mid-word: the guesses already made have to come back with it.
+    const o = back('CRANE', [{ guess: 'ARISE', colors: ['absent'] }, { guess: 'CRONE', colors: ['correct'] }]);
+    eq('a half-played word comes back with its guesses', o.called.filter((c) => /^row/.test(c)), ['row0', 'row1']);
+  }
+  {
+    // No run at all is still a new one, which is what the guard was for.
+    const o = back('', []);
+    ck(o.called.includes('startNewRun'), 'and with no run at all, one is started', o.called.join(','));
+    ck(!o.called.some((c) => /^row/.test(c)), 'with nothing replayed onto it', o.called.join(','));
+  }
+
+  // Boot had the only copy of this. Two copies is two ideas of what a resumed
+  // board looks like, and only one of them gets fixed next time.
+  const boot = html.slice(html.indexOf('// Resume mid-word instead of starting a brand new one'));
+  ck(/paintStandardBoard\(\);/.test(boot.slice(0, 400)),
+     'and boot resumes through the same painter', boot.slice(0, 300).replace(/\r?\n\s*/g, ' '));
+}
+
 // ---- the Trifecta card is off the other modes' screens ------------------------
 // It sat under the Stakes board pitching a different mode every time you
 // chose this one. Off by a flag rather than deleted, like a closed mode: the

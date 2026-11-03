@@ -66,14 +66,22 @@ const word = (guesses, solved) => ({ guesses: Array(guesses).fill('XXXXX'), solv
 // This used to be 2026-09-16, which was Daily Puzzle #15 — and is now a day
 // before the Trifecta epoch, so it has no number at all. The unnumbered
 // heading has its own case further down; these are about the grid.
-const NUMBERED_DAY = '2026-11-17'; // Trifecta #15
+// Day 15 of the Trifecta, computed from the epoch rather than written down.
+// A literal date here meant moving the epoch by one day turned three grid
+// assertions into a failing arithmetic puzzle, which is not what they test.
+const NUMBERED_N = 15;
+const NUMBERED_DAY = (() => {
+  const [y, m, d] = html.match(/const TRIFECTA_EPOCH = "([^"]*)"/)[1].split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d) + (NUMBERED_N - 1) * 86400000);
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+})();
 const attempt = (history, score) => ({ date: NUMBERED_DAY, wordCount: 10, score, history });
 const solvedRun = (counts) => counts.map((c) => word(c, true));
 const untouched = (howMany) => Array(howMany).fill({ guesses: [], solved: false });
 
 // A clean sweep — the run from the screenshot that prompted this.
 let out = buildShare(attempt(solvedRun([4, 4, 5, 4, 5, 5, 3, 5, 4, 3]), 540));
-ck(out.message === '🕹️ Lexathon Trifecta #15\n🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩\n🏆 PERFECT · 10/10 · 540 pts · 4.2 avg',
+ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩\n🏆 PERFECT · 10/10 · 540 pts · 4.2 avg`,
    'a perfect run is ten greens and no cross', JSON.stringify(out.message));
 ck(out.message.split('\n').length === 3, 'heading, bar, result', out.message.split('\n').length);
 // The per-word GUESS-COUNT grid stays gone — this is not that.
@@ -82,12 +90,12 @@ ck(!/[0-9]️⃣/.test(out.message), 'no per-word guess-count digits');
 // --- legacy: attempts recorded before everyone played all ten ------------
 // Out on word 9 after solving 8. The remaining slot is never touched.
 out = buildShare(attempt([...solvedRun([3, 4, 4, 5, 3, 4, 5, 4]), word(5, false), ...untouched(1)], 430));
-ck(out.message === '🕹️ Lexathon Trifecta #15\n🟩🟩🟩🟩🟩🟩🟩🟩❌⬜\n💰 8/10 · 430 pts · 4.1 avg',
+ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n🟩🟩🟩🟩🟩🟩🟩🟩❌⬜\n💰 8/10 · 430 pts · 4.1 avg`,
    'eight solved, a cross on the ninth, one never reached', JSON.stringify(out.message));
 
 // Out on the very first word.
 out = buildShare(attempt([word(5, false), ...untouched(9)], 0));
-ck(out.message === '🕹️ Lexathon Trifecta #15\n❌⬜⬜⬜⬜⬜⬜⬜⬜⬜\n💰 0/10 · 0 pts · 5.0 avg',
+ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n❌⬜⬜⬜⬜⬜⬜⬜⬜⬜\n💰 0/10 · 0 pts · 5.0 avg`,
    'out on word 1 is a cross and nine blanks', JSON.stringify(out.message));
 
 // Nine solved then a miss is still not "perfect".

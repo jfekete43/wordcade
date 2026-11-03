@@ -23,7 +23,12 @@ export const ARCHIVE_EPOCH = "2026-09-02";
 // before that) drawn as a difficulty ramp. Numbering today as #1 says so.
 // Days before this still publish; they just carry their date instead of a
 // number, because they are not Trifecta #anything.
-export const TRIFECTA_EPOCH = "2026-11-03"; // date of Trifecta #1 — matches index.html
+//
+// The 4th rather than the 3rd: generateDailyPuzzle runs on a cron at
+// midnight Eastern, so the 3rd's puzzle was already written - seven words,
+// drawn as a ramp - hours before the three-word code deployed. Numbering
+// it #1 would have made Trifecta #1 the last seven-word Daily Puzzle.
+export const TRIFECTA_EPOCH = "2026-11-04"; // date of Trifecta #1 — matches index.html
 
 const SITE = "https://lexathon.gg";
 

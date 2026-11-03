@@ -4543,7 +4543,14 @@
             // Only start a run if there is not one already. A player who had a
             // Stakes run restored from localStorage and then looked at another
             // mode must not lose it on the way back.
+            //
+            // ...but the run that survives still needs its board drawn. This
+            // used to stop at the guard, which was correct about the SCORE and
+            // silent about the screen: the header said WORD 1 over a board with
+            // no tiles on it, because whatever mode you were just in had
+            // emptied boardDisplay and only startNewRun ever refills it.
             if (!targetWord) window.startNewRun();
+            else paintStandardBoard();
             loadHomeBoard();
         }
 
@@ -7778,7 +7785,7 @@
         // The archive still publishes the days before this; they just show a
         // date instead of a number. Matches TRIFECTA_EPOCH in
         // tools/gauntlet-archive-render.mjs.
-        const TRIFECTA_EPOCH = "2026-11-03"; // date of Trifecta #1
+        const TRIFECTA_EPOCH = "2026-11-04"; // date of Trifecta #1
         function gauntletNumber(dateStr) {
             if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
             const toUTC = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
@@ -7936,6 +7943,23 @@
                     else if (tileColors[i] === "absent" && !keyBtn.classList.contains("correct") && !keyBtn.classList.contains("present")) { keyBtn.classList.add("absent"); }
                 }
             }
+        }
+
+        // The Stakes board for the run that is ALREADY live: the grid, plus
+        // whatever guesses have been made on the current word.
+        //
+        // Only boot knew how to do this, which is why coming back to Stakes
+        // from another mode could land on an empty board. Several modes empty
+        // boardDisplay on their way out - a finished Sprint does it, and so
+        // does the mode-switch waiting state - and the way back only ever
+        // STARTED a run, which it skips when one is already going.
+        function paintStandardBoard() {
+            currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = [];
+            createBoard(); resetKeyboardColors();
+            (Array.isArray(currentWordGuesses) ? currentWordGuesses : []).forEach((g) => {
+                renderCompletedGuessRow(currentRow, g.guess.split(""), g.colors); currentRow++;
+            });
+            checkDangerRow(); updateSkipButton(); updateWordLabel();
         }
 
         function startRound() {
@@ -8206,11 +8230,11 @@
                 const lastGuess = currentWordGuesses[currentWordGuesses.length - 1];
                 const wordAlreadySolved = !!(lastGuess && Array.isArray(lastGuess.colors) && lastGuess.colors.length > 0 && lastGuess.colors.every((c) => c === "correct"));
                 if (targetWord && !wordAlreadySolved && currentWordGuesses.length > 0 && currentWordGuesses.length < maxGuesses) {
-                    // Resume mid-word instead of starting a brand new one
-                    currentGuess = ""; currentRow = 0; isAnimating = false; myMiniBoard = [];
-                    createBoard(); resetKeyboardColors();
-                    currentWordGuesses.forEach((g) => { renderCompletedGuessRow(currentRow, g.guess.split(""), g.colors); currentRow++; });
-                    checkDangerRow();
+                    // Resume mid-word instead of starting a brand new one.
+                    // Same painter the way back from another mode uses, so the
+                    // two cannot drift into two different ideas of what a
+                    // resumed board looks like.
+                    paintStandardBoard();
                 } else {
                     startRound();
                 }
