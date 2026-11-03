@@ -359,6 +359,14 @@
            independent numbers side by side instead, and at 8px they ran
            together into one string. */
         #sprint-header, #marathon-header { gap: var(--s-7); }
+        /* The line that stands in for a mode header while the mode it names
+           is still a round trip away. Same box as the headers it replaces,
+           so the page does not jump when the real one takes its place. */
+        #mode-loading {
+            width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
+            font-size: var(--fs-2); margin: 0 0 var(--s-5) 0; font-weight: var(--fw-bold);
+            letter-spacing: var(--ls-label); text-transform: uppercase;
+        }
         /* A COLUMN, not a wrapping row. As one row it fitted beside the score
            while the score was short and wrapped underneath once it grew — so
            the button moved, mid-run, at a threshold that differed per screen
@@ -1598,6 +1606,12 @@
             <div class="ffa-more" id="ffa-more-note" style="display:none;"></div>
         </div>
     </div>
+
+    <!-- Shown while a mode that needs the server is on its way. Sits where
+         that mode's own header will, and carries its name and its colour,
+         so the wait reads as the mode arriving rather than as the game
+         having wandered off somewhere the player did not ask for. -->
+    <div id="mode-loading" style="display:none;"></div>
 
     <div id="message"></div>
 
@@ -4215,6 +4229,11 @@
         let isDailyMode = false;
         let isSprintMode = false;
         let isMarathonMode = false;
+        // The mode being switched TO, while its first server call is still
+        // out. Only the nav and the waiting line read it; currentMode() is
+        // still the truth about which mode owns the screen, and everything
+        // else keeps asking that.
+        let pendingMode = null;
         let marathonAttempt = null;
         let sprintAttempt = null;
         // One at a time. The landing loads today's result by itself, and a tap
@@ -4420,7 +4439,11 @@
         // :not([aria-current="true"]), which "false" would satisfy, but any
         // future [aria-current] selector would not.
         function renderModeNav() {
-            const here = currentMode();
+            // A tap has to light up its own button straight away. Waiting for
+            // currentMode() means waiting for the server, and a nav that still
+            // says SPRINT a second after you pressed MARATHON reads as a tap
+            // that missed.
+            const here = pendingMode || currentMode();
             // The nav grid takes its column count from the table rather
             // than a hardcoded repeat(), so adding or retiring a mode is
             // a one-line table edit. The narrow-screen rule still
@@ -4437,10 +4460,62 @@
             });
         }
 
+        // The Stakes screen, put back. Written out once rather than once per
+        // leave path: it is four lines of chrome plus a run and a board read,
+        // and the copies were already drifting - the mode-switch fallback below
+        // would have made a fourth. leaveDailyGauntlet keeps its own, and says
+        // there why.
+        function showStandardSurface() {
+            document.getElementById("mode-loading").style.display = "none";
+            document.getElementById("endless-header").style.display = "flex";
+            document.getElementById("score-board").style.display = "flex";
+            document.getElementById("btn-cash-out").style.display = "inline-block";
+            renderModeNav();
+            showStandardPanels(true);
+            // Only start a run if there is not one already. A player who had a
+            // Stakes run restored from localStorage and then looked at another
+            // mode must not lose it on the way back.
+            if (!targetWord) window.startNewRun();
+            loadHomeBoard();
+        }
+
+        // What the screen says while a mode that needs the server is on its
+        // way. Every leave path puts the Stakes screen back, which is right
+        // when Stakes is where you are going and wrong when it is not: the
+        // mode you asked for is a round trip away, and until it answers you
+        // are looking at a game you did not pick, complete with a bank, a
+        // CASH OUT button and a live word.
+        //
+        // Nothing has been painted when this runs. Everything between the tap
+        // and the first network await is synchronous, and the browser does not
+        // paint inside a task - so taking the Stakes screen back down here
+        // costs a few property writes and is never seen.
+        function enterModeLoading(target) {
+            pendingMode = target;
+            document.getElementById("endless-header").style.display = "none";
+            document.getElementById("score-board").style.display = "none";
+            document.getElementById("btn-cash-out").style.display = "none";
+            document.getElementById("daily-header").style.display = "none";
+            document.getElementById("sprint-header").style.display = "none";
+            document.getElementById("marathon-header").style.display = "none";
+            document.getElementById("sprint-card").style.display = "none";
+            document.getElementById("sprint-done-panel").style.display = "none";
+            document.getElementById("versus-track-container").style.display = "none";
+            showStandardPanels(false);
+            // The board is cleared but the legend and keyboard are left alone:
+            // Clash and FFA do not raise a play surface of their own, they
+            // inherit whatever the leave path left up.
+            boardDisplay.innerHTML = "";
+            const note = document.getElementById("mode-loading");
+            note.innerText = "Loading " + MODES[target].label + "\u2026";
+            note.style.color = MODES[target].color;
+            note.style.display = "block";
+            renderModeNav();
+        }
+
         // Leaving a mode is the mode's own business — each has its own
-        // confirmation and its own cleanup, and every leave path already ends
-        // up back in Stakes. So this leaves, then enters, and the modes
-        // themselves are unchanged.
+        // confirmation and its own cleanup. So this leaves, waits where the
+        // player can see what it is waiting for, then enters.
         window.goToMode = async function(target) {
             if (document.activeElement) document.activeElement.blur();
             if (!MODES[target] || target === currentMode()) return;
@@ -4465,12 +4540,28 @@
                 saveRunToCloud();
             }
 
-            if (target === "sprint") await window.openSprint();
-            else if (target === "marathon") await window.openMarathon();
-            else if (target === "gauntlet") await window.openDailyGauntlet();
-            else if (target === "clash") await window.openClashLobby();
-            else if (target === "ffa") await window.openFfaLobby();
-            else { renderModeNav(); await showModeIntro("endless"); }
+            // Stakes is the one destination the leave path above has already
+            // painted, so it is the one that does not wait for anything.
+            if (target !== "endless") enterModeLoading(target);
+
+            try {
+                if (target === "sprint") await window.openSprint();
+                else if (target === "marathon") await window.openMarathon();
+                else if (target === "gauntlet") await window.openDailyGauntlet();
+                else if (target === "clash") await window.openClashLobby();
+                else if (target === "ffa") await window.openFfaLobby();
+                else { renderModeNav(); await showModeIntro("endless"); }
+            } finally {
+                pendingMode = null;
+                document.getElementById("mode-loading").style.display = "none";
+            }
+
+            // An open can bail without painting anything: no signed-in user, a
+            // guest refused the Daily, a callable that failed. Each of those
+            // says so in its own way, and then leaves the player on a screen
+            // for a mode that never arrived. Stakes is where they came from
+            // and is always safe to be.
+            if (currentMode() !== target) showStandardSurface();
         }
 
         window.openClashLobby = async function() {
@@ -4780,14 +4871,8 @@
             isMarathonMode = false;
             marathonAttempt = null;
             document.getElementById("marathon-header").style.display = "none";
-            document.getElementById("endless-header").style.display = "flex";
-            document.getElementById("score-board").style.display = "flex";
-            document.getElementById("btn-cash-out").style.display = "inline-block";
             setMarathonPlaySurfaceVisible(true);
-            renderModeNav();
-            showStandardPanels(true);
-            if (!targetWord) window.startNewRun();
-            loadHomeBoard();
+            showStandardSurface();
         }
 
         // --- SPRINT ---------------------------------------------------------
@@ -5362,17 +5447,8 @@
             sprintAttempt = null;
             document.getElementById("sprint-header").style.display = "none";
             document.getElementById("sprint-card").style.display = "none";
-            document.getElementById("endless-header").style.display = "flex";
-            document.getElementById("score-board").style.display = "flex";
-            document.getElementById("btn-cash-out").style.display = "inline-block";
             setSprintPlaySurfaceVisible(true);
-            renderModeNav();
-            showStandardPanels(true);
-            // Only start a run if there is not one already. A player who
-            // had a Stakes run restored from localStorage and then looked
-            // at Sprint must not lose it on the way back.
-            if (!targetWord) window.startNewRun();
-            loadHomeBoard();
+            showStandardSurface();
         }
 
         // --- PLACEMENT BADGES ---

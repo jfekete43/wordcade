@@ -220,10 +220,20 @@ ck(/where\("marathonKey", "==", month\)/.test(board) && /orderBy\("marathonScore
 ck(/collection\(db, "users"\)/.test(board),
    'from /users rather than aggregating /runs, which is what lets it show players mid-month');
 ck(/marathonWords/.test(board), 'and show how far through each player is');
-// Leaving must not discard a Stakes run, the same way Sprint's leave does not.
-const leave = html.slice(html.indexOf('window.leaveMarathon = function()'));
-ck(/if \(!targetWord\) window\.startNewRun\(\);/.test(leave.slice(0, 1200)),
-   'leaving Marathon does not discard a Stakes run already in progress');
+// Leaving must not discard a Stakes run, the same way Sprint's leave does not
+// — which is now literally the same way: both go through the one restore, so
+// this follows it there rather than pinning the line to leaveMarathon's body.
+{
+  const leave = (html.match(/window\.leaveMarathon = function\(\) \{[\s\S]*?\n        \}/) || [''])[0];
+  ck(/showStandardSurface\(\);/.test(leave), 'leaving Marathon goes back through the shared restore', leave.slice(-200));
+  const restore = (html.match(/        function showStandardSurface\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/if \(!targetWord\) window\.startNewRun\(\);/.test(restore),
+     'leaving Marathon does not discard a Stakes run already in progress', restore);
+  // The Marathon progress text is Marathon's own and is not in the shared
+  // body, so the leave still has to put the play surface back itself.
+  ck(/setMarathonPlaySurfaceVisible\(true\);/.test(leave),
+     'and still hands back the board and keyboard on its way out', leave.slice(-240));
+}
 
 // ---- the nav still adds up ---------------------------------------------------------
 {

@@ -283,10 +283,168 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
      card.slice(-220));
 }
 
-// A restored Stakes run must survive a look at Sprint.
-const leave = html.slice(html.indexOf('window.leaveSprint = function()'));
-ck(/if \(!targetWord\) window\.startNewRun\(\);/.test(leave.slice(0, 1200)),
-   'leaving Sprint does not discard a Stakes run that was already in progress');
+// A restored Stakes run must survive a look at Sprint. The restore moved out
+// of leaveSprint into the one body the leave paths and the mode-switch
+// fallback share, so this follows it there rather than pinning the line to a
+// function it no longer lives in.
+{
+  const leave = (html.match(/window\.leaveSprint = function\(\) \{[\s\S]*?\n        \}/) || [''])[0];
+  ck(/showStandardSurface\(\);/.test(leave), 'leaving Sprint goes back through the shared restore', leave.slice(-200));
+  const restore = (html.match(/        function showStandardSurface\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!restore, 'which is findable', restore.slice(0, 60));
+  ck(/if \(!targetWord\) window\.startNewRun\(\);/.test(restore),
+     'and does not discard a Stakes run that was already in progress', restore);
+}
+
+
+// ---- switching between two server-backed modes --------------------------------
+// Every leave path puts the Stakes screen back, which is right when Stakes is
+// where you are going. Going anywhere else it was a flash of a game nobody
+// asked for - bank, CASH OUT button, a live word - held on screen for the
+// length of the round trip the real destination was waiting on.
+//
+// The fix is cheap for a reason worth writing down: nothing between the tap
+// and the first network await is asynchronous, and a browser does not paint
+// inside a task, so the Stakes screen the leave path painted has never
+// actually reached a frame by the time this takes it back down.
+{
+  const goSrc = (html.match(/        window\.goToMode = async function\(target\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!goSrc, 'goToMode is findable', goSrc.slice(0, 60));
+  const modesSrc = (html.match(/        const MODES = \{\n[\s\S]*?\n        \};/) || [''])[0];
+  const curSrc = (html.match(/        function currentMode\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+
+  const go = async (target, { from = 'sprint', opens = true, throws = false } = {}) => {
+    const log = [];
+    const rec = (n) => (...a) => { log.push(n); };
+    // eslint-disable-next-line no-new-func
+    const body = new Function('log', 'rec', 'FROM', 'TARGET', 'OPENS', 'THROWS', `
+      let isDailyMode = false, isSprintMode = false, isMarathonMode = false,
+          isVersusMode = false, isFfaMode = false, pendingMode = null;
+      if (FROM) eval(({sprint:'isSprintMode',marathon:'isMarathonMode',gauntlet:'isDailyMode',
+                       clash:'isVersusMode',ffa:'isFfaMode'})[FROM] + ' = true');
+      ${modesSrc}
+      ${curSrc}
+      const els = {};
+      const document = { activeElement: null,
+        getElementById: (id) => (els[id] = els[id] || { id, style: {} }) };
+      const confirm = () => true;
+      const window = {};
+      let currentMatchId = 'm', score = 0, targetWord = null;
+      const runStats = { played: 0 };
+      const saveRunToCloud = rec('saveRunToCloud');
+      const renderModeNav = rec('renderModeNav');
+      const showModeIntro = async () => { log.push('showModeIntro'); };
+      const showStandardSurface = rec('showStandardSurface');
+      const enterModeLoading = (t) => { pendingMode = t; log.push('enterModeLoading:' + t); };
+      const FLAG_OF = { leaveSprint: 'isSprintMode', leaveMarathon: 'isMarathonMode',
+                        leaveDailyGauntlet: 'isDailyMode', leaveVersusMatch: 'isVersusMode',
+                        cancelVersusLobby: 'isVersusMode', leaveFfaMatch: 'isFfaMode',
+                        cancelFfaLobby: 'isFfaMode' };
+      // Recording is not enough: a real leave drops its flag, and the fallback
+      // below asks currentMode() whether the open ever landed. A stub that
+      // kept the flag up would make every bail look like a success.
+      for (const [m, flag] of Object.entries(FLAG_OF)) {
+        window[m] = () => { log.push(m); eval(flag + ' = false'); };
+      }
+      const opener = (t, flag) => async () => {
+        log.push('open:' + t);
+        if (THROWS) throw new Error('boom');
+        // A real open paints nothing until its callable comes back, so a
+        // bail leaves every flag exactly where the leave path left it.
+        if (OPENS) eval(flag + ' = true');
+        log.push('pendingDuringOpen:' + pendingMode);
+      };
+      window.openSprint = opener('sprint', 'isSprintMode');
+      window.openMarathon = opener('marathon', 'isMarathonMode');
+      window.openDailyGauntlet = opener('gauntlet', 'isDailyMode');
+      window.openClashLobby = opener('clash', 'isVersusMode');
+      window.openFfaLobby = opener('ffa', 'isFfaMode');
+      ${goSrc}
+      return window.goToMode(TARGET)
+        .catch((e) => { log.push('threw'); })
+        .then(() => ({ log, pendingMode, landedOn: currentMode() }));`);
+    return body(log, rec, from, target, opens, throws);
+  };
+
+  {
+    const o = await go('marathon');
+    eq('leaving Sprint for Marathon goes leave, then wait, then open',
+       o.log.filter((l) => /^(leaveSprint|enterModeLoading|open):?/.test(l) || l.startsWith('enterModeLoading')),
+       ['leaveSprint', 'enterModeLoading:marathon', 'open:marathon']);
+    // The decisive one: the waiting state is up BEFORE the open, because the
+    // open is where the round trip is and the round trip is what gets seen.
+    ck(o.log.indexOf('enterModeLoading:marathon') < o.log.indexOf('open:marathon'),
+       'and the waiting state is up before the call that waits', o.log.join(' -> '));
+    eq('the nav says Marathon for the whole of the wait', o.log.find((l) => l.startsWith('pendingDuringOpen')), 'pendingDuringOpen:marathon');
+    eq('and stops saying it once Marathon is actually there', o.pendingMode, null);
+    ck(!o.log.includes('showStandardSurface'),
+       'with no detour through the Stakes screen at all', o.log.join(' -> '));
+  }
+  {
+    const o = await go('endless', { from: 'marathon' });
+    // Stakes IS what the leave path painted, so there is nothing to wait for.
+    ck(!o.log.some((l) => l.startsWith('enterModeLoading')),
+       'going back to Stakes raises no waiting state, since it is already there', o.log.join(' -> '));
+  }
+  {
+    // Every bail is silent as far as the screen is concerned: no account, a
+    // guest refused the Daily, a callable that failed. Leaving the player on
+    // a header for a mode that never arrived is worse than the flash was.
+    const o = await go('marathon', { opens: false });
+    ck(o.log.includes('showStandardSurface'),
+       'an open that bails puts the player back on Stakes', o.log.join(' -> '));
+    eq('and the nav stops claiming the mode that never arrived', o.pendingMode, null);
+    eq('which is where they end up', o.landedOn, 'endless');
+  }
+  {
+    const o = await go('marathon', { throws: true });
+    eq('an open that throws still clears the nav, because the clear is in a finally',
+       o.pendingMode, null);
+    ck(o.log.includes('threw'), 'the throw itself is not swallowed', o.log.join(' -> '));
+  }
+}
+
+// The waiting state takes down everything the mode it replaces would have.
+// Derived from the open functions themselves: a header added to a mode later
+// cannot be forgotten here, which is the only way this goes wrong.
+{
+  const enter = (html.match(/        function enterModeLoading\(target\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!enter, 'enterModeLoading is findable', enter.slice(0, 60));
+  const hidden = (src) => new Set([...src.matchAll(/getElementById\("([\w-]+)"\)\.style\.display = "none"/g)].map((m) => m[1]));
+  const mine = hidden(enter);
+  for (const fn of ['openSprint', 'openMarathon', 'openDailyGauntlet']) {
+    const src = (html.match(new RegExp('        window\\.' + fn + ' = async function\\([^)]*\\) \\{\\n[\\s\\S]*?\\n        \\}')) || [''])[0];
+    ck(!!src, fn + ' is findable', src.slice(0, 50));
+    // Modals are not mode chrome. The opens dismiss the main menu because
+    // they can be reached from it; goToMode is reached from the nav, which is
+    // behind that overlay and untappable while it is up.
+    const theirs = [...hidden(src)].filter((id) => !mine.has(id) && !/-modal$/.test(id));
+    eq('the waiting state hides everything ' + fn + ' does', theirs, []);
+  }
+  ck(/showStandardPanels\(false\)/.test(enter), 'and the Stakes panels with them');
+  ck(/boardDisplay\.innerHTML = ""/.test(enter),
+     'and clears the board, so no word from the mode just left sits under the new name');
+  // Clash and FFA raise no play surface of their own - they inherit whatever
+  // the leave path left up - so taking the keyboard down here would strand
+  // them with nothing to type on.
+  ck(!/setSprintPlaySurfaceVisible|setMarathonPlaySurfaceVisible|setGauntletPlaySurfaceVisible/.test(enter),
+     'but leaves the play surface alone, which Clash and FFA still inherit', enter);
+  ck(/MODES\[target\]\.label/.test(enter) && /MODES\[target\]\.color/.test(enter),
+     'and names the mode in its own colour, out of the one table', enter);
+}
+
+// The nav answers the tap, not the server.
+{
+  const nav = (html.match(/        function renderModeNav\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/const here = pendingMode \|\| currentMode\(\);/.test(nav),
+     'the nav marks the mode being switched to while it loads', nav.slice(0, 400));
+  // currentMode() stays the truth about who owns the screen. Everything that
+  // decides behaviour - goToMode's own guard, inAltMode - reads that.
+  const alt = (html.match(/function inAltMode\(\) \{[^\n]*\}/) || [''])[0];
+  ck(!/pendingMode/.test(alt), 'and nothing that decides behaviour reads it', alt);
+  const go2 = (html.match(/        window\.goToMode = async function\(target\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/target === currentMode\(\)/.test(go2), 'goToMode still guards on currentMode, not the pending one');
+}
 
 // ---- the nav scales ---------------------------------------------------------
 ck(/grid-template-columns: repeat\(var\(--mode-cols, 4\), minmax\(0, 1fr\)\)/.test(html),

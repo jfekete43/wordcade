@@ -106,12 +106,18 @@ ${modesSrc}
 ${currentSrc}
 ${renderSrc}
 const FLAG_FOR = ${JSON.stringify(FLAG_FOR)};
+// Declared here because renderModeNav reads it. Switching to a mode that
+// needs the server leaves the nav with a tap to answer and no flag to answer
+// it from, so the nav marks the mode on its way in.
+let pendingMode = null;
 window.setFlags = (o) => {
   for (const f of Object.values(FLAG_FOR)) eval(f + ' = false');
   const want = Object.keys(o).find((k) => o[k]);
   if (want && FLAG_FOR[want]) eval(FLAG_FOR[want] + ' = true');
+  pendingMode = null;
   renderModeNav();
 };
+window.setPending = (m) => { pendingMode = m; renderModeNav(); };
 window.readNav = () => MODE_ORDER.map((_, n) => n + 1).map((i) => {
   const b = document.getElementById("btn-nav-" + i);
   const cs = getComputedStyle(b);
@@ -197,6 +203,36 @@ for (const mode of MODE_KEYS) {
   ck(new Set(nav.map((b) => b.mode)).size === N, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
 }
 function MODE_LABEL(m) { return MODE_LABELS[m]; }
+
+// ---- the tap is answered before the server is ---------------------------------
+// Sprint, Marathon and the Daily all need a round trip before they own the
+// screen. Marking the mode only once a flag flips means the nav still says
+// SPRINT a second after MARATHON was pressed, which reads as a missed tap on
+// a phone - so the nav marks where you are GOING while it is going there.
+for (const [from, to] of [['sprint', 'marathon'], ['marathon', 'sprint'], ['endless', 'gauntlet']]) {
+  const nav = await page.evaluate(([f, t]) => {
+    window.setFlags({ [f]: true });   // still in the old mode: no flag has flipped
+    window.setPending(t);
+    return window.readNav();
+  }, [from, to]);
+  eq(`switching ${from} -> ${to}, the nav marks the mode being entered`,
+     nav.filter((b) => b.current).map((b) => b.mode), [to]);
+  ck(nav.find((b) => b.current).bg === RGB[to],
+     `and fills it in ${to}'s own colour, so the wait is that mode's`,
+     nav.find((b) => b.current).bg + ' want ' + RGB[to]);
+  ck(nav.find((b) => b.mode === from).color === QUIET,
+     `while ${from}, which no longer owns the screen, goes quiet`,
+     nav.find((b) => b.mode === from).color);
+  // Exactly one marked slot: a nav showing both the mode you left and the one
+  // you are entering is worse than one showing the wrong one.
+  eq(`and exactly one slot is marked during the switch`, nav.filter((b) => b.current).length, 1);
+}
+{
+  // And when it lands, the flag is the only thing speaking again.
+  const nav = await page.evaluate(() => { window.setFlags({ marathon: true }); return window.readNav(); });
+  eq('once the mode arrives the nav is back on the flags alone',
+     nav.filter((b) => b.current).map((b) => b.mode), ['marathon']);
+}
 
 // Order is stable, so a slot does not jump between modes as you move around.
 const orders = {};
