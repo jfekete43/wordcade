@@ -372,11 +372,10 @@ const STYLE = `
             .stat-row { flex-wrap: wrap; }
             .stat-row div { flex: 1 1 42%; margin-bottom: var(--s-4); }
             .stat-row b { font-size: var(--fs-4); }
-            /* One column per table earns its place least on a phone, and
+            /* The hub's Perfect count earns its place least on a phone, and
                dropping it is what lets the rest fit without a sideways
-               scroll: the word list's Tier (the easiest-first ordering and
-               the sentence above the table already say it) and the hub's
-               Perfect count. */
+               scroll. The word list used to drop a Tier column here too;
+               that column went with the difficulty ramp it reported. */
             .hide-sm { display: none; }
             .only-sm { display: inline; }
             /* 2px between letters over a column of five-letter words is real width
