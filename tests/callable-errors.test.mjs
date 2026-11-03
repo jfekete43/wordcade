@@ -62,12 +62,12 @@ if (readableFailures) {
   // prompt for guests, and rewriting it would replace a useful instruction
   // with a shrug.
   logged = [];
-  const deliberate = new StubHttpsError('permission-denied', 'Sign in with Google or email to play the Daily Puzzle.');
+  const deliberate = new StubHttpsError('permission-denied', 'Sign in with Google or email to play the Trifecta.');
   const guardWrapped = readableFailures('Starting today\'s Puzzle', async () => { throw deliberate; });
   let caught = null;
   try { await guardWrapped(req); } catch (e) { caught = e; }
   ck(caught === deliberate, 'a deliberate HttpsError is rethrown as the very same object');
-  ck(caught && caught.message === 'Sign in with Google or email to play the Daily Puzzle.',
+  ck(caught && caught.message === 'Sign in with Google or email to play the Trifecta.',
      'so the player still gets the instruction it carried', caught && caught.message);
   ck(logged.length === 0, 'and it is not logged as a failure — it is working as designed');
 
@@ -118,7 +118,7 @@ if (readableFailures) {
      JSON.stringify(logged[0] && logged[0][1] && logged[0][1].uid));
 }
 
-// ---- the Daily Puzzle's own callables are actually wrapped --------------------
+// ---- the Trifecta's own callables are actually wrapped --------------------
 // The wrapper is worth nothing if the two functions that produced the bug are
 // not behind it, and nothing stops a future callable being added bare.
 for (const name of ['startDailyGauntlet', 'guessDailyWord']) {

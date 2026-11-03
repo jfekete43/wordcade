@@ -254,7 +254,11 @@ const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "b
 // Must match index.html's scorePoints exactly — points awarded by which
 // guess (1st through 5th) solved the word.
 const SCORE_POINTS = [500, 250, 150, 50, 10];
-const DAILY_GAUNTLET_WORD_COUNT = 7;
+// Three. Seven was a sitting for a mode that is meant to be a coffee
+// break, and the feedback that it took too long was the same feedback
+// twice. The tier split below is DERIVED from this, so this line is the
+// only one to change.
+const DAILY_GAUNTLET_WORD_COUNT = 3;
 const DAILY_GAUNTLET_MAX_GUESSES = 5;
 // Marathon: one set of words per calendar month, played at whatever pace you
 // like. Fifty rather than a hundred to start — the question this mode is
@@ -1253,7 +1257,18 @@ function pickDailyWords(stats, exclude) {
 
   const third = Math.floor(ranked.length / 3);
   const tiers = [ranked.slice(0, third), ranked.slice(third, third * 2), ranked.slice(third * 2)];
-  const want = [2, 3, 2]; // must sum to DAILY_GAUNTLET_WORD_COUNT
+  // A third to each end, the remainder in the middle — the same formula
+  // tierSizesFor() in tools/gauntlet-archive-render.mjs uses to label a past
+  // day's words, so the archive and the generator cannot disagree.
+  //
+  // DERIVED, because it used to be the literal [2, 3, 2] with a comment
+  // saying it must sum to the count. Dropping the count to 3 while that
+  // stood would have drawn 2 easy + 3 medium + 2 hard and then kept the
+  // three EASIEST of the seven: 800 easy, 400 medium and not one hard word
+  // over 400 days. The puzzle would have quietly lost its top tier, and
+  // nothing in the output says which tier a word came from.
+  const outer = Math.floor(DAILY_GAUNTLET_WORD_COUNT / 3);
+  const want = [outer, DAILY_GAUNTLET_WORD_COUNT - outer * 2, outer];
 
   const picked = [];
   tiers.forEach((tier, i) => {

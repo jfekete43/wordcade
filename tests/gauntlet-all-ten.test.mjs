@@ -1,5 +1,5 @@
 /*
- * The Daily Puzzle plays all ten words, and the board breaks ties on words solved.
+ * The Trifecta plays all ten words, and the board breaks ties on words solved.
  *
  * Three things with no other home:
  *

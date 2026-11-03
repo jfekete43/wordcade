@@ -4,7 +4,7 @@
  * Every mode except Stakes used to collapse the nav to a single "leave"
  * button and hide the other two, each of the six entry/exit paths flipping
  * innerText and display on three hard-coded buttons inline. From inside a
- * Daily Puzzle there was no way to see that Clash and FFA existed. Worse, the mode
+ * Trifecta there was no way to see that Clash and FFA existed. Worse, the mode
  * you were IN was the only one never named anywhere: Stakes had no header at
  * all, so a new player landed on an unlabelled board flanked by buttons for
  * three other modes — which is how one of them reported that "one of today's
@@ -67,8 +67,17 @@ const renderSrc = 'function renderModeNav() {' + between(html, 'function renderM
 // flags, so the new mode could never be "current" here and the suite blew up
 // on an undefined colour instead of reporting a missing mode.
 const currentSrc = 'function currentMode() {' + between(html, 'function currentMode() {', '\n        }', 'currentMode') + '\n}';
+// Lifted too: the phone column count is a decision now, not a number, and a
+// restatement here is exactly the drift this file exists to catch.
+const narrowSrc = 'function narrowModeCols(n) {'
+  + between(html, 'function narrowModeCols(n) {', '\n        }', 'narrowModeCols') + '\n}';
 // Every mode the page ships, in the table's own order.
 const MODE_KEYS = (modesSrc.match(/^\s{12}(\w+):/gm) || []).map((m) => m.trim().replace(':', ''));
+// A mode can be closed without being deleted. The nav draws the open ones;
+// the table still carries the rest, and currentMode() still knows them, so
+// the two lists are kept apart here the same way the page keeps them apart.
+const HIDDEN = new Set([...modesSrc.matchAll(/^\s{12}(\w+):[^\n]*hidden: true/gm)].map((m) => m[1]));
+const OPEN_KEYS = MODE_KEYS.filter((m) => !HIDDEN.has(m));
 const MODE_LABELS = Object.fromEntries((modesSrc.match(/^\s{12}(\w+):\s*\{\s*label:\s*"([^"]+)"/gm) || [])
   .map((m) => { const g = m.match(/(\w+):\s*\{\s*label:\s*"([^"]+)"/); return [g[1], g[2]]; }));
 if (MODE_KEYS.length < 2) throw new Error('could not read the MODES table');
@@ -103,7 +112,9 @@ ${scoreBoard}
 <script>
 ${FLAG_DECL}
 ${modesSrc}
+const VISIBLE_MODES = MODE_ORDER.filter((m) => !MODES[m].hidden);
 ${currentSrc}
+${narrowSrc}
 ${renderSrc}
 const FLAG_FOR = ${JSON.stringify(FLAG_FOR)};
 // Declared here because renderModeNav reads it. Switching to a mode that
@@ -115,7 +126,17 @@ window.setFlags = (o) => {
   const want = Object.keys(o).find((k) => o[k]);
   if (want && FLAG_FOR[want]) eval(FLAG_FOR[want] + ' = true');
   pendingMode = null;
+  // Every slot shown first, so hiding the spares is something the renderer
+  // has to DO. Left at the markup's own display:none, a renderer that stopped
+  // hiding them would still look correct here.
+  document.querySelectorAll('.arcade-menu button').forEach((b) => { b.style.display = ''; });
   renderModeNav();
+};
+window.readCols = () => {
+  const cs = getComputedStyle(document.querySelector('.arcade-menu'));
+  return { cols: cs.getPropertyValue('--mode-cols').trim(),
+           narrow: cs.getPropertyValue('--mode-cols-narrow').trim(),
+           tracks: cs.gridTemplateColumns.split(' ').length };
 };
 window.setPending = (m) => { pendingMode = m; renderModeNav(); };
 window.readNav = () => MODE_ORDER.map((_, n) => n + 1).map((i) => {
@@ -148,9 +169,15 @@ const RGB = Object.fromEntries(MODE_KEYS.map((m) => [m, rgbOf(m === 'gauntlet' ?
 // The column caps, read from the stylesheet rather than restated. A nav that
 // shrinks type instead of wrapping is how MARATHON came to spill 20px out of
 // its own button on every phone width.
-const CAP_PHONE = Number((css.match(/max-width: 600px\)[\s\S]*?min\(var\(--mode-cols, \d+\), (\d+)\)/) || [])[1]);
+// The phone cap is no longer a number in the stylesheet: four modes across
+// three columns is a row of three and an orphan, so the cap is computed from
+// how many modes are open and handed to CSS as a second custom property.
+const CAP_PHONE = Number((nav.match(/--mode-cols-narrow: (\d+);/) || [])[1]);
 const CAP_FOLD = Number((css.match(/max-width: 319px\)[\s\S]*?min\(var\(--mode-cols, \d+\), (\d+)\)/) || [])[1]);
-if (!CAP_PHONE || !CAP_FOLD) throw new Error('could not read the nav column caps from the stylesheet');
+if (!CAP_PHONE || !CAP_FOLD) throw new Error('could not read the nav column caps');
+ck(OPEN_KEYS.length % CAP_PHONE === 0,
+   'the phone wraps the open modes into full rows rather than leaving an orphan',
+   `${OPEN_KEYS.length} modes, ${CAP_PHONE} columns`);
 
 const QUIET = rgbOf('--c-ink-4');
 const ON_ACCENT = rgbOf('--c-on-accent');
@@ -159,7 +186,12 @@ const ON_ACCENT = rgbOf('--c-on-accent');
 // correct once a script has run shows four blank buttons on a slow load.
 const atRest = await page.evaluate(() => window.readNav());
 eq('the shipped markup already reads as the Sprint default',
-   atRest.map((b) => b.label), MODE_KEYS.map((m) => MODE_LABELS[m]));
+   atRest.filter((b) => b.shown).map((b) => b.label), OPEN_KEYS.map((m) => MODE_LABELS[m]));
+eq('and ships a hidden slot for each closed mode, so reopening needs no markup',
+   atRest.length - atRest.filter((b) => b.shown).length, MODE_KEYS.length - OPEN_KEYS.length);
+ck(atRest.filter((b) => !b.shown).every((b) => !b.mode),
+   'and those spares carry no mode until one is put in them',
+   JSON.stringify(atRest.filter((b) => !b.shown).map((b) => b.mode)));
 // Colour used to identify the three modes you were NOT in. It identifies the
 // one you ARE in now: the current slot is filled in its own colour and the
 // other three are quiet and identical, which is the whole point of the
@@ -177,30 +209,39 @@ ck(atRest.filter((b) => !b.current).every((b) => b.color === QUIET),
    'and the others are quiet and identical',
    atRest.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
 
-const N = MODE_KEYS.length;
-for (const mode of MODE_KEYS) {
+const N = OPEN_KEYS.length;
+for (const mode of OPEN_KEYS) {
   const nav = await page.evaluate((m) => { window.setFlags({ [m]: true }); return window.readNav(); }, mode);
   const here = await page.evaluate(() => window.currentModeIs());
   eq(`in ${mode}, currentMode() agrees with the flags`, here, mode);
   // The whole point: four slots, always shown, and the mode you are in is
   // the marked one rather than the missing one.
-  ck(nav.length === N && nav.every((b) => b.shown), `in ${mode}, all ${N} slots are shown`,
-     JSON.stringify(nav.map((b) => b.shown)));
+  const open = nav.filter((b) => b.shown);
+  ck(open.length === N, `in ${mode}, all ${N} open slots are shown`,
+     JSON.stringify(nav.map((b) => b.mode + ':' + b.shown)));
+  ck(nav.filter((b) => !b.shown).length === MODE_KEYS.length - N,
+     `in ${mode}, the renderer puts the spare slots back down`,
+     JSON.stringify(nav.map((b) => b.mode + ':' + b.shown)));
+  const cols = await page.evaluate(() => window.readCols());
+  eq(`in ${mode}, the grid is as wide as the open modes`, cols.cols, String(N));
   eq(`in ${mode}, the mode you are in IS a button, and it is the marked one`,
      nav.filter((b) => b.current).map((b) => b.mode), [mode]);
-  eq(`in ${mode}, every mode is reachable`,
-     nav.map((b) => b.mode).sort(), [...MODE_KEYS].sort());
-  ck(nav.every((b) => b.label === MODE_LABEL(b.mode)), `in ${mode}, each slot is labelled with its mode`,
-     nav.map((b) => b.mode + '=' + b.label).join(' '));
+  eq(`in ${mode}, every open mode is reachable`,
+     open.map((b) => b.mode).sort(), [...OPEN_KEYS].sort());
+  ck(open.every((b) => b.label === MODE_LABEL(b.mode)), `in ${mode}, each slot is labelled with its mode`,
+     open.map((b) => b.mode + '=' + b.label).join(' '));
   // Colour travels with the mode, not with the button id. It now arrives as
   // a FILL on the current slot rather than as ink on the other three.
   ck(nav.find((b) => b.current).bg === RGB[mode],
      `in ${mode}, the marked slot is filled in that mode's colour`,
      nav.find((b) => b.current).bg + ' want ' + RGB[mode]);
-  ck(nav.filter((b) => !b.current).every((b) => b.color === QUIET),
+  ck(open.filter((b) => !b.current).every((b) => b.color === QUIET),
      `in ${mode}, the others stay quiet`,
-     nav.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
-  ck(new Set(nav.map((b) => b.mode)).size === N, `in ${mode}, no mode appears twice`, nav.map((b) => b.mode).join(','));
+     open.filter((b) => !b.current).map((b) => b.mode + ':' + b.color).join(' '));
+  ck(new Set(open.map((b) => b.mode)).size === N, `in ${mode}, no mode appears twice`, open.map((b) => b.mode).join(','));
+  // A closed mode must not be drawn anywhere, under any flag state.
+  ck(open.every((b) => !HIDDEN.has(b.mode)), `in ${mode}, no closed mode is on the nav`,
+     open.map((b) => b.mode).join(','));
 }
 function MODE_LABEL(m) { return MODE_LABELS[m]; }
 
@@ -209,7 +250,9 @@ function MODE_LABEL(m) { return MODE_LABELS[m]; }
 // screen. Marking the mode only once a flag flips means the nav still says
 // SPRINT a second after MARATHON was pressed, which reads as a missed tap on
 // a phone - so the nav marks where you are GOING while it is going there.
-for (const [from, to] of [['sprint', 'marathon'], ['marathon', 'sprint'], ['endless', 'gauntlet']]) {
+// Open modes only: goToMode refuses a closed one, so a switch to Marathon
+// never starts and there would be nothing for the nav to mark.
+for (const [from, to] of [['sprint', 'gauntlet'], ['gauntlet', 'sprint'], ['endless', 'clash']]) {
   const nav = await page.evaluate(([f, t]) => {
     window.setFlags({ [f]: true });   // still in the old mode: no flag has flipped
     window.setPending(t);
@@ -229,20 +272,22 @@ for (const [from, to] of [['sprint', 'marathon'], ['marathon', 'sprint'], ['endl
 }
 {
   // And when it lands, the flag is the only thing speaking again.
-  const nav = await page.evaluate(() => { window.setFlags({ marathon: true }); return window.readNav(); });
+  const nav = await page.evaluate(() => { window.setFlags({ gauntlet: true }); return window.readNav(); });
   eq('once the mode arrives the nav is back on the flags alone',
-     nav.filter((b) => b.current).map((b) => b.mode), ['marathon']);
+     nav.filter((b) => b.current).map((b) => b.mode), ['gauntlet']);
 }
 
 // Order is stable, so a slot does not jump between modes as you move around.
 const orders = {};
 for (const mode of MODE_KEYS) {
   orders[mode] = (await page.evaluate((m) => { window.setFlags({ [m]: true }); return window.readNav(); }, mode))
-    .map((b) => b.mode);
+    .filter((b) => b.shown).map((b) => b.mode);
 }
 // Stronger than it used to be: "stable" meant the relative order survived
-// while the SET changed. Now a mode's button never moves at all.
-const ORDER = MODE_KEYS;
+// while the SET changed. Now a mode's button never moves at all — including
+// when a closed mode sits between two open ones in the table, which must
+// close the gap rather than leave a dead slot in the middle of the row.
+const ORDER = OPEN_KEYS;
 eq('a mode\'s slot never moves, in any mode', orders,
    Object.fromEntries(MODE_KEYS.map((m) => [m, ORDER])));
 
@@ -257,7 +302,12 @@ for (const width of [280, 320, 360, 390, 428]) {
   await p.goto('file://' + tmp);
   await p.waitForTimeout(100);
   const r = await p.evaluate(() => {
-    const btns = [...document.querySelectorAll('.arcade-menu button')];
+    // Only the slots that are actually laid out. A spare for a closed mode
+    // is display:none, so it has no box to overflow and no row to sit on —
+    // measuring it reported a 6px spill on an empty button and counted a
+    // third row that is not on the screen.
+    const btns = [...document.querySelectorAll('.arcade-menu button')]
+      .filter((b) => getComputedStyle(b).display !== 'none');
     const spill = btns.map((b) => {
       const cs = getComputedStyle(b);
       const inner = b.getBoundingClientRect().width
@@ -300,7 +350,7 @@ ck(navWrites === 1, 'exactly one place in the file touches a nav slot', String(n
 // cannot be half-applied by a second entry point.
 ck(/onclick="window\.goToMode\(this\.dataset\.mode\)"/.test(html), 'the nav routes through goToMode');
 ck(/id="gauntlet-card-btn" onclick="window\.goToMode\('gauntlet'\)"/.test(html),
-   "the home screen's Daily Puzzle card routes through it too (it used to call openDailyGauntlet directly, which double-confirmed)");
+   "the home screen's Trifecta card routes through it too (it used to call openDailyGauntlet directly, which double-confirmed)");
 ck(!/window\.toggleMode\(\)|window\.toggleFfaMode\(\)/.test(html),
    'the old per-button toggles are gone, including from the invite-link path');
 
@@ -371,10 +421,10 @@ for (const m of ['await showModeIntro("gauntlet")', 'await showModeIntro("clash"
 
 // ===== 5. nothing changes mode on its own ================================
 //
-// The page used to land you on the Daily Puzzle after boot: refreshGauntletCard
+// The page used to land you on the Trifecta after boot: refreshGauntletCard
 // called maybeLandOnGauntlet, which called goToMode("gauntlet"), with a notice
 // on screen apologising for the jump. It read as a second page load, and the
-// fetch that drove it enrolled every signed-in visitor in that day's Daily Puzzle
+// fetch that drove it enrolled every signed-in visitor in that day's Trifecta
 // whether they played or not.
 //
 // It is gone, and the nav is the only way between modes. These pin that from
@@ -384,7 +434,7 @@ ck(!/maybeLandOnGauntlet/.test(html), 'the landing function is gone');
 
 const cardFn = between(html, 'async function refreshGauntletCard() {', '\n        }', 'refreshGauntletCard');
 ck(cardFn.length > 200, 'the card function was actually found', `${cardFn.length} chars`);
-ck(!/goToMode/.test(cardFn), 'the Daily Puzzle card renders, it does not move you');
+ck(!/goToMode/.test(cardFn), 'the Trifecta card renders, it does not move you');
 
 // The other place an automatic switch would live: the moment auth resolves.
 const authBody = between(html, 'onAuthStateChanged(auth, async (user) => {', '\n        });', 'auth handler');
@@ -483,12 +533,28 @@ const blurb = between(html, '<section id="site-intro">', 'Support the project', 
 ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
 ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
 const MODE_TOKENS = MODE_KEYS.map((m) => m === 'gauntlet' ? '--c-gauntlet' : '--c-' + m);
-for (const [mode, tok] of [['Sprint', '--c-sprint'], ['Stakes', '--c-endless'],
-                           ['Daily Puzzle', '--c-gauntlet'],
-                           ['Clash', '--c-clash'], ['FFA', '--c-ffa']]) {
-  const re = new RegExp('<strong style="color:var\\(' + tok + '\\);">' + mode + '</strong>');
-  ck(re.test(blurb), `the blurb names ${mode} in its own colour (${tok})`,
-     (blurb.match(new RegExp('<strong[^>]*>' + mode + '</strong>')) || ['missing'])[0]);
+// What a reader actually sees. A closed mode's line is parked in a <template>
+// rather than deleted, which is inert and unindexed — so it is stripped here
+// before asking what the page says.
+const blurbShown = blurb.replace(/<template[\s\S]*?<\/template>/g, '');
+// Derived from the table rather than listed. The list here carried the mode
+// NAMES as well as their colours, so renaming a mode failed this as a missing
+// colour, which is not what went wrong.
+const TOK_FOR = (m) => '--c-' + (m === 'endless' ? 'endless' : m);
+for (const m of OPEN_KEYS) {
+  const tok = TOK_FOR(m);
+  const g = blurbShown.match(new RegExp('<strong style="color:var\\(' + tok + '\\);">([^<]+)</strong>'));
+  ck(!!g, `the blurb names the ${m} mode in its own colour (${tok})`,
+     (blurbShown.match(new RegExp('<strong[^>]*' + tok + '[^>]*>[^<]*</strong>')) || ['missing'])[0]);
+  if (g) eq(`and calls it what the nav calls it`, g[1].toUpperCase(), MODE_LABELS[m]);
+}
+for (const m of MODE_KEYS.filter((x) => HIDDEN.has(x))) {
+  const tok = TOK_FOR(m);
+  ck(!new RegExp('<strong style="color:var\\(' + tok + '\\);">').test(blurbShown),
+     `a closed mode is not pitched on the front page (${m})`, blurbShown.slice(0, 0));
+  // Parked, not deleted — the wording is there for the day it reopens.
+  ck(new RegExp('<strong style="color:var\\(' + tok + '\\);">').test(blurb),
+     `but its line is kept for when it reopens (${m})`, blurb.slice(0, 0));
 }
 // And those colours are the mode table's, not a second opinion.
 const tableTokens = [...between(html, 'const MODES = {', '\n        };', 'MODES')
@@ -504,7 +570,7 @@ const items = [...blurb.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1].
 eq('one line per mode', items.length, MODE_KEYS.length);
 ck(items.every((x) => x.length <= 130), 'each stays to a line', items.map((x) => x.length).join(','));
 
-// Leaving the Daily Puzzle says where it puts you. It said "Back to Arcade",
+// Leaving the Trifecta says where it puts you. It said "Back to Arcade",
 // which names nothing the player can see anywhere else in the app.
 ck(!/Back to Arcade/.test(html), 'no button still offers to go "Back to Arcade"');
 // Scoped to buttons that name a MODE — "Back to List" and "Back to Game" are
@@ -515,17 +581,28 @@ ck(!backs.some((x) => x === 'Arcade' || x === 'Standard'),
 ck(backs.filter((x) => x === 'Stakes').length >= 3,
    'the three that do name a mode all say Stakes, where they actually land you', backs.join(','));
 
-// ===== 6b. the Daily Puzzle's length, and the waiting that came with it ======
+// ===== 6b. the Trifecta's length, and the waiting that came with it ======
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
 const GCOUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
-eq('the Daily Puzzle is seven words', GCOUNT, 7);
-const gwant = JSON.parse(fnSrc.match(/const want = (\[[^\]]*\]);/)[1]);
-eq('and the draw still ramps across three tiers', gwant, [2, 3, 2]);
+eq('the Trifecta is three words', GCOUNT, 3);
+// Run, not parsed. The split is derived from the count now, so there is no
+// literal here to read — see gauntlet-archive-pages, which checks it against
+// the archive's own copy of the same formula at every length.
+const wantSrc = fnSrc.match(/const outer = Math\.floor\(DAILY_GAUNTLET_WORD_COUNT \/ 3\);\n\s*const want = \[[^\]]*\];/)[0];
+// eslint-disable-next-line no-new-func
+const gwant = new Function('DAILY_GAUNTLET_WORD_COUNT', `${wantSrc}; return want;`)(GCOUNT);
+eq('and the draw still spans all three tiers', gwant, [1, 1, 1]);
 ck(gwant.reduce((a, b) => a + b, 0) === GCOUNT, 'the tiers sum to the puzzle length',
    `${gwant} vs ${GCOUNT}`);
-// Five was the other option. It is rejected here rather than in a comment: the
-// outer tiers collapse to 1 and the ramp stops being a ramp.
-ck(gwant.every((x) => x >= 2), 'no tier is thin enough to make the ramp meaningless', String(gwant));
+// This used to read "no tier is thin enough to make the ramp meaningless" and
+// demanded two of each, which was the right instinct written as the wrong
+// rule: what made five words a bad shape was [1, 3, 1] — lopsided, nearly all
+// medium — and not the 1s themselves. Three words is [1, 1, 1], which is the
+// most even draw there is. So the rule is evenness, which still rejects five
+// and now says why.
+ck(Math.max(...gwant) - Math.min(...gwant) <= 1,
+   'and no tier is more than one word wider than another', String(gwant));
+ck(gwant.every((x) => x >= 1), 'with every tier represented at all', String(gwant));
 
 // The two enforced waits. Both run AFTER the server has graded the guess, so
 // they are presentation, not protection — see the note at the call site and
@@ -539,7 +616,7 @@ const betweenWords = Number(html.match(/setTimeout\(startDailyRound, (\d+)\)/)[1
 ck(betweenWords <= 600, 'the gap between words is trimmed', String(betweenWords));
 // Roughly 3.7 guesses a word is a normal run; this is the dead time it buys.
 const deadMs = GCOUNT * 3.7 * perGuess + GCOUNT * betweenWords;
-ck(deadMs < 30000, 'a whole Daily Puzzle spends under 30s waiting on animations',
+ck(deadMs < 30000, 'a whole Trifecta spends under 30s waiting on animations',
    `${Math.round(deadMs / 1000)}s`);
 
 // Nothing about the delay may claim to be a security control, because it is
@@ -551,7 +628,7 @@ ck(/guesses\.length >= DAILY_GAUNTLET_MAX_GUESSES/.test(guessFn.slice(0, 2000)),
 
 // You can stop and come back — said where players will see it, and true.
 ck(/pick up where you left off/.test(between(html, 'const MODE_INTRO = {', '\n        };', 'MODE_INTRO')),
-   'the Daily Puzzle intro card says you can stop and resume');
+   'the Trifecta intro card says you can stop and resume');
 const startDaily = between(html, 'function startDailyRound() {', '\n        }', 'startDailyRound');
 ck(/wordEntry\.guesses\.forEach/.test(startDaily) && /currentRow = wordEntry\.guesses\.length/.test(startDaily),
    'and resuming really does replay the guesses already made on that word, so the claim is true');
@@ -565,7 +642,7 @@ ck(!/\ball ten\b/i.test(html.replace(/<!--[\s\S]*?-->/g, '').replace(/(^|\s)\/\/
 ck(/<section id="site-intro"/.test(html), 'the support note is on the page');
 ck(/Support the project/.test(html), 'and still says what it is');
 ck(!/getElementById\("site-intro"\)/.test(html) && !/#site-intro\s*\{[^}]*display:\s*none/.test(html),
-   'nothing ever hides it, so it sits under Stakes, the Daily Puzzle, Clash and FFA alike');
+   'nothing ever hides it, so it sits under Stakes, the Trifecta, Clash and FFA alike');
 const panels = between(html, 'function showStandardPanels(visible) {', '\n        }', 'showStandardPanels');
 ck(!/site-intro/.test(panels), 'the mode-switch panel toggle does not touch it either');
 

@@ -114,8 +114,10 @@ const H = new Function('WORD_DIFFICULTY', 'DAILY_TARGET_WORDS',
   eq('an excluded word never appears in the Daily draw, over 280 draws', leaked, 0);
   // Without an exclusion the Daily still works, which is what the scheduled
   // path relied on before Sprint existed.
-  ck(H.pickDailyWords(null, new Set()).length === 7, 'and an empty exclusion still yields a full puzzle');
-  ck(H.pickDailyWords(null).length === 7, 'as does no exclusion at all');
+  const GCOUNT = Number(fn.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
+  ck(H.pickDailyWords(null, new Set()).length === GCOUNT,
+     `and an empty exclusion still yields a full puzzle of ${GCOUNT}`);
+  ck(H.pickDailyWords(null).length === GCOUNT, 'as does no exclusion at all');
 }
 
 // ---- the streak -----------------------------------------------------------
@@ -196,7 +198,7 @@ const dayGuard = (fn.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
 ck(/run\.mode !== "sprint"/.test(dayGuard),
    'a Sprint never lands on the "best run today" board', dayGuard);
 ck(/run\.mode !== "daily"/.test(dayGuard),
-   'and the Daily Puzzle is still excluded alongside it', dayGuard);
+   'and the Trifecta is still excluded alongside it', dayGuard);
 
 // ---- career counters -------------------------------------------------------
 const career = fn.slice(fn.indexOf('Sprint\'s career record'), fn.indexOf('The recurring board'));
@@ -313,6 +315,10 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
   const modesSrc = (html.match(/        const MODES = \{\n[\s\S]*?\n        \};/) || [''])[0];
   const curSrc = (html.match(/        function currentMode\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
 
+  // Trifecta, not Marathon: Marathon is hidden in the table now and goToMode
+  // refuses a hidden mode, so a switch to it never starts. That refusal is
+  // worth its own case, below, rather than being the case everything else
+  // accidentally tests.
   const go = async (target, { from = 'sprint', opens = true, throws = false } = {}) => {
     const log = [];
     const rec = (n) => (...a) => { log.push(n); };
@@ -367,21 +373,30 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
   };
 
   {
-    const o = await go('marathon');
-    eq('leaving Sprint for Marathon goes leave, then wait, then open',
+    const o = await go('gauntlet');
+    eq('leaving Sprint for Trifecta goes leave, then wait, then open',
        o.log.filter((l) => /^(leaveSprint|enterModeLoading|open):?/.test(l) || l.startsWith('enterModeLoading')),
-       ['leaveSprint', 'enterModeLoading:marathon', 'open:marathon']);
+       ['leaveSprint', 'enterModeLoading:gauntlet', 'open:gauntlet']);
     // The decisive one: the waiting state is up BEFORE the open, because the
     // open is where the round trip is and the round trip is what gets seen.
-    ck(o.log.indexOf('enterModeLoading:marathon') < o.log.indexOf('open:marathon'),
+    ck(o.log.indexOf('enterModeLoading:gauntlet') < o.log.indexOf('open:gauntlet'),
        'and the waiting state is up before the call that waits', o.log.join(' -> '));
-    eq('the nav says Marathon for the whole of the wait', o.log.find((l) => l.startsWith('pendingDuringOpen')), 'pendingDuringOpen:marathon');
-    eq('and stops saying it once Marathon is actually there', o.pendingMode, null);
+    eq('the nav says Trifecta for the whole of the wait', o.log.find((l) => l.startsWith('pendingDuringOpen')), 'pendingDuringOpen:gauntlet');
+    eq('and stops saying it once Trifecta is actually there', o.pendingMode, null);
     ck(!o.log.includes('showStandardSurface'),
        'with no detour through the Stakes screen at all', o.log.join(' -> '));
   }
   {
-    const o = await go('endless', { from: 'marathon' });
+    // A closed mode is unreachable, not merely unlisted. An old invite link,
+    // a cached page or a bookmarked onclick would otherwise walk into a lobby
+    // nobody can fill — and would do it THROUGH the teardown above, leaving
+    // the player on a loading line for a mode that is never coming.
+    const o = await go('marathon');
+    eq('a closed mode is refused outright', o.log, []);
+    eq('without tearing down the mode they are in', o.landedOn, 'sprint');
+  }
+  {
+    const o = await go('endless', { from: 'gauntlet' });
     // Stakes IS what the leave path painted, so there is nothing to wait for.
     ck(!o.log.some((l) => l.startsWith('enterModeLoading')),
        'going back to Stakes raises no waiting state, since it is already there', o.log.join(' -> '));
@@ -390,14 +405,14 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
     // Every bail is silent as far as the screen is concerned: no account, a
     // guest refused the Daily, a callable that failed. Leaving the player on
     // a header for a mode that never arrived is worse than the flash was.
-    const o = await go('marathon', { opens: false });
+    const o = await go('gauntlet', { opens: false });
     ck(o.log.includes('showStandardSurface'),
        'an open that bails puts the player back on Stakes', o.log.join(' -> '));
     eq('and the nav stops claiming the mode that never arrived', o.pendingMode, null);
     eq('which is where they end up', o.landedOn, 'endless');
   }
   {
-    const o = await go('marathon', { throws: true });
+    const o = await go('gauntlet', { throws: true });
     eq('an open that throws still clears the nav, because the clear is in a finally',
        o.pendingMode, null);
     ck(o.log.includes('threw'), 'the throw itself is not swallowed', o.log.join(' -> '));
@@ -433,6 +448,51 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
      'and names the mode in its own colour, out of the one table', enter);
 }
 
+// ---- the Trifecta card is off the other modes' screens ------------------------
+// It sat under the Stakes board pitching a different mode every time you
+// chose this one. Off by a flag rather than deleted, like a closed mode: the
+// card, its countdown and its standing line are all still here.
+{
+  ck(/const SHOW_TRIFECTA_CARD = false;/.test(html),
+     'the cross-sell card is switched off', (html.match(/const SHOW_TRIFECTA_CARD = \w+;/) || [''])[0]);
+  ck(/getElementById\("gauntlet-card"\)\.style\.display = \(visible && SHOW_TRIFECTA_CARD\)/.test(html),
+     'and the Stakes panels no longer bring it up with them');
+  // The choke point. Several callers paint this card, and gating them one by
+  // one is how one gets missed - this one also stops its countdown starting.
+  const card = (html.match(/        async function refreshGauntletCard\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/^\s*\/\/[\s\S]*?if \(!SHOW_TRIFECTA_CARD\) return;/m.test(card)
+     || /if \(!SHOW_TRIFECTA_CARD\) return;/.test(card),
+     'and the card itself refuses to be painted', card.slice(0, 260));
+  ck(/<div id="gauntlet-card" style="display:none;">/.test(html),
+     'and it ships hidden, so it is never up before the script runs');
+}
+
+// ---- a closed mode takes its tabs with it -------------------------------------
+// The nav is handled by renderModeNav; this is everywhere else a mode's name
+// appears. Run for real, because the point is which elements it reaches for.
+{
+  const src = (html.match(/        function applyHiddenModeUi\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!src, 'applyHiddenModeUi is findable', src.slice(0, 60));
+  const modesSrc = (html.match(/        const MODES = \{\n[\s\S]*?\n        \};/) || [''])[0];
+  const els = {};
+  // Every tab the page actually ships, so a mode with no tab is not invented.
+  for (const id of ['tab-clash', 'tab-ffa', 'tab-prof-clash', 'tab-prof-ffa',
+                    'tab-prof-gauntlet', 'tab-daily']) els[id] = { style: { display: 'LEFT ALONE' } };
+  // eslint-disable-next-line no-new-func
+  new Function('document', `${modesSrc}
+    const MODE_ORDER = Object.keys(MODES);
+    ${src}; applyHiddenModeUi();`)({ getElementById: (id) => els[id] || null });
+
+  eq('a closed mode loses its leaderboard tab', els['tab-ffa'].style.display, 'none');
+  eq('and its profile tab', els['tab-prof-ffa'].style.display, 'none');
+  eq('an open mode keeps its leaderboard tab', els['tab-clash'].style.display, '');
+  eq('and its profile tab', els['tab-prof-clash'].style.display, '');
+  eq('and so does Trifecta, whose tab is keyed on the mode name it has always had',
+     els['tab-prof-gauntlet'].style.display, '');
+  // tab-daily is the leaderboard PERIOD, not a mode. Nothing should touch it.
+  eq('a tab that is not a mode is left alone entirely', els['tab-daily'].style.display, 'LEFT ALONE');
+}
+
 // The nav answers the tap, not the server.
 {
   const nav = (html.match(/        function renderModeNav\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
@@ -452,15 +512,23 @@ ck(/grid-template-columns: repeat\(var\(--mode-cols, 4\), minmax\(0, 1fr\)\)/.te
 // Presence only. The VALUE is checked against the mode table below, which is
 // the assertion that cannot go stale — this one hardcoded 5 and broke the
 // moment a sixth mode arrived, reporting a layout bug that did not exist.
-ck(/<nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: \d+;">/.test(html),
+ck(/<nav class="arcade-menu" aria-label="Game mode" style="--mode-cols: \d+; --mode-cols-narrow: \d+;">/.test(html),
    'and the markup carries it, so the nav is laid out correctly before any script runs');
 {
   const modes = (html.match(/const MODES = \{[\s\S]*?\n        \};/) || [''])[0];
   const count = (modes.match(/^\s{12}\w+:/gm) || []).length;
-  const declared = Number((html.match(/style="--mode-cols: (\d+);"/) || [])[1]);
-  eq('the markup\'s column count matches the number of modes in the table', declared, count);
+  const hidden = (modes.match(/hidden: true/g) || []).length;
+  const declared = Number((html.match(/style="--mode-cols: (\d+);/) || [])[1]);
+  eq('the markup declares a column per mode a player can reach', declared, count - hidden);
+  // A hidden mode keeps its button so the table alone can bring it back;
+  // renderModeNav hides the spares. So there is a button for every mode in
+  // the table, not for every column.
   const buttons = ((html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0].match(/<button/g) || []).length;
-  eq('and so does the number of buttons', buttons, count);
+  eq('and there is still a button for every mode in the table', buttons, count);
+  // Four modes across three columns is a row of three and an orphan. The
+  // narrow count has to divide them.
+  const narrow = Number((html.match(/--mode-cols-narrow: (\d+);/) || [])[1]);
+  eq('and the phone wraps them into full rows', (count - hidden) % narrow, 0);
 }
 
 
@@ -809,7 +877,7 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
 // share button live under the standings as well, so there is something there.
 {
   const panel = html.slice(html.indexOf('<div id="sprint-done-panel"'),
-                           html.indexOf('<!-- Daily Puzzle headline card'));
+                           html.indexOf('<!-- Trifecta headline card'));
   ck(panel.length > 100 && panel.length < 2000, 'the panel is findable', 'length ' + panel.length);
 
   // Under the board, not over it. The button that gets you here promised the
@@ -837,7 +905,7 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
 // Its own share button, which has to be the one that reports back.
 {
   const panel = html.slice(html.indexOf('<div id="sprint-done-panel"'),
-                           html.indexOf('<!-- Daily Puzzle headline card'));
+                           html.indexOf('<!-- Trifecta headline card'));
   ck(/id="btn-sprint-share-panel"/.test(panel), 'the panel has a share button of its own');
   ck(/class="btn-primary" id="btn-sprint-share-panel"/.test(panel),
      'styled as the primary action, since on this screen it is the only one');

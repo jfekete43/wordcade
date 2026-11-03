@@ -4,8 +4,8 @@
  * This exists because they quietly stopped agreeing, three separate times,
  * and nothing noticed:
  *
- *   - The Daily Puzzle was taken off the leaderboard, but the in-app How To Play
- *     still listed a "Daily Puzzle (today only)" tab and told players where to
+ *   - The Trifecta was taken off the leaderboard, but the in-app How To Play
+ *     still listed a "Trifecta (today only)" tab and told players where to
  *     find a board that no longer existed.
  *   - FFA got its own rating, but faq.html and how-to-play.html both still
  *     said Clash and FFA "feed one MMR rating" — the exact claim the change
@@ -155,57 +155,82 @@ ok('and a visible label for every one of them',
    tabButtons.every((t) => t.label.length > 0), JSON.stringify(tabButtons));
 const lbLine = (text['index.html'].match(/Leaderboards:[^.]*\./) || [''])[0];
 ok('the in-app list names a leaderboard line at all', !!lbLine, lbLine);
-for (const { label } of tabButtons) {
-  ok(`the documented leaderboards include ${label}`, lbLine.includes(label), lbLine);
+// A mode can be closed without being deleted (MODES[...].hidden), and its
+// leaderboard tab goes with it. Read out of the table rather than listed
+// here, so closing or reopening a mode is still a one-word edit.
+const hiddenModes = new Set([...pages['index.html']
+  .matchAll(/^\s+(\w+):\s+\{ label:[^\n]*hidden: true/gm)].map((m) => m[1]));
+ok('the mode table says which modes are closed', hiddenModes.size >= 0, [...hiddenModes].join(','));
+for (const { id, label } of tabButtons) {
+  if (hiddenModes.has(id)) {
+    // Not merely "allowed to be missing": documenting a board nobody can
+    // reach is how the three failures in the header above happened.
+    ok(`${label} is closed, so the rules do not list its leaderboard`,
+       !lbLine.includes(label), lbLine);
+  } else {
+    ok(`the documented leaderboards include ${label}`, lbLine.includes(label), lbLine);
+  }
 }
-ok('no Daily Puzzle leaderboard tab is documented, because none exists',
-   actualTabs.includes('gauntlet') === /Daily Puzzle \(today only\)|Daily Puzzle leaderboard tab/i.test(allProse));
+ok('no Trifecta leaderboard tab is documented, because none exists',
+   actualTabs.includes('gauntlet') === /Trifecta \(today only\)|Trifecta leaderboard tab/i.test(allProse));
 ok('FFA is no longer documented as ranking on wins',
    !/FFA \(win count\)|FFA.{0,20}ranked by (?:total )?wins/i.test(allProse));
 
-// ---- 4b. the Daily Puzzle's finish rule, stated in one place and described in many
+// ---- 4b. the Trifecta's finish rule, stated in one place and described in many
 // The rule lives in one expression in functions/index.js. The last time it
 // changed, the sentence describing it had spread to seven pages — the in-app
-// How To Play, the onboarding slide, the Daily Puzzle card (in four separate string
+// How To Play, the onboarding slide, the Trifecta card (in four separate string
 // literals that had to agree), how-to-play, faq, about, strategy, and the
 // archive generator — and a survey of the repo was the only thing that found
 // them all. So the rule is read out of the code, and the prose is held to it.
 const suddenDeath = /gauntletFinished\s*=\s*wordFinished\s*&&\s*\(/.test(fn);
-ok('the Daily Puzzle finish rule is readable in the server', /const gauntletFinished\s*=/.test(fn));
+ok('the Trifecta finish rule is readable in the server', /const gauntletFinished\s*=/.test(fn));
 ok('the server plays every word', !suddenDeath && /gauntletFinished = wordFinished && newWordIndex >= attempt\.wordCount/.test(fn));
 // Phrases that are only true when a miss ends the run. Scoped to sentences that
-// also mention the Daily Puzzle, so Standard's own wipeout rule is left alone.
+// also mention the Trifecta, so Standard's own wipeout rule is left alone.
+// The count is read out of the server and spelled, so the sentences this
+// suite polices follow the code instead of a number typed in a test. The
+// last change moved it from ten to seven; this one moves it to three.
+const GWORD = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+               'eight', 'nine', 'ten'][Number(fn.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1])];
+if (!GWORD) throw new Error('no word for DAILY_GAUNTLET_WORD_COUNT');
 const gauntletSentences = allProse.split(/(?<=[.!?])\s+/)
-  .filter((x) => /gauntlet/i.test(x) || /seven words|all seven/i.test(x));
+  .filter((x) => /gauntlet|trifecta/i.test(x)
+    || new RegExp(`${GWORD} words|all ${GWORD}`, 'i').test(x));
 const suddenDeathClaims = gauntletSentences.filter((x) =>
   /(a |one |single )?miss(ing)? (a word )?ends? the (whole )?run/i.test(x)
   || /no second chances/i.test(x)
   || /one shot each/i.test(x)
   || /staying alive/i.test(x)
   || /the run stops there/i.test(x));
-ok('no page still says a missed word ends the Daily Puzzle run',
+ok('no page still says a missed word ends the Trifecta run',
    suddenDeath || suddenDeathClaims.length === 0, suddenDeathClaims.join(' || ').slice(0, 300));
 // And the rule is actually stated somewhere a player will read it, rather than
 // merely not contradicted.
 ok('the rules page says you play every word',
-   /play all seven|plays all seven|all seven words whatever happens/i.test(text['how-to-play.html']),
-   text['how-to-play.html'].slice(0, 0));
+   new RegExp(`play all ${GWORD}|plays all ${GWORD}|all ${GWORD} words whatever happens`, 'i')
+     .test(text['how-to-play.html']), GWORD);
 // One sentence, written out six times: once in the card's markup, three times
-// as string literals in the card's branches, once in the Daily Puzzle's intro card
+// as string literals in the card's branches, once in the Trifecta's intro card
 // and once in the homepage blurb. Three of them carry a tail after an em-dash
 // ("free account required", and the two that add "the same ten, once a day"),
 // so the comparison is of the shared opening — the part that has to agree.
-const cardLines = [...pages['index.html'].matchAll(/Seven words,[^"<]{0,120}/g)]
+const cardLines = [...pages['index.html'].matchAll(// "five guesses each" is what makes this the CARD sentence rather than
+// any sentence that happens to count the words: the in-app rules say
+// "the identical three words, one attempt each", which is a different
+// claim and has no "all three" to line up on.
+  new RegExp(`${GWORD} words, five guesses each[^"<]{0,120}`, 'gi'))]
   .map((m) => m[0].split('\\u2014')[0].split('\u2014')[0])
-  .map((x) => x.slice(0, x.indexOf('all seven') + 'all seven'.length))
+  .map((x) => x.toLowerCase())
+  .map((x) => x.slice(0, x.indexOf(`all ${GWORD}`) + `all ${GWORD}`.length))
   .map((x) => x.replace(/[.\s]+$/, '').trim());
-ok('the Daily Puzzle sentence is written in all six places', cardLines.length === 6, JSON.stringify(cardLines));
+ok('the Trifecta sentence is written in all six places', cardLines.length === 6, JSON.stringify(cardLines));
 ok('and says the same thing in every one of them',
    cardLines.length > 0 && new Set(cardLines).size === 1, JSON.stringify(cardLines));
 
 // ---- 4c. the board's tiebreak, documented because players can see it -----
 const boardOrders = [...pages['index.html'].matchAll(/orderBy\("score", "desc"\), orderBy\("(\w+)", "desc"\)/g)].map((m) => m[1]);
-ok('the Daily Puzzle board breaks ties on a second key', boardOrders.length >= 2, boardOrders.join(','));
+ok('the Trifecta board breaks ties on a second key', boardOrders.length >= 2, boardOrders.join(','));
 ok('and that key is words solved', boardOrders.every((f) => f === 'wordsGuessed'), boardOrders.join(','));
 ok('the rules page itself says what the tiebreak is, since the board shows it',
    /solved more words|who solved more|then by words solved/i.test(text['how-to-play.html']),
@@ -399,14 +424,14 @@ ok('no preset phrase is longer than the free-text limit',
     ok(`${p}'s palette is identical to index.html's`, roots[p] === base,
        roots[p] === base ? '' : 'differs');
   }
-  // The Daily Puzzle archive is a NINTH copy, and the one that got missed: 34
+  // The Trifecta archive is a NINTH copy, and the one that got missed: 34
   // public pages, every one of them in the sitemap, still on the dark build a
   // week after everything else moved — because this check only ever looked at
   // the hand-written pages at the repo root. They are generated, so the
   // renderer is what has to agree; the pages follow on the next daily run.
   const renderer = fs.readFileSync(REPO('tools/gauntlet-archive-render.mjs'), 'utf8').replace(/\r\n/g, '\n');
   const rRoot = (renderer.match(/:root \{[\s\S]*?\n        \}/) || [])[0];
-  ok('the Daily Puzzle archive renderer carries the palette', !!rRoot);
+  ok('the Trifecta archive renderer carries the palette', !!rRoot);
   ok("and it is identical to index.html's", rRoot === base, rRoot === base ? '' : 'differs');
   {
     const style = renderer.slice(renderer.indexOf('const STYLE = `'), renderer.indexOf('`;', renderer.indexOf('const STYLE = `')));

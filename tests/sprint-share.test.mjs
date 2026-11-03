@@ -3,7 +3,7 @@
  *
  * Sharing is not a nice-to-have in a one-word-a-day mode; it is the whole
  * distribution mechanism, which is why this is pinned as tightly as the
- * Daily Puzzle's.
+ * Trifecta's.
  *
  * Four things it holds:
  *

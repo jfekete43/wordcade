@@ -127,7 +127,7 @@ const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 // board can be compared to.
 const dayGuard = (fnSrc.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
 ck(/run\.mode !== "daily"/.test(dayGuard),
-   'because the Daily Puzzle is still excluded from the field that tab reads', dayGuard);
+   'because the Trifecta is still excluded from the field that tab reads', dayGuard);
 ck(/run\.mode !== "sprint"/.test(dayGuard),
    'and Sprint is excluded from it too', dayGuard);
 ck(!/>Daily</.test(tabsMarkup), 'and no tab on this board says Daily at all', tabsMarkup.slice(0, 120));

@@ -205,10 +205,24 @@ ck(/if \(snap\.exists\) return;/.test(gen),
    'and a month already in progress is never overwritten, which would void everyone\'s score');
 
 // ---- the client ------------------------------------------------------------------
-ck(/marathon: \{ label: "MARATHON", cls: "mode-marathon", color: "var\(--c-marathon\)" \}/.test(html),
-   'the mode table carries Marathon');
-ck(/<button class="mode-nav-btn mode-marathon" id="btn-nav-6" data-mode="marathon"/.test(html),
-   'and the nav ships a button for it');
+// Marathon is CLOSED, not deleted: it is off the nav and goToMode refuses it,
+// and every other assertion in this file still has to pass. That is the whole
+// claim being made by hiding a mode instead of ripping it out — the puzzle
+// generator, the rules, the screens, the handlers and the scoring are all
+// still here and still correct, so reopening it is deleting one word.
+ck(/marathon: \{ label: "MARATHON", cls: "mode-marathon", color: "var\(--c-marathon\)",\s+hidden: true \}/.test(html),
+   'Marathon is in the table, closed rather than deleted',
+   (html.match(/marathon: \{[^}]*\}/) || [''])[0]);
+{
+  const nav = (html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0];
+  const buttons = (nav.match(/<button/g) || []).length;
+  const modes = (html.match(/const MODES = \{[\s\S]*?\n        \};/) || [''])[0];
+  const count = (modes.match(/^\s{12}\w+:/gm) || []).length;
+  // renderModeNav fills a slot per visible mode and hides the rest, so the
+  // markup has to keep a slot for every mode in the table or reopening one
+  // would need a markup edit as well.
+  eq('and the nav still ships a slot it can come back into', buttons, count);
+}
 ck(/if \(isMarathonMode\) \{ submitMarathonGuess\(\); \}/.test(html),
    'typing in Marathon reaches the Marathon handler, not checkGuess');
 ck(/else if \(target === "marathon"\) await window\.openMarathon\(\);/.test(html),
@@ -239,11 +253,12 @@ ck(/marathonWords/.test(board), 'and show how far through each player is');
 {
   const modes = (html.match(/const MODES = \{[\s\S]*?\n        \};/) || [''])[0];
   const count = (modes.match(/^\s{12}\w+:/gm) || []).length;
-  const declared = Number((html.match(/style="--mode-cols: (\d+);"/) || [])[1]);
-  eq('the markup\'s column count still matches the mode table', declared, count);
+  const hidden = (modes.match(/hidden: true/g) || []).length;
+  const declared = Number((html.match(/style="--mode-cols: (\d+);/) || [])[1]);
+  eq('the markup declares a column per mode a player can reach', declared, count - hidden);
   const buttons = ((html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0].match(/<button/g) || []).length;
-  eq('and so does the number of buttons', buttons, count);
-  eq('which is six now', count, 6);
+  eq('and a button for every mode in the table, open or closed', buttons, count);
+  eq('which is six written, four open', [count, count - hidden], [6, 4]);
 }
 
 

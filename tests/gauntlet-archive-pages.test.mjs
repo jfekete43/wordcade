@@ -1,11 +1,11 @@
 /*
- * The static Daily Puzzle archive pages.
+ * The static Trifecta archive pages.
  *
  * One rule here matters more than all the others: a page must NEVER be
  * produced for a date that is still today in Eastern time. The answers to
  * today's puzzle live only on the server; publishing them kills the day for
  * everyone who hasn't played. The comparison is DST-sensitive, and this
- * codebase has already shipped one off-by-an-hour date bug (the Daily Puzzle
+ * codebase has already shipped one off-by-an-hour date bug (the Trifecta
  * countdown, caught before release), so the boundary is tested on both
  * transition days rather than assumed.
  *
@@ -60,7 +60,7 @@ ok('the publishable list never contains today', !dates.includes('2026-09-25'));
 ok('every date in the list passes isPublishable', dates.every((d) => R.isPublishable(d, now)));
 
 // ---- 2. puzzle numbering -------------------------------------------------
-ok('the epoch is Daily Puzzle #1', R.gauntletNumber(R.GAUNTLET_EPOCH) === 1, String(R.gauntletNumber(R.GAUNTLET_EPOCH)));
+ok('the epoch is Trifecta #1', R.gauntletNumber(R.GAUNTLET_EPOCH) === 1, String(R.gauntletNumber(R.GAUNTLET_EPOCH)));
 ok('numbering counts days, not rows', R.gauntletNumber('2026-09-24') === 23, String(R.gauntletNumber('2026-09-24')));
 ok('a pre-epoch date has no number', R.gauntletNumber('2026-08-30') === null);
 ok('numbering survives a DST change', R.gauntletNumber('2026-11-02') - R.gauntletNumber('2026-10-31') === 2,
@@ -70,13 +70,33 @@ ok('shiftDate crosses a DST boundary without drifting',
 
 // ---- 3. tiers reflect how pickDailyWords actually draws ------------------
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
-const want = JSON.parse(fnSrc.match(/const want = (\[[^\]]*\]);/)[1]);
 const COUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
+// The server's split is derived from the count rather than written out, so
+// this runs the server's own two lines instead of parsing a literal. It used
+// to JSON.parse `const want = [2, 3, 2]`, which stopped being a literal the
+// day the count moved — and a test that can only read a constant cannot check
+// a formula.
+const wantSrc = fnSrc.match(/const outer = Math\.floor\(DAILY_GAUNTLET_WORD_COUNT \/ 3\);\n\s*const want = \[[^\]]*\];/)[0];
+// eslint-disable-next-line no-new-func
+const serverWant = new Function('DAILY_GAUNTLET_WORD_COUNT', `${wantSrc}; return want;`);
+const want = serverWant(COUNT);
 ok('the draw sums to the puzzle length', want.reduce((a, b) => a + b, 0) === COUNT, `${want} sums to ${want.reduce((a, b) => a + b, 0)}, puzzle is ${COUNT}`);
-// Derived from the count now, not a constant: the archive renders every past
-// day and the Daily Puzzle has not always been the same length.
-ok('tier sizes match pickDailyWords in the functions source',
-   JSON.stringify(R.tierSizesFor(COUNT)) === JSON.stringify(want), `${R.tierSizesFor(COUNT)} vs ${want}`);
+// Not just at today's count. The archive renders every past day, and the
+// puzzle has been ten words, then seven, now three — so the generator and the
+// labeller have to agree at every length, not only the current one.
+let agreeAt = [];
+for (let n = 1; n <= 24; n++) {
+  if (JSON.stringify(serverWant(n)) !== JSON.stringify(R.tierSizesFor(n))) agreeAt.push(n);
+}
+ok('tier sizes match pickDailyWords at every puzzle length, not just today\'s',
+   agreeAt.length === 0, 'disagree at ' + agreeAt.join(','));
+ok('and the live count is one of each', JSON.stringify(serverWant(3)) === '[1,1,1]', JSON.stringify(serverWant(3)));
+// A three-word day is one of each, which is the whole reason the split is
+// derived: the literal [2,3,2] would have drawn seven and kept the three
+// easiest, retiring the Hard tier without a word of warning.
+ok('a three-word day is one Easy, one Medium, one Hard',
+   R.tierOf(0, 3) === 'Easy' && R.tierOf(1, 3) === 'Medium' && R.tierOf(2, 3) === 'Hard',
+   [0, 1, 2].map((i) => R.tierOf(i, 3)).join('/'));
 ok('positions 1-2 are Easy', [0, 1].every((i) => R.tierOf(i, 7) === 'Easy'));
 ok('positions 3-5 are Medium', [2, 3, 4].every((i) => R.tierOf(i, 7) === 'Medium'));
 ok('positions 6-7 are Hard', [5, 6].every((i) => R.tierOf(i, 7) === 'Hard'));
@@ -238,7 +258,7 @@ ok('distribution has a bucket per outcome', dist.length === R.WORD_COUNT + 1, St
 const day = { date: '2026-09-24', words: WORDS, runs, attempts, prev: '2026-09-23', next: null };
 const page = R.renderDayPage(day);
 ok('the page is a complete document', page.startsWith('<!DOCTYPE html>') && page.trimEnd().endsWith('</html>'));
-ok('the title carries the puzzle number and date', /<title>Lexathon Daily Puzzle #23 — 24 September 2026<\/title>/.test(page),
+ok('the title carries the puzzle number and date', /<title>Lexathon Trifecta #23 — 24 September 2026<\/title>/.test(page),
    (page.match(/<title>[^<]*<\/title>/) || [''])[0]);
 ok('there is a meta description', /<meta name="description" content="[^"]{60,}"/.test(page));
 ok('there is a canonical url', page.includes('<link rel="canonical" href="https://lexathon.gg/gauntlet/2026-09-24/">'));
@@ -423,7 +443,7 @@ ok('the in-app archive has a per-day link', home.includes('id="gauntlet-archive-
 ok('...and it is repointed when a day is opened',
    /gauntlet-archive-full"\)\.href = `\/gauntlet\/\$\{dateStr\}\/`/.test(home));
 // Nothing on the site may link to a day that has not finished.
-ok('no hardcoded link to a specific Daily Puzzle day', !/href="\/gauntlet\/\d{4}-\d{2}-\d{2}\//.test(home));
+ok('no hardcoded link to a specific Trifecta day', !/href="\/gauntlet\/\d{4}-\d{2}-\d{2}\//.test(home));
 // site-intro is below the fold. The footer strip is always visible with no
 // interaction at all, which is where "seems a bit hard to find" gets fixed.
 const footer = (home.match(/Always-visible footer[\s\S]*?<\/div>/) || [''])[0];
