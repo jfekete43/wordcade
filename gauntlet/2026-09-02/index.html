@@ -3,9 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lexathon Daily Puzzle #1 — 2 September 2026</title>
-    <meta name="description" content="All ten words from Lexathon Daily Puzzle #1 (2 September 2026), with the final standings, how many guesses each word took, and which one ended the most runs.">
+    <title>Lexathon — 2 September 2026</title>
+    <meta name="description" content="All 10 words from Lexathon on 2 September 2026, with the final standings, how many guesses each word took, and which one caught the most people out.">
     <link rel="canonical" href="https://lexathon.gg/gauntlet/2026-09-02/">
+    <!-- How a shared archive link unfurls. These pages are the ones most
+         likely to be posted on their own - "look what word beat everyone
+         yesterday" - so a bare URL costs more here than on the static pages.
+         One card for the whole site; the title and description carry the day.
+         Absolute URLs are required: scrapers do not resolve relative paths. -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Lexathon">
+    <meta property="og:url" content="https://lexathon.gg/gauntlet/2026-09-02/">
+    <meta property="og:title" content="Lexathon — 2 September 2026">
+    <meta property="og:description" content="All 10 words from Lexathon on 2 September 2026, with the final standings, how many guesses each word took, and which one caught the most people out.">
+    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=238a866b">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Lexathon — 2 September 2026">
+    <meta name="twitter:description" content="All 10 words from Lexathon on 2 September 2026, with the final standings, how many guesses each word took, and which one caught the most people out.">
+    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=238a866b">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>
@@ -19,6 +37,8 @@
             --c-gauntlet: #6b5b95;
             --c-clash: #b5563f;
             --c-ffa: #8a6b26;
+            --c-sprint: #7a4a73;
+            --c-marathon: #1d5c5c;
             /* a letter that is in no part of the word */
             --c-absent: #c9c0ae;
             --c-absent-ink: #635c4c;
@@ -103,7 +123,6 @@
         th { color: var(--c-ink-4); text-transform: uppercase; font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); }
         td.n, th.n { text-align: right; }
         .word { font-weight: var(--fw-bold); color: var(--c-correct); letter-spacing: 2px; }
-        .tier { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); color: var(--c-ink-4); }
         .lede { color: var(--c-ink-2); font-size: var(--fs-4); }
         .stat-row { display: flex; justify-content: space-between; gap: var(--s-5); margin: var(--s-7) 0; text-align: center; }
         .stat-row div { flex: 1; font-size: var(--fs-1); color: var(--c-ink-5); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
@@ -144,11 +163,15 @@
         }
         .support { margin-top: var(--s-9); padding: var(--s-5) var(--s-6); border: var(--bw) solid var(--c-line); border-radius: var(--r-2); background: var(--c-raised); font-size: var(--fs-2); color: var(--c-ink-4); line-height: var(--lh-ui); }
     </style>
+    <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
+         Change the token or turn it off everywhere at once with:
+             node tools/set-analytics-token.mjs <token|--off> -->
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"21957ededacf4e538abc5a0c42767ce7"}'></script>
 </head>
 <body>
 
     <div class="container">
-        <h1>Daily Puzzle #1</h1>
+        <h1>2 September 2026</h1>
         <div class="sub">2 September 2026</div>
         <div class="stat-row">
             <div>Players<b>1</b></div>
@@ -156,24 +179,24 @@
             <div>Top score<b>10</b></div>
             <div>Avg solved<b>1.0</b></div>
         </div>
-        <p class="lede">1 player finished this one. Nobody got all ten. <strong>VENOM</strong> ended the most runs — 1 of them.</p>
+        <p class="lede">1 player finished this one. Nobody got all 10. <strong>VENOM</strong> caught the most people out — 1 missed it.</p>
 
-        <h2>The Ten Words</h2>
-        <p>Drawn easiest-first: three from the easy third of the word list, four from the middle, three from the hardest.</p>
+        <h2>The Words</h2>
+        <p>Drawn at random from the whole word list, in no particular order.</p>
         <table>
-            <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Reached</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
-            <tr><td>1</td><td class="word">DERBY</td><td class="tier hide-sm">Easy</td><td class="n">1</td><td class="n">100%</td><td class="n">5.0</td></tr>
-            <tr><td>2</td><td class="word">VENOM</td><td class="tier hide-sm">Easy</td><td class="n">1</td><td class="n">0%</td><td class="n">—</td></tr>
-            <tr><td>3</td><td class="word">ADULT</td><td class="tier hide-sm">Easy</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>4</td><td class="word">BLAZE</td><td class="tier hide-sm">Medium</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>5</td><td class="word">DRUNK</td><td class="tier hide-sm">Medium</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>6</td><td class="word">ALTER</td><td class="tier hide-sm">Medium</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>7</td><td class="word">ALIKE</td><td class="tier hide-sm">Medium</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>8</td><td class="word">FACET</td><td class="tier hide-sm">Hard</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>9</td><td class="word">EDICT</td><td class="tier hide-sm">Hard</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
-            <tr><td>10</td><td class="word">AGREE</td><td class="tier hide-sm">Hard</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><th>#</th><th>Word</th><th class="n">Missed</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
+            <tr><td>1</td><td class="word">DERBY</td><td class="n">0</td><td class="n">100%</td><td class="n">5.0</td></tr>
+            <tr><td>2</td><td class="word">VENOM</td><td class="n">1</td><td class="n">0%</td><td class="n">—</td></tr>
+            <tr><td>3</td><td class="word">ADULT</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>4</td><td class="word">BLAZE</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>5</td><td class="word">DRUNK</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>6</td><td class="word">ALTER</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>7</td><td class="word">ALIKE</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>8</td><td class="word">FACET</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>9</td><td class="word">EDICT</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
+            <tr><td>10</td><td class="word">AGREE</td><td class="n">0</td><td class="n">—</td><td class="n">—</td></tr>
         </table>
-        <p style="font-size:var(--fs-2);color:var(--c-ink-4);">"Reached" counts players still alive when they got to that word — a miss ends the run, so later words are seen by fewer people by design.</p>
+        <p style="font-size:var(--fs-2);color:var(--c-ink-4);">On this puzzle a miss ended the run, so later words were only seen by players still going — "Solved" is the share of those who got that far.</p>
 
         <h2>Final Standings</h2>
         <table>
@@ -186,9 +209,9 @@
             <tr><td style="width:64px;">1/10</td><td><div class="bar"><span style="width:100%;"></span></div></td><td class="n" style="width:56px;">1</td></tr>
         </table>
 
-        <div class="pager"><span>← Start of the archive</span><a href="/gauntlet/2026-09-03/">Daily Puzzle #2 →</a></div>
+        <div class="pager"><span>← Start of the archive</span><a href="/gauntlet/2026-09-03/">3 Sept 2026 →</a></div>
 
-        <p style="margin-top:24px;">Today's Puzzle is a different ten words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
+        <p style="margin-top:24px;">Today's Puzzle is a different set of words, and everyone plays the same ones. <a href="/">Play today's</a>, or <a href="/gauntlet/">browse the archive</a>.</p>
 
         <a href="/" class="back-btn">Back to Arcade</a>
 
@@ -197,7 +220,7 @@
             If you'd like to help keep it running, <a href="https://ko-fi.com/lexathon" rel="noopener">support it on Ko-fi</a>.
         </div>
         <div class="nav-links">
-            <a href="/">Play</a> · <a href="/gauntlet/">Past Daily Puzzles</a> · <a href="/how-to-play.html">How To Play</a> · <a href="/strategy.html">Strategy Guide</a> · <a href="/faq.html">FAQ</a><br>
+            <a href="/">Play</a> · <a href="/gauntlet/">Past Trifectas</a> · <a href="/how-to-play.html">How To Play</a> · <a href="/strategy.html">Strategy Guide</a> · <a href="/faq.html">FAQ</a><br>
             <a href="/about.html">About</a> · <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a>
         </div>
     </div>
