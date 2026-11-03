@@ -5040,6 +5040,15 @@
                 if (Number.isFinite(t) && t > 0 && (!Number.isFinite(best) || best <= 0 || t < best)) userProfileData.sprintBestTimeMs = t;
                 userProfileData.sprintStreak = (Number(userProfileData.sprintStreak) || 0) + 1;
                 userProfileData.sprintLastDate = getTodayDateStr();
+                // The guess distribution's own counter. Every other field here
+                // was mirrored and this one was not, so the chart drawn moments
+                // later was missing the run that had just produced it - and on a
+                // player's FIRST Sprint that meant no chart at all, because the
+                // section hides itself when every bar is zero.
+                const g = Number(result.guessNumber) || 0;
+                if (g >= 1 && g <= 5) {
+                    userProfileData["sprintG" + g] = (Number(userProfileData["sprintG" + g]) || 0) + 1;
+                }
                 userProfileData.sprintBestStreak = Math.max(Number(userProfileData.sprintBestStreak) || 0, userProfileData.sprintStreak);
             } else {
                 userProfileData.sprintStreak = 0;

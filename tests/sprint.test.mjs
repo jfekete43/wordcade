@@ -615,6 +615,56 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   eq('and it is Share', (buttons.find(([c]) => c === 'btn-primary') || [])[1], 'Share Result');
 }
 
+
+// ---- the local mirror keeps the chart honest ---------------------------------
+// onRunCreated writes the real counters, but its result takes a moment to come
+// back, so reflectSprintLocally mirrors the finished run into userProfileData
+// for the modal that opens immediately after. Every Sprint field was mirrored
+// there except the per-guess one - which meant the chart drawn seconds later
+// was missing the very run that produced it, and on a player's FIRST Sprint
+// meant no chart at all, since the section hides when every bar is zero.
+{
+  const mirrorSrc = (html.match(/        function reflectSprintLocally\(result\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!mirrorSrc, 'reflectSprintLocally is findable', mirrorSrc.slice(0, 60));
+
+  const mirror = (profile, result) => {
+    // eslint-disable-next-line no-new-func
+    new Function('userProfileData', 'getTodayDateStr', 'result', `${mirrorSrc}; reflectSprintLocally(result);`)(
+      profile, () => '2026-11-03', result);
+    return profile;
+  };
+
+  {
+    const p = mirror({}, { solved: true, guessNumber: 3, score: 150, elapsedMs: 40000 });
+    eq('a solve on guess 3 moves that row', p.sprintG3, 1);
+    eq('and only that row', [p.sprintG1, p.sprintG2, p.sprintG4, p.sprintG5],
+       [undefined, undefined, undefined, undefined]);
+    eq('alongside the counters that were already mirrored', [p.sprintPlayed, p.sprintSolved, p.sprintStreak], [1, 1, 1]);
+  }
+  {
+    // A first-ever Sprint has to produce a drawable chart, or the player sees
+    // the heading-less version on the one screen built to show it off.
+    const p = mirror({}, { solved: true, guessNumber: 5, score: 10, elapsedMs: 34700 });
+    const counts = [1, 2, 3, 4, 5].map((i) => Number(p['sprintG' + i]) || 0);
+    counts.push(Math.max(0, (p.sprintPlayed || 0) - (p.sprintSolved || 0)));
+    ck(counts.some((c) => c > 0), 'so a first-ever solve gives the distribution something to draw', JSON.stringify(counts));
+  }
+  {
+    // A miss moves no guess row; it is the derived X that accounts for it.
+    const p = mirror({}, { solved: false, guessNumber: 5, score: 0, elapsedMs: null });
+    eq('a miss moves no guess row', [1, 2, 3, 4, 5].map((i) => p['sprintG' + i]).filter(Boolean), []);
+    eq('and shows up as played-not-solved, which is the X row', [p.sprintPlayed, p.sprintSolved], [1, undefined]);
+  }
+  {
+    // Out-of-range guess numbers must not invent a sprintG0 or sprintG6.
+    const p = mirror({}, { solved: true, guessNumber: 9, score: 10, elapsedMs: 1 });
+    eq('an impossible guess number creates no stray counter',
+       // \d, not just the prefix: sprintGuessTotal starts the same way and is
+       // a legitimate field, so the loose pattern failed on correct code.
+       Object.keys(p).filter((k) => /^sprintG\d$/.test(k)), []);
+  }
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
