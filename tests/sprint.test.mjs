@@ -58,7 +58,7 @@ const helperSrc = [
   grab(/const WORD_STATS_PRIOR = \d+;/, 'WORD_STATS_PRIOR'),
   grab(/const DAILY_GAUNTLET_WORD_COUNT = \d+;/, 'DAILY_GAUNTLET_WORD_COUNT'),
   grab(/function effectiveDifficulty\(word, stats\) \{\n[\s\S]*?\n\}/, 'effectiveDifficulty'),
-  grab(/function pickDailyWords\(stats, exclude\) \{\n[\s\S]*?\n\}/, 'pickDailyWords'),
+  grab(/function pickDailyWords\(exclude\) \{\n[\s\S]*?\n\}/, 'pickDailyWords'),
   grab(/function pickSprintWord\(stats\) \{\n[\s\S]*?\n\}/, 'pickSprintWord'),
   grab(/function shiftDateStr\(dateStr, days\) \{\n[\s\S]*?\n\}/, 'shiftDateStr'),
   grab(/function publicSprintState\(attempt, answer\) \{\n[\s\S]*?\n\}/, 'publicSprintState'),
@@ -100,7 +100,7 @@ const H = new Function('WORD_DIFFICULTY', 'DAILY_TARGET_WORDS',
   const survivors = DAILY_TARGET_WORDS.slice(0, 9).map((w) => w.toUpperCase());
   const banAllBut = new Set(DAILY_TARGET_WORDS.map((w) => w.toUpperCase()).filter((w) => !survivors.includes(w)));
   for (let i = 0; i < 5; i++) {
-    const words = H.pickDailyWords(null, banAllBut).map((w) => w.toUpperCase());
+    const words = H.pickDailyWords(banAllBut).map((w) => w.toUpperCase());
     const strays = words.filter((w) => !survivors.includes(w));
     if (strays.length) { ck(false, 'the Daily draw contains only words the exclusion left', strays.join(',')); break; }
     if (i === 4) ck(true, 'the Daily draw contains only words the exclusion left');
@@ -109,15 +109,15 @@ const H = new Function('WORD_DIFFICULTY', 'DAILY_TARGET_WORDS',
   const bulk = new Set(DAILY_TARGET_WORDS.slice(0, 1200).map((w) => w.toUpperCase()));
   let leaked = 0;
   for (let i = 0; i < 40; i++) {
-    for (const w of H.pickDailyWords(null, bulk)) if (bulk.has(w.toUpperCase())) leaked++;
+    for (const w of H.pickDailyWords(bulk)) if (bulk.has(w.toUpperCase())) leaked++;
   }
   eq('an excluded word never appears in the Daily draw, over 280 draws', leaked, 0);
   // Without an exclusion the Daily still works, which is what the scheduled
   // path relied on before Sprint existed.
   const GCOUNT = Number(fn.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
-  ck(H.pickDailyWords(null, new Set()).length === GCOUNT,
+  ck(H.pickDailyWords(new Set()).length === GCOUNT,
      `and an empty exclusion still yields a full puzzle of ${GCOUNT}`);
-  ck(H.pickDailyWords(null).length === GCOUNT, 'as does no exclusion at all');
+  ck(H.pickDailyWords().length === GCOUNT, 'as does no exclusion at all');
 }
 
 // ---- the streak -----------------------------------------------------------

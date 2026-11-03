@@ -5914,7 +5914,7 @@
         // still queryable with the index the live board already uses — the
         // archive is the same query with a different date.
         //
-        // The list of dates is derived from GAUNTLET_EPOCH rather than read
+        // The list of dates is derived from the archive floor rather than read
         // out of /dailyPuzzles: that collection holds the answer words and is
         // `read: if false` in firestore.rules, and it should stay that way.
         // Puzzles are also created lazily on first play, so a day nobody
@@ -7772,11 +7772,17 @@
         // NOTE: this number is permanent the moment anyone shares it. Changing
         // the epoch later renumbers every past share, so it should only ever be
         // corrected if it's wrong from the start.
-        const GAUNTLET_EPOCH = "2026-09-02"; // date of Trifecta #1
+        // The Trifecta is a new mode on an old key - three words from one pool,
+        // where the Daily Puzzle was seven drawn as a difficulty ramp - so its
+        // numbering starts today rather than carrying the old count forward.
+        // The archive still publishes the days before this; they just show a
+        // date instead of a number. Matches TRIFECTA_EPOCH in
+        // tools/gauntlet-archive-render.mjs.
+        const TRIFECTA_EPOCH = "2026-11-03"; // date of Trifecta #1
         function gauntletNumber(dateStr) {
             if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
             const toUTC = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
-            const days = Math.floor((toUTC(dateStr) - toUTC(GAUNTLET_EPOCH)) / 86400000) + 1;
+            const days = Math.floor((toUTC(dateStr) - toUTC(TRIFECTA_EPOCH)) / 86400000) + 1;
             return days >= 1 ? days : null;
         }
 

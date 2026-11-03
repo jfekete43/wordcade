@@ -13,27 +13,17 @@
  * the puzzle for everyone who hasn't played yet. See publishableDates.
  */
 
-export const GAUNTLET_EPOCH = "2026-09-02"; // date of Trifecta #1 — matches index.html
-export const WORD_COUNT = 10;
-// Tier sizes from pickDailyWords in functions/index.js. That function draws
-// from the easy/medium/hard thirds of the whole word list and then sorts the
-// draw by difficulty ascending. Because the thirds don't overlap, sorting
-// cannot move a word across a tier boundary — so position in the published
-// list IS the tier it was drawn from, and these counts label it.
-//
-// Derived from the day's own word count rather than fixed, because the archive
-// renders every past day and the Trifecta has not always been the same length.
-// It was ten words (3/4/3) before it became seven (2/3/2); a constant here
-// would have relabelled every ten-word page the day the count changed —
-// position 8 was Hard on those days and is off the end of a seven-word puzzle.
-// The split is the same one the server uses: a third to each end, the
-// remainder in the middle.
-export function tierSizesFor(wordCount) {
-  const n = Math.max(0, Number(wordCount) || 0);
-  const outer = Math.floor(n / 3);
-  return [outer, n - outer * 2, outer];
-}
-const TIER_NAMES = ["Easy", "Medium", "Hard"];
+// The archive publishes every finished day back to here. This is a floor on
+// WHAT MAY BE SHOWN and nothing else — those days happened, their standings
+// are real, and the pages are indexed.
+export const ARCHIVE_EPOCH = "2026-09-02";
+
+// Where the numbering starts. The Trifecta is a new mode on an old key: three
+// words from one pool, where the Daily Puzzle before it was seven (and ten
+// before that) drawn as a difficulty ramp. Numbering today as #1 says so.
+// Days before this still publish; they just carry their date instead of a
+// number, because they are not Trifecta #anything.
+export const TRIFECTA_EPOCH = "2026-11-03"; // date of Trifecta #1 — matches index.html
 
 const SITE = "https://lexathon.gg";
 
@@ -59,20 +49,29 @@ export function shiftDate(dateStr, days) {
 
 export function gauntletNumber(dateStr) {
   const toUTC = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
-  const days = Math.floor((toUTC(dateStr) - toUTC(GAUNTLET_EPOCH)) / 86400000) + 1;
+  const days = Math.floor((toUTC(dateStr) - toUTC(TRIFECTA_EPOCH)) / 86400000) + 1;
   return days >= 1 ? days : null;
+}
+
+// What to call a day. Days before the Trifecta epoch have no number — they
+// were a different mode on the same key — so they go by date. Every call site
+// that printed "Trifecta #${gauntletNumber(d)}" directly would have printed
+// "Trifecta #null" for all sixty of them.
+export function dayLabel(dateStr) {
+  const n = gauntletNumber(dateStr);
+  return n ? `Trifecta #${n}` : shortDate(dateStr);
 }
 
 // Every date that may be published right now: epoch through YESTERDAY in
 // Eastern, inclusive. Today is excluded because its answers are still live.
-export function publishableDates(now, epoch = GAUNTLET_EPOCH) {
+export function publishableDates(now, epoch = ARCHIVE_EPOCH) {
   const today = etDateStr(now);
   const out = [];
   for (let d = epoch; d < today; d = shiftDate(d, 1)) out.push(d);
   return out;
 }
 
-export function isPublishable(dateStr, now, epoch = GAUNTLET_EPOCH) {
+export function isPublishable(dateStr, now, epoch = ARCHIVE_EPOCH) {
   return dateStr >= epoch && dateStr < etDateStr(now);
 }
 
@@ -90,17 +89,6 @@ export function prettyDate(dateStr) {
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
-// ----------------------------------------------------------- statistics ---
-
-export function tierOf(index, wordCount) {
-  const sizes = tierSizesFor(wordCount);
-  let seen = 0;
-  for (let t = 0; t < sizes.length; t++) {
-    seen += sizes[t];
-    if (index < seen) return TIER_NAMES[t];
-  }
-  return TIER_NAMES[TIER_NAMES.length - 1];
-}
 
 /*
  * Per-word difficulty for one day, from the finished attempts.
@@ -136,7 +124,7 @@ export function computeWordStats(words, attempts) {
     return {
       // `missedBy` is the name used from here on; `endedRuns` stays as an alias
       // so an older caller (or an old test) is not silently reading undefined.
-      index: i, word, tier: tierOf(i, words.length), reached, solved, missedBy: endedRuns, endedRuns,
+      index: i, word, reached, solved, missedBy: endedRuns, endedRuns,
       // Averaged over the players who SOLVED it, not everyone who reached
       // it. A failed word is always five guesses, so including failures
       // would drag this toward 5 in step with the solve rate reported
@@ -194,11 +182,21 @@ export function computeAwards(runs, limit = 10) {
   return { winners, top10 };
 }
 
-export function computeDistribution(runs) {
-  const counts = new Array(WORD_COUNT + 1).fill(0);
+/*
+ * How many players solved 0, 1, ... all of the day's words.
+ *
+ * The length comes from the DAY, not from a constant. There used to be an
+ * `export const WORD_COUNT = 10` here, left behind when the puzzle went to
+ * seven: every published page read "x/10", and dist[WORD_COUNT] - the
+ * perfect-run count the hub prints - had been structurally zero ever since,
+ * because no seven-word run can solve ten words. At three it would have been
+ * wrong by more. A day knows how long it was; a constant never does.
+ */
+export function computeDistribution(runs, wordCount) {
+  const n = Math.max(0, Number(wordCount) || 0);
+  const counts = new Array(n + 1).fill(0);
   for (const r of runs) {
-    const n = Math.max(0, Math.min(WORD_COUNT, Number(r.wordsGuessed) || 0));
-    counts[n]++;
+    counts[Math.max(0, Math.min(n, Number(r.wordsGuessed) || 0))]++;
   }
   return counts;
 }
@@ -347,7 +345,6 @@ const STYLE = `
         th { color: var(--c-ink-4); text-transform: uppercase; font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); }
         td.n, th.n { text-align: right; }
         .word { font-weight: var(--fw-bold); color: var(--c-correct); letter-spacing: 2px; }
-        .tier { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); color: var(--c-ink-4); }
         .lede { color: var(--c-ink-2); font-size: var(--fs-4); }
         .stat-row { display: flex; justify-content: space-between; gap: var(--s-5); margin: var(--s-7) 0; text-align: center; }
         .stat-row div { flex: 1; font-size: var(--fs-1); color: var(--c-ink-5); text-transform: uppercase; letter-spacing: var(--ls-eyebrow); }
@@ -448,9 +445,10 @@ export function renderDayPage(day) {
   const pretty = prettyDate(day.date);
   const stats = computeWordStats(day.words, day.attempts);
   const standings = computeStandings(day.runs);
-  const dist = computeDistribution(day.runs);
+  const wordCount = day.words.length;
+  const dist = computeDistribution(day.runs, wordCount);
   const players = day.runs.length;
-  const perfect = dist[WORD_COUNT];
+  const perfect = dist[wordCount];
   const topScore = standings.length ? standings[0].score : 0;
   const avgSolved = players ? day.runs.reduce((a, r) => a + (r.wordsGuessed || 0), 0) / players : 0;
   // The word that caught the most people out, which is the thing people argue
@@ -478,15 +476,19 @@ export function renderDayPage(day) {
   const era = playedOn ? "all-words" : someoneStoppedShort ? "sudden-death" : "unknown";
   const distMax = Math.max(1, ...dist);
 
-  const title = `Lexathon Trifecta #${n} — ${pretty}`;
+  // A day before the Trifecta epoch has no number — it was a different mode
+  // on the same key — so it goes by date in the title, the description and
+  // the heading rather than printing "#null" in all three.
+  const named = n ? `Trifecta #${n}` : "";
+  const title = n ? `Lexathon Trifecta #${n} — ${pretty}` : `Lexathon — ${pretty}`;
   const description = players
-    ? `All ${day.words.length} words from Lexathon Trifecta #${n} (${pretty}), with the final standings, how many guesses each word took, and which one caught the most people out.`
-    : `The ${day.words.length} words from Lexathon Trifecta #${n} (${pretty}).`;
+    ? `All ${day.words.length} words from Lexathon${named ? " " + named : ""} on ${pretty}, with the final standings, how many guesses each word took, and which one caught the most people out.`
+    : `The ${day.words.length} words from Lexathon${named ? " " + named : ""} on ${pretty}.`;
 
   let html = head(title, description, `${SITE}/gauntlet/${day.date}/`);
   html += `
     <div class="container">
-        <h1>Trifecta #${n}</h1>
+        <h1>${named || escapeHtml(pretty)}</h1>
         <div class="sub">${escapeHtml(pretty)}</div>
 `;
 
@@ -510,13 +512,13 @@ export function renderDayPage(day) {
 
   html += `
         <h2>The Words</h2>
-        <p>Drawn easiest-first, spread across the easy, middle and hardest thirds of the word list.</p>
+        <p>Drawn at random from the whole word list, in no particular order.</p>
         <table>
-            <tr><th>#</th><th>Word</th><th class="hide-sm">Tier</th><th class="n">Missed</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
+            <tr><th>#</th><th>Word</th><th class="n">Missed</th><th class="n">Solved</th><th class="n"><span class="hide-sm">Avg guesses</span><span class="only-sm">Avg</span></th></tr>
 `;
   for (const s of stats) {
     html += `            <tr><td>${s.index + 1}</td><td class="word">${escapeHtml(s.word)}</td>`
-      + `<td class="tier hide-sm">${s.tier}</td><td class="n">${num(s.missedBy)}</td>`
+      + `<td class="n">${num(s.missedBy)}</td>`
       + `<td class="n">${pct(s.solveRate)}</td><td class="n">${avg(s.avgGuesses)}</td></tr>\n`;
   }
   html += `        </table>\n`;
@@ -534,7 +536,7 @@ export function renderDayPage(day) {
 `;
     for (const r of standings) {
       html += `            <tr><td>${r.place}</td><td>${escapeHtml(r.name)}</td>`
-        + `<td class="n">${r.solved}/${WORD_COUNT}</td><td class="n">${num(r.score)}</td></tr>\n`;
+        + `<td class="n">${r.solved}/${wordCount}</td><td class="n">${num(r.score)}</td></tr>\n`;
     }
     html += `        </table>\n`;
 
@@ -542,18 +544,18 @@ export function renderDayPage(day) {
         <h2>How Everyone Did</h2>
         <table>
 `;
-    for (let i = WORD_COUNT; i >= 0; i--) {
+    for (let i = wordCount; i >= 0; i--) {
       if (dist[i] === 0) continue;
       const w = Math.round((dist[i] / distMax) * 100);
-      html += `            <tr><td style="width:64px;">${i}/${WORD_COUNT}</td>`
+      html += `            <tr><td style="width:64px;">${i}/${wordCount}</td>`
         + `<td><div class="bar"><span style="width:${w}%;"></span></div></td>`
         + `<td class="n" style="width:56px;">${num(dist[i])}</td></tr>\n`;
     }
     html += `        </table>\n`;
   }
 
-  const prevLink = day.prev ? `<a href="/gauntlet/${day.prev}/">← Trifecta #${gauntletNumber(day.prev)}</a>` : `<span>← Start of the archive</span>`;
-  const nextLink = day.next ? `<a href="/gauntlet/${day.next}/">Trifecta #${gauntletNumber(day.next)} →</a>` : `<span>Newest →</span>`;
+  const prevLink = day.prev ? `<a href="/gauntlet/${day.prev}/">← ${escapeHtml(dayLabel(day.prev))}</a>` : `<span>← Start of the archive</span>`;
+  const nextLink = day.next ? `<a href="/gauntlet/${day.next}/">${escapeHtml(dayLabel(day.next))} →</a>` : `<span>Newest →</span>`;
   html += `
         <div class="pager">${prevLink}${nextLink}</div>
 
@@ -590,13 +592,13 @@ export function renderHubPage(days) {
             <tr><th>Puzzle</th><th>Date</th><th class="n">Players</th><th class="n hide-sm">Perfect</th><th class="n">Top score</th></tr>
 `;
   for (const d of days) {
-    html += `            <tr><td><a href="/gauntlet/${d.date}/">#${gauntletNumber(d.date)}</a></td>`
+    html += `            <tr><td><a href="/gauntlet/${d.date}/">${gauntletNumber(d.date) ? '#' + gauntletNumber(d.date) : escapeHtml(shortDate(d.date))}</a></td>`
       + `<td>${escapeHtml(shortDate(d.date))}</td><td class="n">${num(d.players)}</td>`
       + `<td class="n hide-sm">${num(d.perfect)}</td><td class="n">${num(d.topScore)}</td></tr>\n`;
   }
   html += `        </table>
 `;
-  if (newest) html += `        <p>Most recent: <a href="/gauntlet/${newest.date}/">Trifecta #${gauntletNumber(newest.date)}</a>.</p>\n`;
+  if (newest) html += `        <p>Most recent: <a href="/gauntlet/${newest.date}/">${escapeHtml(dayLabel(newest.date))}</a>.</p>\n`;
   html += `
         <a href="/" class="back-btn">Back to Arcade</a>
 

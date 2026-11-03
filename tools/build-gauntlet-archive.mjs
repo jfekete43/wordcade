@@ -207,11 +207,13 @@ const onDisk = fs.existsSync(OUT)
 const known = new Map();
 for (const d of onDisk) known.set(d, { date: d, players: 0, perfect: 0, topScore: 0 });
 for (const day of built) {
-  const dist = R.computeDistribution(day.runs);
+  // The day's own length. A module constant here is what made every page
+  // say "x/10" long after the puzzle stopped being ten words.
+  const dist = R.computeDistribution(day.runs, day.words.length);
   known.set(day.date, {
     date: day.date,
     players: day.runs.length,
-    perfect: dist[R.WORD_COUNT],
+    perfect: dist[day.words.length],
     topScore: day.runs.length ? Math.max(...day.runs.map((r) => r.score || 0)) : 0,
   });
 }

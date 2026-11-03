@@ -3,7 +3,7 @@
  *
  * The list of playable dates is DERIVED, not queried: /dailyPuzzles holds the
  * answer words and is `read: if false` in firestore.rules, so the archive
- * walks backwards from yesterday using GAUNTLET_EPOCH as the floor. That makes
+ * walks backwards from yesterday using TRIFECTA_EPOCH as the floor. That makes
  * two failure modes worth pinning down — walking back past Trifecta #1 into
  * dates that never existed, and including today, whose board is still live and
  * not yet final. Both would produce entries that load an empty board.
@@ -21,14 +21,14 @@ const grab = (re) => { const m = html.match(re); if (!m) throw new Error('could 
 const src = [
   grab(/        function escapeHtml\(str\) \{\n[\s\S]*?\n        \}/),
   grab(/        function shiftDateStr\(dateStr, days\) \{\n[\s\S]*?\n        \}/),
-  grab(/        const GAUNTLET_EPOCH = "[^"]*";/),
+  grab(/        const TRIFECTA_EPOCH = "[^"]*";/),
   grab(/        function gauntletNumber\(dateStr\) \{\n[\s\S]*?\n        \}/),
   grab(/        const ARCHIVE_PAGE = \d+;/),
   grab(/        let archiveShown = ARCHIVE_PAGE;/),
   grab(/        function formatPuzzleDate\(dateStr\) \{\n[\s\S]*?\n        \}/),
   grab(/        function renderGauntletArchiveList\(\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
-const EPOCH = html.match(/const GAUNTLET_EPOCH = "([^"]*)"/)[1];
+const EPOCH = html.match(/const TRIFECTA_EPOCH = "([^"]*)"/)[1];
 console.log('extracted from index.html:', src.length, 'chars | epoch', EPOCH);
 
 const els = { 'gauntlet-archive-list': { innerHTML: '' }, 'gauntlet-archive-more': { style: {} } };

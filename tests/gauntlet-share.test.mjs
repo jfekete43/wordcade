@@ -37,7 +37,7 @@ const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const grab = (re) => { const m = html.match(re); if (!m) throw new Error('could not extract ' + re); return m[0]; };
 const src = [
   grab(/        function dailyPlayedWords\(attempt\) \{\n[\s\S]*?\n        \}/),
-  grab(/        const GAUNTLET_EPOCH = "[^"]*";/),
+  grab(/        const TRIFECTA_EPOCH = "[^"]*";/),
   grab(/        function gauntletNumber\(dateStr\) \{\n[\s\S]*?\n        \}/),
   grab(/        window\.shareDailyStats = function\(\) \{\n[\s\S]*?\n        \}/),
   grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/),
@@ -62,7 +62,12 @@ const buildShare = new Function('attempt', `
 `);
 
 const word = (guesses, solved) => ({ guesses: Array(guesses).fill('XXXXX'), solved });
-const attempt = (history, score) => ({ date: '2026-09-16', wordCount: 10, score, history });
+// A dated day inside the Trifecta era, so the heading carries its number.
+// This used to be 2026-09-16, which was Daily Puzzle #15 — and is now a day
+// before the Trifecta epoch, so it has no number at all. The unnumbered
+// heading has its own case further down; these are about the grid.
+const NUMBERED_DAY = '2026-11-17'; // Trifecta #15
+const attempt = (history, score) => ({ date: NUMBERED_DAY, wordCount: 10, score, history });
 const solvedRun = (counts) => counts.map((c) => word(c, true));
 const untouched = (howMany) => Array(howMany).fill({ guesses: [], solved: false });
 

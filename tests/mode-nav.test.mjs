@@ -585,24 +585,19 @@ ck(backs.filter((x) => x === 'Stakes').length >= 3,
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
 const GCOUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
 eq('the Trifecta is three words', GCOUNT, 3);
-// Run, not parsed. The split is derived from the count now, so there is no
-// literal here to read — see gauntlet-archive-pages, which checks it against
-// the archive's own copy of the same formula at every length.
-const wantSrc = fnSrc.match(/const outer = Math\.floor\(DAILY_GAUNTLET_WORD_COUNT \/ 3\);\n\s*const want = \[[^\]]*\];/)[0];
-// eslint-disable-next-line no-new-func
-const gwant = new Function('DAILY_GAUNTLET_WORD_COUNT', `${wantSrc}; return want;`)(GCOUNT);
-eq('and the draw still spans all three tiers', gwant, [1, 1, 1]);
-ck(gwant.reduce((a, b) => a + b, 0) === GCOUNT, 'the tiers sum to the puzzle length',
-   `${gwant} vs ${GCOUNT}`);
-// This used to read "no tier is thin enough to make the ramp meaningless" and
-// demanded two of each, which was the right instinct written as the wrong
-// rule: what made five words a bad shape was [1, 3, 1] — lopsided, nearly all
-// medium — and not the 1s themselves. Three words is [1, 1, 1], which is the
-// most even draw there is. So the rule is evenness, which still rejects five
-// and now says why.
-ck(Math.max(...gwant) - Math.min(...gwant) <= 1,
-   'and no tier is more than one word wider than another', String(gwant));
-ck(gwant.every((x) => x >= 1), 'with every tier represented at all', String(gwant));
+// And drawn from one pool. The split used to be a ramp - one word from each
+// difficulty third, ordered easiest first - which is what the archive's Tier
+// column reported. Three words is too short for that to read as a curve
+// rather than as "the last one is the nasty one", so difficulty no longer
+// touches the draw at all.
+//
+// Checked here as a NEGATIVE on the source, because the behavioural version
+// belongs in word-difficulty.test.mjs, where the real word list is: a draw
+// that sorts, or reads a difficulty, is a ramp again whatever it is called.
+const pickSrc = (fnSrc.match(/function pickDailyWords\(exclude\) \{[\s\S]*?\n\}/) || [''])[0];
+ck(!!pickSrc, 'pickDailyWords takes an exclusion and nothing else', pickSrc.slice(0, 60));
+ck(!/effectiveDifficulty|WORD_DIFFICULTY|\.sort\(|want\b/.test(pickSrc),
+   'and reads no difficulty, so the three words are one pool', pickSrc.slice(0, 220));
 
 // The two enforced waits. Both run AFTER the server has graded the guess, so
 // they are presentation, not protection — see the note at the call site and

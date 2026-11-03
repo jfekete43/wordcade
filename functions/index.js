@@ -251,6 +251,19 @@ const CHALLENGES = {
 const DEFAULT_INVENTORY = ["title_none", "skin_default", "banner_default", "effect_none"];
 const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
 
+// The Trifecta's three words, drawn uniformly from the whole target list.
+//
+// It used to draw a ramp — one word from the easy third of the list, one from
+// the middle, one from the hardest, in that order — which meant position in
+// the published list WAS the difficulty tier, and the archive labelled it so.
+// Over three words a ramp reads as "the last one is the nasty one" rather than
+// as a curve, and it rules out two thirds of the list for each slot. One pool
+// is one pool: any three words, in no meaningful order.
+//
+// effectiveDifficulty and the word stats are untouched by this. Sprint still
+// records the tier it drew from and Marathon still bands its fifty; this is
+// only about which words today's three are.
+
 // Must match index.html's scorePoints exactly — points awarded by which
 // guess (1st through 5th) solved the word.
 const SCORE_POINTS = [500, 250, 150, 50, 10];
@@ -1248,49 +1261,16 @@ function effectiveDifficulty(word, stats) {
 // who does both would otherwise learn one answer from the other. Sprint is
 // drawn first and handed in here, which makes the collision impossible rather
 // than merely unlikely.
-function pickDailyWords(stats, exclude) {
+function pickDailyWords(exclude) {
   const banned = exclude instanceof Set ? exclude : new Set();
-  const ranked = DAILY_TARGET_WORDS
-    .filter((w) => !banned.has(w.toUpperCase()))
-    .map((w) => ({ w, d: effectiveDifficulty(w.toUpperCase(), stats) }))
-    .sort((a, b) => a.d - b.d);
-
-  const third = Math.floor(ranked.length / 3);
-  const tiers = [ranked.slice(0, third), ranked.slice(third, third * 2), ranked.slice(third * 2)];
-  // A third to each end, the remainder in the middle — the same formula
-  // tierSizesFor() in tools/gauntlet-archive-render.mjs uses to label a past
-  // day's words, so the archive and the generator cannot disagree.
-  //
-  // DERIVED, because it used to be the literal [2, 3, 2] with a comment
-  // saying it must sum to the count. Dropping the count to 3 while that
-  // stood would have drawn 2 easy + 3 medium + 2 hard and then kept the
-  // three EASIEST of the seven: 800 easy, 400 medium and not one hard word
-  // over 400 days. The puzzle would have quietly lost its top tier, and
-  // nothing in the output says which tier a word came from.
-  const outer = Math.floor(DAILY_GAUNTLET_WORD_COUNT / 3);
-  const want = [outer, DAILY_GAUNTLET_WORD_COUNT - outer * 2, outer];
-
+  const pool = DAILY_TARGET_WORDS.filter((w) => !banned.has(w.toUpperCase()));
   const picked = [];
-  tiers.forEach((tier, i) => {
-    const pool = [...tier];
-    for (let k = 0; k < want[i] && pool.length; k++) {
-      picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-    }
-  });
-  // Defensive: if the tiers somehow came up short (a truncated word list),
-  // top up at random rather than publishing a puzzle with missing words.
-  // Bounded. This draws at random and rejects, so if `banned` ever left fewer
-  // than DAILY_GAUNTLET_WORD_COUNT words to choose from, an unbounded loop
-  // would spin forever inside a Cloud Function — billed by the second, with
-  // no error to look at. In practice `banned` holds one word, so the cap is
-  // never approached; it is here because the failure mode is a hang rather
-  // than a wrong puzzle.
-  for (let tries = 0; picked.length < DAILY_GAUNTLET_WORD_COUNT && tries < 10000; tries++) {
-    const w = DAILY_TARGET_WORDS[Math.floor(Math.random() * DAILY_TARGET_WORDS.length)];
-    if (banned.has(w.toUpperCase())) continue;
-    if (!picked.some((p) => p.w === w)) picked.push({ w, d: effectiveDifficulty(w.toUpperCase(), stats) });
+  // Splice from the filtered copy rather than shuffling 2,300 words to take
+  // three. Same uniformity, three operations, and it cannot repeat a word.
+  while (picked.length < DAILY_GAUNTLET_WORD_COUNT && pool.length) {
+    picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   }
-  return picked.sort((a, b) => a.d - b.d).slice(0, DAILY_GAUNTLET_WORD_COUNT).map((p) => p.w);
+  return picked;
 }
 
 // Sprint's one word for the day, drawn uniformly from the whole target list
@@ -1432,7 +1412,7 @@ exports.generateDailyPuzzle = onSchedule({ schedule: "0 0 * * *", timeZone: "Ame
 
     if (!daySnap.exists) {
       tx.set(puzzleRef, {
-        words: pickDailyWords(stats, new Set([String(sprint.word || "").toUpperCase()])),
+        words: pickDailyWords(new Set([String(sprint.word || "").toUpperCase()])),
         wordCount: DAILY_GAUNTLET_WORD_COUNT,
         generatedAt: FieldValue.serverTimestamp(),
       });
@@ -1458,6 +1438,26 @@ const WORD_STATS_BATCH = 2000;
 // part that decides what a client is allowed to teach the game about its own
 // word list, and it is client-reported data like everything else on a /runs
 // document.
+// What a finished run contributes to the word library: one entry per word
+// actually played, with how many guesses it took and whether it fell.
+//
+// Written on the server for Sprint, the Trifecta and Marathon, which is
+// better evidence than Stakes' client-written log can ever be: the client
+// cannot inflate a word's difficulty by claiming five guesses on a word it
+// solved in two. foldRunWordLog re-checks every entry against the real target
+// list regardless, because Stakes still writes its own.
+function buildWordLog(entries) {
+  const out = [];
+  for (const e of entries || []) {
+    const w = String(e && e.word || "").toUpperCase();
+    const g = Number(e && e.guesses);
+    // A word that was never reached has no guesses and is not evidence.
+    if (!/^[A-Z]{5}$/.test(w) || !Number.isInteger(g) || g < 1 || g > DAILY_GAUNTLET_MAX_GUESSES) continue;
+    out.push({ w, g, s: !!(e && e.solved) });
+  }
+  return out;
+}
+
 function foldRunWordLog(run, words) {
   let counted = 0, rejected = 0;
   if (!run || !Array.isArray(run.wordLog)) return { counted, rejected };
@@ -1527,7 +1527,7 @@ async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
   const exclude = sprintSnap.exists
     ? new Set([String(sprintSnap.data().word || "").toUpperCase()])
     : new Set();
-  const puzzle = { words: pickDailyWords(null, exclude), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
+  const puzzle = { words: pickDailyWords(exclude), wordCount: DAILY_GAUNTLET_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() };
   tx.set(puzzleRef, puzzle);
   return puzzle;
 }
@@ -1765,6 +1765,10 @@ exports.guessDailyWord = onCall(readableFailures("Submitting that Daily Puzzle g
         // and not guessed - which is what the Profile's win rate divides by
         // `wordsPlayed` to get.
         fails: missed, kobeCount: 0, bestStreak,
+        // Three words, three samples for the word library.
+        wordLog: buildWordLog(newHistory.map((entry, i) => ({
+          word: puzzle.words[i], guesses: entry.guesses.length, solved: entry.solved,
+        }))),
         mode: "daily", puzzleDate: today,
         timestamp: FieldValue.serverTimestamp(),
       });
@@ -1908,6 +1912,9 @@ exports.guessSprintWord = onCall(readableFailures("Submitting that Sprint guess"
         // field, and Firestore drops documents missing an ordered field from
         // the result entirely.
         elapsedMs,
+        // One word, one sample — and the best sample in the game: everybody
+        // meets the same word, nobody can skip it, and nobody is racing.
+        wordLog: buildWordLog([{ word: target, guesses: guessNumber, solved }]),
         mode: "sprint", puzzleDate: today,
         timestamp: FieldValue.serverTimestamp(),
       });
@@ -2065,6 +2072,10 @@ exports.guessMarathonWord = onCall(readableFailures("Submitting that Marathon gu
         wordsGuessed: solved ? 1 : 0, wordsPlayed: 1,
         guess1: g[0], guess2: g[1], guess3: g[2], guess4: g[3], guess5: g[4],
         fails: solved ? 0 : 1, kobeCount: 0, bestStreak: solved ? 1 : 0,
+        // One doc per word, so one sample per word. Marathon is closed in
+        // the nav right now; writing this anyway means reopening it does not
+        // also mean remembering to wire it up.
+        wordLog: buildWordLog([{ word: target, guesses: guessNumber, solved }]),
         mode: "marathon", marathonKey: month,
         // The running totals this word leaves the player on, so onRunCreated
         // can set the board fields outright instead of incrementing them —

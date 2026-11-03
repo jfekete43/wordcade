@@ -45,7 +45,7 @@ ok('today is NEVER publishable', !R.isPublishable('2026-09-25', now));
 ok('yesterday is', R.isPublishable('2026-09-24', now));
 ok('tomorrow is not', !R.isPublishable('2026-09-26', now));
 ok('a date before the epoch is not', !R.isPublishable('2026-09-01', now));
-ok('the epoch itself is', R.isPublishable(R.GAUNTLET_EPOCH, now));
+ok('the epoch itself is', R.isPublishable(R.ARCHIVE_EPOCH, now));
 // The riskiest instant of all: one minute before ET midnight, when UTC has
 // already ticked over to the next date.
 const almostMidnight = at('2026-09-25T03:59:00Z'); // 11:59pm ET on the 24th
@@ -54,74 +54,88 @@ ok('at 23:59 ET, "today" is the 24th and it is not publishable',
 ok('...and the 23rd still is', R.isPublishable('2026-09-23', almostMidnight));
 
 const dates = R.publishableDates(now);
-ok('the publishable list starts at the epoch', dates[0] === R.GAUNTLET_EPOCH, dates[0]);
+ok('the publishable list starts at the epoch', dates[0] === R.ARCHIVE_EPOCH, dates[0]);
 ok('the publishable list ends at yesterday', dates[dates.length - 1] === '2026-09-24', dates[dates.length - 1]);
 ok('the publishable list never contains today', !dates.includes('2026-09-25'));
 ok('every date in the list passes isPublishable', dates.every((d) => R.isPublishable(d, now)));
 
 // ---- 2. puzzle numbering -------------------------------------------------
-ok('the epoch is Trifecta #1', R.gauntletNumber(R.GAUNTLET_EPOCH) === 1, String(R.gauntletNumber(R.GAUNTLET_EPOCH)));
-ok('numbering counts days, not rows', R.gauntletNumber('2026-09-24') === 23, String(R.gauntletNumber('2026-09-24')));
-ok('a pre-epoch date has no number', R.gauntletNumber('2026-08-30') === null);
-ok('numbering survives a DST change', R.gauntletNumber('2026-11-02') - R.gauntletNumber('2026-10-31') === 2,
-   `${R.gauntletNumber('2026-10-31')} -> ${R.gauntletNumber('2026-11-02')}`);
+// Two epochs now, doing two jobs. ARCHIVE_EPOCH is the floor on what may be
+// SHOWN and still reaches back to the first Daily Puzzle; TRIFECTA_EPOCH is
+// where the NUMBERING starts, because three words from one pool is not the
+// seven-word difficulty ramp that came before it. The days between the two
+// still publish - they just carry their date instead of a number.
+ok('the archive still reaches back past the Trifecta', R.ARCHIVE_EPOCH < R.TRIFECTA_EPOCH,
+   `${R.ARCHIVE_EPOCH} .. ${R.TRIFECTA_EPOCH}`);
+ok('the Trifecta epoch is #1', R.gauntletNumber(R.TRIFECTA_EPOCH) === 1, String(R.gauntletNumber(R.TRIFECTA_EPOCH)));
+// The epoch lives in two files — the renderer numbers the published pages and
+// index.html numbers the share text and the in-app archive — so they are
+// checked against each other the same way the gauntlet gate's two copies are.
+// A day apart would have the site and its own archive disagreeing about which
+// Trifecta a player had just finished.
+{
+  const clientEpoch = (fs.readFileSync(REPO('index.html'), 'utf8')
+    .match(/const TRIFECTA_EPOCH = "([^"]*)"/) || [])[1];
+  ok('index.html states the Trifecta epoch', !!clientEpoch, String(clientEpoch));
+  ok('and it is the same day the renderer numbers from', clientEpoch === R.TRIFECTA_EPOCH,
+     `${clientEpoch} vs ${R.TRIFECTA_EPOCH}`);
+  // The archive floor is the renderer's alone; the client never publishes.
+  ok('the archive floor is on or before it', R.ARCHIVE_EPOCH <= R.TRIFECTA_EPOCH,
+     `${R.ARCHIVE_EPOCH} .. ${R.TRIFECTA_EPOCH}`);
+}
+ok('numbering counts days, not rows', R.gauntletNumber(R.shiftDate(R.TRIFECTA_EPOCH, 22)) === 23,
+   String(R.gauntletNumber(R.shiftDate(R.TRIFECTA_EPOCH, 22))));
+ok('a day before it has no number', R.gauntletNumber(R.shiftDate(R.TRIFECTA_EPOCH, -1)) === null);
+ok('including every day of the old Daily Puzzle', R.gauntletNumber(R.ARCHIVE_EPOCH) === null);
+// ...but is still published, and goes by its date.
+ok('an unnumbered day is still publishable', R.isPublishable(R.ARCHIVE_EPOCH, at('2026-09-25T16:00:00Z')));
+ok('and is labelled by date rather than "#null"',
+   R.dayLabel(R.ARCHIVE_EPOCH) === R.shortDate(R.ARCHIVE_EPOCH), R.dayLabel(R.ARCHIVE_EPOCH));
+ok('while a numbered one is labelled by number', R.dayLabel(R.TRIFECTA_EPOCH) === 'Trifecta #1',
+   R.dayLabel(R.TRIFECTA_EPOCH));
+// Relative to the epoch, so it keeps testing the arithmetic rather than
+// where the epoch happens to sit. 2 November 2026 is the day the clocks had
+// just gone back; counting in UTC midnights is what survives it.
+{
+  const dst = '2026-11-02';
+  const before = R.shiftDate(dst, -2);
+  ok('numbering survives a DST change', R.gauntletNumber(R.TRIFECTA_EPOCH) === 1
+     && R.gauntletNumber(R.shiftDate(R.TRIFECTA_EPOCH, 2)) - R.gauntletNumber(R.TRIFECTA_EPOCH) === 2,
+     `${R.gauntletNumber(R.TRIFECTA_EPOCH)} -> ${R.gauntletNumber(R.shiftDate(R.TRIFECTA_EPOCH, 2))}`);
+  ok('and shiftDate crosses that same boundary', R.shiftDate(before, 2) === dst, R.shiftDate(before, 2));
+}
 ok('shiftDate crosses a DST boundary without drifting',
    R.shiftDate('2026-11-01', -1) === '2026-10-31' && R.shiftDate('2026-03-08', 1) === '2026-03-09');
 
-// ---- 3. tiers reflect how pickDailyWords actually draws ------------------
+// ---- 3. the draw is one pool ---------------------------------------------
+// The Trifecta used to draw a ramp - one word from each difficulty third, in
+// order - which is why the archive printed a Tier column: position in the
+// published list WAS the tier. The draw is uniform over the whole list now,
+// so position means nothing and the column is gone. These pin that the two
+// halves of that decision stayed together: a draw that went back to tiering
+// without the column returning would publish a ramp nobody is told about,
+// and a column that returned without the tiering would be a lie.
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 const COUNT = Number(fnSrc.match(/const DAILY_GAUNTLET_WORD_COUNT = (\d+);/)[1]);
-// The server's split is derived from the count rather than written out, so
-// this runs the server's own two lines instead of parsing a literal. It used
-// to JSON.parse `const want = [2, 3, 2]`, which stopped being a literal the
-// day the count moved — and a test that can only read a constant cannot check
-// a formula.
-const wantSrc = fnSrc.match(/const outer = Math\.floor\(DAILY_GAUNTLET_WORD_COUNT \/ 3\);\n\s*const want = \[[^\]]*\];/)[0];
-// eslint-disable-next-line no-new-func
-const serverWant = new Function('DAILY_GAUNTLET_WORD_COUNT', `${wantSrc}; return want;`);
-const want = serverWant(COUNT);
-ok('the draw sums to the puzzle length', want.reduce((a, b) => a + b, 0) === COUNT, `${want} sums to ${want.reduce((a, b) => a + b, 0)}, puzzle is ${COUNT}`);
-// Not just at today's count. The archive renders every past day, and the
-// puzzle has been ten words, then seven, now three — so the generator and the
-// labeller have to agree at every length, not only the current one.
-let agreeAt = [];
-for (let n = 1; n <= 24; n++) {
-  if (JSON.stringify(serverWant(n)) !== JSON.stringify(R.tierSizesFor(n))) agreeAt.push(n);
-}
-ok('tier sizes match pickDailyWords at every puzzle length, not just today\'s',
-   agreeAt.length === 0, 'disagree at ' + agreeAt.join(','));
-ok('and the live count is one of each', JSON.stringify(serverWant(3)) === '[1,1,1]', JSON.stringify(serverWant(3)));
-// A three-word day is one of each, which is the whole reason the split is
-// derived: the literal [2,3,2] would have drawn seven and kept the three
-// easiest, retiring the Hard tier without a word of warning.
-ok('a three-word day is one Easy, one Medium, one Hard',
-   R.tierOf(0, 3) === 'Easy' && R.tierOf(1, 3) === 'Medium' && R.tierOf(2, 3) === 'Hard',
-   [0, 1, 2].map((i) => R.tierOf(i, 3)).join('/'));
-ok('positions 1-2 are Easy', [0, 1].every((i) => R.tierOf(i, 7) === 'Easy'));
-ok('positions 3-5 are Medium', [2, 3, 4].every((i) => R.tierOf(i, 7) === 'Medium'));
-ok('positions 6-7 are Hard', [5, 6].every((i) => R.tierOf(i, 7) === 'Hard'));
-// The regression that matters: a ten-word day predates the change and its
-// pages are still published. A fixed 2/3/2 would have called position 8 Hard
-// on a seven-word puzzle that has no position 8, and relabelled every older
-// page on the day the count changed.
-ok('a ten-word day still splits 3/4/3', JSON.stringify(R.tierSizesFor(10)) === '[3,4,3]', JSON.stringify(R.tierSizesFor(10)));
-ok('positions 1-3 are Easy on a ten-word day', [0, 1, 2].every((i) => R.tierOf(i, 10) === 'Easy'));
-ok('positions 4-7 are Medium on a ten-word day', [3, 4, 5, 6].every((i) => R.tierOf(i, 10) === 'Medium'));
-ok('positions 8-10 are Hard on a ten-word day', [7, 8, 9].every((i) => R.tierOf(i, 10) === 'Hard'));
+ok('the puzzle is three words', COUNT === 3, String(COUNT));
+const pickSrc = (fnSrc.match(/function pickDailyWords\(exclude\) \{[\s\S]*?\n\}/) || [''])[0];
+ok('pickDailyWords takes only an exclusion now', !!pickSrc, pickSrc.slice(0, 60));
+ok('and consults no difficulty at all',
+   !!pickSrc && !/effectiveDifficulty|WORD_DIFFICULTY|\.sort\(/.test(pickSrc), pickSrc.slice(0, 220));
+ok('the renderer no longer claims a tier', !('tierOf' in R) && !('tierSizesFor' in R),
+   Object.keys(R).filter((k) => /tier/i.test(k)).join(','));
+const renderSrc = fs.readFileSync(REPO('tools/gauntlet-archive-render.mjs'), 'utf8');
+ok('and prints no Tier column', !/>Tier</.test(renderSrc) && !/class="tier/.test(renderSrc),
+   (renderSrc.match(/[^\n]*Tier[^\n]*/) || [''])[0]);
+ok('and says so in the page itself', /Drawn at random from the whole word list/.test(renderSrc));
 
-// The count has to reach tierOf from the DAY, not from a constant and not from
-// today's puzzle length. Checking tierOf alone missed this: it was correct
-// while its caller handed it the wrong number, which would have relabelled
-// every published ten-word page.
-const tiersOf = (n) => R.computeWordStats(Array.from({ length: n }, (_, i) => 'WORD' + i), []).map((x) => x.tier);
-ok('a seven-word day is labelled 2 Easy / 3 Medium / 2 Hard',
-   JSON.stringify(tiersOf(7)) === JSON.stringify(['Easy', 'Easy', 'Medium', 'Medium', 'Medium', 'Hard', 'Hard']),
-   JSON.stringify(tiersOf(7)));
-ok('a ten-word day is still labelled 3 Easy / 4 Medium / 3 Hard',
-   JSON.stringify(tiersOf(10)) === JSON.stringify(['Easy', 'Easy', 'Easy', 'Medium', 'Medium', 'Medium', 'Medium', 'Hard', 'Hard', 'Hard']),
-   JSON.stringify(tiersOf(10)));
-ok('the two days disagree, which is the whole point',
-   JSON.stringify(tiersOf(7)) !== JSON.stringify(tiersOf(10).slice(0, 7)));
+// The Tier column is gone with the ramp that justified it, so a word row no
+// longer carries one. A tier reappearing here without the draw going back to
+// tiering would be a label nothing earns.
+{
+  const row = R.computeWordStats(['ARISE', 'HOUSE', 'MEDIA'], [])[0];
+  ok('a word row carries no tier', !('tier' in row), Object.keys(row).join(','));
+}
 
 // ---- 4. per-word stats from real attempt shapes --------------------------
 const WORDS = ['ARISE', 'HOUSE', 'MEDIA', 'GRAPE', 'TOKEN', 'FLINT', 'WRYLY', 'ABYSS', 'QUELL', 'NYMPH'];
@@ -161,7 +175,8 @@ ok('average guesses covers only the players who solved it',
 ok('...and the failure is still counted as reaching it', ws[1].reached === 4 && ws[1].endedRuns === 1,
    `${ws[1].reached}/${ws[1].endedRuns}`);
 ok('a word nobody solved has no average', ws[5].solved === 1 ? true : ws[5].avgGuesses === null);
-ok('tiers are attached to each word', ws[0].tier === 'Easy' && ws[9].tier === 'Hard');
+ok('and still carries none once real attempts are folded in', !('tier' in ws[0]) && !('tier' in ws[9]),
+   Object.keys(ws[0]).join(','));
 
 // ---- 4b. the same maths on a PLAY-ALL-TEN day ---------------------------
 // Every finisher now reaches every word, so `reached` stops discriminating and
@@ -249,16 +264,33 @@ ok('a higher score beats more words solved', R.computeStandings(
      [{ username: 'X', score: 100, wordsGuessed: 1 }, { username: 'Y', score: 99, wordsGuessed: 10 }]
    )[0].name === 'X');
 ok('standings are capped at ten', R.computeStandings(new Array(40).fill({ username: 'X', score: 1 })).length === 10);
-const dist = R.computeDistribution(runs);
+// This fixture is a ten-word day. The archive still publishes those, which
+// is the whole reason the length is a parameter now.
+const FIXTURE_WORDS = 10;
+const dist = R.computeDistribution(runs, FIXTURE_WORDS);
 ok('distribution counts perfect runs', dist[10] === 1, String(dist[10]));
 ok('distribution buckets ties together', dist[8] === 2, String(dist[8]));
-ok('distribution has a bucket per outcome', dist.length === R.WORD_COUNT + 1, String(dist.length));
+ok('distribution has a bucket per outcome of that day', dist.length === FIXTURE_WORDS + 1,
+   `${dist.length} buckets for ${FIXTURE_WORDS} words`);
+// The regression this replaced: `export const WORD_COUNT = 10` outlived the
+// seven-word puzzle, so every page read "x/10" and the perfect-run bucket was
+// structurally unreachable - no seven-word run solves ten words. At three it
+// would have been wrong by more.
+const shortDist = R.computeDistribution([{ wordsGuessed: 3 }, { wordsGuessed: 3 }, { wordsGuessed: 1 }], 3);
+ok('a three-word day gets four buckets', shortDist.length === 4, JSON.stringify(shortDist));
+ok('and its perfect run is reachable rather than always zero', shortDist[3] === 2, JSON.stringify(shortDist));
+ok('a run claiming more words than the day had is clamped, not dropped',
+   R.computeDistribution([{ wordsGuessed: 99 }], 3)[3] === 1,
+   JSON.stringify(R.computeDistribution([{ wordsGuessed: 99 }], 3)));
 
 // ---- 6. the rendered page ------------------------------------------------
 const day = { date: '2026-09-24', words: WORDS, runs, attempts, prev: '2026-09-23', next: null };
 const page = R.renderDayPage(day);
 ok('the page is a complete document', page.startsWith('<!DOCTYPE html>') && page.trimEnd().endsWith('</html>'));
-ok('the title carries the puzzle number and date', /<title>Lexathon Trifecta #23 — 24 September 2026<\/title>/.test(page),
+// 24 September 2026 is before the Trifecta epoch, so it publishes under its
+// date rather than a number - which is what "today is #1" costs the sixty
+// days behind it, and is better than printing "#null" on all of them.
+ok('an unnumbered day titles itself by date', /<title>Lexathon — 24 September 2026<\/title>/.test(page),
    (page.match(/<title>[^<]*<\/title>/) || [''])[0]);
 ok('there is a meta description', /<meta name="description" content="[^"]{60,}"/.test(page));
 ok('there is a canonical url', page.includes('<link rel="canonical" href="https://lexathon.gg/gauntlet/2026-09-24/">'));
@@ -295,7 +327,13 @@ const days = [
 ];
 const hub = R.renderHubPage(days);
 ok('the hub lists every day', days.every((d) => hub.includes(`href="/gauntlet/${d.date}/"`)));
-ok('the hub numbers the puzzles', hub.includes('#23') && hub.includes('#22'));
+ok('the hub labels unnumbered days by date rather than "#null"',
+   !hub.includes('#null') && hub.includes('24 Sept 2026'), (hub.match(/#null/) || ['clean'])[0]);
+{
+  // And a numbered one does get its number.
+  const numbered = R.renderHubPage([{ date: R.TRIFECTA_EPOCH, players: 3, perfect: 1, topScore: 900 }]);
+  ok('while a Trifecta day gets its number', numbered.includes('#1'), 'no #1 in the hub');
+}
 ok('the hub says today is not listed', /play it first/i.test(hub));
 ok('the hub has a canonical url', hub.includes('<link rel="canonical" href="https://lexathon.gg/gauntlet/">'));
 
@@ -386,8 +424,10 @@ ok('.only-sm is declared before the breakpoint that overrides it',
    basePos !== -1 && mediaPos !== -1 && basePos < mediaPos, `base ${basePos}, media ${mediaPos}`);
 ok('the wide header has a short alternative',
    /<span class="hide-sm">Avg guesses<\/span><span class="only-sm">Avg<\/span>/.test(style));
-ok('one column per table is dropped on a phone',
-   /<th class="hide-sm">Tier<\/th>/.test(style) && /<th class="n hide-sm">Perfect<\/th>/.test(style));
+// The word table lost its Tier column outright, so the hub's Perfect column
+// is the one that still folds away on a phone.
+ok('a column is still dropped on a phone', /<th class="n hide-sm">Perfect<\/th>/.test(style));
+ok('and the word table no longer has one to drop', !/<th[^>]*>Tier<\/th>/.test(style));
 
 // Long dates wrapped the hub's date column onto three lines, which was most
 // of why that table could not fit.

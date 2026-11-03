@@ -16,7 +16,7 @@
  *   effectiveDifficulty  — blends measured against computed, shrinking toward
  *                          the computed score in proportion to sample count so
  *                          a word seen four times cannot swing the grading.
- *   pickDailyWords       — two easy, three medium, two hard, ordered so the
+ *   pickDailyWords       — three words drawn uniformly from the whole list,
  *                          Trifecta ramps.
  *
  * Pure; no emulator needed.
@@ -27,11 +27,12 @@ import { fileURLToPath } from 'url';
 const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', f);
 
 const fn = fs.readFileSync(REPO('functions/index.js'), 'utf8').replace(/\r\n/g, '\n');
+const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const grab = (re) => { const m = fn.match(re); if (!m) throw new Error('could not extract ' + re); return m[0]; };
 const src = [
   grab(/const WORD_STATS_PRIOR = \d+;/),
   grab(/function effectiveDifficulty\(word, stats\) \{\n[\s\S]*?\n\}/),
-  grab(/function pickDailyWords\(stats, exclude\) \{\n[\s\S]*?\n\}/),
+  grab(/function pickDailyWords\(exclude\) \{\n[\s\S]*?\n\}/),
   grab(/function foldRunWordLog\(run, words\) \{\n[\s\S]*?\n\}/),
 ].join('\n\n');
 console.log('extracted from functions/index.js:', src.length, 'chars');
@@ -126,32 +127,151 @@ ck(effectiveDifficulty(REAL, easyStats(2000)) < 0.05, 'measured-easy pulls all t
 ck(effectiveDifficulty(REAL, { [REAL]: { p: 0, g: 0, f: 0 } }) === prior, 'a zero-play entry is ignored');
 ck(Number.isFinite(effectiveDifficulty(REAL, { [REAL]: { p: 'x', g: 'y' } })), 'corrupt stats do not produce NaN');
 
-// ===== pickDailyWords — the ramp ==========================================
+// ===== pickDailyWords — one pool ==========================================
+// It used to draw a ramp: one word from each difficulty third, ordered
+// easiest first, which is why the archive printed a Tier column. Three words
+// is too short for a ramp to read as a curve rather than as "the last one is
+// the nasty one", so the draw is uniform over the whole target list.
+//
+// The hard part to test is a NEGATIVE: that difficulty no longer touches the
+// draw. Counting how many words land in each third cannot show it - a
+// one-per-third ramp and a uniform draw both average a third each. What
+// separates them is the SHAPE of a single day: a ramp always takes exactly
+// one word from each third and always comes out in order, and a uniform draw
+// does neither reliably.
 const targetSetUpper = DAILY_TARGET_SET;
-let allOrdered = true, allUnique = true, allReal = true, allTen = true, spread = 0;
-const RUNS = 200;
+const RUNS = 300;
+const thirdSize = Math.floor(targetWords.length / 3);
+const ranked = [...targetWords].sort((a, b) => WORD_DIFFICULTY[a.toUpperCase()] - WORD_DIFFICULTY[b.toUpperCase()]);
+const rankIndex = new Map(ranked.map((w, i) => [w, i]));
+const thirdOf = (w) => { const i = rankIndex.get(w); return i < thirdSize ? 0 : i < thirdSize * 2 ? 1 : 2; };
+
+let allCount = true, allUnique = true, allReal = true;
+let oneFromEachThird = 0, ascending = 0;
+const perThird = [0, 0, 0];
 for (let i = 0; i < RUNS; i++) {
-  const picked = pickDailyWords(null);
-  if (picked.length !== DAILY_GAUNTLET_WORD_COUNT) allTen = false;
+  const picked = pickDailyWords();
+  if (picked.length !== DAILY_GAUNTLET_WORD_COUNT) allCount = false;
   if (new Set(picked).size !== picked.length) allUnique = false;
   if (!picked.every((w) => targetSetUpper.has(w.toUpperCase()))) allReal = false;
+  const thirds = picked.map(thirdOf);
+  for (const t of thirds) perThird[t]++;
+  if (new Set(thirds).size === thirds.length) oneFromEachThird++;
   const ds = picked.map((w) => WORD_DIFFICULTY[w.toUpperCase()]);
-  if (!ds.every((d, j) => j === 0 || d >= ds[j - 1])) allOrdered = false;
-  spread += ds[ds.length - 1] - ds[0];
+  if (ds.every((d, j) => j === 0 || d >= ds[j - 1])) ascending++;
 }
-ck(allTen, `always exactly ${DAILY_GAUNTLET_WORD_COUNT} words`);
+ck(allCount, `always exactly ${DAILY_GAUNTLET_WORD_COUNT} words`);
 ck(allUnique, 'never repeats a word within one puzzle');
 ck(allReal, 'only ever picks real target words');
-ck(allOrdered, 'always ordered easiest to hardest');
-ck(spread / RUNS > 0.15, 'the ramp is real, not ten words of the same difficulty', `mean spread ${(spread / RUNS).toFixed(3)}`);
+// A ramp scores RUNS on both of these. Uniform expects about 22% and 17%.
+ck(oneFromEachThird < RUNS * 0.6, 'a day is not always one word from each difficulty third',
+   `${oneFromEachThird}/${RUNS} days had one from each`);
+ck(ascending < RUNS * 0.6, 'and is not always ordered easiest to hardest',
+   `${ascending}/${RUNS} days came out in order`);
+// Both tails are reachable: one pool means the hardest third is no less
+// likely than the easiest.
+ck(perThird.every((n) => n > RUNS * 0.2), 'every third of the list still turns up', JSON.stringify(perThird));
+ck(Math.max(...perThird) - Math.min(...perThird) < RUNS * 0.3,
+   'and no third is favoured over another', JSON.stringify(perThird));
 
-// Measured data must actually change the selection, not just be accepted.
-const skew = {};
-for (const w of targetWords.slice(0, 400)) skew[w.toUpperCase()] = { p: 500, g: 500, f: 0 }; // measured perfectly easy
-const withStats = pickDailyWords(skew);
-ck(withStats.length === DAILY_GAUNTLET_WORD_COUNT, 'measured data still yields a full puzzle');
-const dsWith = withStats.map((w) => effectiveDifficulty(w.toUpperCase(), skew));
-ck(dsWith.every((d, j) => j === 0 || d >= dsWith[j - 1]), 'ordered by the blended score, not the raw one');
+// Measured difficulty must now change NOTHING about the draw. This replaces a
+// check that it changed the ORDER; the inversion is the point of the change.
+const pickSrc = fn.match(/function pickDailyWords\(exclude\) \{[\s\S]*?\n\}/)[0];
+ck(!/effectiveDifficulty|WORD_DIFFICULTY|\.sort\(/.test(pickSrc),
+   'the draw reads no difficulty of any kind', pickSrc.slice(0, 200));
+
+// The one thing it does still take: the Sprint word, which must not also be
+// one of today's three.
+{
+  const survivors = targetWords.slice(0, 5).map((w) => w.toUpperCase());
+  const banAllBut = new Set(targetWords.map((w) => w.toUpperCase()).filter((w) => !survivors.includes(w)));
+  let strays = 0;
+  for (let i = 0; i < 40; i++) {
+    for (const w of pickDailyWords(banAllBut)) if (!survivors.includes(w.toUpperCase())) strays++;
+  }
+  ck(strays === 0, 'an excluded word never appears in the draw', `${strays} strays`);
+
+  // Uniqueness, proved rather than sampled. Over the real list a repeat is
+  // about one draw in 800, so "no repeat in 300 draws" passed roughly two
+  // times in three with the de-duplication deleted - a check that is mostly
+  // luck is not a check. Narrow the pool to exactly three words and every
+  // draw must be those three: picking WITHOUT removal repeats about four
+  // draws in five.
+  const onlyThree = targetWords.slice(0, 3).map((w) => w.toUpperCase());
+  const banRest = new Set(targetWords.map((w) => w.toUpperCase()).filter((w) => !onlyThree.includes(w)));
+  let dupes = 0, wrongSize = 0;
+  for (let i = 0; i < 60; i++) {
+    const p = pickDailyWords(banRest).map((w) => w.toUpperCase());
+    if (p.length !== 3) wrongSize++;
+    if (new Set(p).size !== p.length) dupes++;
+  }
+  ck(dupes === 0, 'a word is never drawn twice in one puzzle', `${dupes}/60 draws repeated a word`);
+  ck(wrongSize === 0, 'and a pool of exactly three still fills the puzzle', `${wrongSize}/60 came up short`);
+  ck(pickDailyWords(new Set()).length === DAILY_GAUNTLET_WORD_COUNT,
+     'and an empty exclusion still yields a full puzzle');
+  ck(pickDailyWords().length === DAILY_GAUNTLET_WORD_COUNT, 'as does no exclusion at all');
+}
+
+// ===== the word library is fed by every single-player mode ================
+// wordStats is the measured half of the game: how often each word is met and
+// how many guesses it takes. It is folded out of each run's `wordLog`, and
+// for a long time only Stakes wrote one - which the CLIENT composes, so the
+// two modes with the cleanest evidence in the game (one shared word, nobody
+// skipping, nobody racing) contributed nothing at all.
+{
+  const buildSrc = fn.match(/function buildWordLog\(entries\) \{[\s\S]*?\n\}/)[0];
+  // eslint-disable-next-line no-new-func
+  const buildWordLog = new Function('DAILY_GAUNTLET_MAX_GUESSES', `${buildSrc}; return buildWordLog;`)(5);
+
+  const got = buildWordLog([{ word: 'arise', guesses: 3, solved: true },
+                            { word: 'HOUSE', guesses: 5, solved: false }]);
+  ck(JSON.stringify(got) === JSON.stringify([{ w: 'ARISE', g: 3, s: true }, { w: 'HOUSE', g: 5, s: false }]),
+     'a played word becomes one sample, upper-cased', JSON.stringify(got));
+  // A Trifecta run that was abandoned has history entries with no guesses.
+  // Counting them would say the word was met and never solved, which would
+  // drag its measured difficulty up for something nobody attempted.
+  ck(buildWordLog([{ word: 'ARISE', guesses: 0, solved: false }]).length === 0,
+     'a word that was never reached is not a sample');
+  ck(buildWordLog([{ word: 'ARISE', guesses: 6, solved: false }]).length === 0,
+     'nor is an impossible guess count');
+  ck(buildWordLog([{ word: 'NOPE', guesses: 2, solved: true }]).length === 0,
+     'nor is something that is not a five-letter word');
+  ck(buildWordLog(null).length === 0 && buildWordLog([null, undefined]).length === 0,
+     'and nothing at all folds to nothing');
+
+  // What foldRunWordLog does with it, end to end: the shape one half writes
+  // has to be the shape the other half reads.
+  const words = {};
+  foldRunWordLog({ wordLog: buildWordLog([{ word: 'ARISE', guesses: 2, solved: true }]) }, words);
+  ck(words.ARISE && words.ARISE.p === 1 && words.ARISE.g === 2 && words.ARISE.f === 0,
+     'a solve written by the server is read back as a solve', JSON.stringify(words.ARISE));
+  foldRunWordLog({ wordLog: buildWordLog([{ word: 'ARISE', guesses: 5, solved: false }]) }, words);
+  ck(words.ARISE.p === 2 && words.ARISE.g === 7 && words.ARISE.f === 1,
+     'and a miss is read back as a miss', JSON.stringify(words.ARISE));
+}
+
+// Every single-player run the SERVER writes carries one. Derived from the
+// source rather than listed, because the failure mode is a mode added later
+// that quietly never feeds the library - which is exactly how Sprint and the
+// Trifecta spent their first weeks.
+{
+  const chunks = fn.split('const runRef = db.collection("runs")').slice(1)
+    .map((c) => c.slice(0, c.indexOf('\n    }')));
+  ck(chunks.length >= 3, 'the server writes runs for several modes', String(chunks.length));
+  const seen = [];
+  for (const c of chunks) {
+    const mode = (c.match(/mode: "(\w+)"/) || [])[1];
+    if (!mode) continue;
+    seen.push(mode);
+    ck(/wordLog: buildWordLog\(/.test(c), `the ${mode} run feeds the word library`,
+       c.slice(0, 160).replace(/\n\s*/g, ' '));
+  }
+  // Stakes is the fourth single-player mode and writes its own from the
+  // client, which is why foldRunWordLog re-checks every entry it is given.
+  ck(/wordLog: runWordLog/.test(html), 'and Stakes still writes its own from the client');
+  ck(['daily', 'sprint', 'marathon'].every((m) => seen.includes(m)),
+     'so all four single-player modes are covered', seen.join(','));
+}
 
 let bad = 0;
 for (const [ok, name, detail] of t) {
