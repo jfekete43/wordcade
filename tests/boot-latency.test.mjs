@@ -69,6 +69,15 @@ const MODE_FLAGS = [...currentModeSrc.matchAll(/if \((\w+)\) return/g)].map((m) 
 if (MODE_FLAGS.length < 3) throw new Error('could not read the mode flags out of currentMode()');
 const FLAG_DECL = MODE_FLAGS.map((f) => `let ${f} = false;`).join(' ');
 
+// The Sprint landing loads a finished day's result by itself, which is the
+// one Cloud Function boot can make. Lifted, not restated: a stub of
+// applyProfileToLanding would be a second copy of the thing under test, and
+// the question here is exactly whether the real one holds anything up.
+const applyProfileSrc = 'function applyProfileToLanding() {'
+  + between(html, 'function applyProfileToLanding() {', '\n        }', 'applyProfileToLanding') + '\n}';
+const autoOpenSrc = 'async function autoOpenSprintResult() {'
+  + between(html, 'async function autoOpenSprintResult() {', '\n        }', 'autoOpenSprintResult') + '\n}';
+
 const CLIENT_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(html) || [])[1];
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 const SERVER_GATE = (/const GAUNTLET_REQUIRES_ACCOUNT = (true|false);/.exec(fnSrc) || [])[1];
@@ -163,7 +172,8 @@ const authSrc = between(html,
   'onAuthStateChanged(auth, async (user) => {\n            if (user) {\n',
   '                tryAutoJoinFromUrl();', 'auth handler');
 
-const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } = {}) => {
+const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200,
+                       slowSprint = 300, inSprint = false, playedSprint = false } = {}) => {
   const log = [];
   let now = 0;
   // A fake clock: each "request" resolves after its own cost, and we record
@@ -179,6 +189,13 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
       const user = { uid: 'u', isAnonymous: false };
       let currentUser = null, userProfileData = null;
       ${FLAG_DECL}
+      // The real boot sets this before auth resolves, so the handler runs with
+      // Sprint already on screen. Left false by default so every case above
+      // keeps measuring exactly what it measured before.
+      isSprintMode = ${inSprint};
+      let sprintAttempt = null, sprintOpening = false;
+      const sprintPlayedToday = () => ${playedSprint};
+      const window = { openSprint: async () => { await req('startSprint', ${slowSprint}); sprintAttempt = {}; } };
       let hasLanded = false;
       ${currentModeSrc}
       ${inAltModeSrc}
@@ -204,7 +221,15 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
       // asserted in sprint.test.mjs, where it belongs; here it would just
       // be DOM noise between the calls being counted.
       const renderSprintCard = () => {};
+      ${applyProfileSrc}
+      ${autoOpenSrc}
       ${authSrc}
+      // The handler's own return. If anything above ever awaited the result
+      // load, this would land after it rather than before - which is the whole
+      // question, and is invisible in the source text.
+      // at: -1 like cardPainted - this marks a position in the order, not a
+      // virtual time, and the fake clock lives outside this scope anyway.
+      log.push({ ev: 'handler:done', at: -1 });
       // Let anything started-but-not-awaited finish before we read the trace.
       await new Promise((r) => setTimeout(r, 120));
     })();
@@ -212,6 +237,31 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200 } =
   await run(req, log);
   return log;
 };
+
+// ===== 2b. the Sprint landing, on a day already played ===================
+// Arriving on a Sprint already finished loads the result instead of offering
+// it, which costs one callable. Three things make that acceptable and all
+// three are measured here rather than asserted in prose: it does not happen to
+// anyone who has not played, it starts after the profile read rather than in
+// front of it, and nothing waits on it.
+{
+  const fresh = (await trace({ inSprint: true })).map((x) => x.ev);
+  ck(!fresh.includes('startSprint:start'),
+     'a first visit of the day still makes no call at all', fresh.join(' -> '));
+
+  const back = await trace({ inSprint: true, playedSprint: true });
+  const ev = back.map((x) => x.ev);
+  ck(ev.includes('startSprint:start'), 'coming back to a finished day loads the result', ev.join(' -> '));
+  ck(ev.indexOf('startSprint:start') > ev.indexOf('profileRead:done'),
+     'and only once the profile says it was finished, so it is never in front of the read', ev.join(' -> '));
+
+  // The decisive one. A cold start on startSprint is the same hazard
+  // refreshProfile was, and the same answer: start it, do not wait for it.
+  const cold = (await trace({ inSprint: true, playedSprint: true, slowSprint: 5000 })).map((x) => x.ev);
+  ck(cold.indexOf('handler:done') < cold.indexOf('startSprint:done') || !cold.includes('startSprint:done'),
+     'a five-second cold start on it does not hold up sign-in', cold.join(' -> '));
+  ck(cold.includes('startSprint:start'), 'though it is genuinely started', cold.join(' -> '));
+}
 
 const log = await trace();
 const order = log.map((x) => x.ev);

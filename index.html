@@ -3252,17 +3252,15 @@
                     callRefreshProfile().then((result) => {
                         if (result && result.data && result.data.profile) {
                             userProfileData = result.data.profile;
-                            applyEquippedCosmetics();
-                            renderSprintCard();
+                            applyProfileToLanding();
                             if (!inAltMode()) refreshGauntletCard();
                         }
                     }).catch((e) => console.error("Profile refresh failed", e));
                 }
-                applyEquippedCosmetics();
                 // The landing paints before auth resolves, so the card first
                 // renders with no profile and has to be told again once there
                 // is one. Both branches above converge here.
-                renderSprintCard();
+                applyProfileToLanding();
                 // First paint of the Daily Puzzle card, once there's a signed-in
                 // user to read an attempt for. Guarded because this callback
                 // also refires mid-session (linking a Google account), by
@@ -4219,6 +4217,9 @@
         let isMarathonMode = false;
         let marathonAttempt = null;
         let sprintAttempt = null;
+        // One at a time. The landing loads today's result by itself, and a tap
+        // on the gate while that is still in the air would start a second one.
+        let sprintOpening = false;
         let sprintClockTimer = null;
         let sprintClockStartedAt = 0;
         let sprintWorthTimer = null;
@@ -4917,20 +4918,68 @@
                 + " \u00B7 Streak " + streak + (best > streak ? " (best " + best + ")" : "");
         }
 
-        window.openSprint = async function() {
+        // A day already finished has nothing left to offer, so the gate is just
+        // a tap in the way: load the result the player came back for instead.
+        //
+        // This is the one Cloud Function the landing calls, and only for someone
+        // who already played today. A first visit still pays nothing, which is
+        // what boot is protecting when it says the landing calls none - and it
+        // is not awaited by anything, so it cannot delay first paint either.
+        async function autoOpenSprintResult() {
+            // sprintAttempt: already open. sprintOpening: already on its way.
+            // isSprintMode: the profile can land after the player has moved on.
+            if (!isSprintMode || sprintAttempt || sprintOpening || !sprintPlayedToday()) return;
+            const btn = document.getElementById("sprint-card-btn");
+            // The gate stays up until the result replaces it, so it has to say
+            // what it is doing rather than sit there looking tappable.
+            if (btn) { btn.innerText = "Loading today's result\u2026"; btn.disabled = true; }
+            await window.openSprint({ silent: true });
+            // On success the card is hidden and this repaints nothing anyone can
+            // see. On failure the gate is the only way in, so it has to come
+            // back tappable rather than stay stuck on the loading label.
+            if (btn) btn.disabled = false;
+            renderSprintCard();
+        }
+
+        // Everything the landing owes a profile, in one body. Two callers: the
+        // doc read at sign-in, and the refresh callable that lands after it and
+        // can correct it. One body is what stops the later caller quietly
+        // missing a step the earlier one does - which is how the card spent a
+        // release showing a linked account as a guest.
+        function applyProfileToLanding() {
+            applyEquippedCosmetics();
+            renderSprintCard();
+            autoOpenSprintResult();
+        }
+
+        // opts.silent: load the day straight onto the result screen, with no
+        // modal and no intro card, because nobody asked for this one - the
+        // landing starts it by itself for a player who has already finished.
+        window.openSprint = async function(opts) {
+            if (sprintOpening) return;
+            const silent = !!(opts && opts.silent);
             document.getElementById("main-menu-modal").style.display = "none";
             if (!currentUser) return;
             // Guests welcome, same as the Daily. Nothing here is worth gating:
             // one word a day is the cheapest possible first impression.
-            await showModeIntro("sprint");
+            // Skipped on a silent open: the intro BLOCKS on a tap, so a player
+            // who cleared their storage would have to dismiss a card explaining
+            // a mode they have already played today just to see their own score.
+            if (!silent) await showModeIntro("sprint");
 
+            sprintOpening = true;
             try {
                 sprintAttempt = (await callStartSprint()).data.attempt;
                 if (!sprintAttempt) throw new Error("Couldn't start today's Sprint.");
             } catch (e) {
-                alert(e.message || "Couldn't start today's Sprint.");
                 console.error(e);
+                // A tap deserves an answer. An automatic load that failed leaves
+                // the gate exactly as it was instead of popping an alert over a
+                // page the player was only looking at.
+                if (!silent) alert(e.message || "Couldn't start today's Sprint.");
                 return;
+            } finally {
+                sprintOpening = false;
             }
 
             isSprintMode = true;
@@ -4954,7 +5003,11 @@
                 // Already done today: this is a result, not an offer.
                 setSprintScoreLabel("SCORE");
                 setSprintWorth(sprintAttempt.score || 0, false);
-                showSprintEndModal(sprintAttempt, true);
+                // Arriving on a day already spent is not a result you just got,
+                // so there is no modal to dismiss: the panel under the board IS
+                // the result screen. Finishing a word still opens the modal.
+                if (silent) showSprintDonePanel(sprintAttempt);
+                else showSprintEndModal(sprintAttempt, true);
             } else {
                 startSprintRound();
             }
@@ -5138,6 +5191,16 @@
             }).join("");
         }
 
+        // The result screen under the board: the same stats and the same share
+        // button, drawn and raised. Split out from the modal because the modal
+        // is the moment you finish and this is the screen you come back to -
+        // arriving on a day already played wants the second without the first.
+        function showSprintDonePanel(attempt) {
+            const used = (attempt.guesses || []).length;
+            renderSprintStats(attempt.solved ? used : 0, "sprint-panel");
+            document.getElementById("sprint-done-panel").style.display = "block";
+        }
+
         function showSprintEndModal(attempt, resumed, answer) {
             const solved = !!attempt.solved;
             const used = (attempt.guesses || []).length;
@@ -5153,8 +5216,7 @@
             renderSprintStats(solved ? used : 0, "sprint-end");
             // The panel under the board carries the same thing, for after
             // this is dismissed.
-            renderSprintStats(solved ? used : 0, "sprint-panel");
-            document.getElementById("sprint-done-panel").style.display = "block";
+            showSprintDonePanel(attempt);
 
             document.getElementById("btn-sprint-share").style.display = "inline-block";
             document.getElementById("sprint-end-modal").style.display = "flex";

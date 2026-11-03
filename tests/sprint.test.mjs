@@ -714,13 +714,18 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
 
   const shows = owners(/sprint-done-panel"\)\.style\.display = "block"/g);
   const hides = owners(/sprint-done-panel"\)\.style\.display = "none"/g);
-  eq('the panel goes up in exactly one place, where the word finishes', shows, ['showSprintEndModal']);
+  eq('the panel goes up in exactly one place', shows, ['showSprintDonePanel']);
 
-  // And is filled on the way up. Revealed without being rendered it is two
-  // headings over nothing, which is worse than the bare screen it replaced.
-  const end = JS.slice(JS.indexOf('        function showSprintEndModal('), JS.indexOf('window.dismissSprintEnd'));
-  const into = [...end.matchAll(/renderSprintStats\([^,]+, "([^"]+)"\)/g)].map((m) => m[1]).sort();
-  eq('and the one place that raises it draws both copies first', into, ['sprint-end', 'sprint-panel']);
+  // And is filled on the way up, in the same body. Raised without being
+  // rendered it is two headings over nothing, which is worse than the bare
+  // screen it replaced - and that is exactly what happens if a second caller
+  // reaches for the display property instead of calling through here.
+  const raiser = JS.slice(JS.indexOf('        function showSprintDonePanel('),
+                          JS.indexOf('        function showSprintEndModal('));
+  ck(/renderSprintStats\([^)]*"sprint-panel"\)/.test(raiser),
+     'and the one place that raises it draws into it first', raiser.slice(0, 200));
+  ck(raiser.indexOf('renderSprintStats') < raiser.indexOf('= "block"'),
+     'in that order, so it is never briefly on screen holding the last result');
 
   // Its share button returns early without an attempt, so the panel standing
   // on a screen with no attempt is a button that silently does nothing. Every
@@ -738,6 +743,192 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   // without passing through leaveSprint.
   ck(hides.includes('openMarathon') && hides.includes('leaveMarathon'),
      'and so does Marathon, which lands on the same board', hides.join(', '));
+}
+
+
+// ---- a day already finished loads its own result -----------------------------
+// The gate said "You have already played today's word" over a button that led
+// to the result. That is a tap between the player and the only thing on that
+// screen they came back for, so the landing fetches it itself.
+//
+// The cost is the one thing to watch: this is the only Cloud Function the
+// landing calls, boot says in as many words that it calls none, and the reason
+// is that awaiting a cold-startable callable in front of the home screen is
+// what used to leave the page sitting on an Stakes board for seconds.
+{
+  const src = (html.match(/        async function autoOpenSprintResult\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!src, 'autoOpenSprintResult is findable', src.slice(0, 60));
+
+  // The real function, run against stubs. The stub records the gate's state at
+  // the moment it is called, which is the only way to tell a label set BEFORE
+  // the await from one set after it - and only the former is visible.
+  const run = async (state) => {
+    const calls = [];
+    const btn = { innerText: "View Today's Result", disabled: false };
+    const doc = { getElementById: (id) => (id === 'sprint-card-btn' ? btn : null) };
+    const win = { openSprint: async (opts) => {
+      calls.push({ opts, labelWhileLoading: btn.innerText, disabledWhileLoading: btn.disabled });
+    } };
+    // eslint-disable-next-line no-new-func
+    const body = new Function('isSprintMode', 'sprintAttempt', 'sprintOpening', 'sprintPlayedToday',
+                              'document', 'window', 'renderSprintCard',
+      `${src}; return autoOpenSprintResult();`);
+    await body(state.inSprint, state.attempt || null, !!state.opening, () => !!state.played,
+               doc, win, () => calls.push('render'));
+    return { calls, opens: calls.filter((c) => c && c.opts !== undefined), btn };
+  };
+
+  {
+    const o = await run({ inSprint: true, played: true });
+    eq('a day already finished is loaded without being asked', o.opens.length, 1);
+    eq('and loaded silently, so there is no modal to dismiss on arrival',
+       o.opens[0].opts, { silent: true });
+    ck(/Loading/.test(o.opens[0].labelWhileLoading),
+       'with the gate saying what it is doing while it waits', o.opens[0].labelWhileLoading);
+    eq('and not tappable, so a tap cannot start a second one', o.opens[0].disabledWhileLoading, true);
+    // The open may have failed, in which case the gate is still the only way
+    // in. A gate left disabled on its loading label is a dead end.
+    eq('but tappable again afterwards either way', o.btn.disabled, false);
+  }
+  {
+    const o = await run({ inSprint: true, played: false });
+    eq('a day not yet played is left as the offer it is', o.opens.length, 0);
+  }
+  {
+    const o = await run({ inSprint: true, played: true, attempt: { status: 'finished' } });
+    eq('a result already open is not fetched a second time', o.opens.length, 0);
+  }
+  {
+    const o = await run({ inSprint: true, played: true, opening: true });
+    // Both profile paths call this, and the second can land while the first
+    // is still in the air. Two startSprint calls is two clocks.
+    eq('nor is one already on its way', o.opens.length, 0);
+  }
+  {
+    const o = await run({ inSprint: false, played: true });
+    // The profile arrives whenever it arrives; by then the player may have
+    // tapped STAKES, and yanking them back would be worse than a tap.
+    eq('and a player who has moved on is left where they are', o.opens.length, 0);
+  }
+}
+
+// What "silently" means, at source.
+{
+  const open = html.slice(html.indexOf('        window.openSprint = async function'),
+                          html.indexOf('        function startSprintRound()'));
+  ck(/window\.openSprint = async function\(opts\)/.test(open), 'openSprint takes the options');
+  ck(/const silent = !!\(opts && opts\.silent\);/.test(open),
+     'and reads them defensively, since the gate calls it with none');
+  ck(/if \(!silent\) await showModeIntro\("sprint"\);/.test(open),
+     'the intro card is skipped: it BLOCKS on a tap, and nobody tapped');
+  ck(/if \(!silent\) alert\(/.test(open),
+     'and so is the alert, which would otherwise pop over a page being read');
+  ck(/if \(silent\) showSprintDonePanel\(sprintAttempt\);\r?\n\s*else showSprintEndModal\(sprintAttempt, true\);/.test(open),
+     'arriving lands on the panel; finishing a word still opens the modal', open.slice(-400));
+  // A tap on the gate while the automatic load is in the air must not start a
+  // second attempt - and the flag has to clear on the failure path too, or the
+  // gate is dead for the rest of the session.
+  ck(/if \(sprintOpening\) return;/.test(open), 'a second open while one is in flight is refused');
+  ck(/sprintOpening = true;/.test(open) && /\} finally \{\r?\n\s*sprintOpening = false;/.test(open),
+     'and the flag clears in a finally, so a failed load does not wedge the gate');
+}
+
+// What the player actually ends up looking at, with the real openSprint run.
+// The checks above pin the branch at source; this one runs it, because the
+// outcome that matters is which of two screens is on top, and that is the sum
+// of a dozen display properties rather than one line of source.
+{
+  const src = (html.match(/        window\.openSprint = async function\(opts\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!src, 'openSprint is findable', src.slice(0, 60));
+  // The two that decide the outcome are lifted and run for real; everything
+  // else openSprint touches is view plumbing and is recorded, not simulated.
+  const panelSrc = (html.match(/        function showSprintDonePanel\(attempt\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  const statsSrc2 = (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+
+  const open = async (opts, attempt) => {
+    const els = new Map();
+    const el = (id) => { if (!els.has(id)) els.set(id, { id, innerHTML: '', style: {} }); return els.get(id); };
+    const called = [];
+    const rec = (name) => (...a) => called.push(name);
+    // eslint-disable-next-line no-new-func
+    const body = new Function('document', 'currentUser', 'callStartSprint', 'userProfileData',
+      'showModeIntro', 'renderModeNav', 'showStandardPanels', 'loadSprintBoard', 'boardDisplay',
+      'resetKeyboardColors', 'setSprintPlaySurfaceVisible', 'setSprintClock', 'setSprintScoreLabel',
+      'setSprintWorth', 'showSprintEndModal', 'startSprintRound', 'called', 'OPTS', `
+        let isSprintMode = false, sprintAttempt = null, sprintOpening = false;
+        const window = {};
+        ${statsSrc2}
+        ${panelSrc}
+        ${src}
+        return window.openSprint(OPTS).then(() => ({ isSprintMode, sprintAttempt }));`);
+    const out = await body(
+      { getElementById: el }, { uid: 'u' },
+      async () => ({ data: { attempt } }),
+      { sprintPlayed: 9, sprintSolved: 8, sprintStreak: 3, sprintBestStreak: 5, sprintG3: 8 },
+      rec('showModeIntro'), rec('renderModeNav'), rec('showStandardPanels'), rec('loadSprintBoard'),
+      { innerHTML: '' }, rec('resetKeyboardColors'), rec('setSprintPlaySurfaceVisible'),
+      rec('setSprintClock'), rec('setSprintScoreLabel'), rec('setSprintWorth'),
+      rec('showSprintEndModal'), rec('startSprintRound'), called, opts);
+    return { called, out, disp: (id) => (els.get(id) || { style: {} }).style.display,
+             html_: (id) => (els.get(id) || {}).innerHTML };
+  };
+
+  const done = { status: 'finished', solved: true, score: 300, elapsedMs: 41000,
+                 guesses: [{ guess: 'AAAAA', colors: [0, 0, 0, 0, 0] },
+                           { guess: 'BBBBB', colors: [0, 0, 0, 0, 0] },
+                           { guess: 'CRANE', colors: [2, 2, 2, 2, 2] }] };
+
+  {
+    const o = await open({ silent: true }, done);
+    eq('a silent open raises the panel under the board', o.disp('sprint-done-panel'), 'block');
+    ck(!o.called.includes('showSprintEndModal'),
+       'and opens no modal over it, which is the whole point', o.called.join(', '));
+    ck(!o.called.includes('showModeIntro'), 'nor an intro card nobody asked for', o.called.join(', '));
+    eq('the gate it replaces is taken down', o.disp('sprint-card'), 'none');
+    ck(/stat-bar-fill/.test(o.html_('sprint-panel-dist')) && /stat-pill/.test(o.html_('sprint-panel-stats')),
+       'and the panel it put up has the stats in it', o.html_('sprint-panel-stats').slice(0, 80));
+    eq('with the board loaded under it, since that is the screen', o.called.filter((c) => c === 'loadSprintBoard').length, 1);
+  }
+  {
+    // Finishing a word is still a result you just got.
+    const o = await open(undefined, done);
+    ck(o.called.includes('showSprintEndModal'), 'an ordinary open still opens the modal', o.called.join(', '));
+    // And leaves the panel to it. There is one raiser (pinned above) and the
+    // modal calls it, so openSprint reaching for the display property here
+    // would be a second one - which is the shape that drifts.
+    eq('leaving the panel to the modal rather than raising a second copy itself',
+       o.disp('sprint-done-panel'), 'none');
+  }
+  {
+    // Defensive: sprintLastDate says finished, the server says otherwise.
+    const o = await open({ silent: true }, { status: 'in_progress', guesses: [] });
+    ck(o.called.includes('startSprintRound'), 'a day not actually finished resumes the word instead',
+       o.called.join(', '));
+    ck(o.disp('sprint-done-panel') !== 'block', 'and raises no result panel over a live board',
+       String(o.disp('sprint-done-panel')));
+  }
+}
+
+// Both profile paths go through one body, so neither can miss a step.
+{
+  const auth = html.slice(html.indexOf('onAuthStateChanged(auth, async (user) => {'),
+                          html.indexOf('// Tap-to-join invite links'));
+  ck(!/\brenderSprintCard\(\)/.test(auth),
+     'the sign-in handler no longer paints the card by hand');
+  eq('both profile paths call the one body instead',
+     (auth.match(/applyProfileToLanding\(\);/g) || []).length, 2);
+  const body = (html.match(/        function applyProfileToLanding\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  for (const step of ['applyEquippedCosmetics', 'renderSprintCard', 'autoOpenSprintResult']) {
+    ck(new RegExp(step + '\\(\\)').test(body), 'and that body does ' + step, body.slice(0, 200));
+  }
+}
+
+// The gate itself stays free. It is painted on every landing, signed in or
+// not, and the whole reason boot pays nothing is that this costs nothing.
+{
+  const card = (html.match(/        function renderSprintCard\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!/autoOpenSprintResult|callStartSprint|await/.test(card),
+     'rendering the gate still fetches nothing', card.slice(0, 120));
 }
 
 
