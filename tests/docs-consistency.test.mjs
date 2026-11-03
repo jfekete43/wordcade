@@ -207,6 +207,47 @@ ok('no page still says a missed word ends the Trifecta run',
    suddenDeath || suddenDeathClaims.length === 0, suddenDeathClaims.join(' || ').slice(0, 300));
 // And the rule is actually stated somewhere a player will read it, rather than
 // merely not contradicted.
+// No page may still state a word count the Trifecta has outgrown.
+//
+// Scoped by SECTION, not by sentence. The sentence-level version of this
+// found the stale line in strategy.html and missed two others, because
+// neither names the mode: "You play all seven whatever happens" sits under
+// the FAQ heading "Does the Trifecta have a time limit?", and "Getting all
+// ten is genuinely hard" sits three sentences into the rules page's own
+// Trifecta section. A claim inherits its subject from its heading.
+//
+// Sections that are NOT about the Trifecta keep their own numbers, which is
+// why the scope matters rather than just being tidier: Marathon says "play
+// ten in a sitting", Clash says "seven minutes", and about.html says "all
+// four are in How To Play" — three legitimate sentences a looser check
+// reports as bugs.
+{
+  const stale = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+    .filter((w) => w !== GWORD);
+  const re = new RegExp(`(?:all|plays?|exactly|identical) (?:${stale.join('|')})\\b[^.]{0,40}|(?:${stale.join('|')}) words`, 'i');
+  const plain = (x) => x.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ');
+  for (const [name, src] of Object.entries(pages)) {
+    // Scripts and styles out first: index.html's module has its own h2-ish
+    // shapes inside template strings, and a minified table of dates is not
+    // prose about anything.
+    const prose = src.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ');
+    // A sentence is in scope if its SECTION is about the Trifecta, or if the
+    // sentence names it outright. Either alone misses one: the FAQ's "You
+    // play all seven whatever happens" names nothing and inherits its subject
+    // from the heading, while strategy.html's "strongest in Trifecta, where
+    // scoring something on all ten..." sits in a section about opening words.
+    const named = /trifecta|gauntlet|daily puzzle/i;
+    const bad = prose.split(/(?=<h[23])/)
+      .flatMap((sec) => {
+        const inSection = named.test(plain(sec).slice(0, 120));
+        return plain(sec).split(/(?<=[.!?])\s+/).filter((x) => inSection || named.test(x));
+      })
+      .filter((x) => re.test(x));
+    ok(`${name}'s Trifecta sections state no word count it has outgrown`, bad.length === 0,
+       bad.join(' || ').slice(0, 220));
+  }
+}
+
 ok('the rules page says you play every word',
    new RegExp(`play all ${GWORD}|plays all ${GWORD}|all ${GWORD} words whatever happens`, 'i')
      .test(text['how-to-play.html']), GWORD);

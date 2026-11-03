@@ -47,6 +47,47 @@ ok('and the list includes the ones added last', pages.includes('404.html') && pa
 // ---- the card image itself -----------------------------------------------
 const cardPath = path.join(REPO, CARD);
 ok('the card image exists', fs.existsSync(cardPath), CARD);
+
+// ---- the card names the modes the site actually has ----------------------
+// Everything else here treats the card as bytes, which is right for a PNG and
+// useless for what it SAYS: the strip read "Stakes · Daily · Clash ·
+// Free-For-All" through a rename and two closures, and no check noticed,
+// because the bytes were perfectly valid the whole time.
+//
+// So the strip is derived from index.html's MODES table rather than written
+// out, the same way the palette already is. The derivation itself is run here
+// against the real table, so a closed mode on the card fails as a wrong list
+// rather than as nothing at all.
+{
+  const html = read('index.html').replace(/\r\n/g, '\n');
+  const expected = [...((html.match(/const MODES = \{\n[\s\S]*?\n        \};/) || [''])[0])
+    .matchAll(/^\s{12}\w+:\s*\{([^}]*)\}/gm)]
+    .map((m) => m[1])
+    .filter((row) => !/hidden:\s*true/.test(row))
+    .map((row) => (row.match(/label:\s*"([^"]+)"/) || [])[1])
+    .filter(Boolean)
+    .map((l) => (l.length <= 3 ? l : l[0] + l.slice(1).toLowerCase()));
+  ok('the mode table has modes to name', expected.length >= 2, expected.join(','));
+
+  for (const tool of ['tools/build-og-card.mjs', 'tools/build-social-images.mjs']) {
+    const src = read(tool);
+    ok(`${tool} derives the strip instead of writing it out`,
+       /const MODE_STRIP = \(\(\) => \{/.test(src) && /\$\{MODE_STRIP\}/.test(src),
+       (src.match(/[^\n]*&middot;[^\n]*/) || ['no strip found'])[0].slice(0, 110));
+    // No stale copy left behind beside the derived one.
+    ok(`${tool} holds no hand-written mode strip`,
+       !/(?:Stakes|Daily|Free-For-All)\s*&nbsp;&middot;/.test(src),
+       (src.match(/[^\n]*&middot;[^\n]*/) || [''])[0].slice(0, 110));
+    // And the derivation, run for real against the shipped table.
+    const from = src.indexOf('const MODE_STRIP');
+    const body = src.slice(from, src.indexOf('})();', from) + 5);
+    // eslint-disable-next-line no-new-func
+    const got = new Function('CSS', `${body}; return MODE_STRIP;`)(html)
+      .split(/\s*&nbsp;&middot;&nbsp;\s*/);
+    ok(`${tool} names exactly the modes a player can reach`,
+       JSON.stringify(got) === JSON.stringify(expected), `${got.join(' / ')} vs ${expected.join(' / ')}`);
+  }
+}
 let dims = null, kb = 0;
 if (fs.existsSync(cardPath)) {
   const buf = fs.readFileSync(cardPath);

@@ -6,7 +6,7 @@
     <title>Endless 5-Letter Word Game — Free &amp; Unlimited | Lexathon</title>
     <meta name="description" content="A free word game that doesn't stop after one puzzle a day: endless 5-letter runs, a daily three-word Trifecta, and live 1v1 matches. No install, no account.">
     <!-- How a shared link looks when it unfurls. Every share path in the
-         game ends in a link to this site - the Standard and Trifecta
+         game ends in a link to this site - the Stakes and Trifecta
          results, and both invite links - so without these a share is a
          bare blue URL in Discord, iMessage, Slack or WhatsApp. One card
          serves every page; only the title and description differ.
@@ -21,7 +21,7 @@
     <meta property="og:url" content="https://lexathon.gg/">
     <meta property="og:title" content="An endless, competitive word game">
     <meta property="og:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily three-word Trifecta, and live 1v1 matches. Free, no install, no account.">
-    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=238a866b">
+    <meta property="og:image" content="https://lexathon.gg/og-card.png?v=fe0eac68">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Lexathon - a competitive five-letter word game. A row of letter tiles spelling RIVAL, two blue, one amber.">
@@ -29,7 +29,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="An endless, competitive word game">
     <meta name="twitter:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily three-word Trifecta, and live 1v1 matches. Free, no install, no account.">
-    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=238a866b">
+    <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=fe0eac68">
 
     <!-- Google Search Console ownership verification. Must stay on the
          homepage permanently — Search Console re-checks it periodically and
@@ -75,7 +75,7 @@
       "name": "Lexathon",
       "url": "https://lexathon.gg",
       "description": "A free five-letter word game with endless solo runs, a daily three-word Trifecta and 1v1 races.",
-      "image": "https://lexathon.gg/og-card.png?v=238a866b",
+      "image": "https://lexathon.gg/og-card.png?v=fe0eac68",
       "genre": ["Word game", "Puzzle"],
       "applicationCategory": "Game",
       "gamePlatform": "Web browser",
@@ -782,7 +782,7 @@
             display: flex; align-items: center; justify-content: space-between;
             gap: var(--s-5); margin-bottom: var(--s-5); }
         /* Today's Trifecta board, in the slot the Live Arcade Feed occupies
-           during a Standard run. Wider than the feed and scrolls on its own
+           during a Stakes run. Wider than the feed and scrolls on its own
            so a busy day doesn't push the page down. */
         #gauntlet-card-timer { color: var(--c-ink-4); font-size: 11px; white-space: nowrap; }
         #gauntlet-card-body, #sprint-card-body { color: var(--c-ink-3); font-size: 14px; margin-bottom: 10px; }
@@ -1285,7 +1285,7 @@
            different accent — green, purple, yellow, cyan, orange, magenta, grey,
            red — on identical plates, so the colour encoded nothing and no item
            read as more important than any other. Worse, it spent the four MODE
-           colours (Standard green, Trifecta purple, Clash orange, FFA yellow)
+           colours (Stakes green, Trifecta purple, Clash orange)
            on things that are not modes, which is what stopped those colours
            meaning anything anywhere else. Hierarchy here is brightness instead:
            one primary, the rest even, the two housekeeping items quiet. Hue is
@@ -1387,7 +1387,7 @@
     <!-- STANDARD UI -->
     <!-- Cash Out lives here, not in the mode nav. Up there it read as a fifth
          MODE sitting beside Trifecta/Clash/FFA, when it is an action on the
-         score directly above it — and it is only ever Standard's. It is also
+         score directly above it — and it is only ever Stakes's. It is also
          shown and hidden at exactly the same six places as #score-board, so
          nesting it costs no JS: the existing display toggles on #btn-cash-out
          still run and still work, they just happen inside a parent that was
@@ -1709,11 +1709,11 @@
          tomorrow, but as one of five equal buttons in the nav it reads as one
          of five things. This states today's puzzle, where you stand on it and
          when the next one lands, without making it the mode the site boots
-         into — Standard is the forgiving, instant, offline-capable front door
+         into — Stakes is the forgiving, instant, offline-capable front door
          a first-time visitor needs.
 
-         It sits BELOW today's Standard board, deliberately: this screen is
-         Standard, so the board for the mode you are actually playing comes
+         It sits BELOW today's Stakes board, deliberately: this screen is
+         Stakes, so the board for the mode you are actually playing comes
          first, and the cross-sell to a different mode comes after it. -->
     <!-- Ships visible, like the Live Arcade Feed above it that the same
          function toggles. It used to wait for auth and then appear, which
@@ -1731,7 +1731,7 @@
     </div>
 
     <!-- Today's Trifecta board. Shown only in Trifecta mode, taking the slot
-         today's Standard board occupies above (the two are never both up). -->
+         today's Stakes board occupies above (the two are never both up). -->
     <div id="gauntlet-feed-container" style="display:none;">
         <div id="gauntlet-feed-head">
             <div id="gauntlet-feed-title">Today's Trifecta Board</div>

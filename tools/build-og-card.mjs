@@ -37,6 +37,25 @@ const C = (name) => {
   return m[1];
 };
 
+// The modes, read out of index.html's MODES table for exactly the reason the
+// palette above is: a strip naming a mode that has been closed, or missing
+// the one the site now opens on, is a picture of a different product. Closed
+// modes (hidden: true) are left out and the order is the table's own, so the
+// strip changes when the nav does and never on its own.
+const MODE_STRIP = (() => {
+  const table = (CSS.match(/const MODES = \{\n[\s\S]*?\n        \};/) || [])[0];
+  if (!table) throw new Error("could not read the MODES table out of index.html");
+  const names = [...table.matchAll(/^\s{12}\w+:\s*\{([^}]*)\}/gm)]
+    .map((m) => m[1])
+    .filter((row) => !/hidden:\s*true/.test(row))
+    .map((row) => (row.match(/label:\s*"([^"]+)"/) || [])[1])
+    .filter(Boolean)
+    // Title case, except an acronym, which has no lower case to go to.
+    .map((l) => (l.length <= 3 ? l : l[0] + l.slice(1).toLowerCase()));
+  if (names.length < 2) throw new Error("could not read the mode labels out of index.html");
+  return names.join(" &nbsp;&middot;&nbsp; ");
+})();
+
 // Content is kept inside a generous margin: every platform crops this
 // differently, and iMessage in particular squares it off.
 //
@@ -139,7 +158,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   <div class="mark">${MARK.map((ch) => `<div>${ch}</div>`).join("")}</div>
   <div class="row">${WORD.map((w) => `<div class="tile ${w.state}">${w.ch}</div>`).join("")}</div>
   <div class="tag">A competitive five-letter word game</div>
-  <div class="modes">Stakes &nbsp;·&nbsp; Daily &nbsp;·&nbsp; Clash &nbsp;·&nbsp; Free-For-All</div>
+  <div class="modes">${MODE_STRIP}</div>
   <div class="host">lexathon.gg</div>
 </body></html>`;
 

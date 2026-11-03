@@ -34,6 +34,25 @@ const C = (name) => {
   if (!m) throw new Error("could not read --c-" + name + " out of index.html");
   return m[1];
 };
+
+// The modes, read out of index.html's MODES table for exactly the reason the
+// palette above is: a strip naming a mode that has been closed, or missing
+// the one the site now opens on, is a picture of a different product. Closed
+// modes (hidden: true) are left out and the order is the table's own, so the
+// strip changes when the nav does and never on its own.
+const MODE_STRIP = (() => {
+  const table = (CSS.match(/const MODES = \{\n[\s\S]*?\n        \};/) || [])[0];
+  if (!table) throw new Error("could not read the MODES table out of index.html");
+  const names = [...table.matchAll(/^\s{12}\w+:\s*\{([^}]*)\}/gm)]
+    .map((m) => m[1])
+    .filter((row) => !/hidden:\s*true/.test(row))
+    .map((row) => (row.match(/label:\s*"([^"]+)"/) || [])[1])
+    .filter(Boolean)
+    // Title case, except an acronym, which has no lower case to go to.
+    .map((l) => (l.length <= 3 ? l : l[0] + l.slice(1).toLowerCase()));
+  if (names.length < 2) throw new Error("could not read the mode labels out of index.html");
+  return names.join(" &nbsp;&middot;&nbsp; ");
+})();
 const FONT = "'Liberation Sans', 'DejaVu Sans', 'Segoe UI', Tahoma, Arial, sans-serif";
 
 /* ---- the avatar -------------------------------------------------------
@@ -128,7 +147,7 @@ const HEADERS = {
     ${wordmark(104, 112, 60, 12, 17)}
     <div style="font-size:33px;color:${C("ink-3")};margin-top:30px">A competitive five-letter word game</div>
     <div style="font-size:19px;color:${C("ink-4")};letter-spacing:2.4px;text-transform:uppercase;
-      font-weight:bold;margin-top:17px">Stakes &nbsp;&middot;&nbsp; Daily &nbsp;&middot;&nbsp; Clash &nbsp;&middot;&nbsp; Free-For-All</div>`,
+      font-weight:bold;margin-top:17px">${MODE_STRIP}</div>`,
 
   // The wordmark with the guess row beside it: says "word game" in colour
   // rather than in words, and uses the 3:1 instead of fighting it.
@@ -151,7 +170,7 @@ const HEADERS = {
         ${wordmark(70, 76, 41, 9, 12)}
         <div style="font-size:24px;color:${C("ink-3")}">A competitive five-letter word game</div>
         <div style="font-size:17px;color:${C("ink-4")};letter-spacing:2.3px;text-transform:uppercase;font-weight:bold">
-          Stakes &nbsp;&middot;&nbsp; Daily &nbsp;&middot;&nbsp; Clash &nbsp;&middot;&nbsp; Free-For-All</div>
+          ${MODE_STRIP}</div>
       </div>
       <div style="width:2px;height:206px;background:${C("line")}"></div>
       <div style="display:flex;flex-direction:column;gap:11px">
