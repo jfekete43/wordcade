@@ -530,6 +530,7 @@
         /* REDUCE MOTION — turns off the decorative pulse/glow/scroll
            keyframe animations. Leaves the tile flip and other functional
            transitions alone (those convey information, not just flair). */
+        body.reduce-motion .has-claim::after,
         body.reduce-motion .danger-tile,
         body.reduce-motion .btn-claim,
         body.reduce-motion .pulse-text,
@@ -1312,6 +1313,17 @@
         .btn-equip:hover { background: var(--c-correct); color: var(--c-on-accent); }
         
         .btn-claim { border-color: var(--c-clash); color: var(--c-clash); animation: pulse-claim 1.5s infinite;}
+        /* A reward sitting unclaimed. The dot is the signal; the pulse is what
+           makes it a nudge rather than a decoration, which is also why it is in
+           the reduce-motion list above with the rest of the decorative motion.
+           Same clash orange as the CLAIM button it leads to, so the colour is
+           a trail rather than a third meaning. */
+        .has-claim { position: relative; }
+        .has-claim::after { content: ""; position: absolute; top: -3px; right: -3px;
+            width: 9px; height: 9px; border-radius: 50%; background: var(--c-clash);
+            border: 2px solid var(--c-page); animation: pulse-dot 1.6s infinite; }
+        @keyframes pulse-dot { 0%, 100% { box-shadow: 0 0 0 0 rgba(181, 86, 63, .55); }
+            70% { box-shadow: 0 0 0 7px rgba(181, 86, 63, 0); } }
         .btn-claim:hover { background: var(--c-clash); color: var(--c-on-accent); }
         @keyframes pulse-claim { 0%, 100% { box-shadow: 0 0 0 0 rgba(181, 86, 63, 0); } 50% { box-shadow: 0 0 0 4px rgba(181, 86, 63, .22); } }
 
@@ -2055,14 +2067,20 @@
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title">Menu</h2>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
-                <button class="menu-list-btn is-primary" onclick="window.confirmNewGame()">New Game</button>
+                <!-- Signing in is the most valuable thing a guest can do here -
+                     it is what keeps their streak, their wallet and their place on
+                     the boards when the browser forgets them - so for a guest it
+                     leads. Signing OUT is the least valuable thing anyone can do,
+                     so it sits at the bottom. One action, two places, because they
+                     deserve opposite amounts of attention. -->
+                <button id="btn-sign-in" class="menu-list-btn is-primary" onclick="window.handleAuthAction()">Sign Up / Log In</button>
                 <button class="menu-list-btn" onclick="window.openHowToPlay()">How To Play</button>
                 <button class="menu-list-btn" onclick="window.showLeaderboard()">Leaderboard</button>
                 <button class="menu-list-btn" onclick="window.openProfileMenu()">Profile &amp; Stats</button>
                 <button class="menu-list-btn" onclick="window.openShopMenu()">Item Shop</button>
-                <button class="menu-list-btn" onclick="window.openChallengesMenu()">Challenges</button>
+                <button id="btn-challenges" class="menu-list-btn" onclick="window.openChallengesMenu()">Challenges</button>
                 <button class="menu-list-btn is-quiet" onclick="window.openSettingsMenu()">Settings</button>
-                <button id="auth-action-btn" class="menu-list-btn" onclick="window.handleAuthAction()">Sign Up / Log In</button>
+                <button id="btn-sign-out" class="menu-list-btn is-quiet" style="display:none;" onclick="window.handleAuthAction()">Sign Out</button>
 
                 <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
                     <button class="btn-quiet" style="border-color: var(--c-ink) !important; padding: 8px 12px;" onclick="window.open('https://x.com/playlexathon', '_blank', 'noopener')">
@@ -3188,7 +3206,11 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user; let isGuest = user.isAnonymous;
-                document.getElementById("auth-action-btn").innerText = isGuest ? "Sign Up / Log In" : "Sign Out";
+                // Two buttons rather than one relabelled, so the ACTION can move
+                // as well as rename: a guest sees it first and primary, a signed-in
+                // player sees it last and quiet.
+                document.getElementById("btn-sign-in").style.display = isGuest ? "" : "none";
+                document.getElementById("btn-sign-out").style.display = isGuest ? "none" : "";
                 const userRef = doc(db, "users", user.uid); const docSnap = await getDoc(userRef);
                 let todayStr = getTodayDateStr();
 
@@ -3575,14 +3597,7 @@
             }
         };
 
-        window.showMainMenu = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'flex'; }
-        window.confirmNewGame = function() {
-            if (isVersusMode) { alert("Leave the match first!"); return; }
-            if (isDailyMode) { alert("Leave the Trifecta first!"); return; }
-            if (isFfaMode) { alert("Leave the FFA match first!"); return; }
-            if (score > 0 || runStats.played > 0) { let confirmSwitch = confirm("Start a new game? This will end your current run and bank your score."); if (!confirmSwitch) return; document.getElementById('main-menu-modal').style.display = 'none'; saveRunToCloud(); window.startNewRun(); } 
-            else { document.getElementById('main-menu-modal').style.display = 'none'; window.startNewRun(); }
-        }
+        window.showMainMenu = function() { document.activeElement.blur(); refreshClaimableDot(); document.getElementById('main-menu-modal').style.display = 'flex'; }
         
         // Global position on a rating ladder: count everyone above you, add
         // one. `field` is which ladder — Clash's mmr or FFA's ffaMmr — and
@@ -3810,6 +3825,49 @@
             window.renderChallenges('daily'); document.getElementById("challenges-modal").style.display = "flex";
         }
 
+        /*
+         * Whether ONE challenge is claimable, and how far along it is.
+         *
+         * The list in the modal and the dot on the menu both ask this, through
+         * this function, so they cannot disagree about what is waiting. The
+         * list used to own the rule inline, which is fine while it is the only
+         * thing asking and a silent lie the moment something else does.
+         */
+        function challengeState(chal, type, p) {
+            const prof = p || {};
+            const stats = prof.dailyStats || {};
+            const progress = Number(type === "daily" ? stats[chal.field] : prof[chal.field]) || 0;
+            const claimedList = (type === "daily" ? stats.claimed : prof.claimedCareer) || [];
+            const claimed = claimedList.includes(chal.id);
+            return { progress, claimed, complete: !claimed && progress >= chal.req };
+        }
+
+        // How many rewards are sitting unclaimed across both tabs. Only the
+        // daily challenges actually drawn for today count: the pool is bigger
+        // than the three a player is given, and the rest are not theirs to claim.
+        function claimableCount(p) {
+            if (!p) return 0;
+            const active = (p.dailyStats && p.dailyStats.activeIds) || [];
+            const daily = CHALLENGES.daily_pool.filter((c) => active.includes(c.id)).map((c) => [c, "daily"]);
+            const career = CHALLENGES.career.map((c) => [c, "career"]);
+            return [...daily, ...career].filter(([c, t]) => challengeState(c, t, p).complete).length;
+        }
+
+        /*
+         * The dot, on the Menu button and on Challenges inside it.
+         *
+         * Two places on purpose: the one on Menu is the only thing that can get
+         * a player to open it, and the one inside is what stops them hunting
+         * through six buttons once they have. The trail ends at the CLAIM
+         * button, which has pulsed in the same colour since long before this.
+         */
+        function refreshClaimableDot() {
+            const on = claimableCount(userProfileData) > 0;
+            for (const el of [document.querySelector(".menu-btn"), document.getElementById("btn-challenges")]) {
+                if (el) el.classList.toggle("has-claim", on);
+            }
+        }
+
         window.renderChallenges = function(type) {
                 document.querySelectorAll("#challenges-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById(`tab-chal-${type}`).classList.add("active");
                 const listDiv = document.getElementById("challenges-list"); listDiv.innerHTML = ""; 
@@ -3819,10 +3877,10 @@
     
                 let html = "";
                 challenges.forEach(chal => {
-                    let currentProgress = type === 'daily' ? (userProfileData.dailyStats[chal.field] || 0) : (userProfileData[chal.field] || 0);
-                    let isClaimed = type === 'daily' ? userProfileData.dailyStats.claimed.includes(chal.id) : userProfileData.claimedCareer.includes(chal.id);
-                    if (isClaimed) return; 
-                    let isComplete = currentProgress >= chal.req; let pct = Math.min((currentProgress / chal.req) * 100, 100);
+                    const st = challengeState(chal, type, userProfileData);
+                    if (st.claimed) return;
+                    let currentProgress = st.progress;
+                    let isComplete = st.complete; let pct = Math.min((currentProgress / chal.req) * 100, 100);
                     let btnHtml = isComplete ? `<button class="action-btn btn-claim" onclick="window.claimChallenge('${chal.id}', '${type}')">CLAIM<br>${chal.reward.toLocaleString()}</button>` : `<button class="action-btn" style="border-color:var(--c-ink-6); color:var(--c-ink-6); cursor:default;">${chal.reward.toLocaleString()} pts</button>`;
                     html += `<div class="grid-item"><div class="grid-item-info"><div class="grid-item-name">${chal.name}</div><div class="grid-item-desc">${chal.desc}</div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${pct}%;"></div><div class="progress-text">${currentProgress} / ${chal.req}</div></div></div>${btnHtml}</div>`;
                 });
@@ -3840,6 +3898,7 @@
                 const reward = result.data.reward;
                 SFX.claim();
                 if (type === 'daily') { userProfileData.dailyStats.claimed.push(id); } else { userProfileData.claimedCareer.push(id); }
+                refreshClaimableDot();
                 userProfileData.wallet += reward;
                 alert(`Challenge Completed! +${reward.toLocaleString()} pts added to your Wallet.`);
                 window.renderChallenges(type);
@@ -5112,6 +5171,7 @@
         function applyProfileToLanding() {
             applyEquippedCosmetics();
             renderSprintCard();
+            refreshClaimableDot();
             autoOpenSprintResult();
         }
 
@@ -7626,6 +7686,22 @@
                     // next profile/leaderboard read will show the server-confirmed
                     // totals regardless.
                     if (userProfileData) { userProfileData.wallet = (userProfileData.wallet || 0) + score; userProfileData.careerBank = (userProfileData.careerBank || 0) + score; }
+                    // The challenge counters this run moved are applied by
+                    // onRunCreated, server-side, so the profile in memory does not
+                    // know about them. Re-read once so the dot can light up on the
+                    // Menu button BEFORE the player opens it - a nudge you only
+                    // see after opening the menu is not a nudge.
+                    //
+                    // Delayed because it is racing a Firestore trigger. Losing that
+                    // race costs the dot until the next profile read, which is the
+                    // next sign-in or the next time the menu opens; it never shows a
+                    // reward that is not there.
+                    if (currentUser) setTimeout(async () => {
+                        try {
+                            const fresh = await getDoc(doc(db, "users", currentUser.uid));
+                            if (fresh.exists()) { userProfileData = fresh.data(); refreshClaimableDot(); }
+                        } catch (e) { console.error("post-run profile read failed", e); }
+                    }, 2500);
                     document.getElementById("cloud-save-status").innerText = "✅ Saved to cloud!"; document.getElementById("cloud-save-status").style.color = "var(--c-endless)";
                     // A sizable, genuine Cash Out (not a wipeout — that's a
                     // gameplay loss, not a "your browser could lose this"

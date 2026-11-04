@@ -221,6 +221,10 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200,
       // asserted in sprint.test.mjs, where it belongs; here it would just
       // be DOM noise between the calls being counted.
       const renderSprintCard = () => {};
+      // Reads the profile already in memory and toggles a class. Stubbed
+      // for the same reason renderSprintCard is: it fetches nothing, and
+      // what this file counts is round trips.
+      const refreshClaimableDot = () => {};
       ${applyProfileSrc}
       ${autoOpenSrc}
       ${authSrc}
