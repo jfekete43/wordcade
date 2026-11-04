@@ -136,14 +136,24 @@ ck(/user\.periodBestKey === periodKey[\s\S]{0,120}: 0;/.test(onRun),
 ck(/if \(score > priorInWindow\)/.test(onRun), 'and a score only counts if it beats this window\'s');
 
 // --- the read path --------------------------------------------------------
+// The window moved OUT of the Hall of Fame and onto the home board: that modal
+// is one all-time board per mode now, and the week is one of the three tabs
+// over the board on the landing page. Same field, same key, same cost
+// properties - a different function reads it.
 const html = read('index.html');
-// Scoped to the BOARD query. Asserting against the whole file passes on the
-// identical filter inside renderYourRank, so dropping it here went unnoticed.
-const boardQuery = (html.match(/const snapshot = await getDocs\(query\(collection\(db, "users"\),\n[\s\S]*?periodBestScore[\s\S]*?\)\);/) || [''])[0];
+// Scoped to the one function. Asserting against the whole file passes on the
+// identical filter in the your-rank path, so dropping it from the board query
+// itself went unnoticed once already.
+const boardQuery = extractFn(html, 'loadUsersBoard', 'index.html');
 ck(boardQuery.length > 0, 'the board query is where it is expected to be', boardQuery.slice(0, 80));
 ck(/where\("periodBestKey", "==", periodKeyFor\(new Date\(\)\)\)/.test(boardQuery),
    'the board queries this window', boardQuery);
-ck(/orderBy\("periodBestScore", "desc"\), limit\(100\)\)/.test(boardQuery), 'ordered and limited to 100', boardQuery);
+// Bounded by a named constant, and the constant is read rather than retyped:
+// what the original bug was is unbounded, not "not 100".
+const SIZE = Number((html.match(/const DAILY_BOARD_SIZE = (\d+);/) || [])[1]);
+ck(SIZE > 0 && SIZE <= 100, 'the board size is a small named constant', String(SIZE));
+ck(/orderBy\("periodBestScore", "desc"\), limit\(DAILY_BOARD_SIZE\)/.test(boardQuery),
+   `ordered and limited to DAILY_BOARD_SIZE (${SIZE})`, boardQuery);
 // The bug this whole change exists to remove.
 ck(!/collection\(db, "runs"\), where\("timestamp", ">=", start\)/.test(html),
    'and no longer downloads every run in the window');
@@ -169,16 +179,18 @@ ck(on('DESCENDING'), 'there is an index for the board query (key asc, score desc
 ck(on('ASCENDING'), 'and a second for the your-rank range query (key asc, score asc)');
 
 // --- your-rank must not claim a position on a window you are not in ------
-const yourRank = (html.match(/async function renderYourRank\([\s\S]*?\n        \}/) || [''])[0];
-ck(/weekly: \{ field: "periodBestScore"/.test(yourRank), 'the recurring board has a your-rank entry');
-// The comparison itself, not the variable name: `const staleWindow = false;`
-// keeps the name and drops the check.
-ck(/live\.periodBestKey !== periodKeyFor\(new Date\(\)\)/.test(yourRank),
-   'which checks the stored key is this window',
-   (yourRank.match(/const staleWindow[^;]*;/) || ['(not found)'])[0]);
-ck(/staleWindow\) \{ paint\("#–"/.test(yourRank.replace(/\s+/g, ' ')) || /\|\| staleWindow\)/.test(yourRank),
-   'and acts on it rather than computing it and moving on');
-ck(/where\("periodBestKey", "==", periodKeyFor\(new Date\(\)\)\), where\(board\.field, ">", mine\)/.test(yourRank),
+// In renderHomeBoardYou() now, for the same reason as the query above.
+const yourRank = extractFn(html, 'renderHomeBoardYou', 'index.html');
+ck(/HOME_BOARDS\[homeBoard\]/.test(yourRank), 'the home board reads its own config for the field',
+   (yourRank.match(/const cfg[^;]*;/) || ['(not found)'])[0]);
+ck(/Number\(me\[cfg\.field\]\)/.test(yourRank), 'and counts you on that field',
+   (yourRank.match(/const mine[^;]*;/) || ['(not found)'])[0]);
+// The comparison AND the return: keeping the comparison and dropping the
+// return would compute the answer and carry on regardless.
+const windowGuard = (yourRank.match(/if \(homeBoard === "weekly" && me\.periodBestKey !== periodKeyFor\(new Date\(\)\)\)[^\n]*/) || ['(not found)'])[0];
+ck(/periodBestKey !== periodKeyFor/.test(windowGuard), 'which checks the stored key is this window', windowGuard);
+ck(/\breturn;/.test(windowGuard), 'and acts on it rather than computing it and moving on', windowGuard);
+ck(/where\("periodBestKey", "==", periodKeyFor\(new Date\(\)\)\), where\("periodBestScore", ">", mine\)/.test(yourRank),
    'and counts only players inside it');
 
 let bad = 0;

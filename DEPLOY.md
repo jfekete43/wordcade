@@ -495,6 +495,38 @@ Unranked players still *play* at 1000 — that is what `calculateEloChange` read
 them as. The Profile screen says `Unranked` rather than showing a position on a
 board they are not on, the same as the FFA panel beside it.
 
+## The Trifecta board (one-off)
+
+The Hall of Fame's Trifecta tab is `users` ordered by `bestGauntletScore`: each
+player's best single score on that mode, ever. The mode was ten words, then
+seven, and is now three — and the scale went with it. Ten words pay up to 5,000
+and three pay up to 1,500, so the top of that board was held for good by scores
+nobody can match. A new player cannot reach the top of a board they are allowed
+to see, which is worse than an empty one.
+
+```bash
+cd ~/wordcade && git pull origin main
+npm install --no-save firebase-admin
+node tools/reset-trifecta-best.mjs --dry-run   # look first
+node tools/reset-trifecta-best.mjs
+```
+
+It **deletes** the field rather than zeroing it, for the same reason the Clash
+sweep above does: `orderBy` leaves out documents that lack the ordered field, so
+a cleared player is off the board until they set a real three-word best.
+Zeroing would fill the top hundred with players tied at nothing.
+
+It is precise about which bests go. `bestGauntletDate` records the day each best
+came from, so a best already set on or after `TRIFECTA_EPOCH` is a three-word
+score and is kept; a stored best with no date at all predates the field that
+records one and goes. The epoch is in four files — `index.html`,
+`functions/index.js`, `tools/gauntlet-archive-render.mjs` and the sweep itself —
+and `tests/hall-of-fame` fails if they disagree, because a sweep run against a
+different day would either wipe a legitimate score or leave an unbeatable one.
+
+It is idempotent; a second run finds nothing. Nothing needs deploying with it —
+the server already stamps `bestGauntletDate` on every new best.
+
 ## The Daily Puzzle archive (`/gauntlet/`)
 
 Static pages, one per finished Daily Puzzle, built from Firestore and committed

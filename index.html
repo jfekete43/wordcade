@@ -2075,7 +2075,7 @@
                      deserve opposite amounts of attention. -->
                 <button id="btn-sign-in" class="menu-list-btn is-primary" onclick="window.handleAuthAction()">Sign Up / Log In</button>
                 <button class="menu-list-btn" onclick="window.openHowToPlay()">How To Play</button>
-                <button class="menu-list-btn" onclick="window.showLeaderboard()">Leaderboard</button>
+                <button class="menu-list-btn" onclick="window.showLeaderboard()">Hall of Fame</button>
                 <button class="menu-list-btn" onclick="window.openProfileMenu()">Profile &amp; Stats</button>
                 <button class="menu-list-btn" onclick="window.openShopMenu()">Item Shop</button>
                 <button id="btn-challenges" class="menu-list-btn" onclick="window.openChallengesMenu()">Challenges</button>
@@ -2190,6 +2190,15 @@
             <h2 class="modal-title" style="text-align: center;">How To Play</h2>
 
             <div style="font-size: var(--fs-3); line-height: 1.6; color: var(--c-ink-2);">
+                <h3 style="color: var(--c-sprint); text-transform: uppercase; margin-bottom: 6px;">⏱️ Sprint</h3>
+                <ul style="margin: 0 0 18px 0; padding-left: 18px;">
+                    <li>One word a day, the same word for everyone, five guesses.</li>
+                    <li><b>Fewest guesses wins.</b> If two of you tie, the faster solve takes it.</li>
+                    <li>The clock starts when you submit your <b>first</b> guess — take as long as you like before that.</li>
+                    <li>Same 500/250/150/50/10 scoring, for one word. No Continues: miss it and that is the day.</li>
+                    <li>One attempt per day, and a new word at midnight Eastern. Solve it every day to build a streak.</li>
+                </ul>
+
                 <h3 style="color: var(--c-endless); text-transform: uppercase; margin-bottom: 6px;">♾️ Stakes</h3>
                 <ul style="margin: 0 0 18px 0; padding-left: 18px;">
                     <li>Guess a 5-letter word in up to 5 tries, one word after another.</li>
@@ -2217,7 +2226,7 @@
                     <li>No clock, and you don't have to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</li>
                     <li>Resets at midnight Eastern.</li>
                     <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
-                    <li>Today's standings are on the Trifecta screen itself, ordered by score and then by words solved, and yesterday's stay in Past Trifectas. There's no all-time Trifecta board — a fixed daily puzzle can be scouted, so a scouted run ages out overnight instead of sitting on a board forever.</li>
+                    <li>Today's standings are on the Trifecta screen itself, ordered by score and then by words solved, and yesterday's stay in Past Trifectas. Your best single Trifecta ever sits on the Hall of Fame's Trifecta board.</li>
                 </ul>
 
                 <!-- Closed for now (MODES.hidden); parked, see the blurb above. -->
@@ -2238,7 +2247,7 @@
                     <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
                     <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
                     <li><b>Challenges:</b> Daily (3 rotate each day) and Career (one-time milestones) — both pay out in points.</li>
-                    <li><b>Leaderboards:</b> All Time, Weekly (resets Monday), Trifecta (your best single one, ever) and Clash (Clash rating). Today's Trifecta standings are separate — they live on its play screen and reset nightly.</li>
+                    <li><b>Hall of Fame:</b> Stakes (best single run, ever), Sprint (longest streak), Trifecta (best single one, ever) and Clash (Clash rating). Weekly and Today are on the home board, and today's Trifecta standings live on its own play screen.</li>
                 </ul>
             </div>
 
@@ -2438,11 +2447,16 @@
             <h2 class="modal-title">Hall of Fame</h2>
             
             <div class="tabs">
-                <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">All Time</button>
-                <button class="tab-btn" id="tab-weekly" onclick="window.setLbTime('weekly')">Weekly</button>
-                <!-- Added because the Profile ranks you on this board. That rank
-                     existed for a long time with nowhere to go and check it,
-                     which is most of why it read as meaningless. -->
+                <!-- Each tab is a MODE, not a period. "All Time" named the
+                     window and left you to guess the game; every board here is
+                     all-time, so the window was the one thing that did not need
+                     saying. The periods that do vary live on the home board. -->
+                <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">Stakes</button>
+                <button class="tab-btn" id="tab-sprint" onclick="window.setLbTime('sprint')">Sprint</button>
+                <!-- The Profile has ranked you on this board for a long time.
+                     Three pages said it did not exist, because the check that
+                     polices that prose asked whether a tab called `gauntlet`
+                     was present and this one is called `daily`. -->
                 <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Trifecta</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
                 <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
@@ -3008,8 +3022,11 @@
         const HOME_BOARDS = {
             all:    { title: "All-Time Best Runs", field: "bestRunScore",
                       empty: "No runs yet — play a game to get on the board.", lb: "all" },
+            // No lb tab either, since the Hall of Fame became one all-time
+            // board per mode and stopped being one per window. This list is
+            // the week's depth now - ten deep, same as the day's.
             weekly: { title: "This Week's Best",   field: "periodBestScore",
-                      empty: "No runs this week — play a game to get on the board.", lb: "weekly" },
+                      empty: "No runs this week — play a game to get on the board.", lb: null },
             // No lb tab: the arrows below ARE the daily board's depth, seven
             // days of it, which a Hall of Fame tab would not add to.
             daily:  { title: null,                 field: "dayBestScore",
@@ -3057,7 +3074,8 @@
         //
         // A stored best from an earlier day or an earlier week is not a score
         // on THIS board, so it reads as absent rather than as a low one - the
-        // same rule the Hall of Fame applies to its own weekly board.
+        // same rule every board in the Hall of Fame applies to a player who has
+        // no score for it at all.
         async function renderHomeBoardYou(rows) {
             const el = document.getElementById("daily-board-you");
             el.innerHTML = "";
@@ -3095,14 +3113,19 @@
                 document.getElementById("hb-tab-" + k).classList.toggle("active", k === homeBoard);
             }
             // The arrows are the daily board's own depth - seven days of it -
-            // so they belong to that tab and nowhere else. The other two get
-            // the button to the Hall of Fame instead, which is theirs.
+            // so they belong to that tab and nowhere else.
             const arrows = isDaily ? "" : "none";
             document.getElementById("daily-board-prev").style.display = arrows;
             document.getElementById("daily-board-next").style.display = arrows;
             document.getElementById("daily-board-prev").disabled = dailyBoardOffset >= DAILY_BOARD_MAX_BACK;
             document.getElementById("daily-board-next").disabled = dailyBoardOffset <= 0;
-            document.getElementById("home-board-more").style.display = isDaily ? "none" : "";
+            // Offered when the board HAS somewhere deeper to go, read off the
+            // table rather than asked as "is this the day board". Those were
+            // the same question until the weekly tab was retired, at which
+            // point this line still offered a button that expandHomeBoard()
+            // returns out of.
+            document.getElementById("home-board-more").style.display =
+                HOME_BOARDS[homeBoard].lb ? "" : "none";
         }
 
         async function loadHomeBoard() {
@@ -4036,27 +4059,21 @@
             return utc.toISOString().slice(0, 10);
         }
 
-        // "Week of Sep 21" / "September 2026", for the board's own heading.
-        function periodLabel(when, period) {
-            const p = period || LEADERBOARD_PERIOD;
-            const key = periodKeyFor(when, p);
-            if (p === "monthly") {
-                const [y, m] = key.split("-").map(Number);
-                return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
-            }
-            const [y, m, d] = key.split("-").map(Number);
-            return "Week of " + new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-        }
-
-        // Only the recurring board needs one: every other tab is all-time, so
-        // saying so would be noise. Without it a weekly #1 of 4,000 sits under
-        // the same heading as an all-time #1 of 40,000 and reads as a worse score.
-        function periodCaption() {
-            if (currentLbTime !== 'weekly') return "";
-            return `<div style="text-align:center; font-size:11px; color:var(--c-ink-4); margin-bottom:8px;">${escapeHtml(periodLabel(new Date()))} · resets Monday</div>`;
-        }
+        // periodLabel() lived here - "Week of Sep 21" / "September 2026" - and
+        // captioned the Hall of Fame's weekly tab, so that a weekly #1 of 4,000
+        // did not sit under the same bare heading as an all-time #1 of 40,000.
+        // Every tab in there is all-time now, so there is no window to caption;
+        // the week lives on the home board, under a heading that says so.
+        // periodKeyFor() stays - that board still queries by key.
 
         let currentLbTime = 'all'; 
+        // A streak is days, not points, and printing a bare 3 in the column
+        // next to Stakes' 4,600 invites reading it as a score. One helper
+        // rather than two: the board and your own line are the same column,
+        // and the version that lived only in the board row left your own
+        // position reading "3" directly under a list of "3 days".
+        const lbScoreText = (mode, score) => Number(score || 0).toLocaleString()
+            + (mode === 'sprint' ? (Number(score) === 1 ? ' day' : ' days') : '');
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
         window.setLbTime = function(time) { currentLbTime = time; document.querySelectorAll("#leaderboard-modal .tab-btn").forEach(btn => btn.classList.remove("active")); document.getElementById("tab-" + time).classList.add("active"); window.loadLeaderboardData(); }
         
@@ -4065,17 +4082,18 @@
         // How exact this can be differs by board, and the difference is worth
         // stating rather than papering over:
         //
-        //   all / daily / clash / ffa — each of these boards IS /users ordered
-        //                  by a single field, so "count the players above me,
-        //                  add one" is exact at any size, on the single-field
-        //                  index Firestore maintains automatically. Denormalising
-        //                  bestRunScore/bestGauntletScore onto the user doc is
-        //                  what bought the first two of those.
-        //   weekly       — the same, with one equality filter in front: count
-        //                  the players whose best THIS WINDOW beats mine. It
-        //                  used to read /runs and dedup, and could only report a
-        //                  position for someone already on the visible board;
-        //                  denormalising periodBestScore made it exact too.
+        //   every board  — each one IS /users ordered by a single field, so
+        //                  "count the players above me, add one" is exact at any
+        //                  size, on the single-field index Firestore maintains
+        //                  automatically. Denormalising bestRunScore,
+        //                  bestGauntletScore and sprintBestStreak onto the user
+        //                  doc is what bought that for the three solo boards.
+        //
+        // There used to be a windowed case here as well - the weekly tab, with
+        // one equality filter in front of the same count. The windows are on the
+        // home board now, which does its own version of this in
+        // renderHomeBoardYou(), and the periodKey machinery that served it has
+        // gone with it.
         async function renderYourRank(mode, finalData, maxLimit) {
             const el = document.getElementById("lb-you");
             if (!currentUser || !userProfileData) { el.style.display = "none"; return; }
@@ -4100,24 +4118,24 @@
             paint("#–", "…", "");
 
             try {
-                // Every board is /users ordered by one field; weekly adds an
-                // equality on the window in front of it.
+                // Every board here is /users ordered by one field, all-time.
                 //
-                // No Trifecta entry here on purpose. The Trifecta is a fixed
-                // daily puzzle, so its answers can be scouted with a throwaway
-                // account and replayed on a main one — which a permanent
-                // all-time board would have preserved forever. Its standings
-                // live on the play screen and in Past Trifectas, where they
-                // reset nightly and a scouted run ages out.
+                // The comment that used to sit here said there was no Trifecta
+                // entry on purpose, listing good reasons — a fixed daily puzzle
+                // can be scouted and replayed, and a permanent board would keep
+                // that forever. The entry below it was already there, and the
+                // tab it answers for has been in the modal all along, so the
+                // paragraph was describing a decision that had been reversed
+                // without it. The board is wiped at TRIFECTA_EPOCH instead; see
+                // tools/reset-trifecta-best.mjs.
                 const USERS_BOARD = {
                     all:   { field: "bestRunScore", fallback: 0,    excludesUnset: true,  empty: "No runs yet — play a game to get on the board" },
                     clash: { field: "mmr",          fallback: 1000, excludesUnset: true,  empty: "Finish a public Clash match to get a rating" },
                     ffa:   { field: "ffaMmr",       fallback: 1000, excludesUnset: true,  empty: "Finish a public FFA match to get a rating" },
-                    // periodKey narrows the same count to this window. A stored
-                    // best from an EARLIER window is not a score on this board,
-                    // so it reads as unset rather than as a low one.
-                    weekly: { field: "periodBestScore", fallback: 0, excludesUnset: true, periodKey: true,
-                              empty: "No runs this week — play a game to get on the board" },
+                    // Days solved in a row, not points. See the query above for
+                    // why a Sprint score board would be a tie rather than a board.
+                    sprint: { field: "sprintBestStreak", fallback: 0, excludesUnset: true,
+                              empty: "No Sprint streak yet — solve today's word to start one" },
                     // Best single Trifecta, ever. The same field and the same
                     // ordering the Profile counts your rank against, so the two
                     // cannot disagree.
@@ -4146,16 +4164,12 @@
                     // Clash used to be the exception — every profile was
                     // created with an mmr — and that is exactly what filled its
                     // board with players who had never played, so it is not an
-                    // exception any more. On the windowed board, a best filed
-                    // under a previous key is not on this board at all.
-                    const staleWindow = board.periodKey && live.periodBestKey !== periodKeyFor(new Date());
-                    if ((!Number.isFinite(raw) && board.excludesUnset) || staleWindow) { paint("#–", "—", board.empty); return; }
+                    // exception any more.
+                    if (!Number.isFinite(raw) && board.excludesUnset) { paint("#–", "—", board.empty); return; }
 
-                    const constraints = board.periodKey
-                        ? [where("periodBestKey", "==", periodKeyFor(new Date())), where(board.field, ">", mine)]
-                        : [where(board.field, ">", mine)];
-                    const ahead = await getCountFromServer(query(collection(db, "users"), ...constraints));
-                    paint(`#${(ahead.data().count + 1).toLocaleString()}`, mine.toLocaleString(),
+                    const ahead = await getCountFromServer(query(collection(db, "users"),
+                        where(board.field, ">", mine)));
+                    paint(`#${(ahead.data().count + 1).toLocaleString()}`, lbScoreText(mode, mine),
                         mine === 0 ? board.empty : "");
                     return;
                 }
@@ -4211,6 +4225,16 @@
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestGauntletScore", "desc"), limit(100)));
                             snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestGauntletScore || 0, ts: d.bestGauntletDate, equipped: d.equipped }); });
                         }
+                        else if (currentLbTime === 'sprint') {
+                            // Best STREAK, not best score. A Sprint tops out at
+                            // 500 and a guess-1 solve pays it, so a score board
+                            // would be a hundred-way tie at 500 ordered by
+                            // nothing. The streak is what the mode is actually
+                            // about - coming back - and it is the number the
+                            // end-of-round screen already shows you.
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("sprintBestStreak", "desc"), limit(100)));
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.sprintBestStreak || 0, equipped: d.equipped }); });
+                        }
                         else if (currentLbTime === 'all') {
                             // Each player's best single run, read off their own
                             // doc (maintained by onRunCreated). This used to scan
@@ -4221,41 +4245,13 @@
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestRunScore", "desc"), limit(100)));
                             snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestRunScore || 0, ts: d.bestRunAt, equipped: d.equipped }); });
                         }
-                        else {
-                            // The recurring board. This used to be the one tab
-                            // built by downloading every run in the window —
-                            // no limit, no pagination, on every open — which
-                            // costs (opens x runs-so-far) and so grows
-                            // quadratically with the playerbase: fine at 200
-                            // players, ~250M reads a day at 5,000. It is a
-                            // denormalised field now, like every other tab, so
-                            // it reads 100 documents flat.
-                            //
-                            // It also windowed on the VIEWER's local month,
-                            // which meant two players in different timezones
-                            // were looking at different boards. The key is
-                            // Eastern and server-assigned.
-                            const snapshot = await getDocs(query(collection(db, "users"),
-                                where("periodBestKey", "==", periodKeyFor(new Date())),
-                                orderBy("periodBestScore", "desc"), limit(100)));
-                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.periodBestScore || 0, ts: d.periodBestAt, equipped: d.equipped }); });
-                        }
-
-                        // No name-resolution pass and no dedup any more. Every
-                        // board reads /users directly, so names are already live
-                        // and there is exactly one row per player BY
-                        // CONSTRUCTION — which is what the old dedup was
-                        // patching up after the fact, and what caused it to
-                        // collapse two different players who shared a handle.
-                        // The weekly board was the last tab built from /runs;
-                        // with it converted, the whole pipeline is gone.
                         finalData = rawData.slice(0, maxLimit);
 
                         // Still render your own line on an empty board — an
                         // early return here would leave whatever the PREVIOUS
                         // tab put there sitting under "No scores yet".
                         if (finalData.length === 0) {
-                            listDiv.innerHTML = periodCaption() + '<div class="lb-loading">No scores yet!</div>';
+                            listDiv.innerHTML = '<div class="lb-loading">No scores yet!</div>';
                             renderYourRank(currentLbTime, finalData, maxLimit);
                             return;
                         }
@@ -4274,12 +4270,12 @@
                                 titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
                             }
             
-                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${dateStr}</div></div><div class="lb-score">${Number(entry.score || 0).toLocaleString()}</div></div>`;
+                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${dateStr}</div></div><div class="lb-score">${lbScoreText(currentLbTime, entry.score)}</div></div>`;
                         }); 
                         // A rating board only indexes players who have earned a
                         // rating, so a brand-new one really is empty rather than
                         // broken — say so instead of showing a blank panel.
-                        listDiv.innerHTML = periodCaption() + (html || `<div class="lb-loading">No one has made this board yet.</div>`);
+                        listDiv.innerHTML = html || `<div class="lb-loading">No one has made this board yet.</div>`;
                         // finalData is the deduped, rendered list, so the
                         // "am I on this board" check below agrees with what
                         // the player is actually looking at.

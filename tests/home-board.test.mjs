@@ -67,13 +67,40 @@ for (const [k, b] of Object.entries(HOME_BOARDS)) {
   ck(typeof b.empty === 'string' && b.empty.length > 10,
      `${k} says something when it is empty, rather than showing a blank list`, String(b.empty));
 }
-// Expanding opens the Hall of Fame on the board you were already reading.
+// Expanding opens the Hall of Fame on the board you were already reading —
+// where there is one to open. The Hall of Fame is one all-time board per MODE
+// now, so the two windowed boards have no tab there and this list is their
+// depth: ten deep for the week, and seven days of arrows for the day.
 eq('all-time expands to the Hall of Fame all-time tab', HOME_BOARDS.all.lb, 'all');
-eq('weekly expands to its own tab', HOME_BOARDS.weekly.lb, 'weekly');
-eq('daily expands to nothing, because the day arrows are its depth', HOME_BOARDS.daily.lb, null);
-for (const lb of ['all', 'weekly']) {
-  ck(new RegExp(`id="tab-${lb}"`).test(html), `and the Hall of Fame really has a ${lb} tab to open`);
+eq('weekly expands to nothing, because the Hall of Fame has no window tabs', HOME_BOARDS.weekly.lb, null);
+eq('daily expands to nothing either, because the day arrows are its depth', HOME_BOARDS.daily.lb, null);
+// Derived from the table, so a board that gains an lb gains this check with
+// it: the one thing that must not happen is naming a tab that is not there.
+// setLbTime() reads getElementById("tab-" + time).classList, which throws on
+// a missing tab and leaves the modal open over a stale board.
+for (const [k, b] of Object.entries(HOME_BOARDS)) {
+  if (!b.lb) continue;
+  ck(new RegExp(`id="tab-${b.lb}"`).test(html),
+     `and the Hall of Fame really has the ${b.lb} tab that ${k} opens`);
 }
+
+// expandHomeBoard itself, run. The hidden button is the first guard; this is
+// the second, and it is the one that matters, because a hidden button is still
+// in the DOM and still activates from the keyboard.
+const expandSrc = 'function expandHomeBoard() {'
+  + between(html, 'window.expandHomeBoard = function() {', '\n        };', 'expandHomeBoard') + '\n}';
+const runExpand = (board) => {
+  const calls = [];
+  // eslint-disable-next-line no-new-func
+  new Function('window', 'homeBoard', 'HOME_BOARDS', `${expandSrc}; expandHomeBoard();`)(
+    { showLeaderboard: () => calls.push('open'), setLbTime: (t) => calls.push('tab:' + t) },
+    board, HOME_BOARDS);
+  return calls;
+};
+eq('expanding all-time opens the Hall of Fame on its own tab', runExpand('all'), ['open', 'tab:all']);
+eq('expanding the week opens nothing, rather than a tab that is not there',
+   runExpand('weekly'), []);
+eq('and neither does the day', runExpand('daily'), []);
 
 // ---- the default, in three places that must agree ------------------------
 const declared = (html.match(/let homeBoard = "(\w+)"/) || [])[1];
@@ -163,8 +190,21 @@ const runChrome = (board, offset) => {
   const e = runChrome('weekly', 0);
   eq('weekly: its own title', e['daily-board-title'].innerText, "This Week's Best");
   eq('weekly: no day arrows either', e['daily-board-prev'].style.display, 'none');
-  ck(e['home-board-more'].style.display !== 'none', 'weekly: the expand button is offered');
+  eq('weekly: and no expand button, because there is no weekly tab to expand to',
+     e['home-board-more'].style.display, 'none');
   ck(e['hb-tab-weekly'].classList.contains('active'), 'weekly: its own tab is marked');
+}
+// The button follows the lb field, not a list of modes. Proved by giving the
+// chrome a board that HAS an lb and one that does not, through the same code
+// path: the old `isDaily ? "none" : ""` passed both of these tabs' checks
+// right up until weekly lost its tab, and then offered a dead button.
+{
+  const saved = HOME_BOARDS.weekly.lb;
+  HOME_BOARDS.weekly.lb = 'all';
+  const e = runChrome('weekly', 0);
+  HOME_BOARDS.weekly.lb = saved;
+  eq('give the week an lb back and the button returns, same code path',
+     e['home-board-more'].style.display, '');
 }
 {
   const e = runChrome('daily', 0);

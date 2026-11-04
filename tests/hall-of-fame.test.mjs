@@ -1,0 +1,207 @@
+/*
+ * The Hall of Fame: one all-time board per mode.
+ *
+ * It used to be one board per TIME WINDOW with the mode left to guess — "All
+ * Time" and "Weekly" were both Stakes, and the only tab that named a mode was
+ * the one called Daily. Every board here is all-time, so the window was the
+ * one thing that never needed saying; the windows that do vary are on the home
+ * board, which has its own All Time / Weekly / Today row.
+ *
+ * Two things here are worth pinning rather than eyeballing:
+ *
+ *   SPRINT IS A STREAK, NOT A SCORE. A Sprint tops out at 500 and a
+ *   first-guess solve pays it, so a score board would be a hundred-way tie at
+ *   500 ordered by nothing at all.
+ *
+ *   THE TRIFECTA BOARD HAD TO BE EMPTIED. It held best single scores from
+ *   when the mode was ten words and then seven; three words pay 1,500 against
+ *   ten words' 5,000, so the top was unreachable for good.
+ *
+ * Pure; no emulator, no browser.
+ */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const DIR = path.dirname(fileURLToPath(import.meta.url));
+const read = (f) => fs.readFileSync(path.join(DIR, '..', f), 'utf8').replace(/\r\n/g, '\n');
+const html = read('index.html');
+const fn = read('functions/index.js');
+
+const t = [];
+const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
+const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
+  `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+
+// Slices FORWARD, and throws rather than returning "".
+//
+// A plain slice(indexOf(a), indexOf(b)) is only a slice when b happens to sit
+// after a in the file. `function renderYourRank` is defined ABOVE the loader
+// that calls it, so that pair yields the empty string — and every negative
+// check against "" then passes for the wrong reason. Three checks in this file
+// were green on an empty slice before this helper existed.
+const between = (src, from, to) => {
+  const a = src.indexOf(from);
+  if (a < 0) throw new Error(`no start anchor: ${from}`);
+  const b = src.indexOf(to, a + from.length);
+  if (b < 0) throw new Error(`end anchor is not after the start: ${to}`);
+  return src.slice(a, b);
+};
+
+const modal = between(html, '<div id="leaderboard-modal"', 'id="leaderboard-list"');
+const loader = between(html, 'window.loadLeaderboardData = async function',
+                       'GAME LOGIC (STANDARD & VERSUS)');
+ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are both found',
+   `${modal.length}/${loader.length}`);
+
+// ---- the tabs name modes, not windows -------------------------------------
+{
+  const tabs = [...modal.matchAll(/id="tab-(\w+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2].trim()]);
+  eq('every tab is a mode', tabs.map(([, label]) => label),
+     ['Stakes', 'Sprint', 'Trifecta', 'Clash', 'FFA']);
+  ck(!tabs.some(([, l]) => /all time|weekly|daily/i.test(l)),
+     'and none of them is a time window', tabs.map(([, l]) => l).join(','));
+  // FFA is a closed mode; applyHiddenModeUi takes its tab down by the
+  // tab-<mode> convention, which is also what would take Sprint's down.
+  ck(tabs.some(([id]) => id === 'ffa'), 'the closed mode keeps its tab for when it reopens');
+  ck(/function applyHiddenModeUi\(\)[\s\S]{0,400}"tab-" \+ m/.test(html),
+     'and the hide is by convention, so a new mode tab is covered without being named');
+  // ...for the tabs whose id IS the mode's name. Two are named for their board
+  // key instead — `all` is the endless mode, `daily` is gauntlet — a vocabulary
+  // older than the mode table, and the one the Firestore fields still use. The
+  // loop cannot reach those two, so closing either mode would leave its tab
+  // standing. Both are open; this is the tripwire for the day one is not. (The
+  // same mismatch is why three pages said the Trifecta had no all-time board:
+  // the check that polices that prose was looking for a `gauntlet` tab.)
+  const table = between(html, 'const MODES = {', '};');
+  const modeKeys = [...table.matchAll(/^\s+(\w+):\s+\{ label:/gm)].map((m) => m[1]);
+  const hidden = new Set([...table.matchAll(/^\s+(\w+):\s+\{ label:[^\n]*hidden: true/gm)].map((m) => m[1]));
+  ck(modeKeys.length >= 4 && hidden.size > 0, 'the mode table reads, flags and all',
+     `${modeKeys.join(',')} | hidden: ${[...hidden].join(',')}`);
+  const LEGACY = { all: 'endless', daily: 'gauntlet' };
+  const offConvention = tabs.map(([id]) => id).filter((id) => !modeKeys.includes(id));
+  eq('the tabs outside the convention are the two legacy board keys', offConvention, ['all', 'daily']);
+  for (const id of offConvention) {
+    ck(!hidden.has(LEGACY[id]), `${LEGACY[id]} is open, so nothing has to take the ${id} tab down`,
+       [...hidden].join(','));
+  }
+  // The modal has called itself this all along; the menu called it something
+  // else, which is how one thing came to have two names.
+  ck(/<h2 class="modal-title">Hall of Fame<\/h2>/.test(modal), 'the modal is the Hall of Fame');
+  ck(/onclick="window\.showLeaderboard\(\)">Hall of Fame</.test(html),
+     'and so is the menu item that opens it',
+     (html.match(/showLeaderboard\(\)">[^<]*/) || [''])[0]);
+}
+
+// ---- the periods live on the home board, not here -------------------------
+{
+  ck(!/setLbTime\('weekly'\)/.test(html), 'the Hall of Fame has no weekly tab');
+  ck(!/periodCaption/.test(html), 'and nothing left that only existed to caption one',
+     (html.match(/[^\n]*periodCaption[^\n]*/) || [''])[0].slice(0, 90));
+  ck(!/periodBestScore/.test(loader), 'nor a query for a window', loader.slice(0, 0));
+  // Still on the home board, which is where the user is sent for them.
+  ck(/setHomeBoard\('weekly'\)/.test(html) && /setHomeBoard\('daily'\)/.test(html),
+     'because Weekly and Today are on the page itself');
+  // The server still maintains the field the home board reads.
+  ck(/periodBestScore/.test(fn), 'and the server still keeps the field that board needs');
+}
+
+// ---- Sprint is represented, by the thing the mode is about ----------------
+{
+  const sprintBranch = between(loader, "currentLbTime === 'sprint'", "currentLbTime === 'all'");
+  ck(sprintBranch.length > 50, 'the Sprint board has a branch of its own', String(sprintBranch.length));
+  ck(/orderBy\("sprintBestStreak", "desc"\)/.test(sprintBranch),
+     'it ranks on the best streak', sprintBranch.slice(0, 160).replace(/\s+/g, ' '));
+  ck(!/bestRunScore|score: d\.sprintBestScore/.test(sprintBranch),
+     'not on a score, which would tie at 500', sprintBranch.slice(0, 160));
+  ck(/collection\(db, "users"\)/.test(sprintBranch),
+     'off /users like every other board here, so it reads 100 documents flat');
+  // The field has to be one the server actually maintains.
+  ck(/update\.sprintBestStreak = streak/.test(fn),
+     'and onRunCreated maintains that field', (fn.match(/[^\n]*sprintBestStreak[^\n]*/) || [''])[0].trim());
+  // A streak is days. Printing a bare number next to Stakes' 4,600 invites
+  // reading it as points. Lifted and RUN, rather than matched: the rule is
+  // three conditions deep and a regex over it asserts the spelling.
+  const fmt = new Function('score', 'mode',
+    (html.match(/const lbScoreText = [\s\S]*?;\r?\n/) || [''])[0].replace(/^\s+/, '')
+    + 'return lbScoreText(mode, score);');
+  eq('one day reads as a day', fmt(1, 'sprint'), '1 day');
+  eq('and more than one reads as days', fmt(12, 'sprint'), '12 days');
+  eq('a streak of none still says the unit', fmt(0, 'sprint'), '0 days');
+  eq('and no other board gets a unit at all', fmt(4600, 'all'), '4,600');
+  eq('which is still grouped', fmt(4600, 'sprint'), '4,600 days');
+  // Both places that print a score in that column go through it, so your own
+  // line cannot read "3" under a list of "3 days".
+  ck(/lb-score">\$\{lbScoreText\(currentLbTime, entry\.score\)\}/.test(loader),
+     'the board rows print through it', (loader.match(/lb-score">[^<]{0,60}/) || [''])[0]);
+  ck(/paint\(`#\$\{\(ahead\.data\(\)\.count \+ 1\)\.toLocaleString\(\)\}`, lbScoreText\(mode, mine\)/.test(html),
+     'and so does your own position', (html.match(/paint\(`#\$\{\(ahead[^\n]{0,120}/) || [''])[0]);
+}
+{
+  // Scoped to the ONE entry, by name. A check against the whole object reads
+  // true off any entry that happens to have the flag — and `sprint:` unanchored
+  // matches `xsprint:` as well, so both of those passed a mutant.
+  const board = between(html, 'const USERS_BOARD = {', '};');
+  const entryOf = (mode) => (board.match(new RegExp(`\\b${mode}:\\s*\\{([^}]*)\\}`)) || [])[1];
+  const sprint = String(entryOf('sprint')).replace(/\s+/g, ' ');
+  ck(/field: "sprintBestStreak"/.test(sprint),
+     'your own position is counted against the same field', sprint.slice(0, 120));
+  ck(!entryOf('weekly'), 'and the weekly entry went with its tab', String(entryOf('weekly')).slice(0, 90));
+  ck(/excludesUnset: true/.test(sprint),
+     'a player with no streak is off the board rather than bottom of it', sprint.slice(0, 120));
+}
+
+// ---- the Trifecta board starts again --------------------------------------
+{
+  const tool = read('tools/reset-trifecta-best.mjs');
+  const M = tool; // the predicate is exercised below through a real import
+  ck(/FieldValue\.delete\(\)/.test(M), 'the reset DELETES the field rather than zeroing it');
+  ck(!/bestGauntletScore: 0/.test(M), 'so nobody is left tied at nothing on the new board');
+  ck(/--dry-run/.test(M), 'with a dry run, like every other tool here that writes');
+  ck(/bestGauntletDate/.test(M), 'and it reads the date the best came from');
+  // A one-off sweep nobody knows to run leaves the board broken anyway. Both
+  // lines, in order: the dry run is the whole safety argument for a tool that
+  // deletes a field off every player document.
+  const deploy = read('DEPLOY.md');
+  const runs = [...deploy.matchAll(/^node tools\/reset-trifecta-best\.mjs( --dry-run)?\s*(?:#.*)?$/gm)].map((m) => !!m[1]);
+  eq('DEPLOY.md says how to run it, dry run first', runs, [true, false]);
+  // The epoch is now in a fourth place. Checked against the others, because a
+  // reset that used a different day from the numbering would either wipe a
+  // legitimate score or leave an unbeatable one.
+  const epochs = {
+    'tools/reset-trifecta-best.mjs': (tool.match(/TRIFECTA_EPOCH = "([^"]*)"/) || [])[1],
+    'index.html': (html.match(/const TRIFECTA_EPOCH = "([^"]*)"/) || [])[1],
+    'functions/index.js': (fn.match(/const TRIFECTA_EPOCH = "([^"]*)"/) || [])[1],
+    'tools/gauntlet-archive-render.mjs': (read('tools/gauntlet-archive-render.mjs').match(/TRIFECTA_EPOCH = "([^"]*)"/) || [])[1],
+  };
+  ck(Object.values(epochs).every(Boolean), 'every copy of the epoch is readable', JSON.stringify(epochs));
+  eq('and they are all the same day', [...new Set(Object.values(epochs))].length, 1);
+}
+
+// The predicate itself, run. The risk is deleting a best somebody earned.
+{
+  const M = await import('../tools/reset-trifecta-best.mjs');
+  const E = M.TRIFECTA_EPOCH;
+  const day = (d, score = 1000) => ({ bestGauntletScore: score, bestGauntletDate: d });
+  const shift = (n) => {
+    const [y, m, d] = E.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d) + n * 86400000);
+    return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+  };
+  ck(M.isPreTrifectaBest(day(shift(-1))), 'the day before the epoch is cleared');
+  ck(!M.isPreTrifectaBest(day(E)), 'the epoch itself is kept — it is a three-word score');
+  ck(!M.isPreTrifectaBest(day(shift(1))), 'and so is every day after it');
+  ck(M.isPreTrifectaBest(day(shift(-60), 4600)), 'a ten-word era best is cleared');
+  // The date field is newer than some of the bests it describes.
+  ck(M.isPreTrifectaBest({ bestGauntletScore: 3100 }),
+     'a best with no date at all predates the field that records one, so it goes');
+  ck(!M.isPreTrifectaBest({}), 'a player with no best is left alone');
+  ck(!M.isPreTrifectaBest({ bestGauntletScore: 0 }), 'and so is a stored zero');
+  ck(!M.isPreTrifectaBest(null), 'and nothing at all is not an error');
+  ck(M.isPreTrifectaBest({ bestGauntletScore: 900, bestGauntletDate: 'sometime' }),
+     'a malformed date is treated as no date rather than trusted');
+}
+
+for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
+const bad = t.filter(([ok]) => !ok).length;
+console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
+process.exit(bad ? 1 : 0);

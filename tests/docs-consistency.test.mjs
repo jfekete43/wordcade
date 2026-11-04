@@ -153,8 +153,17 @@ const actualTabs = tabButtons.map((t) => t.id);
 ok('the app has the tabs we think it has', actualTabs.length > 0, actualTabs.join(','));
 ok('and a visible label for every one of them',
    tabButtons.every((t) => t.label.length > 0), JSON.stringify(tabButtons));
-const lbLine = (text['index.html'].match(/Leaderboards:[^.]*\./) || [''])[0];
-ok('the in-app list names a leaderboard line at all', !!lbLine, lbLine);
+// The board list is found by whatever the modal calls ITSELF, rather than by a
+// word typed here. It was "Leaderboards:" until the modal and the menu item
+// settled on one name, at which point this check went looking for a heading
+// that no longer existed anywhere.
+// Anchored on the modal's own id: three other modals have a title and a tab
+// strip, and the first of them is called Challenges, whose own bullet in the
+// same list then satisfied every check below.
+const lbName = (pages['index.html'].match(/id="leaderboard-modal"[\s\S]{0,400}?<h2 class="modal-title">([^<]+)</) || [])[1];
+ok('the board modal has a title to look for', !!lbName, String(lbName));
+const lbLine = (text['index.html'].match(new RegExp(`${lbName}:[^.]*\\.`)) || [''])[0];
+ok(`the in-app list names the ${lbName} line at all`, !!lbLine, lbLine);
 // A mode can be closed without being deleted (MODES[...].hidden), and its
 // leaderboard tab goes with it. Read out of the table rather than listed
 // here, so closing or reopening a mode is still a one-word edit.
@@ -171,8 +180,20 @@ for (const { id, label } of tabButtons) {
     ok(`the documented leaderboards include ${label}`, lbLine.includes(label), lbLine);
   }
 }
-ok('no Trifecta leaderboard tab is documented, because none exists',
-   actualTabs.includes('gauntlet') === /Trifecta \(today only\)|Trifecta leaderboard tab/i.test(allProse));
+// Every board in that modal is all-time — that is the whole reason the tabs
+// name modes now instead of windows — so prose calling one of them today-only
+// is describing a different screen. Held to the tab LABELS: the check this
+// replaces asked whether a tab with the id `gauntlet` existed, the Trifecta's
+// tab has always been called `daily`, and so the one answer it could give
+// licensed three pages to say a board that had been there all along did not
+// exist ("There's no all-time Trifecta board", and two more).
+for (const { label } of tabButtons.filter((t) => !hiddenModes.has(t.id))) {
+  const denial = new RegExp(`no all-time ${label} board`
+    + `|${label} \\(today only\\)`
+    + `|${label} (?:leader)?board (?:only|just)\\b`, 'i');
+  ok(`nothing says the ${label} board is today-only`, !denial.test(allProse),
+     (allProse.match(new RegExp(`[^.]*(?:${denial.source})[^.]*`, 'i')) || [''])[0].trim().slice(0, 150));
+}
 ok('FFA is no longer documented as ranking on wins',
    !/FFA \(win count\)|FFA.{0,20}ranked by (?:total )?wins/i.test(allProse));
 
