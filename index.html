@@ -926,7 +926,13 @@
         /* Not --c-clash: this class renders on the all-time leaderboard, the
            Trifecta feed, the archive and #lb-you, none of which are Clash. */
         .lb-rank { font-weight: var(--fw-bold); font-size: var(--fs-2); color: var(--c-ink-4); width: 32px; z-index: 2;}
-        .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; z-index: 2;}
+        /* Left, explicitly. These rows render in two places - the live board
+           on the play screen and the boards inside modals - and .modal-box
+           sets text-align: center, so the same component centred its names in
+           one place and left-aligned them in the other. Centred between a
+           fixed rank and a fixed score, names of different lengths start at
+           different places and there is no edge to read down. */
+        .lb-name-col { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px; z-index: 2; text-align: left;}
         .lb-name { color: var(--c-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
         .lb-date { font-size: 11px; color: var(--c-ink-5); margin-top: 2px; font-weight: bold;}
         .lb-score { font-weight: bold; color: var(--c-endless); z-index: 2;}
@@ -5739,8 +5745,8 @@
         // `docs` is anything with a forEach yielding snapshot docs in score
         // order — a live QuerySnapshot or a one-off getDocs result. `cfg` is
         // the ARCHIVES entry for the mode, which supplies the three things
-        // that differ: what counts as a tie, what the sub-line says, and what
-        // goes in the score cell.
+        // that differ: what counts as a tie, what the sub-line says or that
+        // there is not one, and what goes in the score cell.
         function renderArchiveBoard(docs, listEl, emptyText, cfg) {
             let html = "";
             let index = 0, place = 0, prevKey = null;
@@ -5777,12 +5783,16 @@
                 const bannerClass = safeCosmetic(eq.banner, "banner_default");
                 const nameClass = safeCosmetic(eq.effect, "effect_none");
                 const isMe = currentUser && data.uid === currentUser.uid;
+                const detail = cfg.detail ? cfg.detail(data) : "";
 
                 html += `<div class="lb-entry ${bannerClass}${isMe ? " gf-me" : ""}">` +
                     `<div class="lb-rank">#${place}</div>` +
                     `<div class="lb-name-col">` +
                         `<div class="lb-name ${nameClass}">${escapeHtml(data.username || "Guest")}</div>` +
-                        `<div class="lb-date" style="color:${cfg.colour};">${cfg.detail(data)}</div>` +
+                        // Omitted, not emptied: an empty div still takes its
+                        // own margin-top, so the name sits above the middle of
+                        // a row with nothing under it.
+                        (detail ? `<div class="lb-date" style="color:${cfg.colour};">${detail}</div>` : "") +
                     `</div>` +
                     `<div class="lb-score">${cfg.scoreCell(data)}</div>` +
                 `</div>`;
@@ -6011,15 +6021,6 @@
             return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
         }
 
-        // The guess a Sprint fell on, recovered from the counters the run
-        // carries: exactly one of guess1..5 is 1 on a solve and none on a
-        // miss. The same derivation the Discord digest does, because the run
-        // document is the only record either of them has.
-        function sprintGuessLabel(run) {
-            const used = [1, 2, 3, 4, 5].reduce((a, g) => a + (Number(run["guess" + g]) || 0) * g, 0);
-            return `${Number(run.wordsGuessed) ? used : "X"}/${SPRINT_MAX_GUESSES}`;
-        }
-
         /*
          * The two archives, and everything that differs between them.
          *
@@ -6095,7 +6096,12 @@
                 // what actually orders these rows - and therefore what a tie
                 // has to match too.
                 tieKey: (r) => `${runScore(r)}:${runClock(r) || 0}`,
-                detail: (r) => sprintGuessLabel(r),
+                // No sub-line. One word means the score IS the guess count -
+                // 500/250/150/50/10 is first guess through fifth - so "3/5"
+                // under a 150 restates the number beside it. The clock is the
+                // only thing the score does not already tell you, and that
+                // lives in the score cell.
+                detail: null,
                 scoreCell: (r) => (runClock(r) === null
                     ? ""
                     : `<span style="color:var(--c-ink-4); margin-right: var(--s-5);">${formatSprintTime(runClock(r))}</span>`)

@@ -327,9 +327,7 @@ const browser = await chromium.launch(launch);
 // an arrow body — so it lifts without a db.
 const grabSrc = (re, what) => { const m = html.match(re); if (!m) throw new Error('could not extract ' + what); return m[0]; };
 const boardSrc = [
-  grabSrc(/        const SPRINT_MAX_GUESSES = \d+;/, 'SPRINT_MAX_GUESSES'),
   grabSrc(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/, 'formatSprintTime'),
-  grabSrc(/        function sprintGuessLabel\(run\) \{\n[\s\S]*?\n        \}/, 'sprintGuessLabel'),
   grabSrc(/        function runScore\(r\) \{[^\n]*\}/, 'runScore'),
   grabSrc(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/, 'runClock'),
   grabSrc(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/, 'ARCHIVES'),
@@ -375,6 +373,7 @@ const render = async (kind) => {
       places: [...el.querySelectorAll('.lb-rank')].map((n) => n.textContent),
       details: [...el.querySelectorAll('.lb-date')].map((n) => n.textContent),
       scores: [...el.querySelectorAll('.lb-score')].map((n) => n.textContent.trim()),
+      html: el.innerHTML,
     };
   }, { boardSrc, rows: ROWS[kind], kind });
   await page.close();
@@ -394,8 +393,8 @@ for (const kind of ['daily', 'sprint']) {
   ck(M('the next entry skips to the right number'), places[5] === '#6', places.join(' '));
   ck(M('places never go backwards'),
      places.every((p, i) => i === 0 || Number(p.slice(1)) >= Number(places[i - 1].slice(1))), places.join(' '));
-  ck(M('every row says something under the name'), details.length === 6 && details.every((d) => d.trim().length > 0),
-     JSON.stringify(details));
+  ck(M('no row is left with an empty line under the name'),
+     details.every((d) => d.trim().length > 0), JSON.stringify(details));
 }
 
 // The two modes say DIFFERENT things in those two cells, which is the only
@@ -404,9 +403,17 @@ for (const kind of ['daily', 'sprint']) {
 {
   const d = await render('daily');
   const s = await render('sprint');
-  ck('the Trifecta counts words solved', d.details.every((x) => /solved$/.test(x.trim())), JSON.stringify(d.details));
-  ck('Sprint counts guesses out of five', s.details.every((x) => /^[1-5X]\/5$/.test(x.trim())), JSON.stringify(s.details));
-  ck('...and says X for the one who never solved it', /^X\//.test(s.details[5].trim()), s.details[5]);
+  ck('the Trifecta counts words solved under every name',
+     d.details.length === 6 && d.details.every((x) => /solved$/.test(x.trim())), JSON.stringify(d.details));
+  // Sprint has no sub-line at all. One word means the score IS the guess
+  // count — 500/250/150/50/10 is first guess through fifth — so a "3/5" under
+  // a 150 restates the number beside it.
+  ck('Sprint has no sub-line, because its score already says the guess count',
+     s.details.length === 0, JSON.stringify(s.details));
+  // Omitted, not emptied: an empty div still takes its own margin-top, which
+  // leaves the name sitting above the middle of the row.
+  ck('...and leaves no empty element behind to take the space',
+     !/lb-date/.test(s.html), (s.html.match(/lb-date[^>]*>/) || [''])[0]);
   // The cell ends on the score either way; Sprint puts its clock in front of
   // it. Checked as "more than the score" rather than against a time format,
   // which is formatSprintTime's business and not this file's.

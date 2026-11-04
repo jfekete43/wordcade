@@ -240,6 +240,55 @@ for (const w of WIDTHS) {
   }
 }
 
+// ---- 3c. a board row reads the same wherever it is rendered -------------
+// The same .lb-entry markup renders in two places: the live board on the play
+// screen, and the boards inside modals (Hall of Fame, Past Trifectas, Past
+// Sprints). .modal-box sets text-align: center, so one component centred its
+// names in one place and left-aligned them in the other. Centred between a
+// fixed rank and a fixed score, names of different lengths each begin
+// somewhere else and there is no edge to read a column down.
+//
+// Measured, not asserted against the stylesheet: a Range around the text node
+// gives where the text actually starts inside its box, which is 0 when it is
+// left-aligned and some positive offset when it is centred.
+{
+  const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+  await page.setContent(home);
+  await page.waitForTimeout(120);
+  const starts = await page.evaluate(() => {
+    const row = (name, score) =>
+      `<div class="lb-entry banner_default"><div class="lb-rank">#1</div>` +
+      `<div class="lb-name-col"><div class="lb-name effect_none">${name}</div></div>` +
+      `<div class="lb-score">${score}</div></div>`;
+    // Two very different lengths: that is what makes centring visible.
+    const html = row('AB', '500') + row('a_much_longer_handle', '250');
+    const read = (el) => [...el.querySelectorAll('.lb-name')].map((n) => {
+      const r = document.createRange();
+      r.selectNodeContents(n);
+      return Math.round(r.getBoundingClientRect().left - n.getBoundingClientRect().left);
+    });
+    const out = {};
+    document.getElementById('archive-modal').style.display = 'flex';
+    document.getElementById('archive-detail').style.display = 'block';
+    const inModal = document.getElementById('archive-board');
+    inModal.innerHTML = html;
+    out.modal = read(inModal);
+    const feed = document.getElementById('gauntlet-feed-list');
+    document.getElementById('gauntlet-feed-container').style.display = 'block';
+    feed.innerHTML = html;
+    out.feed = read(feed);
+    return out;
+  });
+  await page.close();
+  ok('in a modal, a short and a long name start at the same edge',
+     starts.modal.length === 2 && starts.modal[0] === starts.modal[1], JSON.stringify(starts.modal));
+  ok('on the play screen too', starts.feed.length === 2 && starts.feed[0] === starts.feed[1],
+     JSON.stringify(starts.feed));
+  ok('and it is the SAME edge in both — one component, one look',
+     starts.modal[0] === starts.feed[0], JSON.stringify(starts));
+  ok('...the left edge of the column, not its centre', starts.modal[0] === 0, String(starts.modal[0]));
+}
+
 // ---- 4. the root cause, pinned -------------------------------------------
 ok('min-width:0 is what lets a key shrink at all', /\.key \{ min-width: 0;/.test(home));
 for (const f of STATIC_PAGES) {

@@ -36,9 +36,7 @@ const src = [
   grab(/        function safeCosmetic\(value, fallback\) \{\n[\s\S]*?\n        \}/),
   grab(/        function runScore\(r\) \{[^\n]*\}/),
   grab(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/),
-  grab(/        const SPRINT_MAX_GUESSES = \d+;/),
   grab(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/),
-  grab(/        function sprintGuessLabel\(run\) \{\n[\s\S]*?\n        \}/),
   // The renderer takes its per-mode formatting from this table; the live
   // Trifecta board is ARCHIVES.daily. Nothing in it runs at definition time.
   grab(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/),
