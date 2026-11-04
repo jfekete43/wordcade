@@ -80,15 +80,21 @@ const menu = html.slice(html.indexOf('<div id="main-menu-modal"'), html.indexOf(
   const grab = (re, what) => { const m = html.match(re); if (!m) throw new Error('missing ' + what); return m[0]; };
   const src = [
     grab(/        function challengeState\(chal, type, p\) \{\n[\s\S]*?\n        \}/, 'challengeState'),
+    grab(/        function challengeAvailable\(chal, p\) \{\n[\s\S]*?\n        \}/, 'challengeAvailable'),
     grab(/        function claimableCount\(p\) \{\n[\s\S]*?\n        \}/, 'claimableCount'),
   ].join('\n');
   const CH = {
     daily_pool: [{ id: 'd1', field: 'played', req: 3 }, { id: 'd2', field: 'guessed', req: 5 },
                  { id: 'd3', field: 'guess1', req: 1 }, { id: 'dX', field: 'played', req: 1 }],
-    career: [{ id: 'c1', field: 'wordsPlayed', req: 100 }, { id: 'c2', field: 'kobeCount', req: 1 }],
+    career: [{ id: 'c1', field: 'wordsPlayed', req: 100 }, { id: 'c2', field: 'kobeCount', req: 1 },
+             // A closed mode's challenge: off the list, and so out of the dot's
+             // count, unless this player already has progress on it.
+             { id: 'c3', mode: 'shut', field: 'ffaWins', req: 1 }],
   };
+  const M = { open: {}, shut: { hidden: true } };
   // eslint-disable-next-line no-new-func
-  const A = new Function('CHALLENGES', `${src}; return { challengeState, claimableCount };`)(CH);
+  const A = new Function('CHALLENGES', 'MODES',
+    `${src}; return { challengeState, challengeAvailable, claimableCount };`)(CH, M);
 
   const prof = (over = {}) => ({
     wordsPlayed: 0, kobeCount: 0, claimedCareer: [],
@@ -97,6 +103,19 @@ const menu = html.slice(html.indexOf('<div id="main-menu-modal"'), html.indexOf(
   });
 
   eq('a fresh profile has nothing waiting', A.claimableCount(prof()), 0);
+  // The closed mode's challenge is finished, and still not counted — the
+  // player has no progress on it, so it is not on their list to claim.
+  eq('a closed mode\'s reward is not promised to someone who never played it',
+     A.claimableCount(prof({ ffaWins: 0 })), 0);
+  eq('...but it is to someone who did', A.claimableCount(prof({ ffaWins: 3 })), 1);
+  ck(!A.challengeAvailable({ mode: 'shut', field: 'ffaWins', req: 1 }, prof()),
+     'a closed mode with no progress is off the list');
+  ck(A.challengeAvailable({ mode: 'shut', field: 'ffaWins', req: 1 }, prof({ ffaWins: 1 })),
+     'a closed mode with progress stays on it');
+  ck(A.challengeAvailable({ mode: 'open', field: 'wordsPlayed', req: 1 }, prof()),
+     'an open mode is always on it');
+  ck(A.challengeAvailable({ field: 'wordsPlayed', req: 1 }, prof()),
+     'and so is a challenge that names no mode at all');
   eq('and no profile at all is not an error', A.claimableCount(null), 0);
   eq('one finished daily is one reward',
      A.claimableCount(prof({ dailyStats: { ...prof().dailyStats, played: 3 } })), 1);

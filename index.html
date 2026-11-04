@@ -2927,6 +2927,26 @@
             };
 
             // Contains a larger pool for daily shuffling
+            /*
+             * The client's half of the challenge table: the same rows the
+             * server holds, plus the name, the sentence, and the mode each one
+             * belongs to. What a player reads cannot change what they are
+             * paid - claimChallenge re-checks req/field/reward against its own
+             * copy - so the two halves only have to agree, and tests/challenges
+             * is what makes them.
+             *
+             * `mode` is a key into MODES, on every row that is about one. A
+             * CAREER challenge for a closed mode is hidden rather than
+             * deleted, because closing a mode is a reversible word in that
+             * table and the progress behind it is still real.
+             *
+             * A DAILY one is not filtered at all. Three of the pool are drawn
+             * at random by the server, which cannot see MODES, and hiding one
+             * of the three after the draw leaves a player with two challenges
+             * rather than a replacement. So closing a mode means taking its
+             * daily rows out of this pool by hand - which tests/challenges
+             * fails until you do.
+             */
             const CHALLENGES = {
                 daily_pool: [
                     { id: "d_warmup", name: "Warm Up", desc: "Play 5 words today.", req: 5, field: "played", reward: 1000 },
@@ -2934,8 +2954,17 @@
                     { id: "d_grind", name: "The Grind", desc: "Guess 20 words correctly today.", req: 20, field: "guessed", reward: 5000 },
                     { id: "d_sweat", name: "Down to the Wire", desc: "Guess 3 words on your 4th try today.", req: 3, field: "guess4", reward: 3000 },
                     { id: "d_clutch", name: "Clutch Hit", desc: "Guess a word on the 5th try today.", req: 1, field: "guess5", reward: 2500 },
-                    { id: "d_marathon", name: "Daily Marathon", desc: "Play 30 total words today.", req: 30, field: "played", reward: 7500 },
-                    { id: "d_flawless", name: "Flawless", desc: "Guess a word on the 1st try today.", req: 1, field: "guess1", reward: 5000 }
+                    // Not "Daily Marathon" any more: Marathon is the name of a
+                    // mode in this game, and this challenge has nothing to do
+                    // with it. The id stays, so a player holding it in today's
+                    // activeIds keeps the challenge they were drawn.
+                    { id: "d_marathon", name: "Double Shift", desc: "Play 30 total words today.", req: 30, field: "played", reward: 7500 },
+                    { id: "d_flawless", name: "Flawless", desc: "Guess a word on the 1st try today.", req: 1, field: "guess1", reward: 5000 },
+                    { id: "d_sprint", mode: "sprint", name: "Daily Sprint", desc: "Solve today's Sprint word.", req: 1, field: "sprintDone", reward: 2500 },
+                    // "Every word", never "all three": the Trifecta has been
+                    // ten words and seven, and the server counts a sweep off
+                    // the run's own word count for the same reason.
+                    { id: "d_trifecta", mode: "gauntlet", name: "Clean Sweep", desc: "Solve every word in today's Trifecta.", req: 1, field: "gauntletSwept", reward: 5000 }
                 ],
                 career: [
                     { id: "c_homerun", name: "First Try Magic", desc: "Guess a word on the 1st try.", req: 1, field: "guess1", reward: 10000 },
@@ -2945,17 +2974,29 @@
                     { id: "c_hof", name: "Legendary Milestone", desc: "Guess 2,500 total words correctly.", req: 2500, field: "totalWordsGuessed", reward: 100000 },
                     { id: "c_heavyhitter", name: "Heavy Hitter", desc: "Play a total of 1,000 words.", req: 1000, field: "wordsPlayed", reward: 50000 },
                     { id: "c_arcadechamp", name: "Arcade Legend", desc: "Play a total of 5,000 words.", req: 5000, field: "wordsPlayed", reward: 200000 },
-                    { id: "c_top10daily", name: "Trifecta Top 10", desc: "Place in the Top 10 on the Trifecta Leaderboard.", req: 1, field: "achievedTop10Daily", reward: 25000 },
-                    { id: "c_kobe", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
-                    { id: "c_closer_elite", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 },
+                    { id: "c_top10daily", mode: "gauntlet", name: "Trifecta Top 10", desc: "Place in the Top 10 on a day's Trifecta board.", req: 1, field: "achievedTop10Daily", reward: 25000 },
+                    // Continues are Stakes' alone, so these two are too.
+                    { id: "c_kobe", mode: "endless", name: "Buzzer Beater", desc: "Guess correctly on the final attempt with no continues left.", req: 1, field: "kobeCount", reward: 5000 },
+                    { id: "c_closer_elite", mode: "endless", name: "Elite Closer", desc: "Survive 50 Buzzer Beater moments with no continues.", req: 50, field: "kobeCount", reward: 75000 },
                     { id: "c_untouchable", name: "Untouchable", desc: "Reach a streak of 10 correct guesses without a miss.", req: 10, field: "bestNoMissStreak", reward: 20000 },
                     { id: "c_perfectionist", name: "Flawless Run", desc: "Reach a streak of 25 correct guesses without a miss.", req: 25, field: "bestNoMissStreak", reward: 60000 },
-                    { id: "c_hotstreak", name: "Hot Streak", desc: "Win 5 Clash matches in a row.", req: 5, field: "bestClashWinStreak", reward: 30000 },
-                    { id: "c_unstoppable", name: "Unstoppable", desc: "Win 10 Clash matches in a row.", req: 10, field: "bestClashWinStreak", reward: 75000 },
-                    { id: "c_ffa_rookie", name: "Free-For-All Rookie", desc: "Play 10 FFA matches.", req: 10, field: "ffaMatchesPlayed", reward: 8000 },
-                    { id: "c_ffa_veteran", name: "Free-For-All Veteran", desc: "Play 50 FFA matches.", req: 50, field: "ffaMatchesPlayed", reward: 25000 },
-                    { id: "c_ffa_champion", name: "Free-For-All Champion", desc: "Win 10 FFA matches.", req: 10, field: "ffaWins", reward: 35000 },
-                    { id: "c_ffa_legend", name: "Free-For-All Legend", desc: "Win 40 FFA matches.", req: 40, field: "ffaWins", reward: 100000 },
+                    { id: "c_hotstreak", mode: "clash", name: "Hot Streak", desc: "Win 5 Clash matches in a row.", req: 5, field: "bestClashWinStreak", reward: 30000 },
+                    { id: "c_unstoppable", mode: "clash", name: "Unstoppable", desc: "Win 10 Clash matches in a row.", req: 10, field: "bestClashWinStreak", reward: 75000 },
+                    // FFA is closed (MODES.ffa.hidden), so these four are off
+                    // the list for anyone who has not already played it. They
+                    // are not deleted: the scores stand and the mode is paused
+                    // rather than retired.
+                    { id: "c_ffa_rookie", mode: "ffa", name: "Free-For-All Rookie", desc: "Play 10 FFA matches.", req: 10, field: "ffaMatchesPlayed", reward: 8000 },
+                    { id: "c_ffa_veteran", mode: "ffa", name: "Free-For-All Veteran", desc: "Play 50 FFA matches.", req: 50, field: "ffaMatchesPlayed", reward: 25000 },
+                    { id: "c_ffa_champion", mode: "ffa", name: "Free-For-All Champion", desc: "Win 10 FFA matches.", req: 10, field: "ffaWins", reward: 35000 },
+                    { id: "c_ffa_legend", mode: "ffa", name: "Free-For-All Legend", desc: "Win 40 FFA matches.", req: 40, field: "ffaWins", reward: 100000 },
+                    { id: "c_sprint_bullseye", mode: "sprint", name: "Bullseye", desc: "Solve a Sprint on your 1st guess.", req: 1, field: "sprintG1", reward: 10000 },
+                    { id: "c_sprint_regular", mode: "sprint", name: "Creature of Habit", desc: "Solve 50 Sprints.", req: 50, field: "sprintSolved", reward: 25000 },
+                    { id: "c_sprint_week", mode: "sprint", name: "Seven Straight", desc: "Solve the Sprint 7 days in a row.", req: 7, field: "sprintBestStreak", reward: 20000 },
+                    { id: "c_sprint_month", mode: "sprint", name: "Thirty Straight", desc: "Solve the Sprint 30 days in a row.", req: 30, field: "sprintBestStreak", reward: 100000 },
+                    { id: "c_trifecta_regular", mode: "gauntlet", name: "Three a Day", desc: "Finish 25 Trifectas.", req: 25, field: "gauntletPlayed", reward: 20000 },
+                    { id: "c_trifecta_sweep", mode: "gauntlet", name: "Spotless", desc: "Solve every word in a single Trifecta.", req: 1, field: "gauntletPerfect", reward: 15000 },
+                    { id: "c_trifecta_sweeps", mode: "gauntlet", name: "Perfect Ten", desc: "Solve every word in 10 Trifectas.", req: 10, field: "gauntletPerfect", reward: 60000 },
                     { id: "c_dedication", name: "Dedication", desc: "Log in 3 days in a row.", req: 3, field: "bestLoginStreak", reward: 2500 },
                     { id: "c_devoted", name: "Devoted", desc: "Log in 14 days in a row.", req: 14, field: "bestLoginStreak", reward: 20000 }
                 ]
@@ -3879,6 +3920,26 @@
             return { progress, claimed, complete: !claimed && progress >= chal.req };
         }
 
+        /*
+         * Whether a career challenge is on this player's list at all.
+         *
+         * A challenge for a closed mode is a row that cannot move: FFA has
+         * four, and until this they sat at 0/10 on every profile that had
+         * never been able to play it. Hidden rather than deleted, because
+         * MODES[...].hidden is one reversible word and the progress behind it
+         * is real.
+         *
+         * ...unless this player HAS progress, in which case it stays. Someone
+         * who won nine FFA matches before the mode closed is owed the tenth
+         * being visible, and someone who already finished one is owed the
+         * reward. Hiding those would take something away rather than tidy up.
+         */
+        function challengeAvailable(chal, p) {
+            const mode = chal.mode && MODES[chal.mode];
+            if (!mode || !mode.hidden) return true;
+            return challengeState(chal, "career", p).progress > 0;
+        }
+
         // How many rewards are sitting unclaimed across both tabs. Only the
         // daily challenges actually drawn for today count: the pool is bigger
         // than the three a player is given, and the rest are not theirs to claim.
@@ -3886,7 +3947,9 @@
             if (!p) return 0;
             const active = (p.dailyStats && p.dailyStats.activeIds) || [];
             const daily = CHALLENGES.daily_pool.filter((c) => active.includes(c.id)).map((c) => [c, "daily"]);
-            const career = CHALLENGES.career.map((c) => [c, "career"]);
+            // Same list the Challenges screen shows, so the dot cannot promise
+            // a reward behind a row that is not on it.
+            const career = CHALLENGES.career.filter((c) => challengeAvailable(c, p)).map((c) => [c, "career"]);
             return [...daily, ...career].filter(([c, t]) => challengeState(c, t, p).complete).length;
         }
 
@@ -3910,7 +3973,9 @@
                 const listDiv = document.getElementById("challenges-list"); listDiv.innerHTML = ""; 
     
                 // NEW: Pulls from the shuffled activeIds for daily, or the standard array for career
-                const challenges = type === 'daily' ? CHALLENGES.daily_pool.filter(c => userProfileData.dailyStats.activeIds.includes(c.id)) : CHALLENGES.career; 
+                const challenges = type === 'daily'
+                    ? CHALLENGES.daily_pool.filter(c => userProfileData.dailyStats.activeIds.includes(c.id))
+                    : CHALLENGES.career.filter(c => challengeAvailable(c, userProfileData)); 
     
                 let html = "";
                 challenges.forEach(chal => {

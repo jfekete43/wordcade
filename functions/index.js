@@ -215,6 +215,14 @@ function isItemAvailable(item, now = new Date()) {
   return isWithinSeasonalWindow(item.seasonal.fromMonthDay, item.seasonal.toMonthDay, now);
 }
 
+/*
+ * The server's half of the challenge table: id, requirement, field, payout.
+ * The client carries the same rows plus the name, the sentence and the mode
+ * each one belongs to - what a player reads cannot change what they are paid.
+ * tests/challenges holds the two halves together and checks that every `field`
+ * is one this file actually writes, which is the check that was missing when
+ * two of these were impossible to finish.
+ */
 const CHALLENGES = {
   daily_pool: [
     { id: "d_warmup", req: 5, field: "played", reward: 1000 },
@@ -224,6 +232,8 @@ const CHALLENGES = {
     { id: "d_clutch", req: 1, field: "guess5", reward: 2500 },
     { id: "d_marathon", req: 30, field: "played", reward: 7500 },
     { id: "d_flawless", req: 1, field: "guess1", reward: 5000 },
+    { id: "d_sprint", req: 1, field: "sprintDone", reward: 2500 },
+    { id: "d_trifecta", req: 1, field: "gauntletSwept", reward: 5000 },
   ],
   career: [
     { id: "c_homerun", req: 1, field: "guess1", reward: 10000 },
@@ -244,6 +254,13 @@ const CHALLENGES = {
     { id: "c_ffa_veteran", req: 50, field: "ffaMatchesPlayed", reward: 25000 },
     { id: "c_ffa_champion", req: 10, field: "ffaWins", reward: 35000 },
     { id: "c_ffa_legend", req: 40, field: "ffaWins", reward: 100000 },
+    { id: "c_sprint_bullseye", req: 1, field: "sprintG1", reward: 10000 },
+    { id: "c_sprint_regular", req: 50, field: "sprintSolved", reward: 25000 },
+    { id: "c_sprint_week", req: 7, field: "sprintBestStreak", reward: 20000 },
+    { id: "c_sprint_month", req: 30, field: "sprintBestStreak", reward: 100000 },
+    { id: "c_trifecta_regular", req: 25, field: "gauntletPlayed", reward: 20000 },
+    { id: "c_trifecta_sweep", req: 1, field: "gauntletPerfect", reward: 15000 },
+    { id: "c_trifecta_sweeps", req: 10, field: "gauntletPerfect", reward: 60000 },
     { id: "c_dedication", req: 3, field: "bestLoginStreak", reward: 2500 },
     { id: "c_devoted", req: 14, field: "bestLoginStreak", reward: 20000 },
   ],
@@ -388,6 +405,17 @@ function periodKeyFor(when, period) {
   return utc.toISOString().slice(0, 10);
 }
 
+/*
+ * A counter for every `field` any daily challenge reads - plus the rest of the
+ * guess distribution, so a challenge on guess3 needs no server change. Not a
+ * style rule:
+ * onRunCreated writes dailyStats as a WHOLE OBJECT, so a counter missing from
+ * here is a counter that never exists, and `(daily[field] || 0) < req` then
+ * refuses the claim forever. guess2 and guess4 were missing, which made Double
+ * Tap and Down to the Wire - two of the seven in the rotation - impossible to
+ * complete from the day they were written. tests/challenges holds this list to
+ * the pool rather than to a memory of what was needed.
+ */
 function freshDailyStats(today) {
   const shuffled = [...CHALLENGES.daily_pool].sort(() => 0.5 - Math.random());
   return {
@@ -395,7 +423,16 @@ function freshDailyStats(today) {
     played: 0,
     guessed: 0,
     guess1: 0,
+    guess2: 0,
+    guess3: 0,
+    guess4: 0,
     guess5: 0,
+    // Today's one-a-day modes, 0 or 1 each. Named apart from the career
+    // counters of the same shape (sprintSolved, gauntletPerfect) because
+    // challengeState picks the scope by the challenge's type, and two fields
+    // that mean "ever" and "today" must not share a name.
+    sprintDone: 0,
+    gauntletSwept: 0,
     claimed: [],
     activeIds: shuffled.slice(0, 3).map((c) => c.id),
   };
@@ -458,6 +495,17 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     const kobe = Math.max(0, Number(run.kobeCount) || 0);
     const bestStreakThisRun = Math.max(0, Number(run.bestStreak) || 0);
 
+    // The two one-a-day modes, for the challenges that name them.
+    //
+    // A sweep is "every word this run played", read off the run itself rather
+    // than compared against DAILY_GAUNTLET_WORD_COUNT: the count has been ten,
+    // then seven, then three, and a challenge that hardcoded any of those
+    // became either unwinnable or free the day it changed. A Trifecta run is
+    // only written once every word has been played, so wordsPlayed is the
+    // whole puzzle whatever its size.
+    const isSprintSolve = run.mode === "sprint" && wordsGuessed > 0;
+    const isGauntletSweep = run.mode === "daily" && wordsPlayed > 0 && wordsGuessed >= wordsPlayed;
+
     const update = {
       wallet: FieldValue.increment(score),
       careerBank: FieldValue.increment(score),
@@ -476,7 +524,14 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
         played: (daily.played || 0) + wordsPlayed,
         guessed: (daily.guessed || 0) + wordsGuessed,
         guess1: (daily.guess1 || 0) + g1,
+        guess2: (daily.guess2 || 0) + g2,
+        guess3: (daily.guess3 || 0) + g3,
+        guess4: (daily.guess4 || 0) + g4,
         guess5: (daily.guess5 || 0) + g5,
+        // Capped at 1: both are one attempt a day, and a retried trigger must
+        // not make "solve today's Sprint" read 2.
+        sprintDone: Math.min(1, (daily.sprintDone || 0) + (isSprintSolve ? 1 : 0)),
+        gauntletSwept: Math.min(1, (daily.gauntletSwept || 0) + (isGauntletSweep ? 1 : 0)),
         claimed: daily.claimed || [],
         activeIds: daily.activeIds || freshDailyStats(today).activeIds,
       },
@@ -511,6 +566,19 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
       // Which Daily Puzzle it was, so the all-time board can cite the puzzle
       // number rather than a bare date.
       update.bestGauntletDate = run.puzzleDate;
+    }
+
+    // ---- The Trifecta's career record -------------------------------------
+    // How many Trifectas, and how many of them were clean. Incremented rather
+    // than compared, which is safe because this whole transaction is guarded
+    // by payoutApplied — a retried trigger returns before reaching here.
+    //
+    // Kept out of the bests block above on purpose: tests/leaderboard-bests
+    // lifts that block verbatim and runs it against a FieldValue stub that has
+    // only serverTimestamp(), so an increment inside it is a broken lift.
+    if (run.mode === "daily") {
+      update.gauntletPlayed = FieldValue.increment(1);
+      if (isGauntletSweep) update.gauntletPerfect = FieldValue.increment(1);
     }
 
     // ---- Marathon's live standing -----------------------------------------
