@@ -197,7 +197,7 @@ let bad = 0;
   const MODES = [
     { name: 'Clash',    button: modeRe('clash'),    modals: ['versus-lobby-modal', 'versus-end-modal'] },
     { name: 'FFA',      button: modeRe('ffa'),      modals: ['ffa-lobby-modal', 'ffa-end-modal'] },
-    { name: 'Trifecta', button: modeRe('gauntlet'), modals: ['daily-end-modal', 'gauntlet-archive-modal'] },
+    { name: 'Trifecta', button: modeRe('gauntlet'), modals: ['daily-end-modal', 'archive-modal'] },
   ];
   for (const mode of MODES) {
     const want = colourOf(mode.button);

@@ -199,23 +199,47 @@ function argsOf(source, at) {
   }
   return null;
 }
-// fetchGauntletStanding builds its equalities once and spreads them, so the
-// spread has to be resolved or mode/puzzleDate go missing from every one of
-// its three queries.
-const scopedDef = html.match(/const scoped = \[([^\]]*)\];/);
-ck('resolved the shared equality list the standing queries spread in', !!scopedDef);
+// The standing queries build their equalities once, in the mode's own config,
+// and spread them. The spread has to be resolved or mode and puzzleDate go
+// missing from every one of them — and it has to be resolved PER MODE, since
+// each block spreads a different list. So each block's `...scoped` is replaced
+// with that block's own literal list before any query is read.
+const archAt = html.indexOf('const ARCHIVES = {');
+const blockAt = (k) => html.indexOf(`            ${k}: {`, archAt);
+const scopedOf = (k) => {
+  const seg = html.slice(blockAt(k));
+  const m = seg.match(/scoped: \(d\) => \[([^\]]*)\]/);
+  return m ? m[1] : null;
+};
+ck('resolved each mode\'s scoped list', !!scopedOf('daily') && !!scopedOf('sprint'),
+   `${scopedOf('daily')} || ${scopedOf('sprint')}`);
+// Rebuilt with each block's spread expanded in place, so a query's position
+// still tells you which mode it belongs to.
+let resolved = html;
+for (const k of ['sprint', 'daily']) {           // later block first: indices shift
+  const at = blockAt(k);
+  const end = html.indexOf('\n            },', at);
+  const block = html.slice(at, end).replaceAll('...scoped', scopedOf(k));
+  resolved = resolved.slice(0, resolved.indexOf(html.slice(at, end))) + block
+           + resolved.slice(resolved.indexOf(html.slice(at, end)) + (end - at));
+}
 const dailyQueries = [];
-for (const m of html.matchAll(/\bquery\s*\(/g)) {
-  let a = argsOf(html, m.index);
+for (const m of resolved.matchAll(/\bquery\s*\(/g)) {
+  let a = argsOf(resolved, m.index);
   if (a === null || !a.includes('"runs"')) continue;
-  if (a.includes('...scoped') && scopedDef) a = a.replace('...scoped', scopedDef[1]);
   const eqs = [...a.matchAll(/where\("(\w+)", "==",/g)].map((x) => x[1]);
-  if (!eqs.includes('mode') || !/"daily"/.test(a)) continue;
+  // Both one-puzzle-a-day modes, not just the Trifecta: Sprint's archive runs
+  // the same shapes against a different tiebreak, and a query this filter
+  // skips is a query no index check below ever sees.
+  const mode = (a.match(/where\("mode", "==", "(\w+)"\)/) || [])[1];
+  if (!eqs.includes('mode') || (mode !== 'daily' && mode !== 'sprint')) continue;
   const ranges = [...a.matchAll(/where\("(\w+)", "[<>]=?",/g)].map((x) => x[1]);
   const orders = [...a.matchAll(/orderBy\("(\w+)", "(asc|desc)"\)/g)].map((x) => ({ f: x[1], d: x[2] }));
-  dailyQueries.push({ eqs, ranges, orders, src: a.replace(/\s+/g, ' ').slice(0, 110) });
+  dailyQueries.push({ mode, eqs, ranges, orders, src: a.replace(/\s+/g, ' ').slice(0, 110) });
 }
 ck('found the daily queries in index.html', dailyQueries.length >= 5, String(dailyQueries.length));
+ck('...for both modes', new Set(dailyQueries.map((q) => q.mode)).size === 2,
+   dailyQueries.map((q) => q.mode).join(','));
 // Guard against the failure above recurring: if the orderBy clauses stop being
 // captured, every query reads as sortless and the checks below mean nothing.
 ck('and captured their sort clauses, not just their filters',
@@ -226,15 +250,23 @@ ck('and captured their sort clauses, not just their filters',
 // Checking that merely SOME query has it passes while one of the two has lost
 // it, which is precisely the regression worth catching.
 const boardQueries = dailyQueries.filter((q) => q.orders.length > 0 && q.ranges.length === 0);
-ck('there are two board renders', boardQueries.length === 2, String(boardQueries.length));
-ck('and every one of them orders by score then words solved',
-   boardQueries.length > 0 && boardQueries.every((q) =>
-     q.orders.length === 2 && q.orders[0].f === 'score' && q.orders[0].d === 'desc'
-     && q.orders[1].f === 'wordsGuessed' && q.orders[1].d === 'desc'),
-   boardQueries.map((q) => q.orders.map((o) => o.f + ' ' + o.d).join(' > ')).join('  |  '));
-ck('and the tied-and-ahead query, which is an equality on score plus a range on wordsGuessed',
-   dailyQueries.some((q) => q.eqs.includes('score') && q.ranges.includes('wordsGuessed')),
-   dailyQueries.map((q) => `${q.eqs.join('+')}/${q.ranges.join('+')}`).join(' | '));
+// Each mode renders its day twice — today's live board and the archive's — and
+// the two MUST sort the same way or a run changes place when the day ends.
+// Checking that merely SOME query carries the tiebreak passes while one of the
+// pair has lost it, which is precisely the regression worth catching.
+const TIEBREAK = { daily: ['wordsGuessed', 'desc'], sprint: ['elapsedMs', 'asc'] };
+for (const mode of ['daily', 'sprint']) {
+  const mine = boardQueries.filter((q) => q.mode === mode);
+  ck(`${mode}: there are two board renders`, mine.length === 2, String(mine.length));
+  ck(`${mode}: and both order by score then ${TIEBREAK[mode][0]}`,
+     mine.length > 0 && mine.every((q) =>
+       q.orders.length === 2 && q.orders[0].f === 'score' && q.orders[0].d === 'desc'
+       && q.orders[1].f === TIEBREAK[mode][0] && q.orders[1].d === TIEBREAK[mode][1]),
+     mine.map((q) => q.orders.map((o) => o.f + ' ' + o.d).join(' > ')).join('  |  '));
+  ck(`${mode}: and a tied-and-ahead query — score equality plus a range on ${TIEBREAK[mode][0]}`,
+     dailyQueries.some((q) => q.mode === mode && q.eqs.includes('score') && q.ranges.includes(TIEBREAK[mode][0])),
+     dailyQueries.filter((q) => q.mode === mode).map((q) => `${q.eqs.join('+')}/${q.ranges.join('+')}`).join(' | '));
+}
 
 const runsIndexes = indexes.indexes.filter((i) => i.collectionGroup === 'runs')
   .map((i) => i.fields.map((f) => ({ f: f.fieldPath, d: f.order === 'ASCENDING' ? 'asc' : 'desc' })));
@@ -267,10 +299,16 @@ for (const q of dailyQueries) {
 // which index went missing rather than only that something did.
 const hasIx = (...spec) => runsIndexes.some((ix) =>
   ix.length === spec.length && spec.every((s, i) => ix[i].f === s[0] && ix[i].d === s[1]));
-ck('the board index exists (score desc, then the tiebreak)',
-   hasIx(['mode','asc'], ['puzzleDate','asc'], ['score','desc'], ['wordsGuessed','desc']));
-ck('the tied-and-ahead index exists (score equality, wordsGuessed range)',
-   hasIx(['mode','asc'], ['puzzleDate','asc'], ['score','asc'], ['wordsGuessed','desc']));
+for (const [mode, [field, dir]] of Object.entries(TIEBREAK)) {
+  ck(`${mode}: the board index exists (score desc, then ${field})`,
+     hasIx(['mode','asc'], ['puzzleDate','asc'], ['score','desc'], [field, dir]));
+  // Its mirror, for the query whose score is an EQUALITY and whose range is
+  // the tiebreak. The live project carries both directions for the Trifecta's
+  // pair, which is why Sprint's gets the same treatment rather than an
+  // argument about whether the planner needs it.
+  ck(`${mode}: the tied-and-ahead index exists (score equality, ${field} range)`,
+     hasIx(['mode','asc'], ['puzzleDate','asc'], ['score','asc'], [field, dir]));
+}
 
 // ======================================================================= 2 ==
 // The board's shared places, in a browser because it writes DOM.
@@ -283,48 +321,99 @@ const launch = {};
 if (fs.existsSync('/opt/pw-browsers/chromium')) launch.executablePath = '/opt/pw-browsers/chromium';
 const browser = await chromium.launch(launch);
 
-const boardSrc = bodyAt(html, 'function renderGauntletBoard(docs, listEl, emptyText)');
-ck('extracted renderGauntletBoard verbatim', boardSrc && boardSrc.length > 800,
+// The renderer is shared by both modes and by the live boards as well as the
+// archives, so it is lifted WITH the table that parameterises it. Nothing in
+// ARCHIVES is evaluated at definition time — every Firestore call sits inside
+// an arrow body — so it lifts without a db.
+const grabSrc = (re, what) => { const m = html.match(re); if (!m) throw new Error('could not extract ' + what); return m[0]; };
+const boardSrc = [
+  grabSrc(/        const SPRINT_MAX_GUESSES = \d+;/, 'SPRINT_MAX_GUESSES'),
+  grabSrc(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/, 'formatSprintTime'),
+  grabSrc(/        function sprintGuessLabel\(run\) \{\n[\s\S]*?\n        \}/, 'sprintGuessLabel'),
+  grabSrc(/        function runScore\(r\) \{[^\n]*\}/, 'runScore'),
+  grabSrc(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/, 'runClock'),
+  grabSrc(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/, 'ARCHIVES'),
+  grabSrc(/        function renderArchiveBoard\(docs, listEl, emptyText, cfg\) \{\n[\s\S]*?\n        \}/, 'renderArchiveBoard'),
+].join('\n\n');
+ck('extracted renderArchiveBoard and its table verbatim', boardSrc && boardSrc.length > 2000,
    boardSrc ? `${boardSrc.length} chars` : 'MISSING');
 
-const places = await (async () => {
+// Each mode's rows in the order its own query returns them, and each with the
+// same shape of tie: two level on both keys, then two more level with each
+// other but behind on the tiebreak alone.
+const ROWS = {
+  daily: [
+    { uid: 'a', username: 'A', score: 4000, wordsGuessed: 3 },
+    { uid: 'b', username: 'B', score: 3000, wordsGuessed: 2 },
+    { uid: 'c', username: 'C', score: 3000, wordsGuessed: 2 },  // ties B on both
+    { uid: 'd', username: 'D', score: 3000, wordsGuessed: 1 },  // same score, fewer words
+    { uid: 'e', username: 'E', score: 3000, wordsGuessed: 1 },  // ties D on both
+    { uid: 'f', username: 'F', score: 1000, wordsGuessed: 1 },
+  ],
+  sprint: [
+    { uid: 'a', username: 'A', score: 500, wordsGuessed: 1, guess1: 1, elapsedMs: 11000 },
+    { uid: 'b', username: 'B', score: 250, wordsGuessed: 1, guess2: 1, elapsedMs: 20000 },
+    { uid: 'c', username: 'C', score: 250, wordsGuessed: 1, guess2: 1, elapsedMs: 20000 }, // ties B on both
+    { uid: 'd', username: 'D', score: 250, wordsGuessed: 1, guess2: 1, elapsedMs: 31000 }, // same score, slower
+    { uid: 'e', username: 'E', score: 250, wordsGuessed: 1, guess2: 1, elapsedMs: 31000 }, // ties D on both
+    { uid: 'f', username: 'F', score: 0, wordsGuessed: 0, elapsedMs: null },               // never solved it
+  ],
+};
+
+const render = async (kind) => {
   const page = await browser.newPage();
   await page.setContent('<div id="list"></div>');
-  const out = await page.evaluate(({ boardSrc, rows }) => {
+  const out = await page.evaluate(({ boardSrc, rows, kind }) => {
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const safeCosmetic = (v, d) => (/^[a-z0-9_]+$/.test(String(v || '')) ? v : d);
     const currentUser = null;
-    const fn = new Function('escapeHtml', 'safeCosmetic', 'currentUser',
-      `${boardSrc}\nreturn renderGauntletBoard;`)(escapeHtml, safeCosmetic, currentUser);
+    const api = new Function('escapeHtml', 'safeCosmetic', 'currentUser',
+      `${boardSrc}\nreturn { ARCHIVES, render: renderArchiveBoard };`)(escapeHtml, safeCosmetic, currentUser);
     const el = document.getElementById('list');
-    fn(rows.map((r) => ({ data: () => r })), el, 'empty');
-    return [...el.querySelectorAll('.lb-rank')].map((n) => n.textContent);
-  }, {
-    boardSrc,
-    // In the order the query returns them: score desc, then wordsGuessed desc.
-    rows: [
-      { uid: 'a', username: 'A', score: 4000, wordsGuessed: 10 },
-      { uid: 'b', username: 'B', score: 3000, wordsGuessed: 9 },
-      { uid: 'c', username: 'C', score: 3000, wordsGuessed: 9 },  // ties B on both
-      { uid: 'd', username: 'D', score: 3000, wordsGuessed: 7 },  // same score, fewer words
-      { uid: 'e', username: 'E', score: 3000, wordsGuessed: 7 },  // ties D on both
-      { uid: 'f', username: 'F', score: 1000, wordsGuessed: 4 },
-    ],
-  });
+    api.render(rows.map((r) => ({ data: () => r })), el, 'empty', api.ARCHIVES[kind]);
+    return {
+      places: [...el.querySelectorAll('.lb-rank')].map((n) => n.textContent),
+      details: [...el.querySelectorAll('.lb-date')].map((n) => n.textContent),
+      scores: [...el.querySelectorAll('.lb-score')].map((n) => n.textContent.trim()),
+    };
+  }, { boardSrc, rows: ROWS[kind], kind });
   await page.close();
   return out;
-})();
+};
 
-ck('the leader is #1', places[0] === '#1', String(places[0]));
-ck('a tie on BOTH fields shares a place', places[1] === '#2' && places[2] === '#2', places.join(' '));
-// This is the assertion that fails if the tie key is score alone: D and E would
-// join B and C at #2, and the board would contradict its own ordering.
-ck('the same score with fewer words takes its own place, not the shared one',
-   places[3] === '#4', places.join(' '));
-ck('and its own tie shares that place', places[4] === '#4', places.join(' '));
-ck('the next entry skips to the right number', places[5] === '#6', places.join(' '));
-ck('places never go backwards', places.every((p, i) => i === 0 || Number(p.slice(1)) >= Number(places[i - 1].slice(1))),
-   places.join(' '));
+for (const kind of ['daily', 'sprint']) {
+  const { places, details, scores } = await render(kind);
+  const M = (s) => `${kind}: ${s}`;
+  ck(M('the leader is #1'), places[0] === '#1', String(places[0]));
+  ck(M('a tie on BOTH keys shares a place'), places[1] === '#2' && places[2] === '#2', places.join(' '));
+  // This is the assertion that fails if the tie key is score alone: D and E
+  // would join B and C at #2, and the board would contradict its own order.
+  ck(M('level on score but behind on the tiebreak takes its own place'),
+     places[3] === '#4', places.join(' '));
+  ck(M('and its own tie shares that place'), places[4] === '#4', places.join(' '));
+  ck(M('the next entry skips to the right number'), places[5] === '#6', places.join(' '));
+  ck(M('places never go backwards'),
+     places.every((p, i) => i === 0 || Number(p.slice(1)) >= Number(places[i - 1].slice(1))), places.join(' '));
+  ck(M('every row says something under the name'), details.length === 6 && details.every((d) => d.trim().length > 0),
+     JSON.stringify(details));
+}
+
+// The two modes say DIFFERENT things in those two cells, which is the only
+// reason the table exists. Asserted across modes so a config that quietly
+// fell back to the other mode's formatting cannot pass.
+{
+  const d = await render('daily');
+  const s = await render('sprint');
+  ck('the Trifecta counts words solved', d.details.every((x) => /solved$/.test(x.trim())), JSON.stringify(d.details));
+  ck('Sprint counts guesses out of five', s.details.every((x) => /^[1-5X]\/5$/.test(x.trim())), JSON.stringify(s.details));
+  ck('...and says X for the one who never solved it', /^X\//.test(s.details[5].trim()), s.details[5]);
+  // The cell ends on the score either way; Sprint puts its clock in front of
+  // it. Checked as "more than the score" rather than against a time format,
+  // which is formatSprintTime's business and not this file's.
+  ck('Sprint puts the clock in front of the score', s.scores[0] !== '500' && s.scores[0].endsWith('500'), s.scores[0]);
+  ck('...and leaves it out when there is no clock to show', s.scores[5] === '0', s.scores[5]);
+  ck('the Trifecta score cell is the score alone', d.scores.every((x) => /^[\d,]+$/.test(x)), JSON.stringify(d.scores));
+}
 
 await browser.close();
 for (const c of t) console.log(c.cond ? 'ok  ' : 'FAIL', c.name, c.cond ? '' : '— ' + c.detail);

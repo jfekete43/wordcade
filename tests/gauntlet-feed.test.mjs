@@ -34,7 +34,15 @@ const grab = (re) => { const m = html.match(re); if (!m) throw new Error('could 
 const src = [
   grab(/        function escapeHtml\(str\) \{\n[\s\S]*?\n        \}/),
   grab(/        function safeCosmetic\(value, fallback\) \{\n[\s\S]*?\n        \}/),
-  grab(/        function renderGauntletBoard\(docs, listEl, emptyText\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function runScore\(r\) \{[^\n]*\}/),
+  grab(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/),
+  grab(/        const SPRINT_MAX_GUESSES = \d+;/),
+  grab(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function sprintGuessLabel\(run\) \{\n[\s\S]*?\n        \}/),
+  // The renderer takes its per-mode formatting from this table; the live
+  // Trifecta board is ARCHIVES.daily. Nothing in it runs at definition time.
+  grab(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/),
+  grab(/        function renderArchiveBoard\(docs, listEl, emptyText, cfg\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
 console.log('extracted from index.html:', src.length, 'chars');
 
@@ -44,7 +52,7 @@ console.log('extracted from index.html:', src.length, 'chars');
 const target = { innerHTML: '' };
 const render = new Function(`
   ${src}
-  return (docs, u) => { globalThis.__u = u; renderGauntletBoard(docs, globalThis.__target, "No finished runs yet today — be the first."); };
+  return (docs, u) => { globalThis.__u = u; renderArchiveBoard(docs, globalThis.__target, "No finished runs yet today — be the first.", ARCHIVES.daily); };
 `.replace(/\bcurrentUser\b/g, 'globalThis.__u'))();
 globalThis.__target = target;
 

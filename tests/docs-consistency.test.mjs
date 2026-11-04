@@ -290,12 +290,35 @@ ok('the Trifecta sentence is written in all six places', cardLines.length === 6,
 ok('and says the same thing in every one of them',
    cardLines.length > 0 && new Set(cardLines).size === 1, JSON.stringify(cardLines));
 
-// ---- 4c. the board's tiebreak, documented because players can see it -----
-const boardOrders = [...pages['index.html'].matchAll(/orderBy\("score", "desc"\), orderBy\("(\w+)", "desc"\)/g)].map((m) => m[1]);
-ok('the Trifecta board breaks ties on a second key', boardOrders.length >= 2, boardOrders.join(','));
-ok('and that key is words solved', boardOrders.every((f) => f === 'wordsGuessed'), boardOrders.join(','));
-ok('the rules page itself says what the tiebreak is, since the board shows it',
+// ---- 4c. each board's tiebreak, documented because players can see it ----
+// Read out of ARCHIVES, which is where both daily boards declare their
+// ordering now. This used to count literal orderBy() pairs and expect at
+// least two of them — which is a thing a second board sharing one
+// parameterised query stops being true of, without anything being wrong.
+const archSrc = pages['index.html'].slice(pages['index.html'].indexOf('const ARCHIVES = {'));
+// Read off the board query each archive actually runs, not off a tiebreak
+// field declared beside it — a declared field and the query that sorts by it
+// are two things that can disagree.
+const orderOf = (mode) => {
+  const at = archSrc.indexOf(`${mode}: {`);
+  const m = at < 0 ? null : archSrc.slice(at).match(/orderBy\("score", "desc"\), orderBy\("(\w+)", "(asc|desc)"\)/);
+  return m ? [m[1], m[2]] : null;
+};
+ok('the Trifecta archive breaks ties on words solved, most first',
+   JSON.stringify(orderOf('daily')) === '["wordsGuessed","desc"]', JSON.stringify(orderOf('daily')));
+ok('and Sprint on the clock, fastest first',
+   JSON.stringify(orderOf('sprint')) === '["elapsedMs","asc"]', JSON.stringify(orderOf('sprint')));
+// The live Trifecta board is a separate query from its archive and must agree
+// with it, or a run changes place when the day ends.
+ok('the live Trifecta board orders the same way its archive does',
+   /orderBy\("score", "desc"\), orderBy\("wordsGuessed", "desc"\)/.test(pages['index.html']));
+ok('the live Sprint board does too',
+   /orderBy\("score", "desc"\),\s*orderBy\("elapsedMs", "asc"\)/.test(pages['index.html']));
+ok('the rules page says what the Trifecta tiebreak is, since the board shows it',
    /solved more words|who solved more|then by words solved/i.test(text['how-to-play.html']),
+   'how-to-play.html');
+ok('and what the Sprint one is',
+   /faster solve wins|the faster solve takes it|clock only ever separates/i.test(text['how-to-play.html']),
    'how-to-play.html');
 
 // ---- 5. the numbers that have never moved, pinned anyway -----------------

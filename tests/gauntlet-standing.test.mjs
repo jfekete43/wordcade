@@ -31,14 +31,26 @@ const db = env.authenticatedContext('p1').firestore();
 
 // ---- Pull the REAL shipped code out of index.html, don't paraphrase it ----
 const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
-const idSrc = html.match(/        function dailyRunId\(uid, dateStr\) \{ return [^\n]*\}/)[0];
-const runSrc = html.match(/        async function fetchMyGauntletRun\([\s\S]*?\n        \}/)[0];
-const standingSrc = html.match(/        async function fetchGauntletStanding\([\s\S]*?\n        \}/)[0];
-console.log('extracted from index.html:', idSrc.length + runSrc.length + standingSrc.length, 'chars');
+// The counting is one function parameterised by the mode's own tiebreak now,
+// so the table comes with it. Nothing in ARCHIVES runs at definition time —
+// every Firestore call is inside an arrow body — so the formatting helpers it
+// mentions but never reaches here do not need lifting.
+const grab = (re, what) => { const m = html.match(re); if (!m) throw new Error('could not extract ' + what); return m[0]; };
+const src = [
+  grab(/        function dailyRunId\(uid, dateStr\) \{ return [^\n]*\}/, 'dailyRunId'),
+  grab(/        function runScore\(r\) \{[^\n]*\}/, 'runScore'),
+  grab(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/, 'runClock'),
+  grab(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/, 'ARCHIVES'),
+  grab(/        async function fetchMyArchiveRun\([\s\S]*?\n        \}/, 'fetchMyArchiveRun'),
+  grab(/        function fetchMyGauntletRun\(dateStr\) \{[^\n]*\}/, 'fetchMyGauntletRun'),
+  grab(/        async function fetchArchiveStanding\([\s\S]*?\n        \}/, 'fetchArchiveStanding'),
+  grab(/        function fetchGauntletStanding\(dateStr, myScore, mySolved\) \{\n[\s\S]*?\n        \}/, 'fetchGauntletStanding'),
+].join('\n');
+console.log('extracted from index.html:', src.length, 'chars');
 
 const build = new Function(
   'db', 'collection', 'doc', 'getDoc', 'query', 'where', 'orderBy', 'getCountFromServer', 'currentUser',
-  `${idSrc}\n${runSrc}\n${standingSrc}\nreturn { dailyRunId, fetchMyGauntletRun, fetchGauntletStanding };`
+  `${src}\nreturn { dailyRunId, fetchMyGauntletRun, fetchMyArchiveRun, fetchGauntletStanding, fetchArchiveStanding, ARCHIVES };`
 );
 const api = (uid) => build(db, collection, doc, getDoc, query, where, orderBy, getCountFromServer, uid ? { uid } : null);
 
@@ -75,7 +87,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 const t = [];
 const eq = (name, got, want) => t.push([JSON.stringify(got) === JSON.stringify(want), name, `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`]);
 
-const { fetchGauntletStanding, fetchMyGauntletRun, dailyRunId } = api('p1');
+const { fetchGauntletStanding, fetchArchiveStanding, fetchMyArchiveRun, fetchMyGauntletRun, dailyRunId, ARCHIVES } = api('p1');
 
 eq('deterministic run id', dailyRunId('p1', DATE), `daily_p1_${DATE}`);
 
@@ -141,6 +153,62 @@ eq('legacy rows with no wordsGuessed never count as tied-and-ahead',
    await fetchGauntletStanding(LEGACY, 3000, 5), { place: 1, total: 3 });
 eq('and a lower score is still behind them',
    await fetchGauntletStanding(LEGACY, 1000, 10), { place: 3, total: 3 });
+
+// ---- the same counting for Sprint, against a real Firestore -------------
+// Sprint's tiebreak runs the other way: the clock, lowest first. Two failure
+// modes are worth proving from this direction - a SLOWER clock on the same
+// score must not share the faster player's place, and a run with no clock at
+// all (an unsolved Sprint stores elapsedMs as null) must not be counted as
+// the fastest on the board, which is what Number(null) === 0 would do.
+const SDATE = '2026-11-03';
+const sfield = [
+  { uid: 's1', score: 500, elapsedMs: 9000 },
+  { uid: 's2', score: 250, elapsedMs: 15000 },
+  { uid: 's3', score: 250, elapsedMs: 15000 },   // identical to s2 on both
+  { uid: 's4', score: 250, elapsedMs: 40000 },   // same score, slower clock
+  { uid: 's5', score: 0, elapsedMs: null },      // played, never solved it
+];
+await env.withSecurityRulesDisabled(async (ctx) => {
+  const adb = ctx.firestore();
+  for (const p of sfield) {
+    await setDoc(doc(adb, 'runs', `sprint_${p.uid}_${SDATE}`),
+      { uid: p.uid, username: p.uid.toUpperCase(), score: p.score, wordsGuessed: p.score ? 1 : 0,
+        elapsedMs: p.elapsedMs, mode: 'sprint', puzzleDate: SDATE });
+  }
+  // Noise: the same date's Trifecta. A Trifecta outscores a Sprint three to
+  // one, so a dropped mode filter would put it first and inflate the field.
+  await setDoc(doc(adb, 'runs', `daily_s9_${SDATE}`),
+    { uid: 's9', username: 'S9', score: 1500, wordsGuessed: 3, mode: 'daily', puzzleDate: SDATE });
+});
+
+const SN = sfield.length;
+const sp = (score, elapsedMs) => fetchArchiveStanding(ARCHIVES.sprint, SDATE, { score, elapsedMs });
+eq('sprint: the best score is 1st',                 await sp(500, 9000),   { place: 1, total: SN });
+eq('sprint: equal score, faster clock, is 2nd',     await sp(250, 15000),  { place: 2, total: SN });
+eq('sprint: equal score, slower clock, is 4th — not a shared 2nd',
+                                                    await sp(250, 40000),  { place: 4, total: SN });
+eq('sprint: faster than everyone on that score is ahead of all of them',
+                                                    await sp(250, 1),      { place: 2, total: SN });
+eq('sprint: slower than everyone on that score is behind all of them',
+                                                    await sp(250, 999999), { place: 5, total: SN });
+eq('sprint: an unsolved run has no clock and still places last',
+                                                    await sp(0, null),     { place: 5, total: SN });
+// The mirror of the Trifecta's "words never beat a higher score": a clock of
+// one millisecond is still behind a better score, however fast it is.
+eq('sprint: the clock never beats a better score',  await sp(250, 1),      { place: 2, total: SN });
+eq('sprint: the Trifecta on the same date is not in this field',
+   (await sp(500, 9000)).total, SN);
+
+eq('sprint: own run found by its derivable id',
+   (await api('s1').fetchMyArchiveRun(ARCHIVES.sprint, SDATE)).score, 500);
+eq('sprint: a player who never played it is null',
+   await api('s404').fetchMyArchiveRun(ARCHIVES.sprint, SDATE), null);
+eq('sprint: signed out is null',
+   await api(null).fetchMyArchiveRun(ARCHIVES.sprint, SDATE), null);
+// The two archives must not read each other's runs: the ids differ by prefix
+// and nothing else, so a wrong prefix finds a real run for the wrong mode.
+eq('sprint: the Trifecta lookup does not find a Sprint run',
+   await api('s1').fetchMyGauntletRun(SDATE), null);
 
 await env.cleanup();
 let bad = 0;

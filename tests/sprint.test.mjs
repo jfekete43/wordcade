@@ -617,6 +617,31 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   ck(/document\.getElementById\("home-board-tabs"\)\.style\.display = "none";/.test(boardSrc),
      'and hides the Stakes tab row, which does not apply to this board');
 }
+// ---- the way into Past Sprints --------------------------------------------
+// The Trifecta hangs its archive button on a header of its own. Sprint borrows
+// the whole Stakes board card, which has no header slot, so its button lives
+// under the list where the Stakes expand button lives - and the two must take
+// turns, because one card cannot show both.
+{
+  ck(/<button id="sprint-archive-btn"[^>]*onclick="window\.openArchive\('sprint'\)"/.test(html),
+     'there is a Past Sprints button, and it opens the SPRINT archive',
+     (html.match(/<button id="sprint-archive-btn"[^>]*>/) || [''])[0].slice(0, 110));
+  ck(/id="sprint-archive-btn"[^>]*style="display:none;"/.test(html),
+     'it ships hidden, because the landing screen is not always Sprint');
+  ck(/document\.getElementById\("sprint-archive-btn"\)/.test(boardSrc),
+     'the Sprint board puts it up');
+  // Not unconditionally: before Sprint #2 there is nothing to browse, and an
+  // archive whose list is empty is a button that goes nowhere.
+  ck(/sprintNumber\(shiftDateStr\(getTodayDateStr\(\), -1\)\) \? "block" : "none"/.test(boardSrc),
+     'but only once a Sprint has actually finished',
+     (boardSrc.match(/sprint-archive-btn[\s\S]{0,160}/) || [''])[0].replace(/\s+/g, ' ').slice(0, 150));
+  // The Stakes board shares this card and must take it back down, or the
+  // button sits under an All-Time leaderboard offering past Sprints.
+  const chrome = html.slice(html.indexOf('function renderHomeBoardChrome()'));
+  ck(/document\.getElementById\("sprint-archive-btn"\)\.style\.display = "none";/.test(chrome.slice(0, 1600)),
+     'and the Stakes board takes it back down, because they share the card');
+}
+
 // ...and the tab row comes back on every route out, not just this mode's.
 {
   const panels = html.slice(html.indexOf('function showStandardPanels(visible)'));

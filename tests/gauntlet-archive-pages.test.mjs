@@ -479,9 +479,27 @@ ok('...and that nothing bought affects scoring',
    /score higher|affects? scoring/i.test(supportNote));
 // The modal link is per-day, so it has to be pointed at the day being viewed
 // rather than left on the hub href it ships with.
-ok('the in-app archive has a per-day link', home.includes('id="gauntlet-archive-full"'));
-ok('...and it is repointed when a day is opened',
-   /gauntlet-archive-full"\)\.href = `\/gauntlet\/\$\{dateStr\}\/`/.test(home));
+ok('the in-app archive has a per-day link', home.includes('id="archive-full"'));
+ok('...and the Trifecta builds it from the day being viewed',
+   /href: \(d\) => `\/gauntlet\/\$\{d\}\/`/.test(home));
+// The GUARD and the assignment together: `if (false) { full.href = ... }`
+// still contains the assignment, and leaves every day's link pointing at the
+// hub href the markup ships with.
+ok('...which the detail view assigns rather than leaving the shipped href',
+   /if \(cfg\.full\) \{ full\.href = cfg\.full\.href\(dateStr\);/.test(home),
+   (home.match(/full\.href = [^\n]{0,60}/) || [''])[0]);
+// Sprint has no static pages, so it must not offer either link — an archive
+// that promises "see the words" and opens a 404 is worse than no link.
+// Anchored inside ARCHIVES: index.html has other tables with a `sprint:` key,
+// and the first one is a mode-icon map.
+const sprintAt = home.indexOf('            sprint: {', home.indexOf('const ARCHIVES = {'));
+const sprintCfg = home.slice(sprintAt, home.indexOf('\n            },', sprintAt));
+ok('read the Sprint archive config', sprintCfg.length > 500 && sprintCfg.length < 4000, `${sprintCfg.length} chars`);
+ok('Sprint offers no words link, because it has no pages to link to',
+   /index: null/.test(sprintCfg) && /full: null/.test(sprintCfg), sprintCfg.slice(-60));
+ok('...and both links are hidden rather than left pointing at the Trifecta',
+   /idx\.style\.display = cfg\.index \? "block" : "none"/.test(home)
+   && /full\.style\.display = cfg\.full \? "block" : "none"/.test(home));
 // Nothing on the site may link to a day that has not finished.
 ok('no hardcoded link to a specific Trifecta day', !/href="\/gauntlet\/\d{4}-\d{2}-\d{2}\//.test(home));
 // site-intro is below the fold. The footer strip is always visible with no
@@ -489,7 +507,7 @@ ok('no hardcoded link to a specific Trifecta day', !/href="\/gauntlet\/\d{4}-\d{
 const footer = (home.match(/Always-visible footer[\s\S]*?<\/div>/) || [''])[0];
 ok('the always-visible footer links to the archive', footer.includes('href="/gauntlet/"'), `${footer.length} chars`);
 ok('the archive modal browse view links to the hub too',
-   /gauntlet-archive-more[\s\S]{0,400}?href="\/gauntlet\/"/.test(home));
+   /archive-more[\s\S]{0,400}?id="archive-index-link"[\s\S]{0,200}?href="\/gauntlet\/"/.test(home));
 ok('the archive is reachable from at least three places',
    (home.match(/href="\/gauntlet\/"/g) || []).length >= 3,
    String((home.match(/href="\/gauntlet\/"/g) || []).length));

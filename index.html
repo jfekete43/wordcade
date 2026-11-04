@@ -796,16 +796,16 @@
 
         #gauntlet-archive-btn { background: transparent; color: var(--c-ink-4); border: var(--bw) solid var(--c-line); border-radius: var(--r-1); height: 28px; padding: 0 11px; font-size: var(--fs-1); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; white-space: nowrap; font-family: inherit; }
         #gauntlet-archive-btn:hover { border-color: var(--c-gauntlet); color: var(--c-gauntlet); }
-        .gauntlet-archive-row { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--c-panel); color: var(--c-ink-2); border: 1px solid var(--c-line); border-radius: 4px; padding: 9px 12px; margin-bottom: 6px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: inherit; text-align: left; }
-        .gauntlet-archive-row:hover { border-color: var(--c-gauntlet); color: var(--c-ink); }
-        .gauntlet-archive-row .gar-date { font-size: 12px; color: var(--c-ink-4); font-weight: normal; }
-        #gauntlet-archive-list, #gauntlet-archive-board { max-height: 300px; overflow-y: auto; }
+        .archive-row { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--c-panel); color: var(--c-ink-2); border: 1px solid var(--c-line); border-radius: 4px; padding: 9px 12px; margin-bottom: 6px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: inherit; text-align: left; }
+        .archive-row:hover { border-color: var(--c-gauntlet); color: var(--c-ink); }
+        .archive-row .gar-date { font-size: 12px; color: var(--c-ink-4); font-weight: normal; }
+        #archive-list, #archive-board { max-height: 300px; overflow-y: auto; }
         #gauntlet-feed-list { max-height: 270px; overflow-y: auto; font-size: 14px; }
         /* Both Trifecta boards — today's live one and the archive's detail
-           view — share renderGauntletBoard, so they share its styling too.
+           view — share renderArchiveBoard, so they share its styling too.
            Scoping either rule to one container is what silently dropped the
            "this is you" outline from the archive. */
-        #gauntlet-feed-list .lb-entry, #gauntlet-archive-board .lb-entry { font-size: 14px; padding: 6px 5px; }
+        #gauntlet-feed-list .lb-entry, #archive-board .lb-entry { font-size: 14px; padding: 6px 5px; }
         /* Your own row. An outline rather than a background so it can't fight
            whichever banner the player has equipped. */
         .gf-me { outline: 2px solid var(--c-gauntlet); outline-offset: -2px; border-radius: 3px; }
@@ -1699,6 +1699,11 @@
         <div id="daily-board-list" style="font-size: var(--fs-3); color: var(--c-ink-3); font-style: italic;">Loading…</div>
         <div id="daily-board-you"></div>
         <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
+        <!-- Sprint borrows this whole card (see loadSprintBoard), and unlike
+             the Trifecta it has no header of its own to hang a button on. So
+             its way into the archive sits where the Stakes board keeps its
+             expand button - one of the two is up at a time, never both. -->
+        <button id="sprint-archive-btn" class="btn-quiet" style="display:none;" onclick="window.openArchive('sprint')">Past Sprints</button>
     </div>
 
     <!-- Sprint, once today is done. The end modal says all of this, but
@@ -1747,7 +1752,7 @@
     <div id="gauntlet-feed-container" style="display:none;">
         <div id="gauntlet-feed-head">
             <div id="gauntlet-feed-title">Today's Trifecta Board</div>
-            <button id="gauntlet-archive-btn" onclick="window.openGauntletArchive()">Past Trifectas</button>
+            <button id="gauntlet-archive-btn" onclick="window.openArchive('daily')">Past Trifectas</button>
         </div>
         <div id="gauntlet-feed-list"></div>
     </div>
@@ -1966,32 +1971,32 @@
     </div>
 
     <!-- PAST GAUNTLETS (ARCHIVE) MODAL -->
-    <div id="gauntlet-archive-modal" class="modal-overlay">
+    <div id="archive-modal" class="modal-overlay">
         <div class="modal-box" style="border-color: var(--c-gauntlet);">
-            <h2 class="modal-title" id="gauntlet-archive-title">Past Trifectas</h2>
+            <h2 class="modal-title" id="archive-title">Past Trifectas</h2>
 
             <!-- List of past days. -->
-            <div id="gauntlet-archive-browse">
-                <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;">Today's board resets at midnight ET. Pick a past Trifecta to see the final standings.</div>
-                <div id="gauntlet-archive-list"></div>
-                <button class="btn-quiet" id="gauntlet-archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderGauntlets()">Show Older</button>
-                <a href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">Every past Trifecta, with the words →</a>
+            <div id="archive-browse">
+                <div id="archive-blurb" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px;"></div>
+                <div id="archive-list"></div>
+                <button class="btn-quiet" id="archive-more" style="width:100%; margin-top: 4px;" onclick="window.showOlderArchive()">Show Older</button>
+                <a id="archive-index-link" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); text-decoration:none; font-weight:bold;"></a>
             </div>
 
             <!-- One past day's final board. -->
-            <div id="gauntlet-archive-detail" style="display:none;">
-                <div id="gauntlet-archive-standing" style="font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 10px; text-align: center;"></div>
-                <div id="gauntlet-archive-board"></div>
+            <div id="archive-detail" style="display:none;">
+                <div id="archive-standing" style="font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 10px; text-align: center;"></div>
+                <div id="archive-board"></div>
                 <!-- The static page carries what this panel deliberately does
                      not: the day's words themselves, per-word difficulty, and
                      the full spread of results. It is also a flat file, so
                      reading it there costs no Firestore reads at all. -->
-                <a id="gauntlet-archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
-                <button class="btn-quiet" style="width:100%; margin-top: 10px;" onclick="window.backToGauntletArchiveList()">Back to List</button>
+                <a id="archive-full" href="/gauntlet/" target="_blank" rel="noopener" style="display:block; text-align:center; margin-top:10px; font-size: var(--fs-2); color:var(--c-gauntlet); text-decoration:none; font-weight:bold;">See the words and full breakdown →</a>
+                <button class="btn-quiet" style="width:100%; margin-top: 10px;" onclick="window.backToArchiveList()">Back to List</button>
             </div>
 
             <div class="modal-buttons">
-                <button class="btn-quiet" onclick="document.getElementById('gauntlet-archive-modal').style.display='none'">Close</button>
+                <button class="btn-quiet" onclick="document.getElementById('archive-modal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -2197,6 +2202,7 @@
                     <li>The clock starts when you submit your <b>first</b> guess — take as long as you like before that.</li>
                     <li>Same 500/250/150/50/10 scoring, for one word. No Continues: miss it and that is the day.</li>
                     <li>One attempt per day, and a new word at midnight Eastern. Solve it every day to build a streak.</li>
+                    <li>Yesterday's board, and every one before it, stays in <b>Past Sprints</b> under today's standings.</li>
                 </ul>
 
                 <h3 style="color: var(--c-endless); text-transform: uppercase; margin-bottom: 6px;">♾️ Stakes</h3>
@@ -3126,6 +3132,8 @@
             // returns out of.
             document.getElementById("home-board-more").style.display =
                 HOME_BOARDS[homeBoard].lb ? "" : "none";
+            // Sprint's, and only ever Sprint's — this card is shared.
+            document.getElementById("sprint-archive-btn").style.display = "none";
         }
 
         async function loadHomeBoard() {
@@ -5513,6 +5521,8 @@
             if (next) next.style.display = "none";
             const more = document.getElementById("home-board-more");
             if (more) more.style.display = "none";
+            const past = document.getElementById("sprint-archive-btn");
+            if (past) past.style.display = sprintNumber(shiftDateStr(getTodayDateStr(), -1)) ? "block" : "none";
 
             const list = document.getElementById("daily-board-list");
             if (!list) return;
@@ -5642,37 +5652,42 @@
             return `${v}${suffix}`;
         }
 
-        // Your own run for one Trifecta, or null if you never played it.
-        // A single doc read rather than a query, because the id is derivable.
-        async function fetchMyGauntletRun(dateStr) {
-            if (!currentUser) return null;
-            try {
-                const snap = await getDoc(doc(db, "runs", dailyRunId(currentUser.uid, dateStr)));
-                return snap.exists() ? snap.data() : null;
-            } catch (e) { console.error("Trifecta run lookup failed", e); return null; }
-        }
+        // Your own run for one Trifecta, or null if you never played it. The
+        // Trifecta's two callers predate the second archive; one lookup, two
+        // spellings, same as fetchGauntletStanding below.
+        function fetchMyGauntletRun(dateStr) { return fetchMyArchiveRun(ARCHIVES.daily, dateStr); }
 
-        // Exact placement in one Trifecta: count the runs that beat this score
-        // and add one. Ties share a place, so two players on 3,200 are both
-        // 5th and the next player down is 7th.
+        // Exact placement on one day's board: count the runs that beat this
+        // one and add one. Ties share a place, so two players on 3,200 are
+        // both 5th and the next player down is 7th.
         //
         // The orderBy is load-bearing even though a count ignores ordering: it
-        // pins the query to the (mode, puzzleDate, score DESC) composite index
-        // the daily board already uses, so this needs no new index. Callers
-        // still handle it throwing — see showPreviousGauntletCallout.
-        async function fetchGauntletStanding(dateStr, myScore, mySolved) {
-            const scoped = [where("mode", "==", "daily"), where("puzzleDate", "==", dateStr)];
-            const solved = Math.max(0, Number(mySolved) || 0);
-            // Ahead of me = a better score, OR the same score with more words
-            // solved. Two counts rather than one because Firestore has no OR
-            // across different fields; both are aggregation queries, so this
-            // stays one read each however many players there are.
+        // pins each query to a composite index the day's board already uses,
+        // so this needs no new index for either mode. Callers still handle it
+        // throwing — see showPreviousGauntletCallout.
+        async function fetchArchiveStanding(cfg, dateStr, run) {
+            const mine = Math.max(0, Number(run.score) || 0);
+            const scoped = cfg.scoped(dateStr);
+            // Ahead of me = a better score, OR the same score and ahead on
+            // this mode's own tiebreak. Two counts rather than one because
+            // Firestore has no OR across different fields; both are
+            // aggregation queries, so this stays one read each however many
+            // players there are. cfg.tied returns null when the run has no
+            // tiebreak value to compare — an unsolved Sprint has no clock —
+            // and null is simply not counted.
             const [better, tied, total] = await Promise.all([
-                getCountFromServer(query(collection(db, "runs"), ...scoped, where("score", ">", myScore), orderBy("score", "desc"))),
-                getCountFromServer(query(collection(db, "runs"), ...scoped, where("score", "==", myScore), where("wordsGuessed", ">", solved), orderBy("wordsGuessed", "desc"))),
+                getCountFromServer(query(collection(db, "runs"), ...scoped, where("score", ">", mine), orderBy("score", "desc"))),
+                cfg.tied(scoped, run),
                 getCountFromServer(query(collection(db, "runs"), ...scoped)),
             ]);
-            return { place: better.data().count + tied.data().count + 1, total: total.data().count };
+            return { place: better.data().count + (tied ? tied.data().count : 0) + 1, total: total.data().count };
+        }
+
+        // The Trifecta's five callers predate the second archive and still
+        // speak in score-and-solved. One implementation, two spellings.
+        function fetchGauntletStanding(dateStr, myScore, mySolved) {
+            return fetchArchiveStanding(ARCHIVES.daily, dateStr,
+                { score: myScore, wordsGuessed: Math.max(0, Number(mySolved) || 0) });
         }
 
         // Words solved, from either shape the callers have to hand: a finished
@@ -5712,7 +5727,7 @@
                 orderBy("score", "desc"), orderBy("wordsGuessed", "desc"), limit(100)
             );
             gauntletFeedUnsub = onSnapshot(q,
-                (snapshot) => renderGauntletBoard(snapshot, listEl, "No finished runs yet today — be the first."),
+                (snapshot) => renderArchiveBoard(snapshot, listEl, "No finished runs yet today — be the first.", ARCHIVES.daily),
                 (err) => {
                     console.error("Trifecta feed failed", err);
                     listEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load today\'s board.</div>';
@@ -5720,10 +5735,13 @@
             );
         }
 
-        // Shared by the live board above and by the archive's detail view.
+        // Shared by the live board above and by both archives' detail views.
         // `docs` is anything with a forEach yielding snapshot docs in score
-        // order — a live QuerySnapshot or a one-off getDocs result.
-        function renderGauntletBoard(docs, listEl, emptyText) {
+        // order — a live QuerySnapshot or a one-off getDocs result. `cfg` is
+        // the ARCHIVES entry for the mode, which supplies the three things
+        // that differ: what counts as a tie, what the sub-line says, and what
+        // goes in the score cell.
+        function renderArchiveBoard(docs, listEl, emptyText, cfg) {
             let html = "";
             let index = 0, place = 0, prevKey = null;
 
@@ -5733,14 +5751,14 @@
                 const score = Math.max(0, Number(data.score) || 0);
                 // Competition ranking: a tie shares a place and the next entry
                 // skips ahead (1, 2, 2, 4), so what this board shows agrees
-                // with the number fetchGauntletStanding reports for the same
+                // with the number fetchArchiveStanding reports for the same
                 // run — that function counts the runs above you and adds one.
                 //
                 // A tie now means the same score AND the same number of words
                 // solved, because that is the order the query asks for. Keying
                 // on score alone would hand the same place to two players the
                 // board has deliberately put one above the other.
-                const key = score + ":" + Math.max(0, Number(data.wordsGuessed) || 0);
+                const key = cfg.tieKey(data);
                 if (prevKey === null || key !== prevKey) { place = index; prevKey = key; }
 
                 // No dedup pass, deliberately. The all-time board collapses
@@ -5759,15 +5777,14 @@
                 const bannerClass = safeCosmetic(eq.banner, "banner_default");
                 const nameClass = safeCosmetic(eq.effect, "effect_none");
                 const isMe = currentUser && data.uid === currentUser.uid;
-                const solved = Math.max(0, Number(data.wordsGuessed) || 0);
 
                 html += `<div class="lb-entry ${bannerClass}${isMe ? " gf-me" : ""}">` +
                     `<div class="lb-rank">#${place}</div>` +
                     `<div class="lb-name-col">` +
                         `<div class="lb-name ${nameClass}">${escapeHtml(data.username || "Guest")}</div>` +
-                        `<div class="lb-date" style="color:var(--c-gauntlet);">${solved} solved</div>` +
+                        `<div class="lb-date" style="color:${cfg.colour};">${cfg.detail(data)}</div>` +
                     `</div>` +
-                    `<div class="lb-score">${score.toLocaleString()}</div>` +
+                    `<div class="lb-score">${cfg.scoreCell(data)}</div>` +
                 `</div>`;
             });
 
@@ -5985,91 +6002,231 @@
         // no scores.
         const ARCHIVE_PAGE = 30;
         let archiveShown = ARCHIVE_PAGE;
+        // Which archive is open. One screen serves both modes, so everything
+        // below reads this rather than assuming the Trifecta.
+        let archiveKind = "daily";
 
         function formatPuzzleDate(dateStr) {
             const [y, m, d] = dateStr.split("-").map(Number);
             return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
         }
 
-        window.openGauntletArchive = function() {
+        // The guess a Sprint fell on, recovered from the counters the run
+        // carries: exactly one of guess1..5 is 1 on a solve and none on a
+        // miss. The same derivation the Discord digest does, because the run
+        // document is the only record either of them has.
+        function sprintGuessLabel(run) {
+            const used = [1, 2, 3, 4, 5].reduce((a, g) => a + (Number(run["guess" + g]) || 0) * g, 0);
+            return `${Number(run.wordsGuessed) ? used : "X"}/${SPRINT_MAX_GUESSES}`;
+        }
+
+        /*
+         * The two archives, and everything that differs between them.
+         *
+         * Past Trifectas came first. Past Sprints is the same screen with
+         * different columns - a list of finished days, then one day's final
+         * board with your own placement over it - so this is one piece of
+         * code with a table in front of it, rather than a second copy of a
+         * board to keep in step with the first.
+         *
+         * Both read /runs, where every mode's finished runs already go, on
+         * composite indexes that exist already because the live boards and
+         * the Discord digest order the same two ways. Neither archive needs
+         * an index or a rule that is not already deployed.
+         *
+         * Neither can show the day's WORDS. dailyPuzzles and sprintPuzzles
+         * are `read: if false`, which is what stops tomorrow's answers being
+         * read straight out of Firestore. The Trifecta gets its words from
+         * the static /gauntlet/ pages, which are built server-side with the
+         * Admin SDK; Sprint has no such pages, so its `index` and `full` are
+         * null and the two links that would promise words are hidden.
+         */
+        const ARCHIVES = {
+            daily: {
+                title: "Past Trifectas",
+                name: (n) => (n ? `Trifecta #${n}` : "Past Trifecta"),
+                number: (d) => gauntletNumber(d),
+                colour: "var(--c-gauntlet)",
+                blurb: "Today's board resets at midnight ET. Pick a past Trifecta to see the final standings.",
+                none: "No Trifectas have finished yet — today's is the first.",
+                empty: "No scores were recorded for this Trifecta.",
+                runId: (uid, d) => dailyRunId(uid, d),
+                // Written out per mode rather than built from a tiebreak
+                // field, so every query in this file names its own collection,
+                // mode and sort. tests/gauntlet-all-ten reads these literally
+                // and asks firestore.indexes.json whether each one is served;
+                // a query assembled from variables is a query that suite
+                // cannot see, and an index nobody notices is missing until a
+                // player taps the thing.
+                scoped: (d) => [where("mode", "==", "daily"), where("puzzleDate", "==", d)],
+                fetchDay: (d) => getDocs(query(collection(db, "runs"),
+                    where("mode", "==", "daily"), where("puzzleDate", "==", d),
+                    orderBy("score", "desc"), orderBy("wordsGuessed", "desc"),
+                    limit(100))),
+                // A tie is the same score AND the same words solved, because
+                // that is the order the query asks for. Keying on score alone
+                // hands one place to two players the board has deliberately
+                // put one above the other.
+                tieKey: (r) => `${runScore(r)}:${Math.max(0, Number(r.wordsGuessed) || 0)}`,
+                detail: (r) => `${Math.max(0, Number(r.wordsGuessed) || 0)} solved`,
+                scoreCell: (r) => runScore(r).toLocaleString(),
+                tied: (scoped, r) => getCountFromServer(query(collection(db, "runs"), ...scoped,
+                    where("score", "==", runScore(r)),
+                    where("wordsGuessed", ">", Math.max(0, Number(r.wordsGuessed) || 0)),
+                    orderBy("wordsGuessed", "desc"))),
+                index: { href: "/gauntlet/", text: "Every past Trifecta, with the words →" },
+                full: { href: (d) => `/gauntlet/${d}/`, text: "See the words and full breakdown →" },
+            },
+            sprint: {
+                title: "Past Sprints",
+                name: (n) => (n ? `Sprint #${n}` : "Past Sprint"),
+                number: (d) => sprintNumber(d),
+                colour: "var(--c-sprint)",
+                blurb: "Today's word resets at midnight ET. Pick a past Sprint to see the final standings.",
+                none: "No Sprints have finished yet — today's is the first.",
+                empty: "Nobody finished this Sprint.",
+                runId: (uid, d) => `sprint_${uid}_${d}`,
+                scoped: (d) => [where("mode", "==", "sprint"), where("puzzleDate", "==", d)],
+                fetchDay: (d) => getDocs(query(collection(db, "runs"),
+                    where("mode", "==", "sprint"), where("puzzleDate", "==", d),
+                    orderBy("score", "desc"), orderBy("elapsedMs", "asc"),
+                    limit(100))),
+                // One word means a handful of possible scores, so the clock is
+                // what actually orders these rows - and therefore what a tie
+                // has to match too.
+                tieKey: (r) => `${runScore(r)}:${runClock(r) || 0}`,
+                detail: (r) => sprintGuessLabel(r),
+                scoreCell: (r) => (runClock(r) === null
+                    ? ""
+                    : `<span style="color:var(--c-ink-4); margin-right: var(--s-5);">${formatSprintTime(runClock(r))}</span>`)
+                    + runScore(r).toLocaleString(),
+                // Lower is better here, so this counts the players UNDER my
+                // clock rather than over it. An unsolved Sprint has no clock
+                // at all: null means "nobody is ahead of me on a tiebreak I
+                // do not have", which is right - it scored nothing.
+                tied: (scoped, r) => (runClock(r) === null
+                    ? null
+                    : getCountFromServer(query(collection(db, "runs"), ...scoped,
+                        where("score", "==", runScore(r)),
+                        where("elapsedMs", "<", runClock(r)),
+                        orderBy("elapsedMs", "asc")))),
+                index: null,
+                full: null,
+            },
+        };
+
+        function runScore(r) { return Math.max(0, Number(r && r.score) || 0); }
+        // null when there is no clock, which is not the same as a clock of
+        // zero. An unsolved Sprint stores elapsedMs as null on purpose - the
+        // board orders on that field and Firestore drops documents missing an
+        // ordered field - and Number(null) is 0, so a plain isFinite check
+        // renders a miss as a 0.0s solve and would count it as the fastest
+        // player on the board.
+        function runClock(r) {
+            const v = r && r.elapsedMs;
+            if (v === null || v === undefined || v === "") return null;
+            return Number.isFinite(Number(v)) ? Number(v) : null;
+        }
+        function archiveCfg() { return ARCHIVES[archiveKind] || ARCHIVES.daily; }
+
+        // Your own run for one past day, or null if you never played it. A
+        // single doc read rather than a query, because both modes write runs
+        // under a deterministic id (see functions/index.js) - which is also
+        // what caps you at one run per day and so makes every count below
+        // exact.
+        async function fetchMyArchiveRun(cfg, dateStr) {
+            if (!currentUser) return null;
+            try {
+                const snap = await getDoc(doc(db, "runs", cfg.runId(currentUser.uid, dateStr)));
+                return snap.exists() ? snap.data() : null;
+            } catch (e) { console.error("Past run lookup failed", e); return null; }
+        }
+
+        window.openArchive = function(kind) {
+            archiveKind = ARCHIVES[kind] ? kind : "daily";
             archiveShown = ARCHIVE_PAGE;
-            window.backToGauntletArchiveList();
-            renderGauntletArchiveList();
-            document.getElementById("gauntlet-archive-modal").style.display = "flex";
+            window.backToArchiveList();
+            renderArchiveList();
+            document.getElementById("archive-modal").style.display = "flex";
         };
 
-        window.backToGauntletArchiveList = function() {
-            document.getElementById("gauntlet-archive-detail").style.display = "none";
-            document.getElementById("gauntlet-archive-browse").style.display = "block";
-            document.getElementById("gauntlet-archive-title").innerText = "Past Trifectas";
+        window.backToArchiveList = function() {
+            const cfg = archiveCfg();
+            document.getElementById("archive-detail").style.display = "none";
+            document.getElementById("archive-browse").style.display = "block";
+            document.getElementById("archive-title").innerText = cfg.title;
+            document.getElementById("archive-blurb").innerText = cfg.blurb;
+            document.querySelector("#archive-modal .modal-box").style.borderColor = cfg.colour;
+            const idx = document.getElementById("archive-index-link");
+            idx.style.display = cfg.index ? "block" : "none";
+            if (cfg.index) { idx.href = cfg.index.href; idx.innerText = cfg.index.text; idx.style.color = cfg.colour; }
         };
 
-        window.showOlderGauntlets = function() {
+        window.showOlderArchive = function() {
             archiveShown += ARCHIVE_PAGE;
-            renderGauntletArchiveList();
+            renderArchiveList();
         };
 
-        function renderGauntletArchiveList() {
-            const listEl = document.getElementById("gauntlet-archive-list");
+        function renderArchiveList() {
+            const cfg = archiveCfg();
+            const listEl = document.getElementById("archive-list");
             // Yesterday backwards: today is excluded because it's the live
             // board on the play screen, and it isn't final yet anyway.
             let dateStr = shiftDateStr(getTodayDateStr(), -1);
             let html = "";
             let shown = 0;
             while (shown < archiveShown) {
-                const num = gauntletNumber(dateStr);
-                if (!num) break; // walked back past Trifecta #1
-                html += `<button class="gauntlet-archive-row" onclick="window.viewPastGauntlet('${dateStr}')">` +
-                        `<span>Trifecta #${num}</span><span class="gar-date">${escapeHtml(formatPuzzleDate(dateStr))}</span></button>`;
+                const num = cfg.number(dateStr);
+                if (!num) break; // walked back past that mode's #1
+                html += `<button class="archive-row" onclick="window.viewPastDay('${dateStr}')">` +
+                        `<span>${escapeHtml(cfg.name(num))}</span><span class="gar-date">${escapeHtml(formatPuzzleDate(dateStr))}</span></button>`;
                 dateStr = shiftDateStr(dateStr, -1);
                 shown++;
             }
-            listEl.innerHTML = html || '<div class="gauntlet-empty">No Trifectas have finished yet — today\'s is the first.</div>';
-            // Hide "Show Older" once the list has reached Trifecta #1.
-            document.getElementById("gauntlet-archive-more").style.display = gauntletNumber(dateStr) ? "block" : "none";
+            listEl.innerHTML = html || `<div class="gauntlet-empty">${escapeHtml(cfg.none)}</div>`;
+            // Hide "Show Older" once the list has reached that mode's #1.
+            document.getElementById("archive-more").style.display = cfg.number(dateStr) ? "block" : "none";
         }
 
-        window.viewPastGauntlet = async function(dateStr) {
+        window.viewPastDay = async function(dateStr) {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
-            const num = gauntletNumber(dateStr);
-            const boardEl = document.getElementById("gauntlet-archive-board");
-            const standingEl = document.getElementById("gauntlet-archive-standing");
+            const cfg = archiveCfg();
+            const num = cfg.number(dateStr);
+            const boardEl = document.getElementById("archive-board");
+            const standingEl = document.getElementById("archive-standing");
 
-            document.getElementById("gauntlet-archive-browse").style.display = "none";
-            document.getElementById("gauntlet-archive-detail").style.display = "block";
-            document.getElementById("gauntlet-archive-title").innerText = num ? `Trifecta #${num}` : "Past Trifecta";
-            document.getElementById("gauntlet-archive-full").href = `/gauntlet/${dateStr}/`;
+            document.getElementById("archive-browse").style.display = "none";
+            document.getElementById("archive-detail").style.display = "block";
+            document.getElementById("archive-title").innerText = cfg.name(num);
+            const full = document.getElementById("archive-full");
+            full.style.display = cfg.full ? "block" : "none";
+            if (cfg.full) { full.href = cfg.full.href(dateStr); full.innerText = cfg.full.text; full.style.color = cfg.colour; }
             standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
             boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
 
             try {
-                // One-off read, not a listener: a past Trifecta is settled.
-                const snapshot = await getDocs(query(
-                    collection(db, "runs"),
-                    where("mode", "==", "daily"), where("puzzleDate", "==", dateStr),
-                    orderBy("score", "desc"), orderBy("wordsGuessed", "desc"), limit(100)
-                ));
-                renderGauntletBoard(snapshot, boardEl, "No scores were recorded for this Trifecta.");
+                // One-off read, not a listener: a past day is settled.
+                renderArchiveBoard(await cfg.fetchDay(dateStr), boardEl, cfg.empty, cfg);
             } catch (e) {
-                console.error("Past Trifecta board failed", e);
-                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn\'t load this Trifecta.</div>';
+                console.error("Past board failed", e);
+                boardEl.innerHTML = '<div class="gauntlet-empty" style="color:var(--c-loss);">Couldn’t load this one.</div>';
             }
 
             // Your own line above the board. Separate from the board query so
             // it still reports a placement outside the visible top 100.
-            const run = await fetchMyGauntletRun(dateStr);
+            const run = await fetchMyArchiveRun(cfg, dateStr);
             if (!run) {
                 standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))} — you didn't play this one.</span>`;
                 return;
             }
-            const score = Math.max(0, Number(run.score) || 0);
+            const score = runScore(run);
             let line = `you scored <span style="color:var(--c-ink); font-weight:bold;">${score.toLocaleString()}</span>`;
             let badge = PLACE_BADGES.plain;
             try {
-                const { place, total } = await fetchGauntletStanding(dateStr, score, gauntletSolvedCount(run));
+                const { place, total } = await fetchArchiveStanding(cfg, dateStr, run);
                 line = `you finished <span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span>`;
                 badge = placeBadge(place);
-            } catch (e) { console.error("Past Trifecta standing failed", e); }
+            } catch (e) { console.error("Past board standing failed", e); }
             // Same sentence as the callout, so it gets the same badge.
             standingEl.innerHTML = `${badge} <span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
         };
