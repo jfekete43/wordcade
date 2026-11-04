@@ -15,6 +15,7 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
@@ -1510,6 +1511,219 @@ exports.aggregateWordStats = onSchedule({ schedule: "30 1 * * *", timeZone: "Ame
 
   await ref.set({ words, lastProcessed: latest, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   console.log(`wordStats: ${runs.size} runs, ${counted} samples counted, ${rejected} rejected, ${Object.keys(words).length} words known`);
+});
+
+// ============================================================================
+// THE DAILY DISCORD DIGEST
+//
+// Yesterday's Sprint and Trifecta top ten, posted to Discord each morning
+// through an incoming webhook. A webhook is a URL you POST JSON to: no bot,
+// no gateway, no OAuth, and nothing to keep running.
+//
+// Yesterday's, not today's. Both boards reset at midnight Eastern, so a
+// morning post about today would be three people deep and wrong by lunchtime.
+// Yesterday is closed: the standings are final and the answers are spent,
+// which is also why the post can name the words.
+//
+// The two webhook URLs are secrets rather than constants because anyone
+// holding one can post into the channel as the game. Set them with
+//   firebase functions:secrets:set DISCORD_SPRINT_WEBHOOK
+//   firebase functions:secrets:set DISCORD_TRIFECTA_WEBHOOK
+// The same URL in both posts them to one channel; different URLs split them.
+// ============================================================================
+const DISCORD_SPRINT_WEBHOOK = defineSecret("DISCORD_SPRINT_WEBHOOK");
+const DISCORD_TRIFECTA_WEBHOOK = defineSecret("DISCORD_TRIFECTA_WEBHOOK");
+
+// Must match index.html. tests/docs-consistency checks every copy against
+// every other, because a digest numbering yesterday differently from the
+// share text a player posts beside it is worse than no number.
+const SPRINT_EPOCH = "2026-11-02";
+const TRIFECTA_EPOCH = "2026-11-04";
+
+// Both count whole days from their epoch in UTC midnights, which is what
+// survives a DST change — the same arithmetic gauntletNumber uses.
+function puzzleNumber(dateStr, epoch) {
+  if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const toUTC = (x) => { const [y, m, d] = x.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+  const days = Math.floor((toUTC(dateStr) - toUTC(epoch)) / 86400000) + 1;
+  return days >= 1 ? days : null;
+}
+
+// Matches formatSprintTime in index.html: tenths under a minute, m:ss.t over.
+function formatClock(ms) {
+  const total = Math.max(0, Number(ms) || 0) / 1000;
+  if (total < 60) return total.toFixed(1) + "s";
+  const m = Math.floor(total / 60);
+  const sec = total - m * 60;
+  return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1);
+}
+
+/*
+ * A player-chosen name, made safe to print inside a Discord code block.
+ *
+ * Backticks are the dangerous character here and nothing else guards them: a
+ * handle containing ``` closes the block early and everything after it
+ * renders as Discord markdown, which includes any mention the rest of the
+ * name happens to contain. The payload also disables mentions outright (see
+ * allowed_mentions), so this is the second of two locks rather than the only
+ * one.
+ */
+function digestName(raw, width) {
+  let n = String(raw == null ? "" : raw).replace(/[`\r\n]/g, "").trim() || "player";
+  if (n.length > width) n = n.slice(0, width - 1) + "…";
+  return n.padEnd(width);
+}
+
+const digestNum = (n) => Number(n || 0).toLocaleString("en-US");
+
+/*
+ * The standings block. Monospaced and padded rather than a Discord table,
+ * because a code block is the only thing in a Discord message that keeps
+ * columns under each other on a phone.
+ *
+ * rows: [{ username, score, ... }] already in board order.
+ */
+// Column widths, used by BOTH the header and the rows. Written out twice is
+// how a header ends up sitting one space left of the column it names, which
+// is the only kind of bug a monospaced table can have.
+const DIGEST_W = { place: 3, name: 14, count: 6, clock: 7, score: 7 };
+
+function digestHeader(mode) {
+  const lead = " ".repeat(DIGEST_W.place + 2);
+  const name = "PLAYER".padEnd(DIGEST_W.name);
+  return mode === "sprint"
+    ? `${lead}${name} ${"GUESS".padEnd(DIGEST_W.count)} ${"TIME".padStart(DIGEST_W.clock)} ${"SCORE".padStart(DIGEST_W.score)}`
+    : `${lead}${name} ${"SOLVED".padEnd(DIGEST_W.count)} ${"SCORE".padStart(DIGEST_W.score)}`;
+}
+
+function digestTable(rows, mode) {
+  return rows.map((r, i) => {
+    const place = ("#" + (i + 1)).padStart(DIGEST_W.place);
+    const name = digestName(r.username, DIGEST_W.name);
+    const score = digestNum(r.score).padStart(DIGEST_W.score);
+    if (mode === "sprint") {
+      // The guess it fell on, recovered from the counters the run carries:
+      // exactly one of guess1..5 is 1 on a solve and none on a miss.
+      const used = [1, 2, 3, 4, 5].reduce((a, g) => a + (Number(r["guess" + g]) || 0) * g, 0);
+      const guesses = (r.wordsGuessed ? String(used) : "X") + "/" + DAILY_GAUNTLET_MAX_GUESSES;
+      return `${place}  ${name} ${guesses.padEnd(DIGEST_W.count)} ${formatClock(r.elapsedMs).padStart(DIGEST_W.clock)} ${score}`;
+    }
+    const solved = `${Number(r.wordsGuessed) || 0}/${DAILY_GAUNTLET_WORD_COUNT}`;
+    return `${place}  ${name} ${solved.padEnd(DIGEST_W.count)} ${score}`;
+  }).join("\n");
+}
+
+/*
+ * The whole Discord payload for one mode's digest.
+ *
+ * allowed_mentions is empty on purpose and is not decoration: usernames are
+ * chosen by players, and without it a handle of "@everyone" would ping the
+ * server every morning, from the game's own webhook. Empty parse means no
+ * mention in this message resolves, whatever it says.
+ */
+function buildDigest({ mode, dateStr, rows, words }) {
+  const isSprint = mode === "sprint";
+  const n = puzzleNumber(dateStr, isSprint ? SPRINT_EPOCH : TRIFECTA_EPOCH);
+  const name = isSprint ? "Sprint" : "Trifecta";
+  const title = `${isSprint ? "\u{1F579}️" : "\u{1F525}"} Lexathon ${name}${n ? " #" + n : ""}`;
+  const list = (words || []).filter(Boolean).map((w) => String(w).toUpperCase());
+  const answer = list.length
+    ? (isSprint ? `The word was **${list[0]}**` : `The words were **${list.join("** · **")}**`)
+    : "";
+  const body = ["```", digestHeader(mode), digestTable(rows, mode), "```"].join("\n");
+  return {
+    username: "Lexathon",
+    allowed_mentions: { parse: [] },
+    embeds: [{
+      title,
+      url: "https://lexathon.gg",
+      color: isSprint ? 0x7a4a73 : 0x5c5ca8,
+      description: [answer, body].filter(Boolean).join("\n"),
+      footer: { text: prettyDigestDate(dateStr) },
+    }],
+  };
+}
+
+// "Monday 3 November 2026", in UTC so the date string is read as itself
+// rather than shifted into the server's zone.
+function prettyDigestDate(dateStr) {
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+// A webhook URL that is not one is a configuration mistake, not a thing to
+// POST to. "off" is the documented way to park a digest without deleting the
+// secret, which defineSecret requires to exist for the deploy to succeed.
+function isDiscordWebhook(url) {
+  return typeof url === "string" && /^https:\/\/(?:\w+\.)?discord(?:app)?\.com\/api\/webhooks\//.test(url);
+}
+
+/*
+ * 9:10am Eastern, every day, for yesterday.
+ *
+ * Not on the hour: Cloud Scheduler puts everything written as :00 into the
+ * same minute, and nothing here is time-critical enough to join that queue.
+ *
+ * Posting is CLAIMED before it happens. A scheduled function can be retried,
+ * and the thing being retried here reaches a channel other people are
+ * reading — two identical leaderboards an hour apart is the failure nobody
+ * can undo. The claim is released again if the POST fails, so a Discord
+ * outage costs the day's post rather than every future one.
+ */
+exports.postDailyDigest = onSchedule({
+  schedule: "10 9 * * *",
+  timeZone: "America/New_York",
+  secrets: [DISCORD_SPRINT_WEBHOOK, DISCORD_TRIFECTA_WEBHOOK],
+}, async () => {
+  const dateStr = shiftDateStr(getTodayDateStr(), -1);
+  const jobs = [
+    { mode: "sprint", url: DISCORD_SPRINT_WEBHOOK.value(), tiebreak: "elapsedMs", dir: "asc",
+      puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word] },
+    { mode: "daily", url: DISCORD_TRIFECTA_WEBHOOK.value(), tiebreak: "wordsGuessed", dir: "desc",
+      puzzle: db.collection("dailyPuzzles").doc(dateStr), words: (d) => d.words || [] },
+  ];
+
+  for (const job of jobs) {
+    const label = `${job.mode} ${dateStr}`;
+    if (!isDiscordWebhook(job.url)) { console.log(`digest ${label}: no webhook configured, skipped`); continue; }
+
+    const snap = await db.collection("runs")
+      .where("mode", "==", job.mode).where("puzzleDate", "==", dateStr)
+      .orderBy("score", "desc").orderBy(job.tiebreak, job.dir)
+      .limit(10).get();
+    // Nobody played. A daily "nobody played" post is a daily reminder that
+    // nobody played, which is not what a leaderboard channel is for.
+    if (snap.empty) { console.log(`digest ${label}: no runs, nothing to post`); continue; }
+
+    const claimRef = db.collection("digestPosts").doc(`${job.mode}_${dateStr}`);
+    const claimed = await db.runTransaction(async (tx) => {
+      if ((await tx.get(claimRef)).exists) return false;
+      tx.set(claimRef, { mode: job.mode, puzzleDate: dateStr, at: FieldValue.serverTimestamp() });
+      return true;
+    });
+    if (!claimed) { console.log(`digest ${label}: already posted`); continue; }
+
+    try {
+      const pSnap = await job.puzzle.get();
+      const payload = buildDigest({
+        mode: job.mode, dateStr, rows: snap.docs.map((d) => d.data()),
+        words: pSnap.exists ? job.words(pSnap.data()) : [],
+      });
+      const res = await fetch(job.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Discord returned ${res.status} ${(await res.text()).slice(0, 200)}`);
+      console.log(`digest ${label}: posted ${snap.size} row(s)`);
+    } catch (e) {
+      // Hand the day back so tomorrow's run, or a manual retry, can post it.
+      await claimRef.delete().catch(() => {});
+      console.error(`digest ${label}: post failed, claim released`, e);
+    }
+  }
 });
 
 async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {

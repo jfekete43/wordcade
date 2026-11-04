@@ -388,6 +388,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // One marker per digest posted to Discord, so a retried schedule cannot
+    // put yesterday's leaderboard in the channel twice. Server-only: a
+    // client that could write here could silence tomorrow's post, and one
+    // that could delete could make it post again.
+    match /digestPosts/{id} {
+      allow read, write: if false;
+    }
+
     // A player's own Sprint progress. Readable by its owner so a refresh
     // restores the board — guesses already made and their colours, never an
     // unsolved answer. The clock fields live here too, which is exactly why
