@@ -294,6 +294,11 @@ const SCORE_POINTS = [500, 250, 150, 50, 10];
 // only one to change.
 const DAILY_GAUNTLET_WORD_COUNT = 3;
 const DAILY_GAUNTLET_MAX_GUESSES = 5;
+// The longest handle changeUsername will store. Named because the Discord
+// digest sizes its PLAYER column from it: a column narrower than this
+// truncates legal names, and one wider wastes characters a phone does not
+// have to spare inside a code block.
+const HANDLE_MAX = 12;
 // Marathon: one set of words per calendar month, played at whatever pace you
 // like. Fifty rather than a hundred to start — the question this mode is
 // being run to answer is whether anyone finishes, and fifty answers it inside
@@ -1083,7 +1088,7 @@ exports.changeUsername = onCall(async (request) => {
   const name = String(raw)
     .replace(/[^a-zA-Z0-9_\s-]/g, "")
     .trim()
-    .substring(0, 12);
+    .substring(0, HANDLE_MAX);
   if (name.length < 3) throw new HttpsError("invalid-argument", "Arcade Handle must be at least 3 valid characters long.");
 
   // Screened here because a handle is the last free text a stranger can put in
@@ -1684,14 +1689,28 @@ const digestNum = (n) => Number(n || 0).toLocaleString("en-US");
 // Column widths, used by BOTH the header and the rows. Written out twice is
 // how a header ends up sitting one space left of the column it names, which
 // is the only kind of bug a monospaced table can have.
-const DIGEST_W = { place: 3, name: 14, count: 6, clock: 7, score: 7 };
+/*
+ * Narrow on purpose. A Discord code block does not wrap gracefully on a
+ * phone - it wraps mid-row, and a leaderboard whose every line breaks in two
+ * is not a leaderboard. The first version ran 42 characters wide and did
+ * exactly that.
+ *
+ * There is no guess or words-solved column. For Sprint the score IS the guess
+ * count (500/250/150/50/10 is first guess through fifth) and for the Trifecta
+ * it tracks words solved closely enough; both restated a number already in
+ * the row and cost six characters to do it. Sprint keeps the clock, because
+ * that is the one thing its score does not tell you.
+ *
+ * Sprint rows come to 31 characters, the Trifecta's to 23.
+ */
+const DIGEST_W = { place: 3, name: HANDLE_MAX, clock: 7, score: 5 };
 
 function digestHeader(mode) {
   const lead = " ".repeat(DIGEST_W.place + 2);
   const name = "PLAYER".padEnd(DIGEST_W.name);
   return mode === "sprint"
-    ? `${lead}${name} ${"GUESS".padEnd(DIGEST_W.count)} ${"TIME".padStart(DIGEST_W.clock)} ${"SCORE".padStart(DIGEST_W.score)}`
-    : `${lead}${name} ${"SOLVED".padEnd(DIGEST_W.count)} ${"SCORE".padStart(DIGEST_W.score)}`;
+    ? `${lead}${name} ${"TIME".padStart(DIGEST_W.clock)} ${"SCORE".padStart(DIGEST_W.score)}`
+    : `${lead}${name} ${"SCORE".padStart(DIGEST_W.score)}`;
 }
 
 function digestTable(rows, mode) {
@@ -1699,15 +1718,14 @@ function digestTable(rows, mode) {
     const place = ("#" + (i + 1)).padStart(DIGEST_W.place);
     const name = digestName(r.username, DIGEST_W.name);
     const score = digestNum(r.score).padStart(DIGEST_W.score);
-    if (mode === "sprint") {
-      // The guess it fell on, recovered from the counters the run carries:
-      // exactly one of guess1..5 is 1 on a solve and none on a miss.
-      const used = [1, 2, 3, 4, 5].reduce((a, g) => a + (Number(r["guess" + g]) || 0) * g, 0);
-      const guesses = (r.wordsGuessed ? String(used) : "X") + "/" + DAILY_GAUNTLET_MAX_GUESSES;
-      return `${place}  ${name} ${guesses.padEnd(DIGEST_W.count)} ${formatClock(r.elapsedMs).padStart(DIGEST_W.clock)} ${score}`;
-    }
-    const solved = `${Number(r.wordsGuessed) || 0}/${DAILY_GAUNTLET_WORD_COUNT}`;
-    return `${place}  ${name} ${solved.padEnd(DIGEST_W.count)} ${score}`;
+    if (mode !== "sprint") return `${place}  ${name} ${score}`;
+    // A dash, not 0.0s. An unsolved Sprint stores elapsedMs as null and
+    // Number(null) is 0, so the clock read as an instant solve for the one
+    // player who never got there - top of the column, bottom of the board.
+    const ms = r.elapsedMs;
+    const clock = (ms === null || ms === undefined || !Number.isFinite(Number(ms)))
+      ? "-" : formatClock(ms);
+    return `${place}  ${name} ${clock.padStart(DIGEST_W.clock)} ${score}`;
   }).join("\n");
 }
 

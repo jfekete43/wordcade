@@ -57,8 +57,13 @@ const rulesNameMax = Number(grab(rules, /line\.n\.size\(\) <= (\d+)/, 'rules nam
 ck(clientNameMax === rulesNameMax, 'the display-name cap matches the rules', `${clientNameMax} vs ${rulesNameMax}`);
 // changeUsername() caps handles well below this, so no real name is ever
 // truncated into a line the rules then accept as someone else's.
-const handleCap = Number(grab(fs.readFileSync(REPO('functions/index.js'), 'utf8'),
-  /\.substring\(0, (\d+)\);\n  if \(name\.length < 3\)/, 'changeUsername cap')[1]);
+// Read off the named constant rather than out of the call that applies it:
+// the Discord digest sizes its PLAYER column from the same one, so it has a
+// name now and the call site takes it from there.
+const fnForCap = fs.readFileSync(REPO('functions/index.js'), 'utf8');
+const handleCap = Number(grab(fnForCap, /const HANDLE_MAX = (\d+);/, 'HANDLE_MAX')[1]);
+ck(/\.substring\(0, HANDLE_MAX\);\n  if \(name\.length < 3\)/.test(fnForCap),
+   'and changeUsername is what applies it', String(handleCap));
 ck(handleCap <= clientNameMax, 'and leaves room for any real handle', `handle ${handleCap} <= chat ${clientNameMax}`);
 
 // --- the restrictive default, in both places ------------------------------

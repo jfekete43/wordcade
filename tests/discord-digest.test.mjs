@@ -50,6 +50,10 @@ const src = [
   grab(/function formatClock\(ms\) \{\n[\s\S]*?\n\}/, 'formatClock'),
   grab(/function digestName\(raw, width\) \{\n[\s\S]*?\n\}/, 'digestName'),
   grab(/const digestNum = [^\n]*/, 'digestNum'),
+  // Lifted, not restated: the PLAYER column is sized from the handle cap, so
+  // a column that could truncate a legal name fails here rather than
+  // surprising someone in a channel.
+  grab(/const HANDLE_MAX = \d+;/, 'HANDLE_MAX'),
   grab(/const DIGEST_W = \{[^\n]*\};/, 'DIGEST_W'),
   grab(/function digestHeader\(mode\) \{\n[\s\S]*?\n\}/, 'digestHeader'),
   grab(/function digestTable\(rows, mode\) \{\n[\s\S]*?\n\}/, 'digestTable'),
@@ -64,7 +68,8 @@ console.log('extracted from functions/index.js:', src.length, 'chars');
 // eslint-disable-next-line no-new-func
 const D = new Function('createHash', `${src}; return { puzzleNumber, formatClock, digestName, digestTable,
   buildDigest, prettyDigestDate, isDiscordWebhook, webhookUrls, channelId, digestHeader,
-  SPRINT_EPOCH, TRIFECTA_EPOCH, WORDS: DAILY_GAUNTLET_WORD_COUNT };`)(createHash);
+  SPRINT_EPOCH, TRIFECTA_EPOCH, HANDLE_MAX, DIGEST_W,
+  WORDS: DAILY_GAUNTLET_WORD_COUNT };`)(createHash);
 
 const sprintRow = (username, n, elapsedMs, score) => ({
   username, score, elapsedMs, wordsGuessed: n ? 1 : 0,
@@ -148,8 +153,33 @@ const dailyRow = (username, solved, score) => ({ username, score, wordsGuessed: 
   ck(e.footer.text === 'Tuesday, 3 November 2026', 'and the footer dates it', e.footer.text);
   const rows = e.description.split('\n').filter((l) => /^\s*#\d/.test(l));
   eq('one row per player', rows.length, 3);
-  ck(/#1\s+CORVID\s+3\/5\s+41\.2s\s+300/.test(rows[0]), 'place, name, guesses, clock, score', rows[0]);
-  ck(/X\/5/.test(rows[2]), 'and a miss reads as X rather than 0/5', rows[2]);
+  ck(/#1\s+CORVID\s+41\.2s\s+300/.test(rows[0]), 'place, name, clock, score', rows[0]);
+  // No guess column: for a one-word puzzle the score IS the guess count, so
+  // "3/5" beside a 300 restated the number next to it — and cost six
+  // characters doing it, which on a phone is the difference between a row
+  // and a row that wraps.
+  ck(!/\d\/5|X\/5/.test(e.description), 'and no guess column, which the score already says',
+     e.description.slice(0, 220));
+  // The first version ran 42 characters wide and wrapped every line in two
+  // inside Discord's code block on a phone.
+  ck(rows.every((r) => r.length <= 34), 'every row fits a narrow screen',
+     JSON.stringify(rows.map((r) => r.length)));
+  ck(rows.every((r) => r.length === rows[0].length), 'and they are all the same width',
+     JSON.stringify(rows.map((r) => r.length)));
+  // The PLAYER column is sized off the handle cap, so no legal name is cut.
+  ck(D.DIGEST_W.name >= D.HANDLE_MAX, 'the name column fits the longest handle',
+     `${D.DIGEST_W.name} vs ${D.HANDLE_MAX}`);
+  ck(!D.digestName('X'.repeat(D.HANDLE_MAX), D.DIGEST_W.name).includes('\u2026'),
+     'proved by putting the longest one through it');
+  // ...and the cap the column is sized from has to be the cap the server
+  // actually enforces. A literal there and a constant here is two numbers
+  // that agree until one of them moves, and the column is the one that
+  // would then start cutting names short.
+  const change = fn.slice(fn.indexOf('exports.changeUsername'),
+                          fn.indexOf('exports.changeUsername') + 900);
+  ck(/\.substring\(0, HANDLE_MAX\)/.test(change),
+     'and changeUsername enforces that same constant, not a literal of its own',
+     (change.match(/\.substring\([^)]*\)/) || [''])[0]);
   // Monospace is the only thing that keeps columns under each other on a
   // phone, so the block fences are not decoration.
   eq('the standings are fenced as code', (e.description.match(/```/g) || []).length, 2);
@@ -165,13 +195,15 @@ const dailyRow = (username, solved, score) => ({ username, score, wordsGuessed: 
   ck(e.description.includes('The words were **ARISE** · **HOUSE** · **MEDIA**'),
      'and names all of yesterday\'s words', e.description.slice(0, 110));
   const rows = e.description.split('\n').filter((l) => /^\s*#\d/.test(l));
-  ck(new RegExp(`#1\\s+SLIZZY\\s+3/${D.WORDS}\\s+1,250`).test(rows[0]),
-     'place, name, solved-out-of, score', rows[0]);
+  ck(/#1\s+SLIZZY\s+1,250/.test(rows[0]), 'place, name, score', rows[0]);
   ck(!/\d+\.\d+s|\d+:\d\d/.test(e.description), 'with no clock, which Trifecta does not have',
      e.description.slice(0, 200));
-  // The count comes off the constant, so a four-word Trifecta cannot leave
-  // the digest saying 3/3.
-  ck(e.description.includes(`/${D.WORDS}`), `solved is out of ${D.WORDS}`, rows[0]);
+  // Nor a words-solved column: it tracked the score closely enough to be a
+  // restatement, and without it these rows are the narrower of the two.
+  ck(!new RegExp(`\\d/${D.WORDS}`).test(e.description), 'and no solved-out-of column',
+     e.description.slice(0, 220));
+  ck(rows.every((r) => r.length <= 26), 'its rows are narrower still',
+     JSON.stringify(rows.map((r) => r.length)));
 }
 {
   // A day before the epoch has no number and must not print "#null".
@@ -188,12 +220,27 @@ const dailyRow = (username, solved, score) => ({ username, score, wordsGuessed: 
 
 // ---- the header sits over the columns it names ---------------------------
 // A monospaced table has exactly one way to look wrong, and it is this.
+// ---- a miss has no clock, and must not borrow a zero ---------------------
+// An unsolved Sprint stores elapsedMs as NULL on purpose: the board orders on
+// that field and Firestore drops documents missing an ordered one. Number(null)
+// is 0, so a plain format read the one player who never got there as the
+// fastest solve on the board — top of the clock column, bottom of the score.
+{
+  const row = D.digestTable([{ username: 'quarrel', score: 0, wordsGuessed: 0, elapsedMs: null }], 'sprint');
+  ck(/\s-\s+0$/.test(row), 'a null clock reads as a dash, not 0.0s', JSON.stringify(row));
+  ck(!/0\.0s/.test(row), 'and never as an instant solve', JSON.stringify(row));
+  const absent = D.digestTable([{ username: 'quarrel', score: 0, wordsGuessed: 0 }], 'sprint');
+  ck(!/0\.0s/.test(absent), 'nor does a row that carries no clock field at all', JSON.stringify(absent));
+  const real = D.digestTable([{ username: 'fast', score: 500, wordsGuessed: 1, elapsedMs: 8400 }], 'sprint');
+  ck(/8\.4s/.test(real), 'while a real clock still prints', JSON.stringify(real));
+}
+
 // Header and rows are built from one set of widths; this proves the widths
 // reach both, which eyeballing a preview in a terminal does not.
 const digestNameOf = (u) => String(u);
 for (const [mode, rows, heads] of [
-  ['sprint', [sprintRow('CORVID', 3, 41200, 300)], ['PLAYER', 'GUESS', 'TIME', 'SCORE']],
-  ['daily', [dailyRow('SLIZZY', 3, 1250)], ['PLAYER', 'SOLVED', 'SCORE']],
+  ['sprint', [sprintRow('CORVID', 3, 41200, 300)], ['PLAYER', 'TIME', 'SCORE']],
+  ['daily', [dailyRow('SLIZZY', 3, 1250)], ['PLAYER', 'SCORE']],
 ]) {
   const head = D.digestHeader(mode);
   const row = D.digestTable(rows, mode);

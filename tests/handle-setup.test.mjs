@@ -377,7 +377,9 @@ ck('but still reads as generated: a word and four digits',
 
 // The cap the server enforces, read from the server rather than restated.
 const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
-const cap = Number((fnSrc.match(/\.substring\(0, (\d+)\)/) || [])[1]);
+// The constant, not the call: HANDLE_MAX is shared with the Discord digest's
+// PLAYER column, so changeUsername applies it rather than carrying a literal.
+const cap = Number((fnSrc.match(/const HANDLE_MAX = (\d+);/) || [])[1]);
 ck('changeUsername caps a handle somewhere sane', Number.isFinite(cap) && cap >= 8, String(cap));
 // Longest word in the pool is 5 (the answers are five-letter words), so the
 // worst case is word + "_" + 4 digits.
