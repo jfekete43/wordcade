@@ -321,16 +321,17 @@
         .arcade-menu button:not([aria-current="true"]) { color: var(--c-ink-4); }
         .arcade-menu button:not([aria-current="true"]):hover { color: var(--c-mode); border-color: var(--c-mode); }
         .arcade-menu button[aria-current="true"] { background-color: var(--c-mode); border-color: var(--c-mode); color: var(--c-on-accent); cursor: default; }
-        /* Yesterday's Trifecta placement strip (see #gauntlet-callout). */
-        #gauntlet-callout {
+        /* Yesterday's placement strip, for either one-a-day mode (see
+           showPreviousCallout). The label takes its mode's colour inline,
+           from the same ARCHIVES entry the rest of the screen reads. */
+        .mode-callout {
             width: 100%; max-width: var(--w-col); margin: 0 auto var(--s-5); padding: var(--s-5) var(--s-6);
             background: var(--c-panel); border: var(--bw) solid var(--c-line);
             border-radius: var(--r-3); text-align: center; font-size: var(--fs-2);
             line-height: var(--lh-ui); color: var(--c-ink-4);
         }
-        #gauntlet-callout .gc-place { color: var(--c-ink); font-weight: var(--fw-bold); }
-        /* The callout's only mode cue now that the panel is a plain card. */
-        #gauntlet-callout .gc-label { color: var(--c-gauntlet); font-weight: var(--fw-bold); }
+        .mode-callout .gc-place { color: var(--c-ink); font-weight: var(--fw-bold); }
+        .mode-callout .gc-label { font-weight: var(--fw-bold); }
         .place-badge { vertical-align: -5px; margin-right: 4px; flex-shrink: 0; }
         /* .modal-stats span is a blanket 24px/green rule, which every stat
            block in the Profile overrides one span at a time. The Trifecta
@@ -1454,6 +1455,11 @@
          Built as a card rather than a line of text and a button, because
          this is the first thing a visitor sees and it sat directly above the
          Trifecta card looking like an unfinished version of it. -->
+    <!-- Yesterday's Sprint placement, above today's gate: the landing is
+         what a returning player arrives on, so this is where closing the
+         loop on the run they last played actually reaches them. -->
+    <div id="sprint-callout" class="mode-callout" style="display:none;"></div>
+
     <div id="sprint-card" style="display:none;">
         <div id="sprint-card-head">
             <span id="sprint-card-title">Sprint</span>
@@ -1510,7 +1516,7 @@
     <!-- Yesterday's placement, shown on entering the Trifecta. The daily
          board resets at midnight ET, so without this the only way to learn
          where you actually finished was to be awake when it closed. -->
-    <div id="gauntlet-callout" style="display:none;"></div>
+    <div id="gauntlet-callout" class="mode-callout" style="display:none;"></div>
 
     <!-- SUDDEN DEATH UI -->
     <div id="sudden-death-header" style="display:none; text-align:center; margin-bottom: 10px;">
@@ -5675,11 +5681,15 @@
             renderModeNav();
             renderSprintCard();
             loadSprintBoard();
+            // Fire and forget, like the Trifecta's: two reads that must not
+            // hold up the screen a visitor arrives on.
+            showPreviousCallout("sprint");
         }
 
         window.leaveSprint = function() {
             document.getElementById("sprint-end-modal").style.display = "none";
             document.getElementById("sprint-done-panel").style.display = "none";
+            hidePreviousCallout("sprint");
             stopSprintClock();
             isSprintMode = false;
             sprintAttempt = null;
@@ -5758,7 +5768,7 @@
         // The orderBy is load-bearing even though a count ignores ordering: it
         // pins each query to a composite index the day's board already uses,
         // so this needs no new index for either mode. Callers still handle it
-        // throwing — see showPreviousGauntletCallout.
+        // throwing — see showPreviousCallout.
         async function fetchArchiveStanding(cfg, dateStr, run) {
             const mine = Math.max(0, Number(run.score) || 0);
             const scoped = cfg.scoped(dateStr);
@@ -6163,6 +6173,8 @@
                     where("score", "==", runScore(r)),
                     where("wordsGuessed", ">", Math.max(0, Number(r.wordsGuessed) || 0)),
                     orderBy("wordsGuessed", "desc"))),
+                callout: "gauntlet-callout",
+                yesterday: "Yesterday's Trifecta",
                 index: { href: "/gauntlet/", text: "Every past Trifecta, with the words →" },
                 full: { href: (d) => `/gauntlet/${d}/`, text: "See the words and full breakdown →" },
             },
@@ -6204,6 +6216,8 @@
                         where("score", "==", runScore(r)),
                         where("elapsedMs", "<", runClock(r)),
                         orderBy("elapsedMs", "asc")))),
+                callout: "sprint-callout",
+                yesterday: "Yesterday's Sprint",
                 index: null,
                 full: null,
             },
@@ -6325,38 +6339,46 @@
             standingEl.innerHTML = `${badge} <span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
         };
 
-        // "You finished 12th of 47" for yesterday's Trifecta, shown when you
-        // come back for today's.
+        // "You finished 12th of 47" for yesterday, shown when you come back
+        // for today's. Both one-a-day modes have one; which is why this takes
+        // an ARCHIVES entry rather than naming the Trifecta.
         //
-        // Yesterday specifically: the point is to close the loop on the run
-        // you actually just played, a placement from five days ago is noise,
-        // and finding "your most recent Trifecta" would need an index on
+        // YESTERDAY specifically: the point is to close the loop on the run
+        // you actually just played. A placement from five days ago is noise,
+        // and finding "your most recent one" would need an index on
         // (uid, mode, puzzleDate) that nothing else in the game wants.
-        async function showPreviousGauntletCallout() {
-            const el = document.getElementById("gauntlet-callout");
+        async function showPreviousCallout(kind) {
+            const cfg = ARCHIVES[kind];
+            const el = cfg && document.getElementById(cfg.callout);
+            if (!el) return;
             el.style.display = "none";
             el.innerHTML = "";
             if (!currentUser) return;
 
             const dateStr = shiftDateStr(getTodayDateStr(), -1);
-            const run = await fetchMyGauntletRun(dateStr);
+            const run = await fetchMyArchiveRun(cfg, dateStr);
             if (!run) return; // didn't play yesterday — nothing to report
 
-            const num = gauntletNumber(dateStr);
-            const label = num ? `Trifecta #${num}` : "Yesterday's Trifecta";
-            const score = Math.max(0, Number(run.score) || 0);
-            let detail = `you scored <span class="gc-place">${score.toLocaleString()}</span>`;
+            const num = cfg.number(dateStr);
+            const label = num ? cfg.name(num) : cfg.yesterday;
+            let detail = `you scored <span class="gc-place">${runScore(run).toLocaleString()}</span>`;
             let badge = PLACE_BADGES.plain;
             try {
-                const { place, total } = await fetchGauntletStanding(dateStr, score, gauntletSolvedCount(run));
+                const { place, total } = await fetchArchiveStanding(cfg, dateStr, run);
                 detail = `you finished <span class="gc-place">${ordinal(place)} of ${total}</span>`;
                 badge = placeBadge(place);
             } catch (e) {
                 // Placement is the nice-to-have; the score line still lands.
-                console.error("Trifecta standing lookup failed", e);
+                console.error(`${kind} standing lookup failed`, e);
             }
-            el.innerHTML = `${badge} <span class="gc-label">${label}</span> — ${detail}`;
+            el.innerHTML = `${badge} <span class="gc-label" style="color:${cfg.colour};">${escapeHtml(label)}</span> — ${detail}`;
             el.style.display = "block";
+        }
+
+        function hidePreviousCallout(kind) {
+            const cfg = ARCHIVES[kind];
+            const el = cfg && document.getElementById(cfg.callout);
+            if (el) el.style.display = "none";
         }
 
         window.openDailyGauntlet = async function() {
@@ -6401,7 +6423,7 @@
             // Deliberately not awaited: two reads and a pair of count queries
             // shouldn't hold up the first word appearing on screen. The strip
             // fills itself in a moment later.
-            showPreviousGauntletCallout();
+            showPreviousCallout("daily");
             // The attempt's date is server-issued (America/New_York), so this
             // is the same puzzle the player is actually on even if their own
             // clock disagrees.
@@ -6671,7 +6693,7 @@
             // today's Trifecta was finished when they left it.
             setGauntletPlaySurfaceVisible(true);
             document.getElementById("daily-header").style.display = "none";
-            document.getElementById("gauntlet-callout").style.display = "none";
+            hidePreviousCallout("daily");
             stopGauntletFeed();
             renderModeNav();
             document.getElementById("endless-header").style.display = "flex";
