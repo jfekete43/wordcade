@@ -46,6 +46,8 @@ console.log('extracted from index.html:', src.length, 'chars');
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([ok, name, detail]);
+const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
+  `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
 const barOf0 = (msg) => msg.split('\n')[1];
 const glyphs0 = (bar) => [...bar].filter((c) => c !== '\uFE0F').length;
 
@@ -54,7 +56,7 @@ const buildShare = new Function('attempt', `
   const window = {};
   const document = { getElementById: () => ({}) };
   let captured = null;
-  function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, linkLabel) { captured = { title, message, url, linkLabel }; }
+  function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, opts) { captured = { title, message, url, opts }; }
   let dailyAttempt = attempt;
   ${src.replace(/        function shareViaSheetOrClipboard[\s\S]*$/, '')}
   window.shareDailyStats();
@@ -111,10 +113,15 @@ ck(out.message.includes('2.3 avg'), 'the average counts the missed word and igno
 out = buildShare(attempt(solvedRun([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), 5000));
 ck(out.message.includes('5,000 pts'), 'scores are thousands-separated', JSON.stringify(out.message));
 
-// The link is bare on purpose. A label in front of it was tried and dropped:
-// the heading already names the game, and every app that matters unfurls the
-// URL into a card that names it again, so the label said it a third time.
-ck(out.linkLabel === undefined, 'the daily share adds no label to its link', JSON.stringify(out.linkLabel));
+// The link is bare on purpose — no label in front of it. The heading already
+// names the game, and the message is the only thing the helper is handed; the
+// link is appended by it.
+ck(!/lexathon\.gg/i.test(out.message), 'the message carries no link of its own',
+   JSON.stringify(out.message.slice(-60)));
+// ...and it asks for no preview card, because the result above IS the thing
+// being shared and a 300-pixel card of the game's branding buries it.
+ck(out.opts && out.opts.preview === false,
+   'the Trifecta share suppresses the link preview', JSON.stringify(out.opts));
 ck(out.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.url));
 
 // --- play-all-ten: a miss is a mark in place, not the end of the bar ------
@@ -198,16 +205,16 @@ out = buildShare({ ...attempt(solvedRun([3, 3]), 100), date: '2020-01-01', wordC
 ck(out.message.startsWith('🕹️ Lexathon Trifecta\n'), 'an unnumbered Trifecta heading has no "#"', JSON.stringify(out.message));
 
 // --- the link's own line --------------------------------------------------
-const shareRun = (native) => new Function('NATIVE', `
+const shareRun = (native, opts) => new Function('NATIVE', 'OPTS', `
   let shared = null, copied = null;
   const navigator = { share: (o) => { shared = o; return Promise.resolve(); } };
   function prefersNativeShare() { return NATIVE; }
   function copyToClipboard(text) { copied = text; return Promise.resolve(true); }
   function flashButtonLabel() {}
   ${grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/)}
-  shareViaSheetOrClipboard('T', 'line one\\nline two', 'https://lexathon.gg', {}, 'Share');
+  shareViaSheetOrClipboard('T', 'line one\\nline two', 'https://lexathon.gg', {}, 'Share', OPTS);
   return { shared, copied };
-`)(native);
+`)(native, opts);
 
 const viaSheet = shareRun(true);
 const viaClip = shareRun(false);
@@ -218,6 +225,40 @@ ck(viaSheet.shared.url === undefined,
 ck(viaClip.copied === 'line one\nline two\nhttps://lexathon.gg',
    'the clipboard gets the link on its own line', JSON.stringify(viaClip.copied));
 ck(viaSheet.shared.text === viaClip.copied, 'both paths produce identical text');
+
+// --- the preview, suppressed for a score and kept for an invite ----------
+// <https://...> is how Discord and Slack are told "link, do not unfurl". A
+// shared SCORE is already a grid and a stats line; a card of the game's own
+// branding under it buries the thing being shared. An INVITE is the opposite
+// case — there the card is what tells a stranger what they are joining.
+{
+  const plain = shareRun(false, { preview: false });
+  ck(plain.copied === 'line one\nline two\n<https://lexathon.gg>',
+     'preview: false brackets the link, which is what stops the unfurl',
+     JSON.stringify(plain.copied));
+  ck(shareRun(true, { preview: false }).shared.text === plain.copied,
+     'and the native sheet produces the same bytes, as it does for every other share');
+  // The default is unchanged, so the two invite calls keep their card
+  // without having been touched.
+  ck(viaClip.copied === shareRun(false, undefined).copied
+     && !/[<>]/.test(viaClip.copied),
+     'left alone, a share still carries a bare link', JSON.stringify(viaClip.copied));
+  ck(shareRun(false, {}).copied === viaClip.copied,
+     'and an options object that says nothing about it changes nothing');
+}
+// Which calls ask for which, read off the call sites themselves: the three
+// score shares suppress, the two match invites do not.
+{
+  const calls = [...html.matchAll(/shareViaSheetOrClipboard\(\s*"([^"]*)"[\s\S]{0,260}?\);/g)]
+    .map((m) => [m[1], /preview: false/.test(m[0])]);
+  eq('every share call is accounted for', calls.length, 5);
+  eq('the three score shares drop the card',
+     calls.filter(([, off]) => off).map(([t]) => t).sort(),
+     ['Lexathon', 'Lexathon Sprint', 'Lexathon Trifecta']);
+  eq('and both match invites keep it',
+     calls.filter(([, off]) => !off).map(([t]) => t),
+     ['Lexathon \u2014 Join My Match', 'Lexathon \u2014 Join My Match']);
+}
 
 let bad = 0;
 for (const [ok, name, detail] of t) {

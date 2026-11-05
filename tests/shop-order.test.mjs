@@ -60,6 +60,9 @@ const sortFor = new Function('SHOP_ITEMS', 'category', 'inventory', 'liveIds',
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([ok, name, detail]);
+const eqj = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
+  `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+
 
 const categories = Object.keys(SHOP_ITEMS);
 ck(categories.length === 3, 'three shop categories', categories.join(','));
@@ -184,6 +187,67 @@ ck(unmuted.length === 0, 'every animated cosmetic is in the reduce-motion opt-ou
 // covering more than it does.
 const stale = [...reduceMotion].filter((c) => /^(banner|effect)_/.test(c) && !new RegExp(`\\.${c}\\b[^{;]*\\{`).test(html));
 ck(stale.length === 0, 'and lists nothing that no longer exists', stale.join(', '));
+
+// ---- a purchase equips what it bought, in the same transaction -----------
+// Buying a cosmetic and then having to find the Equip button beside it is a
+// second step some people never took — the shop had owners of items they had
+// never once seen on themselves. The write that debits the wallet now sets
+// the slot too, so the two cannot come apart.
+{
+  const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
+  const grab2 = (re, what) => { const m = fnSrc.match(re); if (!m) throw new Error('could not extract ' + what); return m[0]; };
+  const slots = grab2(/const EQUIP_SLOT = \{[^\n]*\};/, 'EQUIP_SLOT');
+  const body = grab2(/    const inventory = data\.inventory \|\| \[\];\n[\s\S]*?return \{ wallet: wallet - item\.cost, equipped \};/, 'the purchase body');
+
+  const buy = (data, item, category) => {
+    let written = null;
+    const tx = { update: (_ref, patch) => { written = patch; } };
+    const out = new Function('data', 'item', 'category', 'tx', 'userRef', 'FieldValue', 'HttpsError',
+      `${slots}\n${body}`)(
+      data, item, category, tx, {},
+      { increment: (n) => ({ __inc: n }) },
+      class extends Error { constructor(code, msg) { super(msg); this.code = code; } });
+    return { out, written };
+  };
+
+  const base = { wallet: 5000, inventory: ['title_none'], equipped: { title: 'title_none', skin: 'skin_default', banner: 'banner_default', effect: 'effect_none' } };
+  {
+    const { out, written } = buy(base, { id: 'banner_lantern', cost: 1000 }, 'banners');
+    eqj('a banner is worn the moment it is bought', written.equipped.banner, 'banner_lantern');
+    eqj('and the other three slots survive',
+        [written.equipped.title, written.equipped.skin, written.equipped.effect],
+        ['title_none', 'skin_default', 'effect_none']);
+    eqj('it is in the inventory too', written.inventory.includes('banner_lantern'), true);
+    eqj('the wallet is debited in the same write', written.wallet, { __inc: -1000 });
+    eqj('and the caller gets the new map back, so the client need not guess at it',
+        out.equipped.banner, 'banner_lantern');
+  }
+  for (const [category, slot, id] of [['titles', 'title', 'title_hacker'], ['effects', 'effect', 'effect_neon_outline']]) {
+    const { written } = buy(base, { id, cost: 100 }, category);
+    eqj(`a ${category.slice(0, -1)} lands in the ${slot} slot`, written.equipped[slot], id);
+  }
+  // firestore.rules accepts exactly four equipped keys, so a fifth here would
+  // make every LATER client-side equip fail validation — on a document the
+  // client can no longer repair.
+  {
+    const { written } = buy(base, { id: 'title_hacker', cost: 100 }, 'titles');
+    eqj('and no key outside the four the rules allow is ever written',
+        Object.keys(written.equipped).filter((k) => !['title', 'skin', 'banner', 'effect'].includes(k)), []);
+  }
+  // A profile with nothing stored yet must not come out with a map that has
+  // only the slot just bought — the other three are read with defaults, but
+  // writing them away narrows what the client may send back.
+  {
+    const { written } = buy({ wallet: 500, inventory: [] }, { id: 'title_hacker', cost: 100 }, 'titles');
+    eqj('a profile with no equipped map still gets a valid one', written.equipped, { title: 'title_hacker' });
+  }
+  // An unknown category cannot reach here (purchaseItem rejects it earlier),
+  // but if it did it must debit without inventing a slot.
+  {
+    const { written } = buy(base, { id: 'x', cost: 10 }, 'mystery');
+    eqj('an unmapped category equips nothing rather than guessing', written.equipped, base.equipped);
+  }
+}
 
 let bad = 0;
 for (const [ok, name, detail] of t) {

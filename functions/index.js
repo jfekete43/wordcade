@@ -269,6 +269,15 @@ const CHALLENGES = {
   ],
 };
 
+/*
+ * Which equipped slot a shop category fills. A map rather than stripping the
+ * plural off the category name, so a future category whose name is not just
+ * its slot plus an "s" cannot silently equip into a slot that does not
+ * exist - firestore.rules only accepts these four keys, and a fifth would
+ * make every later client-side equip fail validation.
+ */
+const EQUIP_SLOT = { titles: "title", banners: "banner", effects: "effect" };
+
 const DEFAULT_INVENTORY = ["title_none", "skin_default", "banner_default", "effect_none"];
 const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
 
@@ -1074,11 +1083,22 @@ exports.purchaseItem = onCall(async (request) => {
     if (inventory.includes(item.id)) throw new HttpsError("already-exists", "Already owned.");
     const wallet = data.wallet || 0;
     if (wallet < item.cost) throw new HttpsError("failed-precondition", "Not enough points in your Wallet!");
+    // Worn the moment it is bought. Buying a cosmetic and then having to find
+    // the Equip button next to it is a second step nobody wants and some
+    // people never took - the shop had owners of items they had never once
+    // seen on themselves.
+    //
+    // Spread over the stored map rather than replacing it, so the other three
+    // slots survive; firestore.rules accepts only these four keys, so a write
+    // that dropped one would narrow what the client may send back later.
+    const slot = EQUIP_SLOT[category];
+    const equipped = { ...(data.equipped || {}), ...(slot ? { [slot]: item.id } : {}) };
     tx.update(userRef, {
       wallet: FieldValue.increment(-item.cost),
       inventory: [...inventory, item.id],
+      equipped,
     });
-    return { wallet: wallet - item.cost };
+    return { wallet: wallet - item.cost, equipped };
   });
 });
 

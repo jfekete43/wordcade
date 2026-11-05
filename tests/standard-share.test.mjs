@@ -54,8 +54,8 @@ const endRunAndShare = new Function('kind', 'runScore', 'runWords', `
   function clearLocalState() {}
   function saveRunToCloud(lost = false, lostScore = 0) { cloudSave = { lost, lostScore }; }
   let captured = null;
-  function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, linkLabel) {
-    captured = { title, message, url, buttonEl, defaultLabel, linkLabel };
+  function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, opts) {
+    captured = { title, message, url, buttonEl, defaultLabel, opts };
   }
   ${src}
   if (kind === 'cashout') {
@@ -75,7 +75,11 @@ ck(out.captured.message === '🕹️ Lexathon\n💰 Banked 12,400 pts · 31 word
    'a cash-out says what was banked and how many words', JSON.stringify(out.captured.message));
 ck(out.captured.message.split('\n').length === 3, 'heading, result, hook', out.captured.message.split('\n').length);
 ck(out.captured.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.captured.url));
-ck(out.captured.linkLabel === undefined, 'the link carries no label, same as the Trifecta share');
+ck(!/lexathon\.gg/i.test(out.captured.message), 'the message carries no link of its own');
+// Same as the Trifecta and Sprint shares: the result is the thing being
+// shared, so the link does not grow a card under it.
+ck(out.captured.opts && out.captured.opts.preview === false,
+   'and the share suppresses the link preview', JSON.stringify(out.captured.opts));
 ck(out.captured.buttonEl === out.els['btn-share'], 'the flash lands on the Share Score button');
 ck(out.captured.defaultLabel === 'Share Score', 'and restores its own label', JSON.stringify(out.captured.defaultLabel));
 

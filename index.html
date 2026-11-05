@@ -4109,6 +4109,15 @@
                 SFX.purchase();
                 userProfileData.wallet = result.data.wallet;
                 userProfileData.inventory.push(id);
+                // Equipped by the same transaction that bought it. The map
+                // comes back from the server rather than being guessed at
+                // here, so the preview and the Equipped badge below cannot
+                // disagree with what is actually stored.
+                if (result.data.equipped) {
+                    userProfileData.equipped = result.data.equipped;
+                    applyEquippedCosmetics();
+                    window.updatePreviewMonitor();
+                }
             } catch (e) {
                 if (e.code !== "already-exists") { alert(e.message || "Purchase failed."); console.error(e); }
             }
@@ -5598,7 +5607,7 @@
             // COPIED! or COPY FAILED; flashing the hidden one would say
             // nothing at all.
             shareViaSheetOrClipboard("Lexathon Sprint", shareMessage, "https://lexathon.gg",
-                document.getElementById(btnId || "btn-sprint-share"), "Share Result");
+                document.getElementById(btnId || "btn-sprint-share"), "Share Result", { preview: false });
         }
 
         // Today's Sprint board. One word means everyone's score is one of six
@@ -8127,8 +8136,25 @@
             } catch (e) { return false; }
         }
 
-        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
-            const payload = `${message}\n${url}`;
+        /*
+         * `preview: false` wraps the link in angle brackets.
+         *
+         * Discord and Slack both read <https://...> as "link, do not unfurl",
+         * which is the only portable way to stop a share growing a preview
+         * card. A shared SCORE does not want one: the result is already a
+         * grid and a line of stats, and a 300-pixel card of the game's own
+         * branding under it buries the thing being shared.
+         *
+         * An INVITE does want one. There the card is the whole point - it
+         * tells somebody who has never heard of this what they are being
+         * asked to join - so those calls leave it alone.
+         *
+         * The cost is that a client which does NOT honour the convention
+         * shows the brackets as text. Accepted: the places these get pasted
+         * are overwhelmingly Discord right now.
+         */
+        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, { preview = true } = {}) {
+            const payload = `${message}\n${preview ? url : `<${url}>`}`;
             const copyInstead = () => copyToClipboard(payload).then((ok) => flashButtonLabel(buttonEl, ok ? "COPIED!" : "COPY FAILED", defaultLabel));
 
             if (prefersNativeShare()) {
@@ -8170,7 +8196,7 @@
                 hook = "Think you can do better?";
             }
             const shareMessage = `🕹️ Lexathon\n${resultLine}\n${hook}`;
-            shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score");
+            shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score", { preview: false });
         }
 
         // Puzzle number for the share heading, counted off the first-ever
@@ -8251,7 +8277,7 @@
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Trifecta #${num}` : "🕹️ Lexathon Trifecta";
             const shareMessage = `${heading}\n${bar}\n${resultLine}`;
-            shareViaSheetOrClipboard("Lexathon Trifecta", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result");
+            shareViaSheetOrClipboard("Lexathon Trifecta", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result", { preview: false });
         }
 
         // Clash/FFA don't have a shared daily puzzle to compare results
