@@ -327,6 +327,69 @@ cookie banner arrives **with AdSense**, not with analytics. At that point adding
 GA is a marginal extra. Nothing here locks you out. Re-check Google's current
 publisher requirements when you actually apply.
 
+## Discord digests
+
+`postDailyDigest` posts yesterday's top ten to Discord every morning at **9:10
+Eastern** — one message for Sprint, one for the Trifecta, each naming the day's
+puzzle number and the answer words.
+
+Yesterday, not today, and that is the whole design: a morning post about today
+would be three people deep and wrong by lunchtime, while yesterday's standings
+are final and its answers are spent, which is what lets the post name the
+words. A day nobody played posts nothing — a daily "nobody played" message is a
+daily reminder that nobody played.
+
+### Making the webhooks
+
+In Discord, on a server you administer:
+
+1. **Server Settings → Integrations → Webhooks → New Webhook**.
+2. Pick the channel it posts to, name it (the post overrides the name with
+   "Lexathon" anyway), and **Copy Webhook URL**.
+3. Do it twice if you want Sprint and the Trifecta in separate channels. The
+   same URL in both secrets puts them in one channel, one after the other.
+
+The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Anyone
+holding it can post into that channel as the game, which is why these are
+secrets rather than constants in the source.
+
+### Setting them
+
+```bash
+cd ~/wordcade
+firebase functions:secrets:set DISCORD_SPRINT_WEBHOOK
+firebase functions:secrets:set DISCORD_TRIFECTA_WEBHOOK
+firebase deploy --only functions
+```
+
+Each command prompts for the value and reads it from stdin — paste the URL and
+press enter. The first one may also ask to enable the Secret Manager API.
+
+**Both secrets have to exist before the deploy**, even if you only want one
+digest: `defineSecret` fails the deploy for a secret that is not there. To park
+one, set it to the literal `off` — anything that is not a Discord webhook URL
+is skipped with a line in the log rather than POSTed to.
+
+### Checking it worked
+
+```bash
+firebase functions:secrets:access DISCORD_SPRINT_WEBHOOK
+firebase functions:log --only postDailyDigest
+```
+
+The log says one of four things per mode: no webhook configured, no runs,
+already posted, or posted. Nothing is scheduled before 9:10 the next morning,
+so the first run is the morning after the deploy.
+
+A retried schedule cannot post twice: each digest claims
+`digestPosts/{mode}_{date}` before POSTing, and releases the claim only if the
+POST fails — so a Discord outage costs that day's post rather than every future
+one. The collection is server-only in `firestore.rules`.
+
+Changing a webhook later is the same `functions:secrets:set` command followed
+by a functions deploy; the running functions hold the old value until they are
+redeployed.
+
 ## Arcade Handle screening
 
 A handle is the last free text a stranger can put in front of you, and the most
