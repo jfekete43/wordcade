@@ -185,6 +185,25 @@ service cloud.firestore {
         && !('sprintG3' in request.resource.data)
         && !('sprintG4' in request.resource.data)
         && !('sprintG5' in request.resource.data)
+        // Each of these gates a one-time career challenge, and claimChallenge
+        // pays out against whatever the user document SAYS: a profile that
+        // arrives claiming ten clean Trifectas is paid for ten clean
+        // Trifectas. They were unguarded from the day those challenges were
+        // written. tests/challenges derives this list from the challenge table
+        // now rather than trusting it to be kept up by hand.
+        //
+        // Zero-or-absent rather than absent: whether the client sends a field
+        // at creation differs per field and changes over time, and a cached
+        // older index.html sends fewer of them. Requiring absence would deny
+        // the sign-up outright. This refuses only a positive seed.
+        && (!('gauntletPlayed' in request.resource.data) || request.resource.data.gauntletPlayed == 0)
+        && (!('gauntletPerfect' in request.resource.data) || request.resource.data.gauntletPerfect == 0)
+        && (!('gauntletStreak' in request.resource.data) || request.resource.data.gauntletStreak == 0)
+        && (!('gauntletBestStreak' in request.resource.data) || request.resource.data.gauntletBestStreak == 0)
+        && (!('gauntletLastDate' in request.resource.data) || request.resource.data.gauntletLastDate == null)
+        // Not a challenge, but it is a place on the Hall of Fame's Trifecta
+        // board, which is the same argument.
+        && (!('bestGauntletScore' in request.resource.data) || request.resource.data.bestGauntletScore == 0)
         && !('marathonScore' in request.resource.data)
         && !('marathonWords' in request.resource.data)
         && !('marathonKey' in request.resource.data)
@@ -208,6 +227,17 @@ service cloud.firestore {
         && request.resource.data.claimedCareer == []
         && request.resource.data.dailyStats.played == 0
         && request.resource.data.dailyStats.guessed == 0
+        // ...and every counter a DAILY challenge reads, for the same reason: a
+        // profile arriving with dailyStats.guess1 at 1 claims Flawless for
+        // 5,000 points without guessing a word. played and guessed were
+        // pinned here and the guess counters beside them were not.
+        && request.resource.data.dailyStats.guess1 == 0
+        && request.resource.data.dailyStats.guess5 == 0
+        && (!('guess2' in request.resource.data.dailyStats) || request.resource.data.dailyStats.guess2 == 0)
+        && (!('guess3' in request.resource.data.dailyStats) || request.resource.data.dailyStats.guess3 == 0)
+        && (!('guess4' in request.resource.data.dailyStats) || request.resource.data.dailyStats.guess4 == 0)
+        && (!('sprintDone' in request.resource.data.dailyStats) || request.resource.data.dailyStats.sprintDone == 0)
+        && (!('gauntletSwept' in request.resource.data.dailyStats) || request.resource.data.dailyStats.gauntletSwept == 0)
         && request.resource.data.dailyStats.claimed == [];
 
       // The ONLY field the client may ever update directly on its own

@@ -2013,6 +2013,8 @@
             <h2 class="modal-title" id="daily-end-title">Trifecta Complete!</h2>
             <div class="modal-stats" id="daily-end-desc">Final Score: <span style="color:var(--c-endless); font-size: var(--fs-6);">0</span></div>
 
+            <div id="daily-end-streak" style="display:none; font-size: var(--fs-3); color: var(--c-gauntlet); font-weight: bold; margin-bottom: 10px;"></div>
+
             <div id="daily-end-standing" style="display:none; font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 12px;"></div>
 
             <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px;">Come back tomorrow for a new set of words!</div>
@@ -2995,6 +2997,12 @@
                     { id: "c_sprint_week", mode: "sprint", name: "Seven Straight", desc: "Solve the Sprint 7 days in a row.", req: 7, field: "sprintBestStreak", reward: 20000 },
                     { id: "c_sprint_month", mode: "sprint", name: "Thirty Straight", desc: "Solve the Sprint 30 days in a row.", req: 30, field: "sprintBestStreak", reward: 100000 },
                     { id: "c_trifecta_regular", mode: "gauntlet", name: "Three a Day", desc: "Finish 25 Trifectas.", req: 25, field: "gauntletPlayed", reward: 20000 },
+                    // The streak is kept by a SWEEP, not by turning up: a
+                    // Trifecta finished with a word missed is a day played,
+                    // not a day kept. Three in a row is a real run; ten is a
+                    // month of good days with none of them slipping.
+                    { id: "c_trifecta_clean3", mode: "gauntlet", name: "Three Clean Days", desc: "Solve every word 3 days in a row.", req: 3, field: "gauntletBestStreak", reward: 25000 },
+                    { id: "c_trifecta_clean10", mode: "gauntlet", name: "Ten Clean Days", desc: "Solve every word 10 days in a row.", req: 10, field: "gauntletBestStreak", reward: 100000 },
                     { id: "c_trifecta_sweep", mode: "gauntlet", name: "Spotless", desc: "Solve every word in a single Trifecta.", req: 1, field: "gauntletPerfect", reward: 15000 },
                     { id: "c_trifecta_sweeps", mode: "gauntlet", name: "Perfect Ten", desc: "Solve every word in 10 Trifectas.", req: 10, field: "gauntletPerfect", reward: 60000 },
                     { id: "c_dedication", name: "Dedication", desc: "Log in 3 days in a row.", req: 3, field: "bestLoginStreak", reward: 2500 },
@@ -3348,7 +3356,13 @@
                         currentClashWinStreak: 0, bestClashWinStreak: 0, bestNoMissStreak: 0,
                         inventory: ["title_none", "skin_default", "banner_default", "effect_none"],
                         equipped: { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" },
-                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [], activeIds: dailyIds } // activeIds added here
+                        // The same shape freshDailyStats builds on the server,
+                        // counter for counter. It used to carry guess1 and
+                        // guess5 alone, so a new profile was missing the three
+                        // in between until its first run rewrote the whole
+                        // object. firestore.rules pins each of these at 0 on
+                        // create, since every one of them gates a daily reward.
+                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, sprintDone: 0, gauntletSwept: 0, claimed: [], activeIds: dailyIds } // activeIds added here
                     };
                     await setDoc(userRef, userProfileData);
                     try {
@@ -5418,8 +5432,17 @@
                 const t = Number(result.elapsedMs);
                 const best = Number(userProfileData.sprintBestTimeMs);
                 if (Number.isFinite(t) && t > 0 && (!Number.isFinite(best) || best <= 0 || t < best)) userProfileData.sprintBestTimeMs = t;
-                userProfileData.sprintStreak = (Number(userProfileData.sprintStreak) || 0) + 1;
-                userProfileData.sprintLastDate = getTodayDateStr();
+                // onRunCreated's rule, not "add one". A plain increment is
+                // right only when yesterday was also solved: after a day
+                // skipped it claims a streak the server is about to reset to
+                // 1, and the end screen reads that number aloud.
+                const today = getTodayDateStr();
+                const last = String(userProfileData.sprintLastDate || "");
+                const continued = last && last === shiftDateStr(today, -1);
+                userProfileData.sprintStreak = last === today
+                    ? Math.max(1, Number(userProfileData.sprintStreak) || 0)
+                    : (continued ? (Number(userProfileData.sprintStreak) || 0) + 1 : 1);
+                userProfileData.sprintLastDate = today;
                 // The guess distribution's own counter. Every other field here
                 // was mirrored and this one was not, so the chart drawn moments
                 // later was missing the run that had just produced it - and on a
@@ -6457,6 +6480,7 @@
                 if (result.gauntletFinished) {
                     dailyAttempt.status = "finished";
                     dailyAttempt.wordIndex = result.wordIndex;
+                    reflectGauntletLocally(dailyAttempt);
                     setTimeout(() => showDailyEndModal(dailyAttempt, false), 1200);
                 } else if (result.wordFinished) {
                     dailyAttempt.wordIndex = result.wordIndex;
@@ -6535,6 +6559,67 @@
             return attempt.history.filter((h) => h.guesses.length > 0);
         }
 
+        /*
+         * The Trifecta's counters, moved locally the moment a run finishes.
+         *
+         * onRunCreated writes the real ones, but the end screen is up inside
+         * two seconds and a trigger is not. Same job reflectSprintLocally does
+         * for Sprint, and the same caveat: this is a guess at what the server
+         * is about to write, and the next profile read replaces all of it.
+         *
+         * A SWEEP is what keeps the streak - finishing with a word missed is a
+         * day played, not a day kept - which is the one rule this has to get
+         * right, because it is the number the screen is about to show.
+         */
+        function reflectGauntletLocally(attempt) {
+            if (!userProfileData || !attempt) return;
+            const played = dailyPlayedWords(attempt);
+            const swept = played.length > 0 && played.every((h) => h && h.solved);
+            const date = attempt.date || getTodayDateStr();
+            userProfileData.gauntletPlayed = (Number(userProfileData.gauntletPlayed) || 0) + 1;
+            if (swept) {
+                userProfileData.gauntletPerfect = (Number(userProfileData.gauntletPerfect) || 0) + 1;
+                // The server's rule, not "add one". A plain increment is right
+                // only when yesterday was also swept: after a day skipped it
+                // claims a streak that onRunCreated is about to reset to 1, and
+                // the end screen is the one place that number is read aloud.
+                const last = String(userProfileData.gauntletLastDate || "");
+                const continued = last && last === shiftDateStr(date, -1);
+                userProfileData.gauntletStreak = last === date
+                    ? Math.max(1, Number(userProfileData.gauntletStreak) || 0)
+                    : (continued ? (Number(userProfileData.gauntletStreak) || 0) + 1 : 1);
+                userProfileData.gauntletBestStreak =
+                    Math.max(Number(userProfileData.gauntletBestStreak) || 0, userProfileData.gauntletStreak);
+            } else {
+                userProfileData.gauntletStreak = 0;
+            }
+            userProfileData.gauntletLastDate = date;
+        }
+
+        // "3 day clean streak" / "Streak broken - solve every word to start
+        // another". Only ever shown for a run that just finished: reopening a
+        // Trifecta already played would announce the streak a second time.
+        function renderGauntletStreak(attempt, alreadyPlayed) {
+            const el = document.getElementById("daily-end-streak");
+            if (!el) return;
+            el.style.display = "none";
+            if (alreadyPlayed || !userProfileData) return;
+            const played = dailyPlayedWords(attempt);
+            const swept = played.length > 0 && played.every((h) => h && h.solved);
+            const streak = Math.max(0, Number(userProfileData.gauntletStreak) || 0);
+            if (swept && streak > 0) {
+                el.innerHTML = `\u{1F525} ${streak} day clean streak`;
+            } else if (!swept) {
+                // Said plainly rather than hidden: a streak that ends quietly
+                // is one the player never knew they had.
+                el.innerHTML = `<span style="color:var(--c-ink-4); font-weight:normal;">`
+                    + `Clean streak reset \u2014 solve every word to start another.</span>`;
+            } else {
+                return;
+            }
+            el.style.display = "block";
+        }
+
         async function showDailyEndModal(attempt, alreadyPlayed) {
             // Covers both routes into this screen — finishing a run now, and
             // reopening a Trifecta already played today — so dismissing the
@@ -6544,11 +6629,12 @@
             document.getElementById("daily-end-title").innerText = alreadyPlayed ? "Already Played Today" : "Trifecta Complete!";
             const played = dailyPlayedWords(attempt);
             const solvedCount = played.filter((h) => h.solved).length;
-            // Every finished run has played all ten, so there is one line to
+            // Every finished run has played every word, so there is one line to
             // write. This used to carry a second branch naming the word a run
             // ended on, which a run can no longer do.
             const wordsLine = `${solvedCount} / ${attempt.wordCount} words solved`;
             document.getElementById("daily-end-desc").innerHTML = `Final Score: <span style="color:var(--c-endless); font-size: 24px;">${attempt.score.toLocaleString()}</span><br>${wordsLine}`;
+            renderGauntletStreak(attempt, alreadyPlayed);
             document.getElementById("daily-end-modal").style.display = "flex";
 
             // Where this run currently sits on today's board. Provisional by

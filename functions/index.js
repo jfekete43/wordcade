@@ -260,6 +260,8 @@ const CHALLENGES = {
     { id: "c_sprint_week", req: 7, field: "sprintBestStreak", reward: 20000 },
     { id: "c_sprint_month", req: 30, field: "sprintBestStreak", reward: 100000 },
     { id: "c_trifecta_regular", req: 25, field: "gauntletPlayed", reward: 20000 },
+    { id: "c_trifecta_clean3", req: 3, field: "gauntletBestStreak", reward: 25000 },
+    { id: "c_trifecta_clean10", req: 10, field: "gauntletBestStreak", reward: 100000 },
     { id: "c_trifecta_sweep", req: 1, field: "gauntletPerfect", reward: 15000 },
     { id: "c_trifecta_sweeps", req: 10, field: "gauntletPerfect", reward: 60000 },
     { id: "c_dedication", req: 3, field: "bestLoginStreak", reward: 2500 },
@@ -580,6 +582,30 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     if (run.mode === "daily") {
       update.gauntletPlayed = FieldValue.increment(1);
       if (isGauntletSweep) update.gauntletPerfect = FieldValue.increment(1);
+    }
+
+    // The streak, and a SWEEP is what keeps it: finishing a Trifecta with a
+    // word missed is a day played, not a day kept. That is the whole point of
+    // having one - a streak you cannot break is a counter.
+    //
+    // Same shape as Sprint's, and for the same two reasons: compared against
+    // the run's OWN puzzle date rather than today, so a late-arriving trigger
+    // cannot break a streak the player did not break; and a replay of the same
+    // day holds the streak where it is rather than counting one day twice.
+    if (run.mode === "daily" && run.puzzleDate) {
+      if (isGauntletSweep) {
+        const last = String(user.gauntletLastDate || "");
+        const continued = last && last === shiftDateStr(run.puzzleDate, -1);
+        const streak = last === run.puzzleDate
+          ? Math.max(1, Number(user.gauntletStreak) || 0)
+          : (continued ? (Number(user.gauntletStreak) || 0) + 1 : 1);
+        update.gauntletStreak = streak;
+        update.gauntletLastDate = run.puzzleDate;
+        if (streak > Math.max(0, Number(user.gauntletBestStreak) || 0)) update.gauntletBestStreak = streak;
+      } else {
+        update.gauntletStreak = 0;
+        update.gauntletLastDate = run.puzzleDate;
+      }
     }
 
     // ---- Marathon's live standing -----------------------------------------

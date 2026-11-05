@@ -175,6 +175,37 @@ ck(client.career.every((r) => r.req >= 1),
    'and every career challenge needs at least one of something, which is what '
    + 'keeps those two in step', JSON.stringify(client.career.filter((r) => r.req < 1)));
 
+// ---- a challenge field must not be seedable at profile creation -----------
+// claimChallenge pays out against whatever the user document SAYS, and a
+// client creates its own profile document. The create rule is the only thing
+// between those two facts and a throwaway account that arrives already past
+// the requirement — and that rule is a hand-written list, which is why it is
+// derived from the challenge table here instead of trusted.
+//
+// Any of the three shapes counts as pinned: absent, forced to zero, or the
+// zero-or-absent pair. Which one is right differs per field, because whether
+// the client sends it at creation differs per field — and a cached older
+// index.html sends fewer of them than the current one does.
+const rules = read('firestore.rules');
+const pinnedIn = (src, path, f) => new RegExp(
+  `!\\('${f}' in ${path}\\)|${path}\\.${f} == (0|null|\\[\\])`).test(src);
+for (const r of client.career) {
+  ck(pinnedIn(rules, 'request\\.resource\\.data', r.field),
+     `${r.id}: ${r.field} cannot be seeded past its requirement at sign-up`);
+}
+for (const r of client.daily) {
+  ck(pinnedIn(rules, 'request\\.resource\\.data\\.dailyStats', r.field),
+     `${r.id}: dailyStats.${r.field} cannot be seeded past its requirement at sign-up`);
+}
+// ...and the client's own create payload agrees with the server's fresh one,
+// so a brand-new profile is not missing counters until its first run.
+const createSrc = between(html, 'claimedCareer: [], dailyStats: {', '}');
+for (const k of fresh) {
+  if (['date', 'claimed', 'activeIds'].includes(k)) continue;
+  ck(new RegExp(`\\b${k}: 0`).test(createSrc),
+     `a new profile starts dailyStats.${k} at zero, like freshDailyStats does`, createSrc.slice(0, 160));
+}
+
 // ---- the prose, against the mode table -------------------------------------
 const modeTbl = between(html, 'const MODES = {', '\n        };');
 const MODES = Object.fromEntries([...modeTbl.matchAll(/^\s+(\w+):\s+\{ label: "([^"]+)"[^\n]*/gm)]

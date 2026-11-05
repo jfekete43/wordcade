@@ -22,7 +22,7 @@
  * region to something that passes.
  */
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, doc, setDoc, getDocs, query, orderBy, limit, setLogLevel } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, query, orderBy, limit, setLogLevel, deleteDoc } from 'firebase/firestore';
 setLogLevel('silent');
 import fs from 'fs';
 import path from 'path';
@@ -254,12 +254,21 @@ const SEED = {
   equipped: { title: 'title_none', skin: 'skin_default', banner: 'banner_default', effect: 'effect_none' },
   claimedCareer: [], dailyStats: { date: '2026-10-05', played: 0, guessed: 0, guess1: 0, guess5: 0, claimed: [], activeIds: ['a'] },
 };
+// Every file in the emulators:exec chain shares one Firestore, so a profile
+// created here is still there when leaderboard-bests reads /users a moment
+// later — and a create that carries a board field seats a stranger on that
+// board at zero. A successful create is undone once it has been asserted.
 const create = async (name, shouldPass, over = {}, uid = UID) => {
   const ref = doc(env.authenticatedContext(uid).firestore(), 'users', uid);
   try {
     await (shouldPass ? assertSucceeds(setDoc(ref, { ...SEED, ...over })) : assertFails(setDoc(ref, { ...SEED, ...over })));
     ck(true, name);
   } catch (e) { ck(false, name, (e.message || '').slice(0, 110)); }
+  if (shouldPass) {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await deleteDoc(doc(ctx.firestore(), 'users', uid));
+    });
+  }
 };
 
 await create('a profile with no rating at all is creatable (what the app sends now)', true, {}, 'n1');
@@ -279,6 +288,35 @@ await create('a self-seeded daily best is rejected', false, { dayBestScore: 9999
 await create('a self-seeded FFA rating is rejected', false, { ffaMmr: 4000 }, 'n10');
 await create('a self-seeded FFA record is rejected', false, { ffaWins: 500, ffaMatchesPlayed: 500 }, 'n11');
 await create('a self-seeded top-10 Trifecta claim is rejected', false, { achievedTop10Daily: 1 }, 'n12');
+// Every counter that gates a reward, career and daily. Each one pays out
+// against whatever the profile says, and create is the one profile write a
+// client makes that is not narrowed to `equipped`.
+await create('a self-seeded Trifecta count is rejected', false, { gauntletPlayed: 99 }, 'n16');
+await create('a self-seeded clean-run count is rejected', false, { gauntletPerfect: 10 }, 'n17');
+await create('a self-seeded Trifecta streak is rejected', false, { gauntletBestStreak: 30, gauntletStreak: 30 }, 'n18');
+await create('a self-seeded Trifecta best is rejected', false, { bestGauntletScore: 1500 }, 'n19');
+await create('a self-seeded daily guess counter is rejected', false,
+             { dailyStats: { ...SEED.dailyStats, guess1: 1 } }, 'n20');
+await create('...on any of the five, not just the two that were pinned', false,
+             { dailyStats: { ...SEED.dailyStats, guess2: 9 } }, 'n21');
+await create('a self-seeded "solved today\'s Sprint" is rejected', false,
+             { dailyStats: { ...SEED.dailyStats, sprintDone: 1 } }, 'n22');
+await create('a self-seeded "swept today\'s Trifecta" is rejected', false,
+             { dailyStats: { ...SEED.dailyStats, gauntletSwept: 1 } }, 'n23');
+// ...and the two shapes a real client sends BOTH have to be accepted, or
+// sign-up fails silently for everyone. SEED above is the older, shorter
+// dailyStats; this is the one index.html writes now.
+await create('the dailyStats shape the app sends now is creatable', true, {
+  dailyStats: {
+    date: '2026-10-05', played: 0, guessed: 0,
+    guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0,
+    sprintDone: 0, gauntletSwept: 0, claimed: [], activeIds: ['a'],
+  },
+}, 'n24');
+await create('and a profile carrying the new career counters at zero is too', true,
+             { gauntletPlayed: 0, gauntletPerfect: 0, gauntletStreak: 0,
+               gauntletBestStreak: 0, gauntletLastDate: null, bestGauntletScore: 0 }, 'n25');
+
 // The guards that were already there must still hold.
 await create('a pre-loaded wallet is still rejected', false, { wallet: 1000000 }, 'n13');
 await create('a pre-loaded Clash record is still rejected', false, { clashWins: 99 }, 'n14');

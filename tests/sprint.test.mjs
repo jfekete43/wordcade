@@ -1261,10 +1261,33 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
 
   const mirror = (profile, result) => {
     // eslint-disable-next-line no-new-func
-    new Function('userProfileData', 'getTodayDateStr', 'result', `${mirrorSrc}; reflectSprintLocally(result);`)(
-      profile, () => '2026-11-03', result);
+    new Function('userProfileData', 'getTodayDateStr', 'shiftDateStr', 'result',
+      `${mirrorSrc}; reflectSprintLocally(result);`)(
+      profile, () => '2026-11-03', shiftForMirror, result);
     return profile;
   };
+  // The client's own date helper, so the mirror is measured against the same
+  // arithmetic onRunCreated uses rather than a copy written in here.
+  // eslint-disable-next-line no-new-func
+  const shiftForMirror = new Function('dateStr', 'days',
+    `${(html.match(/        function shiftDateStr\(dateStr, days\) \{\n[\s\S]*?\n        \}/) || [''])[0]}
+     return shiftDateStr(dateStr, days);`);
+
+  // The streak is the one field here that is not a plain increment, and it
+  // was one until this case was written: a player returning after a day off
+  // saw the modal claim a streak onRunCreated was about to reset to 1.
+  {
+    const solve = { solved: true, guessNumber: 2, score: 250, elapsedMs: 20000 };
+    eq('solved yesterday, solved today, is two',
+       mirror({ sprintStreak: 1, sprintLastDate: '2026-11-02' }, solve).sprintStreak, 2);
+    eq('a day skipped starts again at one',
+       mirror({ sprintStreak: 9, sprintLastDate: '2026-11-01' }, solve).sprintStreak, 1);
+    eq('and replaying today holds it where it is',
+       mirror({ sprintStreak: 4, sprintLastDate: '2026-11-03' }, solve).sprintStreak, 4);
+    eq('a miss still resets it outright',
+       mirror({ sprintStreak: 9, sprintLastDate: '2026-11-02' },
+              { solved: false, guessNumber: 5, score: 0, elapsedMs: null }).sprintStreak, 0);
+  }
 
   {
     const p = mirror({}, { solved: true, guessNumber: 3, score: 150, elapsedMs: 40000 });
