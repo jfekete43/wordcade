@@ -22,6 +22,7 @@
  * functions/index.js and run, the way sprint.test.mjs lifts its helpers.
  */
 import fs from 'fs';
+import { createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', f);
@@ -55,13 +56,15 @@ const src = [
   grab(/function buildDigest\(\{ mode, dateStr, rows, words \}\) \{\n[\s\S]*?\n\}/, 'buildDigest'),
   grab(/function prettyDigestDate\(dateStr\) \{\n[\s\S]*?\n\}/, 'prettyDigestDate'),
   grab(/function isDiscordWebhook\(url\) \{\n[\s\S]*?\n\}/, 'isDiscordWebhook'),
+  grab(/function webhookUrls\(value\) \{\n[\s\S]*?\n\}/, 'webhookUrls'),
+  grab(/function channelId\(url\) \{\n[\s\S]*?\n\}/, 'channelId'),
 ].join('\n\n');
 console.log('extracted from functions/index.js:', src.length, 'chars');
 
 // eslint-disable-next-line no-new-func
-const D = new Function(`${src}; return { puzzleNumber, formatClock, digestName, digestTable,
-  buildDigest, prettyDigestDate, isDiscordWebhook, digestHeader, SPRINT_EPOCH, TRIFECTA_EPOCH,
-  WORDS: DAILY_GAUNTLET_WORD_COUNT };`)();
+const D = new Function('createHash', `${src}; return { puzzleNumber, formatClock, digestName, digestTable,
+  buildDigest, prettyDigestDate, isDiscordWebhook, webhookUrls, channelId, digestHeader,
+  SPRINT_EPOCH, TRIFECTA_EPOCH, WORDS: DAILY_GAUNTLET_WORD_COUNT };`)(createHash);
 
 const sprintRow = (username, n, elapsedMs, score) => ({
   username, score, elapsedMs, wordsGuessed: n ? 1 : 0,
@@ -216,6 +219,34 @@ for (const [mode, rows, heads] of [
   ck(!D.isDiscordWebhook('https://evil.example/api/webhooks/1/a'), 'and so is somebody else\'s host');
 }
 
+// ---- one secret, one or many destinations ---------------------------------
+// A webhook URL belongs to a single channel in a single server, so reaching a
+// second community is a second URL in the same secret rather than a second
+// schedule.
+{
+  const A = 'https://discord.com/api/webhooks/1/aaa';
+  const B = 'https://discord.com/api/webhooks/2/bbb';
+  eq('one url is one destination', D.webhookUrls(A), [A]);
+  eq('a comma separates two', D.webhookUrls(`${A},${B}`), [A, B]);
+  eq('so does a space', D.webhookUrls(`${A} ${B}`), [A, B]);
+  eq('so does a newline, which is what a pasted file gives you',
+     D.webhookUrls(`${A}\n${B}\n`), [A, B]);
+  eq('and any mixture of them', D.webhookUrls(`  ${A} ,\n ${B}  `), [A, B]);
+  eq('"off" still parks the digest', D.webhookUrls('off'), []);
+  eq('an empty secret posts nowhere', D.webhookUrls(''), []);
+  eq('a missing secret is not an error', D.webhookUrls(undefined), []);
+  eq('and anything that is not a webhook is dropped rather than POSTed to',
+     D.webhookUrls(`${A} https://evil.example/api/webhooks/1/a off`), [A]);
+
+  // The claim id is written to Firestore; the URL is the password to that
+  // channel, so what gets written is a hash of it.
+  const idA = D.channelId(A);
+  ck(/^[0-9a-f]{12}$/.test(idA), 'a channel id is a short hex digest', idA);
+  eq('the same url always gives the same id', D.channelId(A), idA);
+  ck(D.channelId(B) !== idA, 'and two channels do not share one');
+  ck(!idA.includes('aaa') && !A.includes(idA), 'the id carries none of the url', `${idA} / ${A}`);
+}
+
 // ---- the job itself, at source --------------------------------------------
 {
   const job = fn.slice(fn.indexOf('exports.postDailyDigest'), fn.indexOf('async function getOrCreateTodaysPuzzle'));
@@ -242,7 +273,19 @@ for (const [mode, rows, heads] of [
   ck(/claimRef\.delete\(\)/.test(job),
      'the claim is released if the post fails, so one outage is not permanent');
   ck(/if \(snap\.empty\)/.test(job), 'a day nobody played is skipped rather than posted empty');
-  ck(/isDiscordWebhook\(job\.url\)/.test(job), 'and an unconfigured webhook is skipped, not posted to');
+  ck(/webhookUrls\(job\.secret\)/.test(job), 'and an unconfigured webhook is skipped, not posted to');
+  ck(/if \(!urls\.length\)/.test(job), '...which is what a secret holding no webhook parses to');
+  // One secret, one or more channels. The day's board is the same board
+  // everywhere, so it is read and rendered once however many it goes to.
+  ck(/for \(const url of urls\)/.test(job), 'a digest goes to every webhook the secret holds');
+  ck(job.indexOf('const snap = await db.collection("runs")') < job.indexOf('for (const url of urls)'),
+     'and the day is read once, not once per channel');
+  ck(/if \(!payload\) \{/.test(job), 'and rendered once too');
+  // Per-channel claims. A shared one forces a choice between re-posting to a
+  // channel that already has the message and silently losing the day there.
+  ck(/doc\(`\$\{job\.mode\}_\$\{dateStr\}_\$\{channelId\(url\)\}`\)/.test(job),
+     'each channel claims its own day, so a failure costs only that channel',
+     (job.match(/const claimRef[^\n]*/) || [''])[0].trim());
   ck(/limit\(10\)/.test(job), 'ten rows, which is what was asked for');
   ck(/orderBy\("score", "desc"\)/.test(job), 'ordered by score');
   // Each mode's tiebreak is the one its own board uses; a digest ordered

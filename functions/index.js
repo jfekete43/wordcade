@@ -18,6 +18,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { createHash } = require("crypto");
 
 // A copy of words.js's word lists, generated once via a small script (see
 // the repo's DEPLOY.md) rather than parsed from words.js at runtime — keep
@@ -1593,11 +1594,14 @@ exports.aggregateWordStats = onSchedule({ schedule: "30 1 * * *", timeZone: "Ame
 // Yesterday is closed: the standings are final and the answers are spent,
 // which is also why the post can name the words.
 //
-// The two webhook URLs are secrets rather than constants because anyone
-// holding one can post into the channel as the game. Set them with
+// The webhook URLs are secrets rather than constants because anyone holding
+// one can post into the channel as the game. Set them with
 //   firebase functions:secrets:set DISCORD_SPRINT_WEBHOOK
 //   firebase functions:secrets:set DISCORD_TRIFECTA_WEBHOOK
 // The same URL in both posts them to one channel; different URLs split them.
+// EITHER secret can hold SEVERAL urls, separated by spaces, newlines or
+// commas - a webhook belongs to one channel in one server, so reaching a
+// second community is a second url in the same secret.
 // ============================================================================
 const DISCORD_SPRINT_WEBHOOK = defineSecret("DISCORD_SPRINT_WEBHOOK");
 const DISCORD_TRIFECTA_WEBHOOK = defineSecret("DISCORD_TRIFECTA_WEBHOOK");
@@ -1729,6 +1733,40 @@ function isDiscordWebhook(url) {
 }
 
 /*
+ * One secret, one or more destinations.
+ *
+ * A webhook URL is bound to a single channel in a single server, so putting
+ * the same digest in front of a second community is a second URL - not a
+ * second schedule, and not a second copy of this function. Separate them with
+ * spaces, newlines or commas, whichever survives however the secret gets
+ * pasted in.
+ *
+ * Anything that is not a webhook URL is dropped rather than POSTed to, which
+ * is what makes "off" the documented way to park a digest: it parses to no
+ * destinations at all.
+ */
+function webhookUrls(value) {
+  return String(value == null ? "" : value).split(/[\s,]+/).filter(isDiscordWebhook);
+}
+
+/*
+ * A short, stable, non-reversible id for ONE destination.
+ *
+ * Each channel claims its own day. A claim shared across destinations would
+ * force a choice between two bad answers the first time the second channel
+ * failed: release it, and tomorrow re-posts to the channel that already has
+ * the message - the duplicate nobody can undo - or keep it, and that channel
+ * silently loses the day. Per-channel claims make a failure cost exactly the
+ * channel it happened to.
+ *
+ * Hashed because the claim id is written to Firestore and the URL is a
+ * credential; the token in it is the password to that channel.
+ */
+function channelId(url) {
+  return createHash("sha256").update(String(url)).digest("hex").slice(0, 12);
+}
+
+/*
  * 9:10am Eastern, every day, for yesterday.
  *
  * Not on the hour: Cloud Scheduler puts everything written as :00 into the
@@ -1747,15 +1785,16 @@ exports.postDailyDigest = onSchedule({
 }, async () => {
   const dateStr = shiftDateStr(getTodayDateStr(), -1);
   const jobs = [
-    { mode: "sprint", url: DISCORD_SPRINT_WEBHOOK.value(), tiebreak: "elapsedMs", dir: "asc",
+    { mode: "sprint", secret: DISCORD_SPRINT_WEBHOOK.value(), tiebreak: "elapsedMs", dir: "asc",
       puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word] },
-    { mode: "daily", url: DISCORD_TRIFECTA_WEBHOOK.value(), tiebreak: "wordsGuessed", dir: "desc",
+    { mode: "daily", secret: DISCORD_TRIFECTA_WEBHOOK.value(), tiebreak: "wordsGuessed", dir: "desc",
       puzzle: db.collection("dailyPuzzles").doc(dateStr), words: (d) => d.words || [] },
   ];
 
   for (const job of jobs) {
     const label = `${job.mode} ${dateStr}`;
-    if (!isDiscordWebhook(job.url)) { console.log(`digest ${label}: no webhook configured, skipped`); continue; }
+    const urls = webhookUrls(job.secret);
+    if (!urls.length) { console.log(`digest ${label}: no webhook configured, skipped`); continue; }
 
     const snap = await db.collection("runs")
       .where("mode", "==", job.mode).where("puzzleDate", "==", dateStr)
@@ -1765,31 +1804,44 @@ exports.postDailyDigest = onSchedule({
     // nobody played, which is not what a leaderboard channel is for.
     if (snap.empty) { console.log(`digest ${label}: no runs, nothing to post`); continue; }
 
-    const claimRef = db.collection("digestPosts").doc(`${job.mode}_${dateStr}`);
-    const claimed = await db.runTransaction(async (tx) => {
-      if ((await tx.get(claimRef)).exists) return false;
-      tx.set(claimRef, { mode: job.mode, puzzleDate: dateStr, at: FieldValue.serverTimestamp() });
-      return true;
-    });
-    if (!claimed) { console.log(`digest ${label}: already posted`); continue; }
+    // Read and rendered ONCE, however many channels it goes to: the day's
+    // board is the same board everywhere, and the puzzle read is a document
+    // read per destination otherwise.
+    let payload = null;
+    for (const url of urls) {
+      const to = `${label} -> ${channelId(url)}`;
+      const claimRef = db.collection("digestPosts").doc(`${job.mode}_${dateStr}_${channelId(url)}`);
+      const claimed = await db.runTransaction(async (tx) => {
+        if ((await tx.get(claimRef)).exists) return false;
+        tx.set(claimRef, {
+          mode: job.mode, puzzleDate: dateStr, channel: channelId(url),
+          at: FieldValue.serverTimestamp(),
+        });
+        return true;
+      });
+      if (!claimed) { console.log(`digest ${to}: already posted`); continue; }
 
-    try {
-      const pSnap = await job.puzzle.get();
-      const payload = buildDigest({
-        mode: job.mode, dateStr, rows: snap.docs.map((d) => d.data()),
-        words: pSnap.exists ? job.words(pSnap.data()) : [],
-      });
-      const res = await fetch(job.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`Discord returned ${res.status} ${(await res.text()).slice(0, 200)}`);
-      console.log(`digest ${label}: posted ${snap.size} row(s)`);
-    } catch (e) {
-      // Hand the day back so tomorrow's run, or a manual retry, can post it.
-      await claimRef.delete().catch(() => {});
-      console.error(`digest ${label}: post failed, claim released`, e);
+      try {
+        if (!payload) {
+          const pSnap = await job.puzzle.get();
+          payload = buildDigest({
+            mode: job.mode, dateStr, rows: snap.docs.map((d) => d.data()),
+            words: pSnap.exists ? job.words(pSnap.data()) : [],
+          });
+        }
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`Discord returned ${res.status} ${(await res.text()).slice(0, 200)}`);
+        console.log(`digest ${to}: posted ${snap.size} row(s)`);
+      } catch (e) {
+        // Hand THIS channel's day back so tomorrow's run, or a manual retry,
+        // can post it. The channels that already have it keep their claims.
+        await claimRef.delete().catch(() => {});
+        console.error(`digest ${to}: post failed, claim released`, e);
+      }
     }
   }
 });

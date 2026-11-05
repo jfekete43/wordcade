@@ -349,6 +349,21 @@ In Discord, on a server you administer:
 3. Do it twice if you want Sprint and the Trifecta in separate channels. The
    same URL in both secrets puts them in one channel, one after the other.
 
+**More than one server.** A webhook belongs to one channel in one server, so a
+second community needs its own webhook made the same way — not a second
+schedule. Either secret can hold several URLs, separated by spaces, newlines or
+commas, and the digest goes to all of them:
+
+```
+https://discord.com/api/webhooks/111/aaa
+https://discord.com/api/webhooks/222/bbb
+```
+
+The day's board is read and rendered once however many channels it reaches,
+and each channel claims its own day — so a webhook that has been deleted, or a
+server that is down, costs that one channel its post rather than everyone
+else's.
+
 The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Anyone
 holding it can post into that channel as the game, which is why these are
 secrets rather than constants in the source.
@@ -362,8 +377,8 @@ firebase functions:secrets:set DISCORD_TRIFECTA_WEBHOOK
 firebase deploy --only functions
 ```
 
-Each command prompts for the value and reads it from stdin — paste the URL and
-press enter. The first one may also ask to enable the Secret Manager API.
+Each command prompts for the value and reads it from stdin — paste the URL (or
+all of them, one per line) and press enter. The first one may also ask to enable the Secret Manager API.
 
 **Both secrets have to exist before the deploy**, even if you only want one
 digest: `defineSecret` fails the deploy for a secret that is not there. To park
