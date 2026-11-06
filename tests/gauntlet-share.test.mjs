@@ -8,12 +8,21 @@
  *     which is the entire point of a shared daily puzzle. It replaced a
  *     three-branch line that had to say where a run ended, back when a run
  *     could end anywhere.
- *   - That there is NO run bar. One mark per word in play order used to sit
- *     between the heading and the result, and on a ten-word puzzle it earned
- *     the line — ten marks carried a shape a count could not. Three words is
- *     not a shape: three squares say exactly what "3/3" says, in a form the
- *     reader has to count first. So the share is two lines, and the checks
- *     below pin that rather than pinning a row of glyphs.
+ *   - The guess row: one keycap per word, in play order, saying how many
+ *     guesses that word cost. A row of plain SQUARES lived here first and was
+ *     dropped — on three words, solved-or-not is "3/3" drawn as a picture.
+ *     A numeral carries what the count cannot: 2-1-2 and 5-4-5 are both a
+ *     sweep and are not the same run.
+ *
+ *     The grid that preceded the squares also carried guess counts and died
+ *     because it carried them in HUE, five meanings a reader cannot infer.
+ *     A digit needs no legend and survives every colour vision deficiency,
+ *     which is the constraint behind every other mark in these shares — so
+ *     this is emphatically not a re-run of that.
+ *
+ *     Average guesses came off the result line when this row went on: with
+ *     three numbers printed, "2.3 avg" is their mean computed for a reader
+ *     who can see the numbers.
  *
  *     The legacy cases below still pass unchanged, and are kept deliberately:
  *     a player who finished under the old rule and reopens the modal after the
@@ -80,29 +89,32 @@ const untouched = (howMany) => Array(howMany).fill({ guesses: [], solved: false 
 
 // A clean sweep — the run from the screenshot that prompted this.
 let out = buildShare(attempt(solvedRun([4, 4, 5, 4, 5, 5, 3, 5, 4, 3]), 540));
-ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n🏆 PERFECT · 10/10 · 540 pts · 4.2 avg`,
-   'a perfect run is a heading and a line', JSON.stringify(out.message));
-ck(out.message.split('\n').length === 2, 'heading, result, nothing between', out.message.split('\n').length);
+ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n4️⃣4️⃣5️⃣4️⃣5️⃣5️⃣3️⃣5️⃣4️⃣3️⃣\n🏆 PERFECT · 10/10 · 540 pts`,
+   'a perfect run is its ten guess counts and a line', JSON.stringify(out.message));
+ck(out.message.split('\n').length === 3, 'heading, guess row, result', out.message.split('\n').length);
+ck(!/avg/.test(out.message), 'the average is gone, because the row above it prints what it averaged');
 
 // --- legacy: attempts recorded before everyone played all ten ------------
 // Out on word 9 after solving 8. The remaining slot is never touched.
 out = buildShare(attempt([...solvedRun([3, 4, 4, 5, 3, 4, 5, 4]), word(5, false), ...untouched(1)], 430));
-ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n💰 8/10 · 430 pts · 4.1 avg`,
-   'eight of ten solved, one word never reached', JSON.stringify(out.message));
+ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n3️⃣4️⃣4️⃣5️⃣3️⃣4️⃣5️⃣4️⃣❌⬜\n💰 8/10 · 430 pts`,
+   'eight solved, a cross on the ninth, one never reached', JSON.stringify(out.message));
 
 // Out on the very first word.
 out = buildShare(attempt([word(5, false), ...untouched(9)], 0));
-ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n💰 0/10 · 0 pts · 5.0 avg`,
-   'out on word 1 reads as none of ten', JSON.stringify(out.message));
+ck(out.message === `🕹️ Lexathon Trifecta #${NUMBERED_N}\n❌⬜⬜⬜⬜⬜⬜⬜⬜⬜\n💰 0/10 · 0 pts`,
+   'out on word 1 is a cross and nine blanks', JSON.stringify(out.message));
 
 // Nine solved then a miss is still not "perfect".
 out = buildShare(attempt([...solvedRun([1, 1, 1, 1, 1, 1, 1, 1, 1]), word(5, false)], 4510));
 ck(out.message.includes('💰 9/10') && !out.message.includes('PERFECT'),
    'nine solved and a miss is not PERFECT', JSON.stringify(out.message));
 
-// The average counts a missed word's guesses, and only words reached.
+// A word never reached is a blank, not a zero and not a cross: nothing was
+// spent on it, so there is no number to print.
 out = buildShare(attempt([...solvedRun([1, 1]), word(5, false), ...untouched(7)], 750));
-ck(out.message.includes('2.3 avg'), 'the average counts the missed word and ignores unreached ones', JSON.stringify(out.message));
+ck(out.message.split('\n')[1] === '1️⃣1️⃣❌⬜⬜⬜⬜⬜⬜⬜',
+   'two one-guess solves, a miss, and seven never reached', JSON.stringify(out.message.split('\n')[1]));
 
 // Big scores stay readable.
 out = buildShare(attempt(solvedRun([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]), 5000));
@@ -119,9 +131,62 @@ ck(out.opts && out.opts.preview === false,
    'the Trifecta share suppresses the link preview', JSON.stringify(out.opts));
 ck(out.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.url));
 
-// --- the result line carries the whole outcome on its own ----------------
-// With no bar above it there is nothing else in the message, so every case
-// the bar used to distinguish has to read correctly off this one line.
+// --- the guess row ------------------------------------------------------
+// Split by MARK, not by code point: a keycap is three of them (the digit,
+// U+FE0F and U+20E3) and a naive spread counts each row as thirty glyphs.
+const rowOf = (msg) => msg.split('\n')[1];
+const marks = (row) => row.match(/\d\uFE0F\u20E3|./gu) || [];
+const numOf = (m) => { const x = /^(\d)\uFE0F\u20E3$/.exec(m); return x ? Number(x[1]) : m; };
+const readRow = (msg) => marks(rowOf(msg)).map(numOf);
+
+// Every guess count the game can produce, read back off the row in order.
+// Driven through the real builder rather than asserted as a literal, so the
+// mapping from "this word took four guesses" to "4" is the thing under test.
+{
+  const counts = [1, 2, 3, 4, 5, 1, 5, 2, 4, 3];
+  eq('each solved word prints the number of guesses it cost',
+     readRow(buildShare(attempt(solvedRun(counts), 2000)).message), counts);
+}
+
+// The whole justification for the row existing. Both of these are 10/10 and
+// the row of squares that preceded it drew them identically.
+{
+  const sharp = buildShare(attempt(solvedRun(Array(10).fill(2)), 2500)).message;
+  const lucky = buildShare(attempt(solvedRun(Array(10).fill(5)), 100)).message;
+  ck(rowOf(sharp) !== rowOf(lucky), 'two sweeps of different quality do not share a row',
+     `${rowOf(sharp)} vs ${rowOf(lucky)}`);
+  ck(sharp.includes('10/10') && lucky.includes('10/10'), '...even though the count cannot tell them apart');
+}
+
+// A miss has no number: it spent every guess and got nothing, and a "5" there
+// would read as a word solved on the fifth.
+{
+  const msg = buildShare({ ...attempt([...solvedRun([2, 2]), word(5, false), ...solvedRun([3])], 900), wordCount: 4 }).message;
+  const row = readRow(msg);
+  eq('a missed word is a cross in its own slot, not a five', row, [2, 2, '\u274C', 3]);
+}
+
+// The keycap sequence itself, since a digit without U+FE0F renders as a bare
+// number on some platforms and a digit without U+20E3 is just a digit.
+{
+  const row = rowOf(buildShare({ ...attempt(solvedRun([3, 1, 4]), 900), wordCount: 3 }).message);
+  eq('the row is exactly the keycaps, in order', row, '3\uFE0F\u20E31\uFE0F\u20E34\uFE0F\u20E3');
+  ck(!/\d(?!\uFE0F\u20E3)/.test(row), 'no digit escapes without its keycap', JSON.stringify(row));
+}
+
+// Width comes from the puzzle, not from a constant: a three-word Trifecta is
+// three marks and a legacy ten-word run is ten.
+for (const [wordCount, history] of [
+  [3, solvedRun([2, 3, 1])],
+  [10, solvedRun(Array(10).fill(3))],
+  [2, solvedRun([4, 4])],
+]) {
+  const msg = buildShare({ ...attempt(history, 500), wordCount }).message;
+  eq(`a ${wordCount}-word puzzle is ${wordCount} marks`, marks(rowOf(msg)).length, wordCount);
+}
+
+// --- the result line ------------------------------------------------------
+// The row above it says which words and how dearly; the line says the totals.
 const miss = () => word(5, false);
 const g = (n) => solvedRun(Array(n).fill(3));
 
@@ -133,7 +198,7 @@ out = buildShare(attempt([...g(9), miss()], 4510));
 ck(out.message.includes('💰 9/10') && !out.message.includes('PERFECT'),
    'a miss on the last word is still a miss', out.message);
 out = buildShare(attempt(Array(10).fill(word(5, false)), 0));
-ck(out.message.includes('💰 0/10 · 0 pts · 5.0 avg'), 'nothing solved, five guesses a word', out.message);
+ck(out.message.includes('💰 0/10 · 0 pts'), 'nothing solved scores nothing', out.message);
 ck(buildShare(attempt(g(10), 5000)).message.includes('🏆 PERFECT · 10/10'), 'and a sweep reads PERFECT');
 
 // Two lines, with no emoji block on either. This is the shape the bar was
@@ -148,14 +213,14 @@ for (const [label, history] of [
   ['a short puzzle', solvedRun([3, 3])],
 ]) {
   const lines = buildShare(attempt(history, 430)).message.split('\n');
-  eq(`${label}: two lines`, lines.length, 2);
-  ck(!/[🟩🟦🟧⬜❌🟥]/u.test(lines[1]), `${label}: no blocks on the result line`, lines[1]);
+  eq(`${label}: three lines`, lines.length, 3);
+  ck(!/[🟩🟦🟧⬜❌🟥]|\u20E3/u.test(lines[2]), `${label}: nothing from the row leaks onto the result line`, lines[2]);
 }
 
 // The ordinary line stays inside the width that made the old grid wrap on a
 // phone. PERFECT is deliberately exempt: it is the one run worth the space.
 const mid = buildShare(attempt([...solvedRun([3, 4, 4, 5, 3, 4, 5, 4]), word(5, false), ...untouched(1)], 430)).message;
-ck(mid.split('\n')[1].length <= 34, 'the result line stays short', String(mid.split('\n')[1].length));
+ck(mid.split('\n')[2].length <= 34, 'the result line stays short', String(mid.split('\n')[2].length));
 
 // A date before the epoch has no number, so the heading drops it rather than
 // printing "#null".

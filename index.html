@@ -2252,7 +2252,7 @@
                     <li>Same 5-guess, 500/250/150/50/10 scoring as Stakes, and no Continues — but you play all three words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
                     <li>No clock, and you don't have to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</li>
                     <li>Resets at midnight Eastern.</li>
-                    <li>Share your result — spoiler-free, and just the numbers: how many of the three you solved, your score, and your average guesses.</li>
+                    <li>Share your result, spoiler-free — a numbered box per word for the guesses it took, ❌ for one you missed, plus your score.</li>
                     <li>Today's standings are on the Trifecta screen itself, ordered by score and then by words solved, and yesterday's stay in Past Trifectas. Your best single Trifecta ever sits on the Hall of Fame's Trifecta board.</li>
                 </ul>
 
@@ -8318,41 +8318,63 @@
             const played = dailyPlayedWords(dailyAttempt);
             const solvedCount = played.filter((h) => h.solved).length;
 
-            // Average guesses per word attempted — the one number that
-            // separates a sharp run from a lucky one. A missed word counts
-            // its full 5, which is the honest reading of "how many guesses
-            // did this cost you".
-            const totalGuesses = played.reduce((sum, h) => sum + h.guesses.length, 0);
-            const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
-
             // Everyone plays every word, so this is simply how many of them
-            // came off, and with three words it is the whole picture. It used
-            // to double as "the word you went out on, minus one", back when a
-            // run could end anywhere.
+            // came off. The row above it holds the same fact (a cross is a
+            // word missed) but holds it as something to count; this states it,
+            // which is what a reader skimming a channel actually reads. It
+            // used to double as "the word you went out on, minus one", back
+            // when a run could end anywhere.
             const solvedLine = `${solvedCount}/${dailyAttempt.wordCount}`;
             const isPerfect = solvedCount === dailyAttempt.wordCount;
 
-            // No run bar. One mark per word in play order used to live here,
-            // and on a TEN-word puzzle it earned the line: ten marks carried a
-            // shape that a count could not. Three words is not a shape. Three
-            // squares say precisely what "3/3" on the line below says, in a
-            // form the reader has to count first.
+            // One mark per word, in the order they were played: how many
+            // guesses that word cost, printed as a keycap.
             //
-            // What would earn the line back is a mark that carries what the
-            // count cannot - how many guesses each word cost. The grid that
-            // preceded the bar tried exactly that and encoded it in HUE, five
-            // meanings a reader cannot infer, which is what killed it; a
-            // printed numeral is a different proposition and has not been
-            // tried.
+            // A row of plain squares could only say solved-or-not, and on a
+            // three-word puzzle that is "3/3" drawn as a picture - which is
+            // why the bar this replaces was dropped. A numeral carries what
+            // the count cannot. 2-1-2 and 5-4-5 are both a sweep and they are
+            // not the same run; the bar drew them identically.
+            //
+            // The grid that came BEFORE the bar also carried guess counts, and
+            // died because it carried them in HUE - five meanings a reader has
+            // no way to infer. A printed digit needs no legend and survives
+            // every colour vision deficiency, which is the constraint that has
+            // shaped every other mark in these shares.
+            //
+            // The average guesses figure came off the result line when this
+            // went on: with the three numbers printed, "2.3 avg" was their
+            // mean computed for the reader, which is the same restatement the
+            // bar was dropped for.
+            //
+            // A cross rather than a red square for a miss: red against green
+            // is the one pairing a colour-blind reader cannot separate. The
+            // trailing blanks are defensive only - a finished run has played
+            // every word - and are there for a player who finished under the
+            // old ten-word rule and reopens the modal today.
+            //
+            // A keycap is a digit, U+FE0F and U+20E3, and only renders for
+            // 1-9. Anything outside that falls back to the old green mark
+            // rather than emitting a broken sequence; the game caps a word at
+            // five guesses, so the fallback is unreachable today and is here
+            // so that raising the cap degrades instead of breaking.
+            const keycap = (n) => `${n}\uFE0F\u20E3`;
+            const mark = (h) => {
+                if (!h.solved) return "\u274C";
+                const n = h.guesses.length;
+                return n >= 1 && n <= 9 ? keycap(n) : "\u{1F7E9}";
+            };
+            const bar = played.map(mark).join("")
+                + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - played.length));
             // A clean sweep gets said outright — the whole point of a share is
             // to make a great run look like one.
             const resultLine = isPerfect
-                ? `🏆 PERFECT · ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`
-                : `💰 ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts · ${avgGuesses} avg`;
+                ? `🏆 PERFECT · ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts`
+                : `💰 ${solvedLine} · ${dailyAttempt.score.toLocaleString()} pts`;
 
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Trifecta #${num}` : "🕹️ Lexathon Trifecta";
-            const shareMessage = `${heading}\n${resultLine}`;
+            const shareMessage = `${heading}\n${bar}\n${resultLine}`;
             shareViaSheetOrClipboard("Lexathon Trifecta", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result", { preview: false });
         }
 
