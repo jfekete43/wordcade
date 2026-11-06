@@ -7,16 +7,24 @@
  *
  * Four things it holds:
  *
- *   - THE NUMBER. "3/5" means nothing unless the reader knows it is today's
- *     word. The heading carries #N, counted from Sprint's own epoch, which is
- *     what makes two of these comparable at all.
+ *   - THE NUMBER. A grid of squares means nothing unless the reader knows it
+ *     is today's word. The heading carries #N, counted from Sprint's own
+ *     epoch, which is what makes two of these comparable at all.
  *   - THE GRID, in Lexathon's blue and amber rather than Wordle's green and
  *     yellow. Not a style preference: it is the pairing the board already
  *     uses because it survives the common colour vision deficiencies, so the
  *     squares stay readable for the same people the board does — and a result
  *     pasted into a channel reads as this game's rather than that one's.
  *   - THE CLOCK. It is the mode's entire twist. A share without it is a
- *     Wordle share.
+ *     Wordle share. It leads the result line and the points follow, which
+ *     is the order the Sprint board row and the Discord digest table both
+ *     already use - one ordering for the mode rather than two.
+ *
+ *     The guess count is not on that line at all: the grid IS the guess
+ *     count, and printing "4/5" under it restated the picture in the units
+ *     the picture is already drawn in. The points stay because they are a
+ *     translation rather than a repeat - the grid only reads as a score to
+ *     someone who knows the ladder behind it.
  *   - ONE ROUTE OUT. Everything goes through shareViaSheetOrClipboard, which
  *     is what keeps desktop on the clipboard (the native sheet there opens an
  *     OS contacts panel and drops the score text), reports a failed copy
@@ -97,8 +105,10 @@ const attempt = (rows, over) => ({
   eq('the heading numbers the puzzle', lines[0], '🕹️ Lexathon Sprint #13');
   eq('the grid is one line per guess, in the board\'s own colours',
      lines.slice(1, 4), ['⬜🟧⬜⬜⬜', '🟦🟦⬜🟧⬜', '🟦🟦🟦🟦🟦']);
-  eq('the result carries guesses, time and points',
-     lines[4], '⏱️ 3/5 · 1:04.3 · 150 pts');
+  eq('the result is the clock, then the points',
+     lines[4], '⏱️ 1:04.3 · 150 pts');
+  // The line used to open with "3/5", which is the grid read back out loud.
+  ck(!/\d\/\d/.test(lines[4]), 'and never restates what the grid already shows', lines[4]);
   // Wordle's palette would make this read as a Wordle result.
   ck(!/🟩|🟨/.test(out.message), 'no green or yellow squares', out.message);
 }

@@ -5608,8 +5608,8 @@
 
         // Sprint #N, counted from the first Sprint the way the Trifecta
         // counts from its own epoch. A shared result is worth nothing without
-        // it: "3/5" means nothing unless the reader knows it is TODAY's word,
-        // which is the whole basis of comparing two of these.
+        // it: a grid of squares means nothing unless the reader knows it is
+        // TODAY's word, which is the whole basis of comparing two of these.
         const SPRINT_EPOCH = "2026-11-02"; // date of Sprint #1
         function sprintNumber(dateStr) {
             if (typeof dateStr !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
@@ -5621,7 +5621,6 @@
         window.shareSprintResult = function(btnId) {
             if (!sprintAttempt) return;
             const guesses = sprintAttempt.guesses || [];
-            const used = guesses.length;
 
             // The grid, in the game's own colours rather than Wordle's. Blue
             // and amber is the pairing the board already uses, chosen because
@@ -5632,11 +5631,29 @@
             const grid = guesses.map((g) =>
                 g.colors.map((c) => (c === 2 ? "\u{1F7E6}" : c === 1 ? "\u{1F7E7}" : "\u2B1C")).join("")).join("\n");
 
+            // The clock, then the points, and no guess count at all.
+            //
+            // The grid above IS the guess count, so "4/5" under it restated
+            // the picture in the units the picture is already drawn in. The
+            // points are not a restatement in the same way: they translate
+            // the grid into the currency the rest of the game counts in, for
+            // a reader who does not know the 500/250/150/50/10 ladder behind
+            // it. Without them a lone time reads as "58.2s for what".
+            //
+            // Clock first because that is the order every other place a
+            // Sprint result appears already uses - the board row puts the
+            // clock in front in muted ink and ends on the score (see
+            // loadSprintBoard), and so does the Discord digest table (DIGEST_W
+            // in functions/index.js). One ordering for the mode, not two.
+            //
             // A miss is shareable too. It is the half of the distribution
             // that makes the other half worth posting, and hiding it makes
-            // every shared result look like a win.
+            // every shared result look like a win. It keeps X/5 because that
+            // line has nothing else on it - no clock, no points - and X/5 is
+            // the convention a reader already knows for a run that did not
+            // land.
             const resultLine = sprintAttempt.solved
-                ? `\u23F1\uFE0F ${used}/${SPRINT_MAX_GUESSES} \u00B7 ${formatSprintTime(sprintAttempt.elapsedMs)} \u00B7 ${(sprintAttempt.score || 0).toLocaleString()} pts`
+                ? `\u23F1\uFE0F ${formatSprintTime(sprintAttempt.elapsedMs)} \u00B7 ${(sprintAttempt.score || 0).toLocaleString()} pts`
                 : `\u274C X/${SPRINT_MAX_GUESSES}`;
 
             const num = sprintNumber(sprintAttempt.date);
