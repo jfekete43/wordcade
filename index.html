@@ -825,7 +825,14 @@
         #daily-board-head button:disabled { opacity: 0.25; cursor: default; }
         .daily-board-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 4px 6px; border-radius: 3px; position: relative; z-index: 1; font-style: normal; text-align: left; }
         .daily-board-place { color: var(--c-ink-4); font-size: 12px; font-weight: bold; min-width: 22px; }
-        .daily-board-score { margin-left: auto; color: var(--c-endless); font-weight: bold; }
+        .daily-board-score { margin-left: auto; color: var(--c-endless); font-weight: bold; white-space: nowrap; }
+        /* Name over equipped title, the same stack the Hall of Fame rows use.
+           min-width:0 is what lets a long handle ellipsise instead of shoving
+           the score off the right edge of a 390px phone: a flex item will not
+           shrink below its content width without it. */
+        .daily-board-col { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+        .daily-board-title { font-size: 11px; font-weight: bold; color: var(--c-ink-5); margin-top: 1px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         /* Your own line under the board, for when you are not on it. */
         #daily-board-you { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--c-line); font-size: 12px; color: var(--c-ink-4); }
         #daily-board-you:empty { display: none; }
@@ -837,7 +844,7 @@
            which no class can outrank — so every name rendered magenta no
            matter what effect was equipped, while the effect's text-shadow
            still applied (pink text wearing someone else's glow). */
-        .daily-board-name { color: var(--c-ink); font-weight: bold; }
+        .daily-board-name { color: var(--c-ink); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(42, 36, 32, .45); display: none; justify-content: center; align-items: center; z-index: 100; padding: 10px; }
         .modal-box { background-color: var(--c-panel); border: var(--bw) solid var(--c-line); border-radius: var(--r-4); padding: var(--s-8); text-align: center; box-shadow: var(--c-shadow); min-width: 300px; max-width: 95vw; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; }
@@ -3118,21 +3125,56 @@
                 { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
         }
 
-        // One row. `equipped` comes off a user doc or a stored board — both are
-        // player-supplied, so both go through safeCosmetic/escapeHtml.
-        function dailyBoardRow(place, name, score, equipped) {
+        // The display text of an equipped title, or "" for none.
+        //
+        // A lookup in SHOP_ITEMS rather than a string carried on the document
+        // being rendered: a title can then never put markup on a board, even
+        // though every other field on a /runs document is player-supplied, and
+        // rewording one changes it everywhere at once. Every board goes
+        // through this, which is the point - titles were showing on the Hall
+        // of Fame rows and nowhere else because each board did its own lookup
+        // and three of them never got one.
+        function titleText(equipped) {
+            const t = SHOP_ITEMS.titles.find((x) => x.id === (equipped && equipped.title));
+            return t && t.display ? t.display : "";
+        }
+
+        // Clamped, like runScore() on the /runs boards. Nothing is supposed to
+        // reach a board with a negative best — rules bound every stored score at
+        // zero — but this is the one place the ten-row card turns a number into
+        // text, so it is the one place that can promise it.
+        function boardScore(n) { return Math.max(0, Number(n) || 0).toLocaleString(); }
+
+        // One row of the ten-row card. The home board's three tabs, Sprint's
+        // standings and Marathon's all draw it.
+        //
+        // The score cell is passed in because it is the only thing that ever
+        // differed between the three - Sprint prefixes a clock, Marathon a
+        // pace - and three hand-copied versions of this markup is exactly how
+        // the equipped title came to be missing from all of them.
+        //
+        // `name` and `equipped` come off a user doc or a stored board — both
+        // are player-supplied, so both go through escapeHtml/safeCosmetic.
+        function dailyBoardRow(place, name, equipped, scoreCell) {
             const eq = equipped || {};
             const bannerClass = safeCosmetic(eq.banner, "banner_default");
             const nameClass = safeCosmetic(eq.effect, "effect_none");
+            const title = titleText(eq);
             return `<div class="daily-board-row ${bannerClass}">`
                 + `<span class="daily-board-place">#${place}</span>`
-                + `<span class="daily-board-name ${nameClass}">${escapeHtml(name || "Player")}</span>`
-                + `<span class="daily-board-score">${Number(score || 0).toLocaleString()}</span></div>`;
+                + `<span class="daily-board-col">`
+                    + `<span class="daily-board-name ${nameClass}">${escapeHtml(name || "Player")}</span>`
+                    // Omitted, not emptied, when there is no title: an empty
+                    // line still takes its own margin, so every row on the
+                    // board would grow to make room for nothing.
+                    + (title ? `<span class="daily-board-title">${escapeHtml(title)}</span>` : "")
+                + `</span>`
+                + `<span class="daily-board-score">${scoreCell}</span></div>`;
         }
 
         function renderDailyBoardRows(rows, emptyText) {
             document.getElementById("daily-board-list").innerHTML =
-                rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.score, r.equipped)).join("")
+                rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.equipped, boardScore(r.score))).join("")
                 || `<div style="color:var(--c-ink-4);">${escapeHtml(emptyText)}</div>`;
         }
 
@@ -4035,8 +4077,7 @@
             document.getElementById("preview-banner-box").className = `lb-entry ${banner || 'banner_default'}`; 
             document.getElementById("preview-name-box").innerText = userProfileData.username; 
             document.getElementById("preview-name-box").className = `lb-name ${effect || 'effect_none'}`;
-            let tObj = SHOP_ITEMS.titles.find(t => t.id === title); 
-            document.getElementById("preview-title-box").innerText = tObj && tObj.display ? tObj.display : ""; 
+            document.getElementById("preview-title-box").innerText = titleText({ title }); 
         }
 
         window.renderShop = function(category) {
@@ -4124,7 +4165,18 @@
             document.getElementById("shop-bank-display").innerText = userProfileData.wallet.toLocaleString();
             window.renderShop(category);
         }
-        window.equipItem = async function(id, equipCategoryKey) { try { userProfileData.equipped[equipCategoryKey] = id; await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped }); applyEquippedCosmetics(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects"; window.renderShop(renderCat); window.previewItem(id, equipCategoryKey); } catch (e) { alert("Equip failed."); console.error(e); } }
+        window.equipItem = async function(id, equipCategoryKey) { try { userProfileData.equipped[equipCategoryKey] = id; await updateDoc(doc(db, "users", currentUser.uid), { equipped: userProfileData.equipped }); applyEquippedCosmetics(); refreshModeBoard(); let renderCat = equipCategoryKey + "s"; if (equipCategoryKey === "effect") renderCat = "effects"; window.renderShop(renderCat); window.previewItem(id, equipCategoryKey); } catch (e) { alert("Equip failed."); console.error(e); } }
+
+        // Sprint's board is the one that has to be told. It ranks /runs and so
+        // carries a frozen copy of every player's cosmetics; the Stakes, home
+        // and Marathon boards all read /users and were live already, and the
+        // Trifecta's feed is a live listener that repaints itself the moment
+        // onEquippedChanged patches the run. Reloading it here means the board
+        // behind the menu is already right when the player closes their way
+        // back out to it, instead of a navigation later.
+        function refreshModeBoard() {
+            if (isSprintMode) loadSprintBoard();
+        }
 
         function applyEquippedCosmetics() {
     if (!userProfileData || !userProfileData.equipped) return;
@@ -4368,9 +4420,7 @@
                             let dateStr = "";
                             if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
                             let eq = entry.equipped || {}; let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
-                            let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); 
-            
-                            let titleStr = tObj && tObj.display ? tObj.display : "";
+                            let titleStr = escapeHtml(titleText(eq));
                             // Both rating boards show the tier the number puts
                             // you in, in place of the equipped title.
                             if (currentLbTime === 'clash' || currentLbTime === 'ffa') {
@@ -5072,14 +5122,9 @@
                 });
                 list.innerHTML = rows.length
                     ? rows.map((r, i) => {
-                        const eq = r.equipped || {};
-                        const bannerClass = safeCosmetic(eq.banner, "banner_default");
-                        const nameClass = safeCosmetic(eq.effect, "effect_none");
                         const words = Number(r.words) || 0;
                         const avg = words ? Math.round((Number(r.score) || 0) / words) : 0;
-                        return `<div class="daily-board-row ${bannerClass}">`
-                            + `<span class="daily-board-place">#${i + 1}</span>`
-                            + `<span class="daily-board-name ${nameClass}">${escapeHtml(r.name || "Player")}</span>`
+                        return dailyBoardRow(i + 1, r.name, r.equipped,
                             // Detail first, score last, matching the Sprint row
                             // that shares this slot. Both boards end on the
                             // number that decides the order; ending on different
@@ -5089,9 +5134,8 @@
                             // why it is here at all: 380 over ten words and 380
                             // over twenty are a different player, and the score
                             // alone conflates skill with how far through you are.
-                            + `<span class="daily-board-score">`
-                            + `<span style="color:var(--c-ink-4); margin-right: var(--s-5);">${words}w &middot; ${avg}/w</span>`
-                            + `${Number(r.score || 0).toLocaleString()}</span></div>`;
+                            `<span style="color:var(--c-ink-4); margin-right: var(--s-5);">${words}w &middot; ${avg}/w</span>`
+                            + boardScore(r.score));
                     }).join("")
                     : `<div style="color:var(--c-ink-4);">Nobody has started this month yet. Be first.</div>`;
             } catch (e) {
@@ -5610,6 +5654,25 @@
                 document.getElementById(btnId || "btn-sprint-share"), "Share Result", { preview: false });
         }
 
+        // Which cosmetics to draw a /runs row with.
+        //
+        // The `equipped` on a run document is a copy, frozen at the moment the
+        // run was written, so it goes stale the instant the player equips
+        // something else. onEquippedChanged (functions/index.js) patches
+        // today's runs for everybody, which is what fixes this board for the
+        // other players on it - but it is a Firestore trigger, and the player
+        // who just equipped something is the one standing in front of the
+        // screen. For their own row the live profile is already in hand, so
+        // use it and let the trigger catch up in its own time.
+        //
+        // Only their own row: answering anyone else's would cost a users read
+        // per player per paint, which is the whole reason these boards carry a
+        // copy rather than a reference.
+        function liveEquipped(run) {
+            const mine = currentUser && userProfileData && run && run.uid === currentUser.uid;
+            return (mine && userProfileData.equipped) || (run && run.equipped);
+        }
+
         // Today's Sprint board. One word means everyone's score is one of six
         // values, so the clock is what actually orders the rows — it is shown
         // because without it the board looks arbitrary.
@@ -5644,25 +5707,16 @@
                     orderBy("elapsedMs", "asc"),
                     limit(10)));
                 const rows = [];
-                snap.forEach((d) => { const v = d.data(); rows.push({ name: v.username, score: v.score, elapsedMs: v.elapsedMs, equipped: v.equipped }); });
+                snap.forEach((d) => { const v = d.data(); rows.push({ name: v.username, score: v.score, elapsedMs: v.elapsedMs, equipped: liveEquipped(v) }); });
                 list.innerHTML = rows.length
-                    ? rows.map((r, i) => {
-                        const eq = r.equipped || {};
-                        const bannerClass = safeCosmetic(eq.banner, "banner_default");
-                        const nameClass = safeCosmetic(eq.effect, "effect_none");
-                        return '<div class="daily-board-row ' + bannerClass + '">'
-                            + '<span class="daily-board-place">#' + (i + 1) + "</span>"
-                            + '<span class="daily-board-name ' + nameClass + '">' + escapeHtml(r.name || "Player") + "</span>"
-                            // Time first, score last. Reading left to right the
-                            // row ends on the number that decides the order, and
-                            // the clock reads as the detail behind it rather than
-                            // competing with it. A margin, not a space: a single
-                            // space put two numbers close enough to scan as one.
-                            + '<span class="daily-board-score">'
-                            + (r.elapsedMs ? '<span style="color:var(--c-ink-4); margin-right: var(--s-5);">' + formatSprintTime(r.elapsedMs) + "</span>" : "")
-                            + Number(r.score || 0).toLocaleString()
-                            + "</span></div>";
-                    }).join("")
+                    ? rows.map((r, i) => dailyBoardRow(i + 1, r.name, r.equipped,
+                        // Time first, score last. Reading left to right the
+                        // row ends on the number that decides the order, and
+                        // the clock reads as the detail behind it rather than
+                        // competing with it. A margin, not a space: a single
+                        // space put two numbers close enough to scan as one.
+                        (r.elapsedMs ? '<span style="color:var(--c-ink-4); margin-right: var(--s-5);">' + formatSprintTime(r.elapsedMs) + "</span>" : "")
+                        + boardScore(r.score))).join("")
                     : '<div style="color:var(--c-ink-4);">Nobody has finished today\u2019s word yet. Be first.</div>';
             } catch (e) {
                 console.error("Sprint board failed", e);
@@ -5891,6 +5945,17 @@
                 const nameClass = safeCosmetic(eq.effect, "effect_none");
                 const isMe = currentUser && data.uid === currentUser.uid;
                 const detail = cfg.detail ? cfg.detail(data) : "";
+                // Title and detail share the one sub-line, in that order: the
+                // title says who you are and the detail what you did, and the
+                // detail is the half that changes from row to row - putting it
+                // last keeps the varying part in the same place down the
+                // column. Either half can be absent (Sprint has no detail, an
+                // unequipped player no title), so they are joined rather than
+                // concatenated and the separator only appears between two.
+                const sub = [
+                    titleText(eq) ? `<span style="color:var(--c-ink-5);">${escapeHtml(titleText(eq))}</span>` : "",
+                    detail ? `<span style="color:${cfg.colour};">${escapeHtml(detail)}</span>` : "",
+                ].filter(Boolean).join(` <span style="color:var(--c-ink-4);">&middot;</span> `);
 
                 html += `<div class="lb-entry ${bannerClass}${isMe ? " gf-me" : ""}">` +
                     `<div class="lb-rank">#${place}</div>` +
@@ -5899,7 +5964,7 @@
                         // Omitted, not emptied: an empty div still takes its
                         // own margin-top, so the name sits above the middle of
                         // a row with nothing under it.
-                        (detail ? `<div class="lb-date" style="color:${cfg.colour};">${detail}</div>` : "") +
+                        (sub ? `<div class="lb-date">${sub}</div>` : "") +
                     `</div>` +
                     `<div class="lb-score">${cfg.scoreCell(data)}</div>` +
                 `</div>`;
@@ -7064,7 +7129,7 @@
             let eq = equipped || { banner: 'banner_default', effect: 'effect_none', title: 'title_none' };
             document.getElementById(`${prefix}-banner`).className = `lb-entry ${safeCosmetic(eq.banner, 'banner_default')}`;
             document.getElementById(`${prefix}-name`).className = `lb-name ${safeCosmetic(eq.effect, 'effect_none')}`;
-            let tObj = SHOP_ITEMS.titles.find(t => t.id === eq.title); document.getElementById(`${prefix}-title`).innerText = tObj && tObj.display ? tObj.display : "";
+            document.getElementById(`${prefix}-title`).innerText = titleText(eq);
         }
 
         // Signals *that* the match is over — the server (finishClashMatch)

@@ -330,6 +330,11 @@ const boardSrc = [
   grabSrc(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/, 'formatSprintTime'),
   grabSrc(/        function runScore\(r\) \{[^\n]*\}/, 'runScore'),
   grabSrc(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/, 'runClock'),
+  // The rows carry equipped titles, and titleText resolves one against the
+  // real shop table rather than a stand-in — a stub would prove the lookup
+  // works against ids the game does not sell. SHOP_ITEMS closes at indent 12.
+  grabSrc(/        const SHOP_ITEMS = \{\n[\s\S]*?\n            \};/, 'SHOP_ITEMS'),
+  grabSrc(/        function titleText\(equipped\) \{\n[\s\S]*?\n        \}/, 'titleText'),
   grabSrc(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/, 'ARCHIVES'),
   grabSrc(/        function renderArchiveBoard\(docs, listEl, emptyText, cfg\) \{\n[\s\S]*?\n        \}/, 'renderArchiveBoard'),
 ].join('\n\n');

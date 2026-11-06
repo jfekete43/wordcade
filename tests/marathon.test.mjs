@@ -350,7 +350,7 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
   const board = html.slice(from, to);
 
   const paceAt = board.indexOf('w &middot; ${avg}/w');
-  const scoreAt = board.indexOf('${Number(r.score || 0).toLocaleString()}</span>');
+  const scoreAt = board.indexOf('boardScore(r.score)');
   ck(paceAt !== -1 && scoreAt !== -1, 'the row carries both a pace and a score', `${paceAt}/${scoreAt}`);
   ck(paceAt < scoreAt, 'and the pace comes first, with the score last', `pace@${paceAt} score@${scoreAt}`);
 
@@ -372,7 +372,7 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
     return html.slice(from, to);
   };
   const endsOnScore = (src) => {
-    const score = src.indexOf('Number(r.score || 0).toLocaleString()');
+    const score = src.indexOf('boardScore(r.score)');
     const muted = src.indexOf('color:var(--c-ink-4); margin-right');
     return muted !== -1 && score !== -1 && muted < score;
   };

@@ -184,8 +184,16 @@ ck(/DAILY_ALL_VALID_WORDS\.has\(guess\)/.test(guessSrc),
 }
 
 // ---- the run document ------------------------------------------------------
-ck(/db\.collection\("runs"\)\.doc\(`sprint_\$\{uid\}_\$\{today\}`\)/.test(guessSrc),
+ck(/db\.collection\("runs"\)\.doc\(runDocId\("sprint", uid, today\)\)/.test(guessSrc),
    'the run id is deterministic, so a second submission cannot double-count a day');
+// And the helper it goes through builds the string the client reads back.
+// index.html's ARCHIVES.sprint.runId is the other half of this; equip-refresh
+// .test.mjs runs the two against each other.
+{
+  const idSrc = grab(/function runDocId\(mode, uid, dateStr\) \{[^\n]*\}/, 'runDocId');
+  const runDocId = new Function(`${idSrc}\nreturn runDocId;`)();
+  eq('and it spells the id the archive looks up', runDocId('sprint', 'p1', '2026-11-05'), 'sprint_p1_2026-11-05');
+}
 ck(/mode: "sprint", puzzleDate: today/.test(guessSrc),
    'the run is tagged with its mode and date, which is what the board filters on');
 // Firestore drops documents missing a field the query orders by, so an
@@ -750,7 +758,7 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   const board = html.slice(from, to);
 
   const timeAt = board.indexOf('formatSprintTime(r.elapsedMs)');
-  const scoreAt = board.indexOf('Number(r.score || 0).toLocaleString()');
+  const scoreAt = board.indexOf('boardScore(r.score)');
   ck(timeAt !== -1 && scoreAt !== -1, 'the row carries both a time and a score', `${timeAt}/${scoreAt}`);
   ck(timeAt < scoreAt, 'and the time comes first, with the score last', `time@${timeAt} score@${scoreAt}`);
 

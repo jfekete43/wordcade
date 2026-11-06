@@ -37,6 +37,11 @@ const src = [
   grab(/        function runScore\(r\) \{[^\n]*\}/),
   grab(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/),
   grab(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/),
+  // The real shop table, not a stand-in: titleText looks an id up in it, so a
+  // stub would prove the lookup works against ids nothing in the game sells.
+  // (Its closing brace is indented 12, not 8 — the object body is nested.)
+  grab(/        const SHOP_ITEMS = \{\n[\s\S]*?\n            \};/),
+  grab(/        function titleText\(equipped\) \{\n[\s\S]*?\n        \}/),
   // The renderer takes its per-mode formatting from this table; the live
   // Trifecta board is ARCHIVES.daily. Nothing in it runs at definition time.
   grab(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/),
@@ -118,9 +123,60 @@ render(snap([{
 }]), { uid: 'me' });
 const h = out();
 ck(h.includes('&lt;img') && !h.includes('<img'), 'markup in a username renders as escaped text, never a tag');
-ck(!/<(?!\/?div\b)/.test(h), 'no tag other than the row divs is ever emitted');
+// Spans joined the row when the equipped title did: the sub-line colours its
+// two halves separately. Still worth asserting — an <img>, a <script> or an
+// attribute broken out of a class="" would all fail this.
+ck(!/<(?!\/?(div|span)\b)/.test(h), 'no tag other than the row divs and sub-line spans is ever emitted');
 ck(!h.includes('onload'), 'a tampered cosmetic id is rejected rather than placed in class=""');
 ck(/class="lb-entry banner_default"/.test(h), '...and falls back to the default banner');
+
+// ---- the equipped title shares the sub-line with the detail --------------
+// It was missing from this board entirely: the title was looked up in the
+// Hall of Fame renderer and nowhere else, so a player who had bought one saw
+// it on exactly one of the five boards their name appears on.
+const subOf = (row) => (row.match(/class="lb-date">([\s\S]*?)<\/div>/) || [, ''])[1];
+{
+  render(snap([
+    { uid: 'a', username: 'ALPHA', score: 900, wordsGuessed: 3, equipped: { title: 'title_wizard' } },
+    // Same words solved on purpose: the two sub-lines are then identical
+    // unless one of them has grown a title, which is the thing being asked.
+    { uid: 'b', username: 'BRAVO', score: 800, wordsGuessed: 2, equipped: { title: 'title_none' } },
+    { uid: 'c', username: 'CHARLIE', score: 700, wordsGuessed: 2 },
+    { uid: 'd', username: 'DELTA', score: 600, wordsGuessed: 1, equipped: { title: 'title_not_a_real_id' } },
+  ]), null);
+  const r = rows();
+  ck(/Word Wizard/.test(subOf(r[0])), 'an equipped title is shown', subOf(r[0]));
+  ck(/3 solved/.test(subOf(r[0])), '...alongside the words solved', subOf(r[0]));
+  ck(subOf(r[0]).indexOf('Word Wizard') < subOf(r[0]).indexOf('3 solved'),
+     '...title first, detail last, so the varying half stays in one column', subOf(r[0]));
+  ck(/&middot;/.test(subOf(r[0])), '...separated by a middot', subOf(r[0]));
+  // title_none exists in the shop and its display is "" — the no-title option
+  // must read as no title, not as a blank one with a separator hanging off it.
+  ck(subOf(r[1]) === subOf(r[2]), '"No Title" renders exactly as having no equipped map at all',
+     `${subOf(r[1])} vs ${subOf(r[2])}`);
+  for (const i of [1, 2, 3]) {
+    ck(!/&middot;/.test(subOf(r[i])), `no dangling separator on row ${i}`, subOf(r[i]));
+    ck(/solved/.test(subOf(r[i])), `and the detail still shows on row ${i}`, subOf(r[i]));
+  }
+  ck(!/not_a_real_id/.test(out()), 'an id the shop has never sold prints nothing at all');
+}
+// Sprint's rows have no detail, so there the title is the whole sub-line — and
+// with neither there must be no sub-line div to take up a row's worth of
+// margin. Driven through ARCHIVES.sprint rather than asserted about it.
+{
+  const sprintRender = new Function(`
+    ${src}
+    return (docs) => { renderArchiveBoard(docs, globalThis.__target, "none", ARCHIVES.sprint); };
+  `.replace(/\bcurrentUser\b/g, 'globalThis.__u'))();
+  sprintRender(snap([
+    { uid: 'a', username: 'ALPHA', score: 500, elapsedMs: 4200, equipped: { title: 'title_speedrunner' } },
+    { uid: 'b', username: 'BRAVO', score: 500, elapsedMs: 9100 },
+  ]));
+  const r = rows();
+  ck(/Speedrunner/.test(subOf(r[0])), 'on Sprint the title is the sub-line', subOf(r[0]));
+  ck(!/&middot;/.test(subOf(r[0])), '...with nothing to separate it from', subOf(r[0]));
+  ck(!/lb-date/.test(r[1]), 'and a Sprint row with no title emits no sub-line at all', r[1]);
+}
 
 render(snap([{ uid: 'a', username: 'A', score: -50, wordsGuessed: -3 }]), null);
 ck(out().includes('>0<'), 'a negative score clamps to 0');

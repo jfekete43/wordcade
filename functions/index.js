@@ -281,6 +281,35 @@ const EQUIP_SLOT = { titles: "title", banners: "banner", effects: "effect" };
 const DEFAULT_INVENTORY = ["title_none", "skin_default", "banner_default", "effect_none"];
 const DEFAULT_EQUIPPED = { title: "title_none", skin: "skin_default", banner: "banner_default", effect: "effect_none" };
 
+/*
+ * A set of equipped cosmetics, or nothing. Anything that is not a plain map of
+ * slots is read as nothing rather than as a value: firestore.rules only lets a
+ * client store a map of the four known slots, so a string or a list here is a
+ * shape nothing is supposed to be able to reach, and the safe reading of one
+ * is "this player is wearing nothing" - not "copy it onto their run".
+ */
+function wornMap(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+/*
+ * Did a profile write change what the player is wearing?
+ *
+ * Compared over the UNION of both sides' keys rather than against a list of
+ * slot names written out here, so a slot added to DEFAULT_EQUIPPED later is
+ * covered the day it exists instead of being quietly ignored until somebody
+ * notices this function never heard of it. A missing key and an undefined one
+ * compare equal, which is what we want: neither is something being worn.
+ */
+function sameEquipped(a, b) {
+  const x = wornMap(a);
+  const y = wornMap(b);
+  for (const k of new Set([...Object.keys(x), ...Object.keys(y)])) {
+    if (x[k] !== y[k]) return false;
+  }
+  return true;
+}
+
 // The Trifecta's three words, drawn uniformly from the whole target list.
 //
 // It used to draw a ramp — one word from the easy third of the list, one from
@@ -356,6 +385,24 @@ const FFA_PAYOUT_CURVES = {
 function getTodayDateStr() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
+
+/*
+ * The id of the single run a once-a-day mode records for a player.
+ *
+ * Deterministic on purpose: a retried submit overwrites its own row instead
+ * of adding a second one, which is what caps those boards at one entry per
+ * player per puzzle - and what lets onEquippedChanged below find today's rows
+ * by name, with no query and so no composite index on uid + puzzleDate.
+ *
+ * index.html's ARCHIVES[mode].runId builds the same string; it reads these
+ * documents back to tell a player where they placed.
+ */
+function runDocId(mode, uid, dateStr) { return `${mode}_${uid}_${dateStr}`; }
+
+// The modes that record one. Marathon keeps its month on the user doc and
+// writes no run at all; a standard run is created by the client and takes a
+// random id, so there is nothing to look up.
+const PER_DAY_RUN_MODES = ["daily", "sprint"];
 
 // The Eastern calendar MONTH, "YYYY-MM". Marathon's whole identity: the word
 // set, the attempt and the board are all keyed by it, and it rolling over is
@@ -1169,6 +1216,56 @@ exports.onUserProfileCreated = onDocumentCreated("users/{userId}", async (event)
   const replacement = HANDLE.safeFallbackHandle();
   console.warn(`replaced a screened handle on new profile ${event.params.userId}`);
   await snap.ref.update({ username: replacement });
+});
+
+/*
+ * Equipping something repaints the boards that are showing you.
+ *
+ * Cosmetics belong to the player, but the Sprint and Trifecta boards read
+ * them off the RUN document, where they were copied at the moment the run was
+ * written. They have to: those boards rank /runs, and re-resolving every row
+ * against /users would cost a user read per player per paint - on the
+ * Trifecta's live listener, per player per update. So the snapshot goes stale
+ * the moment you equip anything, which is why the Stakes boards (straight off
+ * /users) changed instantly and these two did not.
+ *
+ * Fixed from this end instead: when a profile's `equipped` changes, push the
+ * new set onto the runs those boards are actually querying - today's. At most
+ * two writes per equip, no reads on anyone's client, and the Trifecta's
+ * onSnapshot picks the change up without being asked.
+ *
+ * PAST days keep the snapshot they were written with. That is the deliberate
+ * boundary: the alternative is rewriting every run a player has ever
+ * recorded, and an archive showing what somebody wore that day reads as a
+ * record rather than as a bug.
+ *
+ * Fires on every write to a user doc, which is mostly onRunCreated's own stat
+ * updates - the sameEquipped check in front makes those a no-op, and it is
+ * cheaper than any arrangement that would avoid the invocation. Writes only
+ * to /runs, so it cannot retrigger itself, and /runs has no update trigger.
+ */
+exports.onEquippedChanged = onDocumentUpdated("users/{userId}", async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (!after) return;
+  if (sameEquipped(before && before.equipped, after.equipped)) return;
+
+  const uid = event.params.userId;
+  const today = getTodayDateStr();
+  const refs = PER_DAY_RUN_MODES.map((mode) => db.collection("runs").doc(runDocId(mode, uid, today)));
+  // One round trip for the lot. A getAll of ids that do not exist returns
+  // missing snapshots rather than throwing, so a player who has not played
+  // today costs two reads and stops here.
+  const snaps = await db.getAll(...refs);
+  const present = snaps.filter((snap) => snap.exists);
+  if (!present.length) return;
+
+  const batch = db.batch();
+  // The whole map, exactly as the submit handlers copy it, rather than a
+  // field-by-field merge - the point is for the run doc to agree with the
+  // profile, and a merge would leave a slot the player has just cleared.
+  for (const snap of present) batch.update(snap.ref, { equipped: wornMap(after.equipped) });
+  await batch.commit();
 });
 
 // Legacy-field backfill + daily-challenge rollover. Called on every sign-in
@@ -2154,7 +2251,7 @@ exports.guessDailyWord = onCall(readableFailures("Submitting that Daily Puzzle g
       // without it, daily-mode entries render bannerless/effectless in the
       // live feed and leaderboard even though the player has cosmetics
       // equipped, since both just read equipped straight off the run doc.
-      const runRef = db.collection("runs").doc(`daily_${uid}_${today}`);
+      const runRef = db.collection("runs").doc(runDocId("daily", uid, today));
       tx.set(runRef, {
         uid, username, equipped, score: newScore, isWipeout: false, lostScore: 0,
         wordsGuessed, wordsPlayed, guess1: g1, guess2: g2, guess3: g3, guess4: g4, guess5: g5,
@@ -2300,7 +2397,7 @@ exports.guessSprintWord = onCall(readableFailures("Submitting that Sprint guess"
       // and onRunCreated's payoutApplied guard makes the retry a no-op.
       const g = [0, 0, 0, 0, 0];
       if (solved) g[guessNumber - 1] = 1;
-      const runRef = db.collection("runs").doc(`sprint_${uid}_${today}`);
+      const runRef = db.collection("runs").doc(runDocId("sprint", uid, today));
       tx.set(runRef, {
         uid, username, equipped, score, isWipeout: false, lostScore: 0,
         wordsGuessed: solved ? 1 : 0, wordsPlayed: 1,
