@@ -2252,7 +2252,7 @@
                     <li>Same 5-guess, 500/250/150/50/10 scoring as Stakes, and no Continues — but you play all three words whatever happens. Run out of guesses and the answer is revealed, you score nothing for that word, and the next one starts.</li>
                     <li>No clock, and you don't have to finish in one sitting — stop whenever you like and pick up on the same word later the same day.</li>
                     <li>Resets at midnight Eastern.</li>
-                    <li>Share your result as a spoiler-free bar — 🟩 for each word you solved and ❌ for each you missed, in play order.</li>
+                    <li>Share your result — spoiler-free, and just the numbers: how many of the three you solved, your score, and your average guesses.</li>
                     <li>Today's standings are on the Trifecta screen itself, ordered by score and then by words solved, and yesterday's stay in Past Trifectas. Your best single Trifecta ever sits on the Hall of Fame's Trifecta board.</li>
                 </ul>
 
@@ -8326,30 +8326,24 @@
             const avgGuesses = played.length ? (totalGuesses / played.length).toFixed(1) : "0.0";
 
             // Everyone plays every word, so this is simply how many of them
-            // came off. It used to double as "the word you went out on, minus
-            // one", which is what the bar below used to draw.
+            // came off, and with three words it is the whole picture. It used
+            // to double as "the word you went out on, minus one", back when a
+            // run could end anywhere.
             const solvedLine = `${solvedCount}/${dailyAttempt.wordCount}`;
             const isPerfect = solvedCount === dailyAttempt.wordCount;
 
-            // A run bar, on its own line: one mark per word, in the order
-            // they were played.
+            // No run bar. One mark per word in play order used to live here,
+            // and on a TEN-word puzzle it earned the line: ten marks carried a
+            // shape that a count could not. Three words is not a shape. Three
+            // squares say precisely what "3/3" on the line below says, in a
+            // form the reader has to count first.
             //
-            // Now that every player sees every word, position means the same
-            // thing to everyone reading it — word 7 is word 7 — which is the
-            // property that makes Wordle's grid worth looking at. It was not
-            // true before: the bar was greens, then the one word that ended
-            // you, then blanks for words you never saw.
-            //
-            // It carries one dimension, solved or not, so it needs no legend.
-            // The old grid coloured by GUESS COUNT — five meanings a reader
-            // cannot infer — and that is what got it dropped.
-            //
-            // A cross rather than a red square, deliberately: red against green
-            // is the one pairing a colour-blind reader cannot separate, and a
-            // run can now hold one per word. The trailing blanks are
-            // defensive only — a finished run has played every word.
-            const bar = played.map((h) => (h.solved ? "\u{1F7E9}" : "\u274C")).join("")
-                + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - played.length));
+            // What would earn the line back is a mark that carries what the
+            // count cannot - how many guesses each word cost. The grid that
+            // preceded the bar tried exactly that and encoded it in HUE, five
+            // meanings a reader cannot infer, which is what killed it; a
+            // printed numeral is a different proposition and has not been
+            // tried.
             // A clean sweep gets said outright — the whole point of a share is
             // to make a great run look like one.
             const resultLine = isPerfect
@@ -8358,7 +8352,7 @@
 
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Trifecta #${num}` : "🕹️ Lexathon Trifecta";
-            const shareMessage = `${heading}\n${bar}\n${resultLine}`;
+            const shareMessage = `${heading}\n${resultLine}`;
             shareViaSheetOrClipboard("Lexathon Trifecta", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result", { preview: false });
         }
 
