@@ -3123,16 +3123,28 @@
         // nothing but an orderBy, which is the other reason it is the default.
         let homeBoard = "all";
         const HOME_BOARDS = {
-            all:    { title: "All-Time Best Runs", field: "bestRunScore",
+            // tsField is the stamp under the name: WHEN that best run
+            // happened, which on an all-time board is half the story - a
+            // 128,400 from last October and one from this morning are
+            // different claims. Named in the table rather than decided in the
+            // renderer, so the two boards that deliberately have no stamp say
+            // so out loud.
+            all:    { title: "All-Time Best Runs", field: "bestRunScore", tsField: "bestRunAt",
                       empty: "No runs yet — play a game to get on the board.", lb: "all" },
             // No lb tab either, since the Hall of Fame became one all-time
             // board per mode and stopped being one per window. This list is
             // the week's depth now - ten deep, same as the day's.
-            weekly: { title: "This Week's Best",   field: "periodBestScore",
+            // No stamp: every row on it is from this week by construction, so
+            // the date would say the same thing seven ways. periodBestAt is
+            // on the user doc if that ever stops being true.
+            weekly: { title: "This Week's Best",   field: "periodBestScore", tsField: null,
                       empty: "No runs this week — play a game to get on the board.", lb: null },
             // No lb tab: the arrows below ARE the daily board's depth, seven
             // days of it, which a Hall of Fame tab would not add to.
-            daily:  { title: null,                 field: "dayBestScore",
+            // Nor here, for the same reason, twice over: the heading already
+            // names the day, and a past day is served from a stored top-ten
+            // that carries no timestamps at all.
+            daily:  { title: null,                 field: "dayBestScore", tsField: null,
                       empty: "No runs yet today — be first.", lb: null },
         };
         const DAILY_BOARD_MAX_BACK = 7;   // how far the arrows go
@@ -3172,6 +3184,21 @@
         // reach a board with a negative best — rules bound every stored score at
         // zero — but this is the one place the ten-row card turns a number into
         // text, so it is the one place that can promise it.
+        // The day a best run happened, printed the way the Hall of Fame's
+        // Stakes tab prints it. The ten-row card and that tab are the same
+        // board at two depths, and a date that read differently on each would
+        // be two facts rather than one, so both go through here.
+        //
+        // Guarded rather than trusting .toDate(): a document written by an
+        // older client, or one read back before the server timestamp has
+        // settled, hands you something that is not a Timestamp, and the board
+        // should lose the stamp rather than the row.
+        function boardDate(ts) {
+            if (!ts || typeof ts.toDate !== "function") return "";
+            const d = ts.toDate();
+            return d instanceof Date && Number.isFinite(d.getTime()) ? d.toLocaleDateString() : "";
+        }
+
         function boardScore(n) { return Math.max(0, Number(n) || 0).toLocaleString(); }
 
         // One row of the ten-row card. The home board's three tabs, Sprint's
@@ -3184,26 +3211,33 @@
         //
         // `name` and `equipped` come off a user doc or a stored board — both
         // are player-supplied, so both go through escapeHtml/safeCosmetic.
-        function dailyBoardRow(place, name, equipped, scoreCell) {
+        function dailyBoardRow(place, name, equipped, scoreCell, note) {
             const eq = equipped || {};
             const bannerClass = safeCosmetic(eq.banner, "banner_default");
             const nameClass = safeCosmetic(eq.effect, "effect_none");
+            // Title and date share the sub-line, in that order and separated
+            // the way the Hall of Fame separates them - the date lighter than
+            // the title, because it is the smaller claim of the two. Either
+            // half can be absent, so they are joined rather than concatenated.
+            const sub = [];
             const title = titleText(eq);
+            if (title) sub.push(escapeHtml(title));
+            if (note) sub.push(`<span style="font-weight:normal;">${escapeHtml(note)}</span>`);
             return `<div class="daily-board-row ${bannerClass}">`
                 + `<span class="daily-board-place">#${place}</span>`
                 + `<span class="daily-board-col">`
                     + `<span class="daily-board-name ${nameClass}">${escapeHtml(name || "Player")}</span>`
-                    // Omitted, not emptied, when there is no title: an empty
+                    // Omitted, not emptied, when there is neither: an empty
                     // line still takes its own margin, so every row on the
                     // board would grow to make room for nothing.
-                    + (title ? `<span class="daily-board-title">${escapeHtml(title)}</span>` : "")
+                    + (sub.length ? `<span class="daily-board-title">${sub.join(" - ")}</span>` : "")
                 + `</span>`
                 + `<span class="daily-board-score">${scoreCell}</span></div>`;
         }
 
         function renderDailyBoardRows(rows, emptyText) {
             document.getElementById("daily-board-list").innerHTML =
-                rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.equipped, boardScore(r.score))).join("")
+                rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.equipped, boardScore(r.score), boardDate(r.ts))).join("")
                 || `<div style="color:var(--c-ink-4);">${escapeHtml(emptyText)}</div>`;
         }
 
@@ -3329,7 +3363,8 @@
                 if (modeOwnsHomeBoard()) return;
                 const rows = snap.docs.map((d) => {
                     const u = d.data();
-                    return { uid: d.id, name: u.username, score: u[cfg.field], equipped: u.equipped };
+                    return { uid: d.id, name: u.username, score: u[cfg.field], equipped: u.equipped,
+                             ts: cfg.tsField ? u[cfg.tsField] : null };
                 }).filter((r) => Number(r.score) > 0);
                 renderDailyBoardRows(rows, cfg.empty);
                 renderHomeBoardYou(rows);
@@ -4476,8 +4511,11 @@
                         }
         
                         finalData.forEach((entry, index) => {
-                            let dateStr = "";
-                            if (currentLbTime === 'all' && entry.ts) dateStr = `<span style="font-weight:normal;"> - ${entry.ts.toDate().toLocaleDateString()}</span>`;
+                            // Through boardDate, which is also what the ten-row
+                            // card uses: this tab and that card are the same
+                            // board at two depths.
+                            const when = currentLbTime === 'all' ? boardDate(entry.ts) : "";
+                            const dateStr = when ? `<span style="font-weight:normal;"> - ${escapeHtml(when)}</span>` : "";
                             let eq = entry.equipped || {}; let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
                             let titleStr = escapeHtml(titleText(eq));
                             // Both rating boards show the tier the number puts

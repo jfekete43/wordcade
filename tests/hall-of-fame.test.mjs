@@ -136,6 +136,35 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
   ck(/paint\(`#\$\{\(ahead\.data\(\)\.count \+ 1\)\.toLocaleString\(\)\}`, lbScoreText\(mode, mine\)/.test(html),
      'and so does your own position', (html.match(/paint\(`#\$\{\(ahead[^\n]{0,120}/) || [''])[0]);
 }
+// ---- the date stamp belongs to one tab ----------------------------------
+// Stakes is the all-time board, and when a best run happened is half of what
+// a row on it claims. No other tab here ranks a single dated run - a career
+// bank, a rating and a streak are not events - so a date on one of those
+// would be labelling the wrong thing. Run rather than matched: the guard is
+// one condition and a regex over it asserts its spelling.
+{
+  const rowSrc = between(html, 'finalData.forEach((entry, index) => {', '\n                        });');
+  const row = new Function('entry', 'index', 'currentLbTime', 'escapeHtml', 'safeCosmetic',
+    'titleText', 'getRankDetails', 'lbScoreText', 'boardDate',
+    `let html = ""; const finalData = [entry];\n${rowSrc}\n});\nreturn html;`);
+  const call = (mode, ts) => row(
+    { name: 'SODA', score: 4600, equipped: {}, ts }, 0, mode,
+    (x) => String(x), (v, f) => f, () => '', () => ({ class: '', name: 'BRONZE' }),
+    (m, sc) => String(sc), (x) => (x ? '10/2/2026' : ''));
+
+  ck(call('all', true).includes('10/2/2026'), 'the Stakes tab stamps its rows', call('all', true));
+  for (const mode of ['career', 'clash', 'ffa', 'daily', 'sprint']) {
+    ck(!call(mode, true).includes('10/2/2026'),
+       `the ${mode} tab does not, even handed a timestamp`, call(mode, true));
+  }
+  // Nothing at all, not an empty stamp: the separator is part of the date, so
+  // a player with no stored timestamp must not get a dash with nothing after
+  // it where their title would be.
+  const sub = (markup) => (markup.match(/class="lb-date"[^>]*>([\s\S]*?)<\/div>/) || [, 'NO SUB-LINE'])[1];
+  eq('a player with no stored timestamp is stamped with nothing', sub(call('all', null)), '');
+  ck(!/\s-\s/.test(sub(call('all', null))), '...not even the dash in front of it', sub(call('all', null)));
+}
+
 {
   // Scoped to the ONE entry, by name. A check against the whole object reads
   // true off any entry that happens to have the flag — and `sprint:` unanchored

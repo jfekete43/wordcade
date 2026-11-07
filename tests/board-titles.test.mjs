@@ -44,10 +44,11 @@ const src = [
   grab(/        const SHOP_ITEMS = \{\n[\s\S]*?\n            \};/),
   grab(/        function titleText\(equipped\) \{\n[\s\S]*?\n        \}/),
   grab(/        function boardScore\(n\) \{[^\n]*\}/),
-  grab(/        function dailyBoardRow\(place, name, equipped, scoreCell\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function boardDate\(ts\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function dailyBoardRow\(place, name, equipped, scoreCell, note\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
-const lift = new Function(`${src}\nreturn { titleText, boardScore, dailyBoardRow, SHOP_ITEMS };`)();
-const { titleText, boardScore, dailyBoardRow, SHOP_ITEMS } = lift;
+const lift = new Function(`${src}\nreturn { titleText, boardScore, boardDate, dailyBoardRow, SHOP_ITEMS };`)();
+const { titleText, boardScore, boardDate, dailyBoardRow, SHOP_ITEMS } = lift;
 
 // ---- titleText -------------------------------------------------------------
 {
@@ -121,6 +122,76 @@ const rowOf = (name, equipped, cell = boardScore(1234567)) => dailyBoardRow(3, n
   eq('scores are thousands-separated', boardScore(1234567), '1,234,567');
 }
 
+// ---- the date stamp -------------------------------------------------------
+// On an all-time board, WHEN is half the claim: a 128,400 from last October
+// and one from this morning are not the same thing. The ten-row card had the
+// score and not the date; the Hall of Fame tab it expands into had both.
+{
+  const stamp = (iso) => boardDate({ toDate: () => new Date(iso) });
+  const got = stamp('2026-10-02T12:00:00Z');
+  ck(got.length > 0, 'a Firestore timestamp becomes a date', got);
+  ck(got === new Date('2026-10-02T12:00:00Z').toLocaleDateString(),
+     '...in the viewer\'s own locale, like every other date in the game', got);
+
+  // A document written by an older client, or read back before the server
+  // timestamp settles, hands you something that is not a Timestamp. Lose the
+  // stamp, not the row.
+  for (const [label, value] of [
+    ['nothing at all', undefined],
+    ['null', null],
+    ['a plain string', '2026-10-02'],
+    ['a number', 1760000000],
+    ['an object with no toDate', { seconds: 1760000000 }],
+    ['a toDate that returns rubbish', { toDate: () => 'tuesday' }],
+    ['a toDate that returns an invalid Date', { toDate: () => new Date('nope') }],
+  ]) {
+    eq(`${label}: no stamp rather than a crash`, boardDate(value), '');
+  }
+}
+
+{
+  const WHEN = '10/2/2026';
+  const withBoth = dailyBoardRow(1, 'SODA', { title: titled.id }, '100', WHEN);
+  ck(withBoth.includes(titled.display) && withBoth.includes(WHEN),
+     'a row carries the title and the date together', withBoth);
+  ck(withBoth.indexOf(titled.display) < withBoth.indexOf(WHEN),
+     '...title first, date second, as the Hall of Fame has them', withBoth);
+  ck(/-\s*<span style="font-weight:normal;">/.test(withBoth),
+     '...separated by a dash, with the date the lighter of the two', withBoth);
+  eq('one sub-line, not two', (withBoth.match(/daily-board-title/g) || []).length, 1);
+
+  const dateOnly = dailyBoardRow(1, 'SODA', {}, '100', WHEN);
+  ck(dateOnly.includes(WHEN) && /daily-board-title/.test(dateOnly),
+     'a player with no title still gets the stamp', dateOnly);
+  ck(!dateOnly.includes(' - '), '...with no dash hanging off the front of it', dateOnly);
+
+  const titleOnly = dailyBoardRow(1, 'SODA', { title: titled.id }, '100', '');
+  ck(!titleOnly.includes(' - '), 'and no dash hanging off the end when there is no date', titleOnly);
+
+  const neither = dailyBoardRow(1, 'SODA', {}, '100', '');
+  ck(!/daily-board-title/.test(neither), 'neither means no sub-line at all', neither);
+
+  // The note reaches innerHTML, so it is escaped like everything else even
+  // though today it is only ever a formatted date.
+  const hostile = dailyBoardRow(1, 'SODA', {}, '100', '<img src=x onerror=alert(1)>');
+  ck(hostile.includes('&lt;img') && !hostile.includes('<img'), 'a note is escaped', hostile);
+}
+
+// Which boards carry a stamp is a property of the table, not of the renderer.
+{
+  const tbl = between('const HOME_BOARDS = {', '\n        };');
+  const boards = new Function(`${tbl}\n};\nreturn HOME_BOARDS;`)();
+  eq('the all-time board stamps rows with the run that set them',
+     boards.all.tsField, 'bestRunAt');
+  eq('this week needs no stamp: every row on it is from this week',
+     boards.weekly.tsField, null);
+  eq('nor does a single day, whose heading already names it',
+     boards.daily.tsField, null);
+  // Named on every board, so a new one has to decide rather than inherit.
+  ck(Object.values(boards).every((b) => 'tsField' in b),
+     'and every board says which it is', JSON.stringify(Object.keys(boards)));
+}
+
 // ---- every board goes through it ------------------------------------------
 // The claim this file exists to defend. Derived from the source rather than
 // listed here: a board added later that hand-rolls the markup again fails
@@ -147,6 +218,18 @@ const rowOf = (name, equipped, cell = boardScore(1234567)) => dailyBoardRow(3, n
     'the Trifecta feed and both archives': between('function renderArchiveBoard(docs, listEl, emptyText, cfg)', '\n        }'),
   })) {
     ck(/titleText\(/.test(body), `${what} uses it too`, body.slice(0, 120));
+  }
+
+  // The same for the date: the ten-row card and the Hall of Fame tab it
+  // expands into are one board at two depths, and a date formatted twice is
+  // a date that eventually reads two ways.
+  eq('boardDate is the only place a timestamp becomes text',
+     (html.match(/\.toDate\(\)\.toLocaleDateString\(\)/g) || []).length, 0);
+  for (const [what, body] of Object.entries({
+    'the ten-row card': between('function renderDailyBoardRows(rows, emptyText)', '\n        }'),
+    'the Hall of Fame': between('window.loadLeaderboardData = async function()', 'GAME LOGIC (STANDARD & VERSUS)'),
+  })) {
+    ck(/boardDate\(/.test(body), `${what} stamps its rows through boardDate`, body.slice(0, 160));
   }
 }
 

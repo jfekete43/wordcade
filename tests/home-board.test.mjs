@@ -234,6 +234,27 @@ ck(/filter\(\(r\) => Number\(r\.score\) > 0\)/.test(usersBoardSrc),
 // A live listener on an unfiltered orderBy over /users is the expensive kind.
 ck(!/onSnapshot/.test(usersBoardSrc), 'neither board opens a subscription');
 
+// ---- the date stamp travels with the row ---------------------------------
+// The all-time board carries WHEN the best run happened; the weekly and daily
+// ones deliberately do not. The renderer does not decide that - the table
+// does, and loadUsersBoard reads it off cfg. Run the mapper rather than
+// matching it, so "reads it off cfg" is a fact and not a hope.
+{
+  const mapper = new Function('cfg', 'u', `
+    const r = ${(usersBoardSrc.match(/return \{ uid: d\.id[\s\S]*?\};/) || [''])[0].replace('return', '')}
+    return r;`.replace(/\bd\.id\b/g, '"uid"'));
+  ck(/return \{ uid: d\.id/.test(usersBoardSrc), 'found the row mapper', usersBoardSrc.slice(0, 120));
+  const user = { username: 'SODA', bestRunScore: 9, periodBestScore: 4, dayBestScore: 2,
+                 bestRunAt: 'STAMP', periodBestAt: 'WEEKSTAMP', equipped: {} };
+  eq('all-time carries the run\'s own timestamp', mapper(HOME_BOARDS.all, user).ts, 'STAMP');
+  eq('weekly carries none, though periodBestAt exists on the doc',
+     mapper(HOME_BOARDS.weekly, user).ts, null);
+  eq('and daily none either', mapper(HOME_BOARDS.daily, user).ts, null);
+  // A board whose tsField names a field the player has not got yet.
+  eq('a player with no best-run timestamp gets no stamp rather than undefined-ish junk',
+     mapper(HOME_BOARDS.all, { username: 'NEW', bestRunScore: 1 }).ts, undefined);
+}
+
 const loadSrc = between(html, 'async function loadHomeBoard() {', '\n        }\n', 'loadHomeBoard');
 ck(/if \(dailyBoardUnsub\) \{ dailyBoardUnsub\(\); dailyBoardUnsub = null; \}/.test(loadSrc),
    'switching boards drops the daily listener rather than leaving it running');
