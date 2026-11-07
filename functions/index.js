@@ -1149,6 +1149,57 @@ exports.purchaseItem = onCall(async (request) => {
   });
 });
 
+/*
+ * Is this handle already somebody else's?
+ *
+ * Two queries, because the collection is mid-migration. `usernameLower` is
+ * the one that matters - "SODA" and "soda" are the same handle to anyone
+ * reading a leaderboard, and a free rename makes grabbing the variant of
+ * somebody else's name cost nothing - but the field only exists on profiles
+ * that have signed in since it was added, so the exact-case query still
+ * covers the rest. refreshProfile backfills it on sign-in; the second query
+ * can come out once no profile is without it.
+ *
+ * Deliberately NOT transactional. Firestore cannot query other documents
+ * inside a transaction, so two players submitting the same new handle in the
+ * same second can both pass this. Closing that needs a `usernames/{lower}`
+ * reservation document written in the same transaction, which is the right
+ * answer if it ever actually happens - and it cannot be made to cover the
+ * other door anyway, since a new profile's handle is written by the client
+ * and only de-duplicated afterwards by onUserProfileCreated.
+ */
+async function handleTaken(name, uid) {
+  const lower = String(name).toLowerCase();
+  const [exact, lowered] = await Promise.all([
+    db.collection("users").where("username", "==", name).limit(2).get(),
+    db.collection("users").where("usernameLower", "==", lower).limit(2).get(),
+  ]);
+  return [...exact.docs, ...lowered.docs].some((d) => d.id !== uid);
+}
+
+/*
+ * `base`, or `base` with four digits stuck on the end if somebody already has
+ * it. The stem is cut to leave room for the suffix, so the result still fits
+ * HANDLE_MAX rather than being truncated back into the collision.
+ *
+ * Only ever used on a profile being created: a player typing a taken handle
+ * is told so and asked for another, which is the honest answer to someone who
+ * chose. A generated default nobody chose is better quietly made unique - the
+ * same bargain the screened-handle replacement above it already makes, and
+ * the handle-setup prompt asks them to pick in the next breath regardless.
+ */
+async function uniqueHandle(base, uid) {
+  if (!(await handleTaken(base, uid))) return base;
+  for (let i = 0; i < 5; i++) {
+    const suffix = String(Math.floor(1000 + Math.random() * 9000));
+    const candidate = `${base.substring(0, HANDLE_MAX - suffix.length - 1)}_${suffix}`;
+    if (!(await handleTaken(candidate, uid))) return candidate;
+  }
+  // Five collisions on a random four-digit suffix means something is wrong
+  // with the assumption, not with the dice. Fall back to the generated name.
+  return HANDLE.safeFallbackHandle();
+}
+
 exports.changeUsername = onCall(async (request) => {
   const uid = requireAuth(request);
   const raw = (request.data && request.data.username) || "";
@@ -1168,13 +1219,7 @@ exports.changeUsername = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "That Arcade Handle isn't allowed. Please choose another.");
   }
 
-  // Best-effort uniqueness check. Firestore transactions can't safely query
-  // *other* documents by field value, so this narrows the collision window
-  // rather than eliminating it outright — a true guarantee would need a
-  // dedicated `usernames/{name}` reservation doc, which is a reasonable
-  // follow-up if handle squatting/collisions turn out to matter in practice.
-  const dupeSnap = await db.collection("users").where("username", "==", name).limit(2).get();
-  if (dupeSnap.docs.some((d) => d.id !== uid)) {
+  if (await handleTaken(name, uid)) {
     throw new HttpsError("already-exists", "That Arcade Handle is already taken! Please choose another.");
   }
 
@@ -1183,16 +1228,20 @@ exports.changeUsername = onCall(async (request) => {
     const snap = await tx.get(userRef);
     if (!snap.exists) throw new HttpsError("not-found", "Profile not found.");
     const data = snap.data();
-    const handleChanges = data.handleChanges || 0;
-    const cost = handleChanges > 0 ? 5000 : 0;
-    const wallet = data.wallet || 0;
-    if (wallet < cost) throw new HttpsError("failed-precondition", "You need 5,000 pts in your Wallet to change your handle!");
+    // Renaming is free. It used to cost 5,000 pts after the first one, which
+    // is a toll on the one thing a new player wants to fix about their
+    // account in the first minute - and the people it actually stopped were
+    // the ones with nothing banked yet. Worth revisiting if handle churn ever
+    // becomes a way to dodge being recognised; it is not one at this size.
     tx.update(userRef, {
       username: name,
-      wallet: FieldValue.increment(-cost),
-      handleChanges: handleChanges + 1,
+      usernameLower: name.toLowerCase(),
+      handleChanges: (data.handleChanges || 0) + 1,
     });
-    return { username: name, cost };
+    // `cost` is still reported, and is still zero. A browser on a cached copy
+    // of index.html subtracts this from its local wallet, and dropping the
+    // field would make that `wallet -= undefined`.
+    return { username: name, cost: 0 };
   });
 });
 
@@ -1204,6 +1253,14 @@ exports.changeUsername = onCall(async (request) => {
  * appears. Silent on purpose: the player is choosing their real handle in the
  * next breath anyway, and nothing is lost but a name they did not pick.
  *
+ * It also de-duplicates, for the same reason and on the same terms. The
+ * generated default is a first name in capitals, so the second player called
+ * Josh arrives as a second JOSH — the rename door has always refused a taken
+ * handle, and this is the door the duplicates were actually coming through.
+ *
+ * And it writes `usernameLower`, which is what makes "already taken" mean the
+ * same thing to the code as it does to a player reading a leaderboard.
+ *
  * Creation is the only other way a username is ever set — rules let a client
  * update nothing but `equipped` on its own profile — so these two doors are the
  * complete set.
@@ -1211,11 +1268,19 @@ exports.changeUsername = onCall(async (request) => {
 exports.onUserProfileCreated = onDocumentCreated("users/{userId}", async (event) => {
   const snap = event.data;
   if (!snap) return;
+  const uid = event.params.userId;
   const name = snap.get("username");
-  if (typeof name !== "string" || !HANDLE.isBlockedHandle(name)) return;
-  const replacement = HANDLE.safeFallbackHandle();
-  console.warn(`replaced a screened handle on new profile ${event.params.userId}`);
-  await snap.ref.update({ username: replacement });
+  if (typeof name !== "string") return;
+
+  const screened = HANDLE.isBlockedHandle(name) ? HANDLE.safeFallbackHandle() : name;
+  if (screened !== name) console.warn(`replaced a screened handle on new profile ${uid}`);
+  const final = await uniqueHandle(screened, uid);
+  if (final !== screened) console.warn(`de-duplicated a handle on new profile ${uid}`);
+
+  // Written unconditionally rather than only when the name changed: a profile
+  // whose handle was fine still arrives without usernameLower, and this is the
+  // one place every new profile passes through.
+  await snap.ref.update({ username: final, usernameLower: final.toLowerCase() });
 });
 
 /*
@@ -1368,6 +1433,13 @@ exports.refreshProfile = onCall(async (request) => {
     }
 
     if (data.handleChanges === undefined) updates.handleChanges = 0;
+    // The case-insensitive half of the handle check. Backfilled here rather
+    // than by a one-off script because every returning player passes through
+    // this on sign-in, and handleTaken's exact-case query covers whoever has
+    // not been back yet.
+    if (typeof data.username === "string" && data.usernameLower !== data.username.toLowerCase()) {
+      updates.usernameLower = data.username.toLowerCase();
+    }
     if (data.achievedTop10Daily === undefined) updates.achievedTop10Daily = 0;
     if (data.kobeCount === undefined) updates.kobeCount = 0;
     if (!data.inventory) { updates.inventory = DEFAULT_INVENTORY; updates.equipped = DEFAULT_EQUIPPED; }

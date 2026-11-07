@@ -184,7 +184,10 @@ ck(/throw new HttpsError/.test(changeUsername.slice(changeUsername.indexOf('isBl
    'and rejects rather than mangling it');
 // It must see the FINAL name: screening the raw input would miss evasions that
 // only appear after stripping, and pass names that the strip would have fixed.
-ck(changeUsername.indexOf('.substring(0, 12)') < changeUsername.indexOf('isBlockedHandle'),
+const truncAt = changeUsername.indexOf('.substring(0, HANDLE_MAX)');
+ck(truncAt >= 0, 'the handle is truncated before anything else looks at it',
+   'no .substring(0, HANDLE_MAX) in changeUsername — this check passed on -1 when it said 12');
+ck(truncAt < changeUsername.indexOf('isBlockedHandle'),
    'after the strip and truncate, not before');
 // The seeded handle never passes through changeUsername, so the trigger is not
 // optional — it is the only thing covering the signup path.
@@ -193,7 +196,10 @@ ck(trigger.length > 0, 'the profile-created trigger exists');
 ck(/users\/\{userId\}/.test(trigger), 'and watches the users collection', '');
 ck(/isBlockedHandle/.test(trigger) && /safeFallbackHandle/.test(trigger),
    'screening the seeded handle and replacing it');
-ck(/update\(\{ username: replacement \}\)/.test(trigger), 'by writing the replacement back');
+ck(/const final = await uniqueHandle\(screened, uid\)/.test(trigger),
+   'then checking the replacement is not itself already somebody else\'s');
+ck(/\.update\(\{ username: final, usernameLower: final\.toLowerCase\(\) \}\)/.test(trigger),
+   'by writing back whichever name survived both');
 // A client can only ever update `equipped`, which is what makes these two doors
 // the complete set.
 const rules = fs.readFileSync(REPO('firestore.rules'), 'utf8');

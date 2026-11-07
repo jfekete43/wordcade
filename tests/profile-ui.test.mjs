@@ -77,11 +77,12 @@ for (const tab of TABS) {
   els['tab-prof-' + tab].classList = { toggle: (c, on) => on ? els['tab-prof-' + tab].classes.add(c) : els['tab-prof-' + tab].classes.delete(c) };
 }
 let loadedGauntlet = 0;
-const setProfileTab = new Function('document', 'loadGauntletStats', `
+let loadedSprint = 0;
+const setProfileTab = new Function('document', 'loadGauntletStats', 'loadSprintStats', `
   const window = {};
   ${tabSrc}
   return window.setProfileTab;
-`)({ getElementById: (id) => els[id] }, () => { loadedGauntlet++; });
+`)({ getElementById: (id) => els[id] }, () => { loadedGauntlet++; }, () => { loadedSprint++; });
 
 const shown = () => TABS.filter((tab) => els['profile-' + tab].style.display !== 'none');
 const active = () => TABS.filter((tab) => els['tab-prof-' + tab].classes.has('active'));
@@ -106,6 +107,22 @@ ck(loadedGauntlet === before + 1, 'opening the Trifecta tab loads its stats');
 // stale for the rest of the session.
 setProfileTab('standard'); setProfileTab('gauntlet');
 ck(loadedGauntlet === before + 2, 'reopening the tab re-reads rather than serving stale numbers', String(loadedGauntlet - before));
+
+// Sprint fills the same way, and is the cheap one: every number on it is
+// already on userProfileData, so refilling on each tap costs nothing.
+{
+  const s0 = loadedSprint;
+  setProfileTab('standard');
+  ck(loadedSprint === s0, 'another tab does not fill the Sprint panel');
+  setProfileTab('sprint');
+  ck(loadedSprint === s0 + 1, 'opening the Sprint tab fills its stats');
+  setProfileTab('clash'); setProfileTab('sprint');
+  ck(loadedSprint === s0 + 2, 'and reopening refills rather than leaving yesterday up',
+     String(loadedSprint - s0));
+  const g0 = loadedGauntlet;
+  setProfileTab('sprint');
+  ck(loadedGauntlet === g0, 'and never pays for the Trifecta tab\'s reads');
+}
 
 let bad = 0;
 for (const [ok, name, detail] of t) {

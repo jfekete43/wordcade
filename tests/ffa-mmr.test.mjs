@@ -194,7 +194,16 @@ ok('the payout reads ffaRating server-side', fn.includes('mmr: ffaRating(userSna
 // --- 9. the FFA stats tab exists and is wired -----------------------------
 ok('there is an FFA profile tab button', html.includes(`id="tab-prof-ffa"`));
 ok('there is an FFA profile panel', html.includes(`id="profile-ffa"`));
-ok('setProfileTab knows about it', /for \(const tab of \["standard", "clash", "ffa", "gauntlet"\]\)/.test(html));
+// Read out of the source rather than written here: this used to pin the whole
+// array as a literal, so adding a fifth tab broke an FFA test that has nothing
+// to say about a fifth tab. What it means to assert is that FFA is in the list.
+{
+  const m = html.match(/for \(const tab of (\[[^\]]*\])\)/);
+  const tabs = m ? JSON.parse(m[1].replace(/'/g, '"')) : [];
+  ok('setProfileTab knows about it', tabs.includes('ffa'));
+  ok('...alongside a panel for every other tab it switches',
+     tabs.every((tab) => html.includes(`id="profile-${tab}"`) && html.includes(`id="tab-prof-${tab}"`)));
+}
 ok('an unrated player is shown Unranked, not 1000',
    /Number\.isFinite\(rawFfaMmr\)[\s\S]{0,1500}?stat-ffa-rank-title"\)\.innerText = "Unranked"/.test(html));
 ok('wins and played are on the stats tab', html.includes('id="stat-ffa-wins"') && html.includes('id="stat-ffa-played"'));
