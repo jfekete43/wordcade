@@ -278,6 +278,84 @@ eq('X_LINK ships empty, which is the cheap rate', /^const X_LINK = "([^"]*)";/m.
       cr(' a ', 'b', 'c', 'd'), { apiKey: 'a', apiSecret: 'b', accessToken: 'c', accessSecret: 'd' });
 }
 
+// ---- the paste-ready draft -----------------------------------------------
+// The whole point of the draft is that a person posts it by hand, which is
+// not an API request and so is not billed - the URL surcharge that keeps
+// X_LINK empty does not apply to it at all.
+{
+  const drafter = (link) => new Function('LINK', 'MAX', `
+    const X_LINK = LINK; const TWEET_MAX = MAX;
+    ${parts}
+    ${konst('DRAFT_LINK')}
+    ${func('prettyDigestDate')}
+    ${func('buildDraft')}
+    return buildDraft;`)(link, TWEET_MAX);
+  const draft = drafter('');
+  const d = draft({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
+
+  ck(/^```\n[\s\S]*\n```$/m.test(d.content.split('\n').slice(1).join('\n')),
+     'the draft is a code block, which is what has a copy button on a phone',
+     JSON.stringify(d.content.slice(0, 60)));
+  ck(/\*\*Paste into X\*\*/.test(d.content), 'under a line saying what it is for', d.content.split('\n')[0]);
+  ck(/Sprint/.test(d.content.split('\n')[0]), 'and which board it is', d.content.split('\n')[0]);
+  deq('mentions stay disabled, as on every other post here', d.allowed_mentions, { parse: [] });
+
+  const inner = d.content.split('```')[1].replace(/^\n|\n$/g, '');
+  // THE POINT: the link is there even though X_LINK is empty.
+  eq('the draft carries the link on its own last line', inner.split('\n').at(-1), 'https://lexathon.gg');
+  ck(/\u{1F947} PLAYER1/u.test(inner), 'with the board above it', inner.split('\n')[2]);
+  ck(/Word: CRANE/.test(inner), 'and the answer', inner);
+  // It still has to fit, or what gets pasted is rejected by the box.
+  ck(weigh(inner) <= TWEET_MAX, 'and it still fits a post', `${weigh(inner)} of ${TWEET_MAX}`);
+  // Budgeted as a linked post, so it is shorter than the unlinked one.
+  const bare = build({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
+  ck(weigh(inner) > weigh(bare), 'the link costs it real room', `${weigh(inner)} vs ${weigh(bare)}`);
+
+  // Turning the automated link ON must not change the draft: it already has
+  // one, and two links would be two t.co widths out of the same 280.
+  eq('the draft is the same whatever X_LINK is set to',
+     drafter('https://lexathon.gg')({ mode: 'sprint', dateStr: '2026-11-07',
+       rows: sprintRows(5), words: ['CRANE'] }).content, d.content);
+
+  // A backtick would close the block early, make the rest render as markdown
+  // and break the paste. The handle filter admits none; this is lock two.
+  const evil = draft({ mode: 'sprint', dateStr: '2026-11-07',
+    rows: [{ username: '```x```', score: 500, elapsedMs: 1000 }], words: [] });
+  eq('the block still opens and closes exactly once',
+     (evil.content.match(/```/g) || []).length, 2);
+  // Counting fences is not enough on its own: two backticks in a handle make
+  // no fence and would sail through. Nothing inside may be a backtick at all.
+  eq('and no backtick survives into it',
+     (evil.content.split('```')[1].match(/`/g) || []).length, 0);
+
+  const m = draft({ mode: 'marathon', dateStr: '2026-11-02', rows: marathonRows(5), words: [] });
+  ck(/Marathon/.test(m.content.split('\n')[0]), 'the Marathon draft says so too', m.content.split('\n')[0]);
+  ck(/lexathon\.gg/.test(m.content), 'and carries the link as well');
+}
+
+// ---- the draft goes somewhere of its own ---------------------------------
+{
+  for (const [name, mode] of [['postDailyDigest', '${job.mode}_draft'],
+                              ['postWeeklyDigest', 'marathon_draft']]) {
+    const body = fn.slice(fn.indexOf(`exports.${name}`), fn.indexOf(`exports.${name}`) + 3200);
+    ck(/DISCORD_DRAFT_WEBHOOK/.test(body), `${name} reads the draft webhook`);
+    ck(new RegExp(`secrets: \\[[^\\]]*DISCORD_DRAFT_WEBHOOK`).test(body),
+       `${name} is granted it`, (body.match(/secrets: \[[^\]]*\]/) || [''])[0]);
+    ck(body.includes(`mode: \`${mode}\``) || body.includes(`mode: "${mode}"`),
+       `${name} claims the draft under its own key, not the board's`,
+       (body.match(/mode: [^,]*_draft[^,]*/) || [''])[0]);
+    ck(/!urls\.length && !draftUrls\.length && !creds/.test(body),
+       `${name} runs when the draft is the only destination configured`,
+       (body.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
+    // Scoped to THIS schedule. Tested against the whole file, the other
+    // schedule's copy of the line satisfies it and a swapped secret here
+    // goes unnoticed.
+    ck(/webhookUrls\(DISCORD_DRAFT_WEBHOOK\.value\(\)\)/.test(body),
+       `${name} reads the draft's OWN webhook, not the board's`,
+       (body.match(/const draftUrls = [^\n]*/) || [''])[0].trim());
+  }
+}
+
 // ---- the claim, which is what stops a retry posting twice ----------------
 {
   const src = `${func('claimPost')}\n${func('deliverTweet')}`;
@@ -356,8 +434,9 @@ ck(/\.slice\(0, 12\)/.test(func('channelId')),
     for (const sec of ['X_API_KEY', 'X_API_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']) {
       ck(new RegExp(`secrets: \\[[^\\]]*${sec}`).test(body), `${name} is granted ${sec}`);
     }
-    ck(/!urls\.length && !creds/.test(body),
-       `${name} still runs when only one destination is configured`);
+    ck(/if \(!urls\.length && !draftUrls\.length && !creds\)/.test(body),
+       `${name} still runs when X is the only destination configured`,
+       (body.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
   }
 }
 

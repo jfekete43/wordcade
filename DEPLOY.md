@@ -436,6 +436,51 @@ Word: CRANE
 Top five rather than ten: five is what fits a post alongside a header, and
 the sixth name was never the reason anyone clicked.
 
+### The free way: a draft you paste yourself
+
+A post typed into the box by a person is not an API request, so it is not
+billed — no developer account, no credits, and **no URL surcharge**. That is
+the whole reason this exists: hand-posting is the one way to get the link in
+front of people for nothing.
+
+Set `DISCORD_DRAFT_WEBHOOK` and each board arrives as a ready-to-paste block
+in a Discord channel of your choosing, at the same 9:10 as the digest:
+
+    **Paste into X** · Sprint · Saturday, 7 November 2026
+    ```
+    🕹️ Lexathon Sprint #6 · Nov 7
+
+    🥇 JFEKETE 41.2s · 500
+    ...
+    Word: CRANE
+
+    https://lexathon.gg
+    ```
+
+Tap the copy button on the code block, paste into X, done.
+
+It gets **its own webhook** rather than riding on the digest, because the
+digest secret can hold several URLs so one board can reach several
+communities — and a "paste this into X" note does not belong in any of them.
+Point it at a private channel in your own server.
+
+```bash
+cd ~/wordcade
+```
+```bash
+firebase functions:secrets:set DISCORD_DRAFT_WEBHOOK
+```
+```bash
+firebase deploy --only functions:postDailyDigest
+```
+```bash
+firebase deploy --only functions:postWeeklyDigest
+```
+
+The draft always carries the link, whatever `X_LINK` is set to below: the two
+are answering different questions, and nothing about a hand-posted draft is
+charged per URL.
+
 ### It costs money
 
 X retired its free tier in February 2026. Posting now runs on **prepaid
@@ -502,8 +547,10 @@ firebase deploy --only functions:postWeeklyDigest
 ```
 
 **All four have to exist before the deploy**, the same as the Discord
-webhooks: `defineSecret` fails a deploy for a secret that is not there. To
-keep X off, set each of the four to the literal `off`. Any one of them unset
+webhooks: `defineSecret` fails a deploy for a secret that is not there — so
+even if you only want the paste-it-yourself draft above, the four still need
+setting. To keep automated posting off, set each of the four to the literal
+`off`. Any one of them unset
 or `off` parks the posting with a line in the log, and the Discord digests
 carry on untouched.
 

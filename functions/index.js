@@ -1931,6 +1931,7 @@ exports.aggregateWordStats = onSchedule({ schedule: "30 1 * * *", timeZone: "Ame
 // ============================================================================
 const DISCORD_SPRINT_WEBHOOK = defineSecret("DISCORD_SPRINT_WEBHOOK");
 const DISCORD_TRIFECTA_WEBHOOK = defineSecret("DISCORD_TRIFECTA_WEBHOOK");
+const DISCORD_DRAFT_WEBHOOK = defineSecret("DISCORD_DRAFT_WEBHOOK");
 
 // Declared up here with the webhooks, not beside the posting code below:
 // the schedules name them in an options object that is evaluated when this
@@ -2211,7 +2212,8 @@ async function deliverDigest({ mode, key, urls, label, build }) {
 exports.postDailyDigest = onSchedule({
   schedule: "10 9 * * *",
   timeZone: "America/New_York",
-  secrets: [DISCORD_SPRINT_WEBHOOK, X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
+  secrets: [DISCORD_SPRINT_WEBHOOK, DISCORD_DRAFT_WEBHOOK,
+    X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
 }, async () => {
   const dateStr = shiftDateStr(getTodayDateStr(), -1);
   // Sprint alone. The Trifecta's job was here and is gone with the mode; its
@@ -2225,13 +2227,16 @@ exports.postDailyDigest = onSchedule({
 
   const creds = xCredentials(X_API_KEY.value(), X_API_SECRET.value(),
     X_ACCESS_TOKEN.value(), X_ACCESS_SECRET.value());
+  const draftUrls = webhookUrls(DISCORD_DRAFT_WEBHOOK.value());
 
   for (const job of jobs) {
     const label = `${job.mode} ${dateStr}`;
     const urls = webhookUrls(job.secret);
-    // Either destination is reason enough to do the work; neither is reason
-    // to do the query. X alone has to still run when no webhook is set.
-    if (!urls.length && !creds) { console.log(`digest ${label}: nowhere to post, skipped`); continue; }
+    // Any destination is reason enough to do the work; none is reason to do
+    // the query. Each has to still run when the other two are unconfigured.
+    if (!urls.length && !draftUrls.length && !creds) {
+      console.log(`digest ${label}: nowhere to post, skipped`); continue;
+    }
 
     const snap = await db.collection("runs")
       .where("mode", "==", job.mode).where("puzzleDate", "==", dateStr)
@@ -2268,6 +2273,14 @@ exports.postDailyDigest = onSchedule({
         build: async () => buildTweet(await gather()),
       });
     }
+    // Its own mode key, so the draft's claim cannot be mistaken for the
+    // board's by a channel that happens to receive both.
+    if (draftUrls.length) {
+      await deliverDigest({
+        mode: `${job.mode}_draft`, key: dateStr, urls: draftUrls, label: `${label} draft`,
+        build: async () => buildDraft(await gather()),
+      });
+    }
   }
 });
 
@@ -2290,7 +2303,8 @@ exports.postDailyDigest = onSchedule({
 exports.postWeeklyDigest = onSchedule({
   schedule: "10 9 * * 1",
   timeZone: "America/New_York",
-  secrets: [DISCORD_TRIFECTA_WEBHOOK, X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
+  secrets: [DISCORD_TRIFECTA_WEBHOOK, DISCORD_DRAFT_WEBHOOK,
+    X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
 }, async () => {
   // The week that just ended: seven days before today's key, which on a
   // Monday is last Monday.
@@ -2299,7 +2313,10 @@ exports.postWeeklyDigest = onSchedule({
   const urls = webhookUrls(DISCORD_TRIFECTA_WEBHOOK.value());
   const creds = xCredentials(X_API_KEY.value(), X_API_SECRET.value(),
     X_ACCESS_TOKEN.value(), X_ACCESS_SECRET.value());
-  if (!urls.length && !creds) { console.log(`digest ${label}: nowhere to post, skipped`); return; }
+  const draftUrls = webhookUrls(DISCORD_DRAFT_WEBHOOK.value());
+  if (!urls.length && !draftUrls.length && !creds) {
+    console.log(`digest ${label}: nowhere to post, skipped`); return;
+  }
 
   const snap = await db.collection("users")
     .where("marathonKey", "==", week)
@@ -2319,6 +2336,12 @@ exports.postWeeklyDigest = onSchedule({
   if (creds) {
     await deliverTweet({
       mode: "marathon", key: week, label, creds, build: async () => buildTweet(data),
+    });
+  }
+  if (draftUrls.length) {
+    await deliverDigest({
+      mode: "marathon_draft", key: week, urls: draftUrls, label: `${label} draft`,
+      build: async () => buildDraft(data),
     });
   }
 });
@@ -2513,7 +2536,7 @@ const tweetBody = (head, rows, tail) => [head, rows.join("\n"), tail].filter(Boo
  * The post. Same argument shape as buildDigest, so one read of the standings
  * feeds both renderers and the two can never be reporting different days.
  */
-function buildTweet({ mode, dateStr, rows, words }) {
+function buildTweet({ mode, dateStr, rows, words, link = X_LINK }) {
   const isSprint = mode === "sprint";
   // Marathon has no epoch to number from - it ran monthly, then weekly - so
   // it carries the week instead, exactly as the Discord digest does.
@@ -2530,12 +2553,48 @@ function buildTweet({ mode, dateStr, rows, words }) {
 
   const placed = (rows || []).slice(0, TWEET_ROWS).map((r, i) => tweetRow(r, i, mode));
   // The link is budgeted, not measured: see TWEET_LINK_WEIGHT.
-  const budget = TWEET_MAX - (X_LINK ? TWEET_LINK_WEIGHT + 1 : 0);
+  const budget = TWEET_MAX - (link ? TWEET_LINK_WEIGHT + 1 : 0);
   // Dropped from the BOTTOM until it fits. A leaderboard three deep is still
   // a leaderboard; a post one weighted unit over the limit is a 403 and a
   // day with nothing posted at all.
   while (placed.length > 1 && tweetWeight(tweetBody(head, placed, tail)) > budget) placed.pop();
-  return [tweetBody(head, placed, tail), X_LINK].filter(Boolean).join("\n");
+  return [tweetBody(head, placed, tail), link].filter(Boolean).join("\n\n");
+}
+
+/*
+ * The link a HAND-POSTED draft carries, which is always.
+ *
+ * X_LINK above is empty because the API charges about thirteen times more
+ * for a post containing a URL. None of that applies to a post typed into the
+ * box by a person: pasting is not an API request and costs nothing at all.
+ * So the draft gets the link even when the automated post would not - the
+ * two constants are answering different questions.
+ */
+const DRAFT_LINK = "https://lexathon.gg";
+
+/*
+ * The post, as something to copy rather than something to send.
+ *
+ * A Discord code block, because a code block is the one thing in a Discord
+ * message with a copy button on a phone - and because it keeps the blank
+ * lines, which a paste into X needs to come out looking like the preview.
+ *
+ * Its own webhook, not a second block on the digest. The digest secret can
+ * hold several URLs so one board can reach several communities, and a
+ * "paste this into X" note does not belong in any of them.
+ */
+function buildDraft({ mode, dateStr, rows, words }) {
+  const text = buildTweet({ mode, dateStr, rows, words, link: DRAFT_LINK });
+  const name = mode === "sprint" ? "Sprint" : "Marathon";
+  return {
+    username: "Lexathon",
+    allowed_mentions: { parse: [] },
+    // Backticks would close the block early and render the rest as markdown,
+    // which would also make the paste wrong. The handle filter admits none,
+    // so this is the second of two locks rather than the only one.
+    content: `**Paste into X** \u00B7 ${name} \u00B7 ${prettyDigestDate(dateStr)}\n`
+      + "```\n" + text.replace(/`/g, "") + "\n```",
+  };
 }
 
 async function postTweet(text, creds) {

@@ -421,8 +421,8 @@ for (const [mode, rows, heads] of [
   // Two destinations now, so the skip has to need BOTH to be unconfigured.
   // `if (!urls.length)` alone would silently stop the X post for anyone who
   // never set up Discord at all.
-  ck(/if \(!urls\.length && !creds\)/.test(job),
-     '...but only when X is unconfigured too, or the day goes nowhere',
+  ck(/if \(!urls\.length && !draftUrls\.length && !creds\)/.test(job),
+     '...but only when the draft and X are unconfigured too, or the day goes nowhere',
      (job.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
   ck(job.indexOf('const snap = await db.collection("runs")') < job.indexOf('deliverDigest'),
      'and the day is read once, before any channel is written to');
@@ -452,8 +452,8 @@ for (const [mode, rows, heads] of [
   ck(/orderBy\("marathonScore", "desc"\)/.test(job), 'ranked by the week\'s score');
   ck(/\.limit\(10\)/.test(job), 'top ten, like the daily one');
   ck(/if \(snap\.empty\)/.test(job), 'a week nobody played is skipped rather than posted empty');
-  ck(/if \(!urls\.length && !creds\)/.test(job),
-     'and it is skipped only when neither destination is configured',
+  ck(/if \(!urls\.length && !draftUrls\.length && !creds\)/.test(job),
+     'and it is skipped only when none of the three destinations is configured',
      (job.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
   ck(/deliverDigest\(/.test(job), 'and it posts through the shared delivery, claims and all');
   // The composite index that query needs, or it is empty in production and
