@@ -892,8 +892,12 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
 // than by two copies. Two copies is how the modal and the panel end up
 // disagreeing about a player's streak.
 {
-  const statsSrc = (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
-  ck(!!statsSrc, 'renderSprintStats is findable, and takes the prefix', statsSrc.slice(0, 60));
+  const chartSrc = (html.match(/        function renderGuessDistribution\(counts, wrap, dist, lit, accent\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(!!chartSrc, 'the shared chart renderer is findable', chartSrc.slice(0, 60));
+  const statsSrc = chartSrc + '\n'
+    + (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/function renderSprintStats/.test(statsSrc), 'renderSprintStats is findable, and takes the prefix',
+     statsSrc.slice(0, 60));
 
   const draw = (profile, todayRow, prefix = 'sprint-end') => {
     // Exactly the three elements the prefix builds, and nothing else. A
@@ -1203,7 +1207,8 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   // The two that decide the outcome are lifted and run for real; everything
   // else openSprint touches is view plumbing and is recorded, not simulated.
   const panelSrc = (html.match(/        function showSprintDonePanel\(attempt\) \{\n[\s\S]*?\n        \}/) || [''])[0];
-  const statsSrc2 = (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  const statsSrc2 = (html.match(/        function renderGuessDistribution\(counts, wrap, dist, lit, accent\) \{\n[\s\S]*?\n        \}/) || [''])[0] + '\n'
+    + (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
 
   const open = async (opts, attempt) => {
     const els = new Map();

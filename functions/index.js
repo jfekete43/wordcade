@@ -746,6 +746,42 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
         update.bestMarathonWords = words;
       }
 
+      // The shape of a Marathon word, kept the way Sprint keeps the shape of
+      // a Sprint: one sample per WORD rather than per day, so the profile can
+      // draw a guess distribution without reading a single run.
+      //
+      // Incremented, where the standing below has to be SET. The difference
+      // is the document, not the field: each finished word writes its own
+      // /runs doc at a deterministic id, and the payoutApplied guard at the
+      // top of this trigger makes a redelivery of that doc a no-op. The
+      // standing is set because a LATE-arriving earlier word carries a
+      // smaller running total; a counter has no such problem, because each
+      // word contributes its own one.
+      //
+      // Exactly one of g1..g5 is 1 on a solve and none on a miss, so the
+      // misses are marathonWordsTotal minus their sum. No sixth counter, and
+      // no way for the two to disagree.
+      update.marathonWordsTotal = FieldValue.increment(wordsPlayed);
+      update.marathonG1 = FieldValue.increment(g1);
+      update.marathonG2 = FieldValue.increment(g2);
+      update.marathonG3 = FieldValue.increment(g3);
+      update.marathonG4 = FieldValue.increment(g4);
+      update.marathonG5 = FieldValue.increment(g5);
+      // Career points, for the per-week average the profile divides out of
+      // it. The run's own `score` is what THIS word earned; marathonScore is
+      // the week's running total and would count every earlier word again.
+      update.marathonScoreTotal = FieldValue.increment(score);
+
+      // A perfect week: every word in it solved. Solves can never outrun
+      // words played, so this holds on the final word of a clean week and
+      // nowhere else — one document per week, whatever order the week's
+      // triggers arrive in.
+      const solvedInWeek = Math.max(0, Number(run.marathonSolved) || 0);
+      const weekTotal = Math.max(0, Number(run.marathonTotal) || 0);
+      if (weekTotal > 0 && solvedInWeek >= weekTotal) {
+        update.marathonPerfect = FieldValue.increment(1);
+      }
+
       // Only move forward. Two words finished close together can have their
       // triggers delivered out of order, and the later-arriving earlier word
       // must not drag the standing backwards.
@@ -2822,6 +2858,11 @@ exports.guessMarathonWord = onCall(readableFailures("Submitting that Marathon gu
         // can set the board fields outright instead of incrementing them —
         // an increment would double-count the moment a trigger is retried.
         marathonScore: newScore, marathonWords: newWordIndex,
+        // How many of those were SOLVED, and how many the week holds. Only
+        // the last word of a clean week can have the two be equal, which is
+        // what lets the perfect-week counter move exactly once per week
+        // without anything having to re-read the attempt.
+        marathonSolved: newSolved, marathonTotal: attempt.wordCount,
         timestamp: FieldValue.serverTimestamp(),
       });
     }

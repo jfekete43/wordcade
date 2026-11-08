@@ -1284,7 +1284,7 @@
         .stat-bar-container { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
         /* Sprint's end-of-round statistics. The pills are the ones the
            score board uses, widened and unboxed so four sit in a row. */
-        .sprint-stat-head { font-size: var(--fs-1); letter-spacing: var(--ls-ui); color: var(--c-ink-4);
+        .stat-head { font-size: var(--fs-1); letter-spacing: var(--ls-ui); color: var(--c-ink-4);
             text-transform: uppercase; margin: 18px 0 8px; text-align: left; }
         .sprint-stat-row { display: flex; justify-content: space-between; gap: var(--s-2); margin-bottom: 4px; }
         .sprint-stat-row .stat-pill { flex: 1 1 0; min-width: 0; background: none; border: none; padding: 0; }
@@ -1731,10 +1731,10 @@
          emptiest in the game. Same content, below the standings rather than
          over them, so the board stays what the button promised. -->
     <div id="sprint-done-panel" style="display:none;">
-        <div class="sprint-stat-head">STATISTICS</div>
+        <div class="stat-head">STATISTICS</div>
         <div id="sprint-panel-stats" class="sprint-stat-row"></div>
         <div id="sprint-panel-dist-wrap" style="display:none;">
-            <div class="sprint-stat-head">GUESS DISTRIBUTION</div>
+            <div class="stat-head">GUESS DISTRIBUTION</div>
             <div id="sprint-panel-dist"></div>
         </div>
         <button class="btn-primary" id="btn-sprint-share-panel" style="width:100%; margin-top: var(--s-6);"
@@ -2074,10 +2074,10 @@
                  .stat-bar-* set the Profile already draws its own with, so
                  this reads as part of the game rather than a second design.
                  The distribution hides itself until there is one. -->
-            <div class="sprint-stat-head">STATISTICS</div>
+            <div class="stat-head">STATISTICS</div>
             <div id="sprint-end-stats" class="sprint-stat-row"></div>
             <div id="sprint-end-dist-wrap" style="display:none;">
-                <div class="sprint-stat-head">GUESS DISTRIBUTION</div>
+                <div class="stat-head">GUESS DISTRIBUTION</div>
                 <div id="sprint-end-dist"></div>
             </div>
             <div class="modal-buttons">
@@ -2452,13 +2452,31 @@
                 <div style="text-align: center; margin-bottom: 4px;">Best Week: <br><span id="stat-marathon-best" style="color: var(--c-marathon); font-size: var(--fs-6);">—</span> pts</div>
                 <div id="stat-marathon-best-when" style="text-align: center; margin-bottom: 20px; font-size: var(--fs-2); color: var(--c-ink-4);">&nbsp;</div>
 
-                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-4); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
                     <div style="text-align: center;">🗓️ Weeks Played<br><span id="stat-marathon-weeks" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                     <div style="text-align: center;">🏁 Furthest<br><span id="stat-marathon-furthest" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
                 </div>
 
+                <!-- Average per week divides the career points by the weeks
+                     played, not by the weeks that exist: a mode you can miss
+                     a week of would otherwise punish you for not being here.
+                     A perfect week is all twenty solved, which is a rarer
+                     thing than finishing one and worth its own number. -->
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center;">📈 Avg / Week<br><span id="stat-marathon-avg" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                    <div style="text-align: center;">💯 Perfect Weeks<br><span id="stat-marathon-perfect" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                </div>
+
                 <div style="font-size: var(--fs-3); margin: 18px 0 8px; color: var(--c-marathon); text-align: center;">This Week</div>
                 <div id="stat-marathon-now" style="text-align: center; font-size: var(--fs-3); color: var(--c-ink-3);">&nbsp;</div>
+
+                <!-- Same chart Sprint draws, same renderer. Marathon has no
+                     "today" to pick out - a week is twenty words, not one -
+                     so no row is lit and the bars stay one colour. -->
+                <div id="marathon-prof-dist-wrap" style="display:none; margin-top: var(--s-6);">
+                    <div class="stat-head" style="text-align:center;">GUESS DISTRIBUTION</div>
+                    <div id="marathon-prof-dist"></div>
+                </div>
             </div>
 
             <!-- SPRINT STATS — the only tab here that costs no reads at all.
@@ -2485,7 +2503,7 @@
                      alternative is three stats screens that disagree. -->
                 <div id="sprint-prof-stats" class="sprint-stat-row"></div>
                 <div id="sprint-prof-dist-wrap" style="display:none;">
-                    <div class="sprint-stat-head" style="text-align:center;">GUESS DISTRIBUTION</div>
+                    <div class="stat-head" style="text-align:center;">GUESS DISTRIBUTION</div>
                     <div id="sprint-prof-dist"></div>
                 </div>
             </div>
@@ -4001,7 +4019,18 @@
             const when = marathonWeekLabel(p.bestMarathonWeek);
             set("stat-marathon-best-when", best > 0 && when ? "Week of " + when : " ");
 
-            set("stat-marathon-weeks", n(p.marathonWeeks).toLocaleString());
+            const weeks = n(p.marathonWeeks);
+            set("stat-marathon-weeks", weeks.toLocaleString());
+
+            // Points per week played, not per week that has existed. Missing
+            // a week is the normal shape of a weekly mode, and dividing by
+            // the calendar would make the average a measure of attendance.
+            // Rounded, because a score is a whole number and ".33 pts" is
+            // precision the mode does not have.
+            const avg = weeks > 0 ? Math.round(n(p.marathonScoreTotal) / weeks) : 0;
+            set("stat-marathon-avg", weeks > 0 ? avg.toLocaleString() : "\u2014");
+            // All twenty SOLVED, which is the harder thing than finishing.
+            set("stat-marathon-perfect", n(p.marathonPerfect).toLocaleString());
             // The deepest you have ever got into a week, which is the number
             // the finish-a-week challenge is counting - and the one a player
             // who has never finished one is actually chasing.
@@ -4017,6 +4046,15 @@
             set("stat-marathon-now", !live || done === 0
                 ? "Not started yet \u2014 this week's twenty are waiting."
                 : n(p.marathonScore).toLocaleString() + " pts · " + done + " of " + MARATHON_WORD_COUNT + " words done");
+
+            // The same chart Sprint draws, from Marathon's own counters. One
+            // of marathonG1..5 moves per solved word and none on a miss, so
+            // the X row is every word played minus the five of them - no
+            // sixth counter to drift out of step with the rest.
+            const g = [1, 2, 3, 4, 5].map((i) => n(p["marathonG" + i]));
+            g.push(Math.max(0, n(p.marathonWordsTotal) - g.reduce((a, b) => a + b, 0)));
+            renderGuessDistribution(g, document.getElementById("marathon-prof-dist-wrap"),
+                document.getElementById("marathon-prof-dist"), -1, "var(--c-marathon)");
         }
 
         // Sprint's tab. Unlike the Trifecta's, this reads nothing: every
@@ -5819,6 +5857,40 @@
         // null is the third case, and the reason it is not just 0: the
         // Profile tab is not a screen you just finished on, and 0 there
         // would light the X row as though today had been a miss.
+        // The guess-distribution chart. Sprint and Marathon both answer the
+        // same question with it - how many guesses does a word usually cost
+        // me - and a second copy of this drawing code is exactly how two
+        // screens end up disagreeing about what a bar means.
+        //
+        // counts is six long: one to five guesses, then the misses. `lit` is
+        // the row to pick out in the mode's own colour, or -1 on a screen
+        // with nothing current to point at.
+        function renderGuessDistribution(counts, wrap, dist, lit, accent) {
+            if (!wrap || !dist) return;
+            // Nothing to draw until the counters exist. An all-zero chart
+            // under a heading reads as a broken feature rather than an empty
+            // one, so the whole section goes.
+            if (!counts.some((c) => c > 0)) { wrap.style.display = "none"; return; }
+            wrap.style.display = "block";
+
+            const labels = ["1", "2", "3", "4", "5", "X"];
+            const max = Math.max(...counts, 1);
+            dist.innerHTML = counts.map((n, i) => {
+                const pct = Math.round((n / max) * 100);
+                const colour = i === lit ? accent : i === 5 ? "var(--c-loss)" : "var(--c-correct)";
+                // A bar under about a tenth has no room for its own number, so
+                // the count sits outside it in body ink instead of white on
+                // nothing.
+                const inside = pct > 10;
+                const style = "width: " + pct + "%; background: " + colour
+                    + "; justify-content: " + (inside ? "flex-end" : "flex-start")
+                    + (inside ? "; padding-right: 8px;" : "; padding-left: 8px; color: var(--c-ink-3);");
+                return '<div class="stat-bar-container"><div class="stat-label">' + labels[i] + "</div>"
+                    + '<div class="stat-bar-bg"><div class="stat-bar-fill" style="' + style + '">'
+                    + (n > 0 ? n : "") + "</div></div></div>";
+            }).join("");
+        }
+
         function renderSprintStats(todayRow, prefix) {
             // Two destinations, one renderer: the end modal and the panel
             // under the board. Drawing them from one function is what keeps
@@ -5839,34 +5911,11 @@
             // played minus solved is the X row by construction.
             const counts = [1, 2, 3, 4, 5].map((i) => Number(p["sprintG" + i]) || 0);
             counts.push(Math.max(0, played - won));
-            const wrap = at("dist-wrap");
-            // Nothing to draw until the counters exist. An all-zero chart
-            // under a heading reads as a broken feature rather than an empty
-            // one, so the whole section goes.
-            if (!counts.some((c) => c > 0)) { wrap.style.display = "none"; return; }
-            wrap.style.display = "block";
-
-            const labels = ["1", "2", "3", "4", "5", "X"];
-            const max = Math.max(...counts, 1);
             // -1 lights nothing, which is what a screen with no "today" on it
             // wants. 0 means a miss today, which is the X row.
             const litRow = todayRow === null || todayRow === undefined
                 ? -1 : (todayRow > 0 ? todayRow - 1 : 5);
-            at("dist").innerHTML = counts.map((n, i) => {
-                const pct = Math.round((n / max) * 100);
-                const isToday = i === litRow;
-                const colour = isToday ? "var(--c-sprint)" : i === 5 ? "var(--c-loss)" : "var(--c-correct)";
-                // A bar under about a tenth has no room for its own number, so
-                // the count sits outside it in body ink instead of white on
-                // nothing.
-                const inside = pct > 10;
-                const style = "width: " + pct + "%; background: " + colour
-                    + "; justify-content: " + (inside ? "flex-end" : "flex-start")
-                    + (inside ? "; padding-right: 8px;" : "; padding-left: 8px; color: var(--c-ink-3);");
-                return '<div class="stat-bar-container"><div class="stat-label">' + labels[i] + "</div>"
-                    + '<div class="stat-bar-bg"><div class="stat-bar-fill" style="' + style + '">'
-                    + (n > 0 ? n : "") + "</div></div></div>";
-            }).join("");
+            renderGuessDistribution(counts, at("dist-wrap"), at("dist"), litRow, "var(--c-sprint)");
         }
 
         // The result screen under the board: the same stats and the same share

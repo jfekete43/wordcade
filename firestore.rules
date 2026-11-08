@@ -214,6 +214,18 @@ service cloud.firestore {
         && !('bestMarathonWords' in request.resource.data)
         && !('bestMarathonWeek' in request.resource.data)
         && (!('marathonWeeks' in request.resource.data) || request.resource.data.marathonWeeks == 0)
+        // The career counters the Marathon profile tab draws its chart and
+        // its two averages from. No challenge reads them, but a profile that
+        // arrives claiming forty perfect weeks puts a number on the Profile
+        // that the player did not play, which is the same argument.
+        && (!('marathonWordsTotal' in request.resource.data) || request.resource.data.marathonWordsTotal == 0)
+        && (!('marathonScoreTotal' in request.resource.data) || request.resource.data.marathonScoreTotal == 0)
+        && (!('marathonPerfect' in request.resource.data) || request.resource.data.marathonPerfect == 0)
+        && (!('marathonG1' in request.resource.data) || request.resource.data.marathonG1 == 0)
+        && (!('marathonG2' in request.resource.data) || request.resource.data.marathonG2 == 0)
+        && (!('marathonG3' in request.resource.data) || request.resource.data.marathonG3 == 0)
+        && (!('marathonG4' in request.resource.data) || request.resource.data.marathonG4 == 0)
+        && (!('marathonG5' in request.resource.data) || request.resource.data.marathonG5 == 0)
         && !('ffaMatchesPlayed' in request.resource.data)
         && request.resource.data.totalWordsGuessed == 0
         && request.resource.data.wordsPlayed == 0

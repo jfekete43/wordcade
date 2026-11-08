@@ -33,6 +33,7 @@ const src = [
   grab(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/, 'formatSprintTime'),
   grab(/        const SPRINT_EPOCH = "[^"]*";/, 'SPRINT_EPOCH'),
   grab(/        function sprintNumber\(dateStr\) \{\n[\s\S]*?\n        \}/, 'sprintNumber'),
+  grab(/        function renderGuessDistribution\(counts, wrap, dist, lit, accent\) \{\n[\s\S]*?\n        \}/, 'renderGuessDistribution'),
   grab(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/, 'renderSprintStats'),
   grab(/        function loadSprintStats\(\) \{\n[\s\S]*?\n        \}/, 'loadSprintStats'),
 ].join('\n\n');
