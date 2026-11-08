@@ -440,47 +440,42 @@ the sixth name was never the reason anyone clicked.
 
 A post typed into the box by a person is not an API request, so it is not
 billed — no developer account, no credits, and **no URL surcharge**. That is
-the whole reason this exists: hand-posting is the one way to get the link in
-front of people for nothing.
+the whole reason this exists: hand-posting is the only way to get the link
+in front of people for nothing.
 
-Set `DISCORD_DRAFT_WEBHOOK` and each board arrives as a ready-to-paste block
-in a Discord channel of your choosing, at the same 9:10 as the digest:
+Both schedules write a ready-to-paste draft every time they run, whatever
+else is or is not configured. It needs no setup to be *written* — only to be
+*read*.
 
-    **Paste into X** · Sprint · Saturday, 7 November 2026
-    ```
-    🕹️ Lexathon Sprint #6 · Nov 7
+**It does not touch Discord.** The webhooks go to channels other people
+read, and a "paste this into X" note belongs on an admin screen. The drafts
+go to a `adminDrafts` collection that `firestore.rules` closes to every
+client, including yours.
 
-    🥇 JFEKETE 41.2s · 500
-    ...
-    Word: CRANE
-
-    https://lexathon.gg
-    ```
-
-Tap the copy button on the code block, paste into X, done.
-
-It gets **its own webhook** rather than riding on the digest, because the
-digest secret can hold several URLs so one board can reach several
-communities — and a "paste this into X" note does not belong in any of them.
-Point it at a private channel in your own server.
+To read them, set the one address allowed to:
 
 ```bash
 cd ~/wordcade
 ```
 ```bash
-firebase functions:secrets:set DISCORD_DRAFT_WEBHOOK
+firebase functions:secrets:set ADMIN_EMAIL
 ```
 ```bash
-firebase deploy --only functions:postDailyDigest
-```
-```bash
-firebase deploy --only functions:postWeeklyDigest
+firebase deploy --only functions:getDrafts
 ```
 
-The draft always carries the link, whatever `X_LINK` is set to below: the two
-are answering different questions, and nothing about a hand-posted draft is
-charged per URL.
+Then open **https://lexathon.gg/#admin** signed in with that account. The
+last ten drafts, each with a COPY button.
 
+Nothing links to `#admin` — there is no point showing a door to people who
+cannot walk through it — but the hash is not what keeps them out.
+`getDrafts` is: it compares the caller's **verified** email against
+`ADMIN_EMAIL` and is the only route to the collection. An unverified address
+on a token is a claim the provider never checked, so it is refused too.
+
+If `ADMIN_EMAIL` is unset, nobody gets in — including you. It fails closed.
+
+### It costs money
 ### It costs money
 
 X retired its free tier in February 2026. Posting now runs on **prepaid
@@ -546,11 +541,13 @@ firebase deploy --only functions:postDailyDigest
 firebase deploy --only functions:postWeeklyDigest
 ```
 
-**All four have to exist before the deploy**, the same as the Discord
-webhooks: `defineSecret` fails a deploy for a secret that is not there — so
-even if you only want the paste-it-yourself draft above, the four still need
-setting. To keep automated posting off, set each of the four to the literal
-`off`. Any one of them unset
+**These four are not `defineSecret` params**, deliberately. A declared
+secret has to exist before a deploy will succeed, which would have made both
+digest functions undeployable until four unused secrets were created by
+hand. They are read from the environment instead: unset means parked, which
+is the shipped state. To switch automated posting on, create the four
+secrets and add them to the `secrets:` array of `postDailyDigest` and
+`postWeeklyDigest`. Any one of them unset
 or `off` parks the posting with a line in the log, and the Discord digests
 carry on untouched.
 

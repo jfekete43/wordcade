@@ -1931,15 +1931,11 @@ exports.aggregateWordStats = onSchedule({ schedule: "30 1 * * *", timeZone: "Ame
 // ============================================================================
 const DISCORD_SPRINT_WEBHOOK = defineSecret("DISCORD_SPRINT_WEBHOOK");
 const DISCORD_TRIFECTA_WEBHOOK = defineSecret("DISCORD_TRIFECTA_WEBHOOK");
-const DISCORD_DRAFT_WEBHOOK = defineSecret("DISCORD_DRAFT_WEBHOOK");
 
-// Declared up here with the webhooks, not beside the posting code below:
-// the schedules name them in an options object that is evaluated when this
-// module loads, which is before a const further down the file exists.
-const X_API_KEY = defineSecret("X_API_KEY");
-const X_API_SECRET = defineSecret("X_API_SECRET");
-const X_ACCESS_TOKEN = defineSecret("X_ACCESS_TOKEN");
-const X_ACCESS_SECRET = defineSecret("X_ACCESS_SECRET");
+// The admin page's gate: the one email address allowed to read the drafts.
+// A secret rather than a constant because a repository is somewhere an
+// address gets harvested from, not because knowing it grants anything.
+const ADMIN_EMAIL = defineSecret("ADMIN_EMAIL");
 
 // Must match index.html. tests/docs-consistency checks every copy against
 // every other, because a digest numbering yesterday differently from the
@@ -2212,8 +2208,7 @@ async function deliverDigest({ mode, key, urls, label, build }) {
 exports.postDailyDigest = onSchedule({
   schedule: "10 9 * * *",
   timeZone: "America/New_York",
-  secrets: [DISCORD_SPRINT_WEBHOOK, DISCORD_DRAFT_WEBHOOK,
-    X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
+  secrets: [DISCORD_SPRINT_WEBHOOK],
 }, async () => {
   const dateStr = shiftDateStr(getTodayDateStr(), -1);
   // Sprint alone. The Trifecta's job was here and is gone with the mode; its
@@ -2225,18 +2220,14 @@ exports.postDailyDigest = onSchedule({
       puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word] },
   ];
 
-  const creds = xCredentials(X_API_KEY.value(), X_API_SECRET.value(),
-    X_ACCESS_TOKEN.value(), X_ACCESS_SECRET.value());
-  const draftUrls = webhookUrls(DISCORD_DRAFT_WEBHOOK.value());
+  const creds = xCredentials();
 
   for (const job of jobs) {
     const label = `${job.mode} ${dateStr}`;
     const urls = webhookUrls(job.secret);
-    // Any destination is reason enough to do the work; none is reason to do
-    // the query. Each has to still run when the other two are unconfigured.
-    if (!urls.length && !draftUrls.length && !creds) {
-      console.log(`digest ${label}: nowhere to post, skipped`); continue;
-    }
+    // No early exit on an unconfigured webhook. The draft is always a
+    // destination and needs no configuration at all, so there is no longer
+    // a state in which the day goes nowhere.
 
     const snap = await db.collection("runs")
       .where("mode", "==", job.mode).where("puzzleDate", "==", dateStr)
@@ -2273,14 +2264,7 @@ exports.postDailyDigest = onSchedule({
         build: async () => buildTweet(await gather()),
       });
     }
-    // Its own mode key, so the draft's claim cannot be mistaken for the
-    // board's by a channel that happens to receive both.
-    if (draftUrls.length) {
-      await deliverDigest({
-        mode: `${job.mode}_draft`, key: dateStr, urls: draftUrls, label: `${label} draft`,
-        build: async () => buildDraft(await gather()),
-      });
-    }
+    await saveDraft(await gather());
   }
 });
 
@@ -2303,20 +2287,14 @@ exports.postDailyDigest = onSchedule({
 exports.postWeeklyDigest = onSchedule({
   schedule: "10 9 * * 1",
   timeZone: "America/New_York",
-  secrets: [DISCORD_TRIFECTA_WEBHOOK, DISCORD_DRAFT_WEBHOOK,
-    X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
+  secrets: [DISCORD_TRIFECTA_WEBHOOK],
 }, async () => {
   // The week that just ended: seven days before today's key, which on a
   // Monday is last Monday.
   const week = shiftDateStr(getMarathonKeyStr(), -7);
   const label = `marathon ${week}`;
   const urls = webhookUrls(DISCORD_TRIFECTA_WEBHOOK.value());
-  const creds = xCredentials(X_API_KEY.value(), X_API_SECRET.value(),
-    X_ACCESS_TOKEN.value(), X_ACCESS_SECRET.value());
-  const draftUrls = webhookUrls(DISCORD_DRAFT_WEBHOOK.value());
-  if (!urls.length && !draftUrls.length && !creds) {
-    console.log(`digest ${label}: nowhere to post, skipped`); return;
-  }
+  const creds = xCredentials();
 
   const snap = await db.collection("users")
     .where("marathonKey", "==", week)
@@ -2338,12 +2316,7 @@ exports.postWeeklyDigest = onSchedule({
       mode: "marathon", key: week, label, creds, build: async () => buildTweet(data),
     });
   }
-  if (draftUrls.length) {
-    await deliverDigest({
-      mode: "marathon_draft", key: week, urls: draftUrls, label: `${label} draft`,
-      build: async () => buildDraft(data),
-    });
-  }
+  await saveDraft(data);
 });
 
 /*
@@ -2419,8 +2392,8 @@ const TWEET_PLACE = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
  * documented way to park this is to set them to "off" - which has to mean
  * "do not post" here rather than "post with a credential called off".
  */
-function xCredentials(apiKey, apiSecret, accessToken, accessSecret) {
-  const v = [apiKey, apiSecret, accessToken, accessSecret]
+function xCredentials(env = process.env) {
+  const v = [env.X_API_KEY, env.X_API_SECRET, env.X_ACCESS_TOKEN, env.X_ACCESS_SECRET]
     .map((x) => String(x == null ? "" : x).trim());
   if (v.some((x) => !x || x.toLowerCase() === "off")) return null;
   return { apiKey: v[0], apiSecret: v[1], accessToken: v[2], accessSecret: v[3] };
@@ -2565,37 +2538,66 @@ function buildTweet({ mode, dateStr, rows, words, link = X_LINK }) {
  * The link a HAND-POSTED draft carries, which is always.
  *
  * X_LINK above is empty because the API charges about thirteen times more
- * for a post containing a URL. None of that applies to a post typed into the
- * box by a person: pasting is not an API request and costs nothing at all.
- * So the draft gets the link even when the automated post would not - the
- * two constants are answering different questions.
+ * for a post containing a URL. None of that applies to a post typed into
+ * the box by a person: pasting is not an API request and costs nothing. So
+ * the draft gets the link even when the automated post would not - the two
+ * constants are answering different questions.
  */
 const DRAFT_LINK = "https://lexathon.gg";
 
 /*
- * The post, as something to copy rather than something to send.
+ * The post, stored to be copied rather than sent.
  *
- * A Discord code block, because a code block is the one thing in a Discord
- * message with a copy button on a phone - and because it keeps the blank
- * lines, which a paste into X needs to come out looking like the preview.
+ * Written to a server-only collection and read back by getDrafts, not
+ * pushed anywhere. The Discord digests are deliberately untouched by this:
+ * their webhooks go to channels other people read, and a "paste this into X"
+ * note belongs on an admin screen rather than in front of a community.
  *
- * Its own webhook, not a second block on the digest. The digest secret can
- * hold several URLs so one board can reach several communities, and a
- * "paste this into X" note does not belong in any of them.
+ * The document id is derived from the board it is for, so a retried schedule
+ * overwrites the same document with the same text. No claim needed - unlike
+ * a post, a write that happens twice leaves no trace of having done so.
  */
-function buildDraft({ mode, dateStr, rows, words }) {
-  const text = buildTweet({ mode, dateStr, rows, words, link: DRAFT_LINK });
+async function saveDraft({ mode, dateStr, rows, words }) {
   const name = mode === "sprint" ? "Sprint" : "Marathon";
-  return {
-    username: "Lexathon",
-    allowed_mentions: { parse: [] },
-    // Backticks would close the block early and render the rest as markdown,
-    // which would also make the paste wrong. The handle filter admits none,
-    // so this is the second of two locks rather than the only one.
-    content: `**Paste into X** \u00B7 ${name} \u00B7 ${prettyDigestDate(dateStr)}\n`
-      + "```\n" + text.replace(/`/g, "") + "\n```",
-  };
+  await db.collection("adminDrafts").doc(`${mode}_${dateStr}`).set({
+    mode,
+    key: dateStr,
+    label: `${name} \u00B7 ${prettyDigestDate(dateStr)}`,
+    text: buildTweet({ mode, dateStr, rows, words, link: DRAFT_LINK }),
+    at: FieldValue.serverTimestamp(),
+  });
+  console.log(`draft ${mode} ${dateStr}: saved`);
 }
+
+/*
+ * The admin page's one call.
+ *
+ * Gated on the caller's VERIFIED email rather than on a uid, because a uid
+ * has to be looked up in a console and an email address is already known.
+ * Verified matters: an unverified address on a token is a claim the provider
+ * never checked, and sign-in providers exist that will mint one for any
+ * address asked for.
+ *
+ * The drafts themselves are denied to every client in firestore.rules, so
+ * this function is the only way to them and the gate cannot be walked around
+ * by reading the collection directly.
+ */
+exports.getDrafts = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Loading the drafts", async (request) => {
+  requireAuth(request);
+  const token = (request.auth && request.auth.token) || {};
+  const want = String(ADMIN_EMAIL.value() || "").trim().toLowerCase();
+  const got = String(token.email || "").trim().toLowerCase();
+  if (!want || !got || token.email_verified !== true || got !== want) {
+    throw new HttpsError("permission-denied", "Not an admin.");
+  }
+  const snap = await db.collection("adminDrafts").orderBy("at", "desc").limit(10).get();
+  return {
+    drafts: snap.docs.map((d) => {
+      const v = d.data();
+      return { id: d.id, mode: v.mode, key: v.key, label: v.label, text: v.text };
+    }),
+  };
+}));
 
 async function postTweet(text, creds) {
   const header = oauthHeader("POST", X_POST_URL, creds,

@@ -450,6 +450,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // The paste-ready drafts of each board. Closed to every client,
+    // including the admin's: the getDrafts callable is the only way in, and
+    // it checks a verified email against a secret. Gating here instead would
+    // mean a uid written into a file that ships in the repository, and a
+    // second place for the answer to "who is the admin" to disagree.
+    match /adminDrafts/{id} {
+      allow read, write: if false;
+    }
+
     // A player's own Sprint progress. Readable by its owner so a refresh
     // restores the board — guesses already made and their colours, never an
     // unsolved answer. The clock fields live here too, which is exactly why

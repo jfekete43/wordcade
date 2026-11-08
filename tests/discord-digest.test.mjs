@@ -421,9 +421,11 @@ for (const [mode, rows, heads] of [
   // Two destinations now, so the skip has to need BOTH to be unconfigured.
   // `if (!urls.length)` alone would silently stop the X post for anyone who
   // never set up Discord at all.
-  ck(/if \(!urls\.length && !draftUrls\.length && !creds\)/.test(job),
-     '...but only when the draft and X are unconfigured too, or the day goes nowhere',
-     (job.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
+  // No skip at all any more: the admin draft is written whatever is or is
+  // not configured, so there is no state in which a played day produces
+  // nothing. An unconfigured webhook is still skipped, one line lower.
+  ck(!/nowhere to post/.test(job),
+     '...and no early exit, because the draft is always written', job.slice(0, 400));
   ck(job.indexOf('const snap = await db.collection("runs")') < job.indexOf('deliverDigest'),
      'and the day is read once, before any channel is written to');
 }
@@ -452,9 +454,8 @@ for (const [mode, rows, heads] of [
   ck(/orderBy\("marathonScore", "desc"\)/.test(job), 'ranked by the week\'s score');
   ck(/\.limit\(10\)/.test(job), 'top ten, like the daily one');
   ck(/if \(snap\.empty\)/.test(job), 'a week nobody played is skipped rather than posted empty');
-  ck(/if \(!urls\.length && !draftUrls\.length && !creds\)/.test(job),
-     'and it is skipped only when none of the three destinations is configured',
-     (job.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
+  ck(!/nowhere to post/.test(job),
+     'and no early exit either, for the same reason', job.slice(0, 400));
   ck(/deliverDigest\(/.test(job), 'and it posts through the shared delivery, claims and all');
   // The composite index that query needs, or it is empty in production and
   // green here.

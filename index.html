@@ -2513,6 +2513,20 @@
     </div>
 
     <!-- SETTINGS MODAL -->
+    <!-- ADMIN DRAFTS. Reached only by putting #admin in the address bar;
+         there is no button anywhere that opens it, because there is no point
+         showing a door to the people who cannot walk through it. The gate is
+         not the hidden URL though - it is getDrafts, which checks a verified
+         email against a secret and is the only way to the collection, since
+         firestore.rules denies it to every client. -->
+    <div id="admin-modal" class="modal-overlay">
+        <div class="modal-box" style="min-width: 300px; max-width: 560px;">
+            <h2 class="modal-title">Drafts</h2>
+            <div id="admin-drafts" class="modal-stats" style="text-align: left;">Loading...</div>
+            <div class="modal-buttons"><button class="btn-quiet" onclick="window.closeAdmin()">Close</button></div>
+        </div>
+    </div>
+
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title">Settings</h2>
@@ -2602,6 +2616,7 @@
         const callPurchaseItem = httpsCallable(cloudFunctions, "purchaseItem");
         const callChangeUsername = httpsCallable(cloudFunctions, "changeUsername");
         const callRefreshProfile = httpsCallable(cloudFunctions, "refreshProfile");
+        const callGetDrafts = httpsCallable(cloudFunctions, "getDrafts");
         const callStartDailyGauntlet = httpsCallable(cloudFunctions, "startDailyGauntlet");
         const callGuessDailyWord = httpsCallable(cloudFunctions, "guessDailyWord");
         const callStartSprint = httpsCallable(cloudFunctions, "startSprint");
@@ -3588,6 +3603,11 @@
                 // which point the player may be in a match.
                 if (!inAltMode()) showStandardPanels(true);
                 tryAutoJoinFromUrl();
+                // Opened from the address bar, once there is a signed-in
+                // user for getDrafts to check. Anonymous sign-in carries no
+                // verified email, so an uninvited visitor gets a refusal
+                // here exactly as they would from the callable itself.
+                if (location.hash === "#admin") window.openAdmin();
             } else { signInAnonymously(auth); }
         });
 
@@ -8571,6 +8591,62 @@
             if (navigator.userAgentData && typeof navigator.userAgentData.mobile === "boolean") return navigator.userAgentData.mobile;
             return window.matchMedia("(pointer: coarse)").matches;
         }
+
+        /*
+         * The admin drafts screen: each morning's board, already written as
+         * a post, with a button that puts it on the clipboard.
+         *
+         * Opened by #admin and nothing else. The hash is not the security -
+         * getDrafts is, and it answers permission-denied to everyone but the
+         * one verified address. A stranger who finds the URL gets the same
+         * empty box they would get by guessing the collection name.
+         */
+        window.openAdmin = async function() {
+            const box = document.getElementById("admin-drafts");
+            document.getElementById("admin-modal").style.display = "flex";
+            box.innerText = "Loading...";
+            if (!currentUser) { box.innerText = "Sign in first."; return; }
+            let drafts;
+            try {
+                drafts = ((await callGetDrafts()).data || {}).drafts || [];
+            } catch (e) {
+                // Including permission-denied, which is the ordinary answer
+                // for anybody who is not the admin.
+                box.innerText = (e && e.message) || "Could not load the drafts.";
+                return;
+            }
+            if (!drafts.length) { box.innerText = "No drafts yet. The first arrives at 9:10 tomorrow."; return; }
+            box.innerHTML = drafts.map((d, i) => {
+                // The text is built on the server from player handles, so it
+                // is escaped here for the same reason every other name on
+                // this page is.
+                const text = escapeHtml(String(d.text || ""));
+                return '<div style="margin-bottom: var(--s-6);">'
+                    + '<div style="font-size: var(--fs-1); letter-spacing: var(--ls-ui); color: var(--c-ink-4); margin-bottom: 6px;">'
+                    + escapeHtml(String(d.label || "")) + "</div>"
+                    + '<pre id="admin-text-' + i + '" style="white-space: pre-wrap; word-break: break-word; font-size: var(--fs-2);'
+                    + ' background: var(--c-line); border-radius: var(--r-1); padding: 10px; margin: 0 0 6px;">'
+                    + text + "</pre>"
+                    + '<button class="action-btn" id="admin-copy-' + i + '" onclick="window.copyDraft(' + i + ')">COPY</button>'
+                    + "</div>";
+            }).join("");
+            window.__drafts = drafts;
+        };
+
+        window.copyDraft = function(i) {
+            const d = (window.__drafts || [])[i];
+            if (!d) return;
+            const btn = document.getElementById("admin-copy-" + i);
+            copyToClipboard(String(d.text || ""))
+                .then((ok) => flashButtonLabel(btn, ok ? "COPIED!" : "COPY FAILED", "COPY"));
+        };
+
+        window.closeAdmin = function() {
+            document.getElementById("admin-modal").style.display = "none";
+            // Cleared so a reload does not reopen it, and so the hash is not
+            // left behind for the next person on a shared phone.
+            if (location.hash === "#admin") history.replaceState(null, "", location.pathname + location.search);
+        };
 
         function flashButtonLabel(buttonEl, text, defaultLabel) {
             if (!buttonEl) return;

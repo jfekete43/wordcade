@@ -263,97 +263,155 @@ eq('X_LINK ships empty, which is the cheap rate', /^const X_LINK = "([^"]*)";/m.
 }
 
 // ---- parking the posting --------------------------------------------------
+// Read off the environment rather than from defineSecret params, which is
+// what lets the two schedules deploy with no X secrets in Secret Manager at
+// all. An unset environment is the ordinary state and must park cleanly.
 {
   const cr = new Function(`${func('xCredentials')}\nreturn xCredentials;`)();
-  ck(cr('a', 'b', 'c', 'd') !== null, 'four secrets is a configured poster');
-  for (const i of [0, 1, 2, 3]) {
-    const v = ['a', 'b', 'c', 'd'];
-    v[i] = 'off';
-    eq(`"off" in position ${i} parks the posting`, cr(...v), null);
-    v[i] = '';
-    eq(`and so does an empty position ${i}`, cr(...v), null);
+  const NAMES = ['X_API_KEY', 'X_API_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET'];
+  const env = (over = {}) => Object.assign(
+    Object.fromEntries(NAMES.map((n, i) => [n, 'abcd'[i]])), over);
+  ck(cr(env()) !== null, 'all four set is a configured poster');
+  eq('and nothing set at all parks it, which is the shipped state', cr({}), null);
+  for (const n of NAMES) {
+    eq(`"off" for ${n} parks the posting`, cr(env({ [n]: 'off' })), null);
+    eq(`and ${n} unset does too`, cr(env({ [n]: '' })), null);
   }
-  eq('OFF in any case parks it too', cr('a', 'b', 'c', 'OFF'), null);
-  deq('and the credentials come back trimmed',
-      cr(' a ', 'b', 'c', 'd'), { apiKey: 'a', apiSecret: 'b', accessToken: 'c', accessSecret: 'd' });
+  eq('OFF in any case parks it too', cr(env({ X_ACCESS_SECRET: 'OFF' })), null);
+  deq('and the credentials come back trimmed', cr(env({ X_API_KEY: ' a ' })),
+      { apiKey: 'a', apiSecret: 'b', accessToken: 'c', accessSecret: 'd' });
+  // The whole point: nothing here may be a defineSecret the deploy requires.
+  for (const n of NAMES) {
+    ck(!new RegExp(`defineSecret\\("${n}"\\)`).test(fn),
+       `${n} is not a secret the deploy demands exist`);
+  }
 }
 
 // ---- the paste-ready draft -----------------------------------------------
 // The whole point of the draft is that a person posts it by hand, which is
 // not an API request and so is not billed - the URL surcharge that keeps
 // X_LINK empty does not apply to it at all.
+//
+// It is STORED, not sent. The Discord webhooks are deliberately untouched:
+// they go to channels other people read.
 {
-  const drafter = (link) => new Function('LINK', 'MAX', `
-    const X_LINK = LINK; const TWEET_MAX = MAX;
-    ${parts}
-    ${konst('DRAFT_LINK')}
-    ${func('prettyDigestDate')}
-    ${func('buildDraft')}
-    return buildDraft;`)(link, TWEET_MAX);
-  const draft = drafter('');
-  const d = draft({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
+  const saver = (link) => {
+    const writes = [];
+    const db = { collection: (c) => ({ doc: (id) => ({
+      set: async (v) => { writes.push({ path: `${c}/${id}`, ...v }); } }) }) };
+    const body = new Function('db', 'FieldValue', 'console', 'LINK', 'DATA', `
+      const X_LINK = LINK; const TWEET_MAX = ${TWEET_MAX};
+      ${parts}
+      ${konst('DRAFT_LINK')}
+      ${func('prettyDigestDate')}
+      ${func('saveDraft')}
+      return saveDraft(DATA);`);
+    return async (data) => {
+      writes.length = 0;
+      await body(db, { serverTimestamp: () => 'TS' }, { log: () => {} }, link, data);
+      return writes[0];
+    };
+  };
+  const save = saver('');
+  const w = await save({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
 
-  ck(/^```\n[\s\S]*\n```$/m.test(d.content.split('\n').slice(1).join('\n')),
-     'the draft is a code block, which is what has a copy button on a phone',
-     JSON.stringify(d.content.slice(0, 60)));
-  ck(/\*\*Paste into X\*\*/.test(d.content), 'under a line saying what it is for', d.content.split('\n')[0]);
-  ck(/Sprint/.test(d.content.split('\n')[0]), 'and which board it is', d.content.split('\n')[0]);
-  deq('mentions stay disabled, as on every other post here', d.allowed_mentions, { parse: [] });
+  eq('the draft is stored, not posted anywhere', w.path, 'adminDrafts/sprint_2026-11-07');
+  eq('under the board it is for', w.mode, 'sprint');
+  eq('and the day it reports on', w.key, '2026-11-07');
+  ck(/^Sprint \u00B7 /.test(w.label), 'with a label naming both', w.label);
+  ck(/2026/.test(w.label), 'in a form a person reads', w.label);
 
-  const inner = d.content.split('```')[1].replace(/^\n|\n$/g, '');
   // THE POINT: the link is there even though X_LINK is empty.
-  eq('the draft carries the link on its own last line', inner.split('\n').at(-1), 'https://lexathon.gg');
-  ck(/\u{1F947} PLAYER1/u.test(inner), 'with the board above it', inner.split('\n')[2]);
-  ck(/Word: CRANE/.test(inner), 'and the answer', inner);
-  // It still has to fit, or what gets pasted is rejected by the box.
-  ck(weigh(inner) <= TWEET_MAX, 'and it still fits a post', `${weigh(inner)} of ${TWEET_MAX}`);
-  // Budgeted as a linked post, so it is shorter than the unlinked one.
+  eq('the text carries the link on its own last line', w.text.split('\n').at(-1), 'https://lexathon.gg');
+  ck(/\u{1F947} PLAYER1/u.test(w.text), 'with the board above it', w.text.split('\n')[2]);
+  ck(/Word: CRANE/.test(w.text), 'and the answer', w.text);
+  ck(weigh(w.text) <= TWEET_MAX, 'and it still fits a post', `${weigh(w.text)} of ${TWEET_MAX}`);
   const bare = build({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
-  ck(weigh(inner) > weigh(bare), 'the link costs it real room', `${weigh(inner)} vs ${weigh(bare)}`);
+  ck(weigh(w.text) > weigh(bare), 'the link costs it real room', `${weigh(w.text)} vs ${weigh(bare)}`);
 
-  // Turning the automated link ON must not change the draft: it already has
-  // one, and two links would be two t.co widths out of the same 280.
-  eq('the draft is the same whatever X_LINK is set to',
-     drafter('https://lexathon.gg')({ mode: 'sprint', dateStr: '2026-11-07',
-       rows: sprintRows(5), words: ['CRANE'] }).content, d.content);
+  // Turning the automated link on must not change the draft: it has one
+  // already, and two would be two t.co widths out of the same 280.
+  const withLink = await saver('https://lexathon.gg')(
+    { mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
+  eq('the draft is the same whatever X_LINK is set to', withLink.text, w.text);
 
-  // A backtick would close the block early, make the rest render as markdown
-  // and break the paste. The handle filter admits none; this is lock two.
-  const evil = draft({ mode: 'sprint', dateStr: '2026-11-07',
-    rows: [{ username: '```x```', score: 500, elapsedMs: 1000 }], words: [] });
-  eq('the block still opens and closes exactly once',
-     (evil.content.match(/```/g) || []).length, 2);
-  // Counting fences is not enough on its own: two backticks in a handle make
-  // no fence and would sail through. Nothing inside may be a backtick at all.
-  eq('and no backtick survives into it',
-     (evil.content.split('```')[1].match(/`/g) || []).length, 0);
+  // A deterministic id, which is what makes a retried schedule harmless:
+  // it rewrites the same document with the same text. No claim needed,
+  // unlike a post, which leaves a trace of having happened twice.
+  const again = await save({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(5), words: ['CRANE'] });
+  eq('a second run overwrites the same document', again.path, w.path);
+  eq('with the same text', again.text, w.text);
 
-  const m = draft({ mode: 'marathon', dateStr: '2026-11-02', rows: marathonRows(5), words: [] });
-  ck(/Marathon/.test(m.content.split('\n')[0]), 'the Marathon draft says so too', m.content.split('\n')[0]);
-  ck(/lexathon\.gg/.test(m.content), 'and carries the link as well');
+  const m = await save({ mode: 'marathon', dateStr: '2026-11-02', rows: marathonRows(5), words: [] });
+  eq('the Marathon draft gets its own document', m.path, 'adminDrafts/marathon_2026-11-02');
+  ck(/^Marathon \u00B7 /.test(m.label), 'labelled as Marathon', m.label);
+  ck(/lexathon\.gg/.test(m.text), 'and carries the link as well');
 }
 
-// ---- the draft goes somewhere of its own ---------------------------------
+// ---- who may read them ----------------------------------------------------
+// Gated on a VERIFIED email against a secret. Unverified matters: an
+// unverified address on a token is a claim the provider never checked.
 {
-  for (const [name, mode] of [['postDailyDigest', '${job.mode}_draft'],
-                              ['postWeeklyDigest', 'marathon_draft']]) {
-    const body = fn.slice(fn.indexOf(`exports.${name}`), fn.indexOf(`exports.${name}`) + 3200);
-    ck(/DISCORD_DRAFT_WEBHOOK/.test(body), `${name} reads the draft webhook`);
-    ck(new RegExp(`secrets: \\[[^\\]]*DISCORD_DRAFT_WEBHOOK`).test(body),
-       `${name} is granted it`, (body.match(/secrets: \[[^\]]*\]/) || [''])[0]);
-    ck(body.includes(`mode: \`${mode}\``) || body.includes(`mode: "${mode}"`),
-       `${name} claims the draft under its own key, not the board's`,
-       (body.match(/mode: [^,]*_draft[^,]*/) || [''])[0]);
-    ck(/!urls\.length && !draftUrls\.length && !creds/.test(body),
-       `${name} runs when the draft is the only destination configured`,
-       (body.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
-    // Scoped to THIS schedule. Tested against the whole file, the other
-    // schedule's copy of the line satisfies it and a swapped secret here
-    // goes unnoticed.
-    ck(/webhookUrls\(DISCORD_DRAFT_WEBHOOK\.value\(\)\)/.test(body),
-       `${name} reads the draft's OWN webhook, not the board's`,
-       (body.match(/const draftUrls = [^\n]*/) || [''])[0].trim());
-  }
+  const gate = async (token, secret) => {
+    const read = [];
+    const db = { collection: (c) => ({ orderBy: (f, d) => ({ limit: (n) => ({
+      get: async () => { read.push(`${c} ${f} ${d} ${n}`); return { docs: [] }; } }) }) }) };
+    class HttpsError extends Error {
+      constructor(code, msg) { super(msg); this.code = code; }
+    }
+    // The callable, unwrapped: onCall and readableFailures are the harness
+    // around it, and what is on trial is the gate inside.
+    const whole = grab(/^exports\.getDrafts = onCall\([\s\S]*?\n\}\)\);$/m, 'getDrafts');
+    const inner = whole
+      .replace(/^exports\.getDrafts = onCall\(\{[^}]*\}, readableFailures\("[^"]*", /, '')
+      .replace(/\)\);$/, '');
+    ck(/^async \(request\) => \{/.test(inner), 'the callable body is findable', inner.slice(0, 40));
+    const body = new Function('db', 'ADMIN_EMAIL', 'HttpsError', 'requireAuth', 'TOKEN',
+      `const fn = ${inner};\nreturn fn({ auth: { uid: 'u1', token: TOKEN } });`);
+    try {
+      await body(db, { value: () => secret }, HttpsError, () => 'u1', token);
+      return { ok: true, read };
+    } catch (e) { return { ok: false, code: e.code, read }; }
+  };
+  const good = { email: 'me@example.com', email_verified: true };
+  eq('the right verified address is let in', (await gate(good, 'me@example.com')).ok, true);
+  eq('and case does not matter', (await gate({ ...good, email: 'Me@Example.COM' }, 'me@example.com')).ok, true);
+  eq('nor does surrounding space', (await gate(good, '  me@example.com ')).ok, true);
+  eq('a different address is refused', (await gate({ ...good, email: 'you@example.com' }, 'me@example.com')).code,
+     'permission-denied');
+  eq('the right address UNVERIFIED is refused',
+     (await gate({ email: 'me@example.com', email_verified: false }, 'me@example.com')).code, 'permission-denied');
+  eq('and a token with no email at all is refused',
+     (await gate({ email_verified: true }, 'me@example.com')).code, 'permission-denied');
+  // An unset secret must close the door, not open it to the empty address.
+  // The !want and !got guards in the source are belt-and-braces: `got !==
+  // want` already refuses both of these on its own, so removing either
+  // changes no behaviour. They stay because "fails closed when unset" should
+  // be legible in the condition rather than deduced from it.
+  eq('an unset ADMIN_EMAIL refuses everyone',
+     (await gate({ email: '', email_verified: true }, '')).code, 'permission-denied');
+  eq('including a real address', (await gate(good, '')).code, 'permission-denied');
+  // Nothing is read on the refusal paths.
+  deq('a refused call reads nothing', (await gate(good, 'you@example.com')).read, []);
+  deq('and an allowed one reads the newest first',
+      (await gate(good, 'me@example.com')).read, ['adminDrafts at desc 10']);
+}
+// The collection is closed to every client, so the callable is the only way
+// in and the gate cannot be stepped around by reading it directly.
+{
+  const rules = fs.readFileSync(REPO('firestore.rules'), 'utf8').replace(/\r\n/g, '\n');
+  const block = rules.slice(rules.indexOf('match /adminDrafts/'), rules.indexOf('match /adminDrafts/') + 120);
+  ck(/allow read, write: if false;/.test(block), 'adminDrafts is server-only in the rules', block.trim());
+}
+
+// ---- the Discord webhooks are left exactly as they were -------------------
+// The draft is an admin screen, not a third channel. Nothing about it may
+// add a destination to a secret other people's servers are reading from.
+{
+  ck(!/DISCORD_DRAFT_WEBHOOK/.test(fn), 'no draft webhook exists');
+  const webhooks = [...fn.matchAll(/defineSecret\("(DISCORD_[A-Z_]+)"\)/g)].map((m) => m[1]).sort();
+  deq('and the webhook secrets are the two that were already there', webhooks,
+      ['DISCORD_SPRINT_WEBHOOK', 'DISCORD_TRIFECTA_WEBHOOK']);
 }
 
 // ---- the claim, which is what stops a retry posting twice ----------------
@@ -425,19 +483,65 @@ ck(/\.slice\(0, 12\)/.test(func('channelId')),
      (weekly.match(/[^\n]*rows:[^\n]*/) || [''])[0].trim());
 }
 
+// ---- the admin screen -----------------------------------------------------
+{
+  const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
+  ck(/id="admin-modal"/.test(html), 'there is a modal to put the drafts in');
+  ck(/id="admin-drafts"/.test(html), 'and somewhere inside it for them to go');
+  ck(/httpsCallable\(cloudFunctions, "getDrafts"\)/.test(html),
+     'the page reaches them through the callable, not the collection');
+  ck(/if \(location\.hash === "#admin"\) window\.openAdmin\(\);/.test(html),
+     'opened by the hash, after auth has resolved',
+     (html.match(/[^\n]*location\.hash === "#admin"[^\n]*/) || [''])[0].trim());
+  // No door for the people who cannot walk through it. The hash is not the
+  // security - getDrafts is - but a visible button would be a puzzle for
+  // every player who found it.
+  ck(!/openAdmin\(\)"/.test(html), 'and by nothing else: no button anywhere opens it');
+
+  const fnSrc = (re) => (html.match(re) || [''])[0];
+  const open = fnSrc(/        window\.openAdmin = async function\(\) \{\n[\s\S]*?\n        \};/);
+  ck(open.length > 200, 'the opener is findable', String(open.length));
+  ck(/escapeHtml\(String\(d\.text/.test(open),
+     'the draft text is escaped: it is built from player handles', open.match(/[^\n]*escapeHtml[^\n]*/)[0].trim());
+  ck(/escapeHtml\(String\(d\.label/.test(open), 'and so is the label');
+  const caught = (open.match(/catch \(e\) \{[\s\S]*?\n            \}/) || [''])[0];
+  ck(/box\.innerText =/.test(caught),
+     'a refusal shows a message rather than throwing into the console', caught.trim());
+  ck(/e\.message/.test(caught), 'and shows what the refusal actually said', caught.trim());
+  ck(/if \(!currentUser\)/.test(open), 'and a signed-out visitor is told to sign in, not left on "Loading..."');
+
+  const copy = fnSrc(/        window\.copyDraft = function\(i\) \{\n[\s\S]*?\n        \};/);
+  ck(/copyToClipboard\(String\(d\.text/.test(copy),
+     'copy puts the RAW text on the clipboard, not the escaped markup',
+     copy.match(/[^\n]*copyToClipboard[^\n]*/)[0].trim());
+  ck(/flashButtonLabel/.test(copy), 'and says whether it worked, like every other copy button here');
+}
+
 // ---- the schedules are actually wired -------------------------------------
 {
-  for (const [name, why] of [['postDailyDigest', 'the Sprint board'],
-                             ['postWeeklyDigest', 'the Marathon board']]) {
-    const body = fn.slice(fn.indexOf(`exports.${name}`), fn.indexOf(`exports.${name}`) + 3000);
-    ck(/deliverTweet\(/.test(body), `${name} posts ${why} to X`);
-    for (const sec of ['X_API_KEY', 'X_API_SECRET', 'X_ACCESS_TOKEN', 'X_ACCESS_SECRET']) {
-      ck(new RegExp(`secrets: \\[[^\\]]*${sec}`).test(body), `${name} is granted ${sec}`);
-    }
-    ck(/if \(!urls\.length && !draftUrls\.length && !creds\)/.test(body),
-       `${name} still runs when X is the only destination configured`,
-       (body.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
+  for (const [name, why, own] of [
+    ['postDailyDigest', 'the Sprint board', 'DISCORD_SPRINT_WEBHOOK'],
+    ['postWeeklyDigest', 'the Marathon board', 'DISCORD_TRIFECTA_WEBHOOK'],
+  ]) {
+    const start = fn.indexOf(`exports.${name}`);
+    const body = fn.slice(start, start + 3200);
+    ck(/deliverTweet\(/.test(body), `${name} can post ${why} to X`);
+    ck(/await saveDraft\(/.test(body), `${name} always stores a draft of ${why}`);
+    // The draft is unconditional: there is no configuration that turns it
+    // off and therefore no state in which the morning produces nothing.
+    ck(!/nowhere to post/.test(body),
+       `${name} has no "nowhere to post" exit any more, because the draft is always a destination`);
+
+    // The secrets the schedule demands exist at deploy time. Exactly the
+    // one webhook each already had - adding any made both functions
+    // undeployable until four unused secrets were created by hand.
+    const secrets = (body.match(/secrets: \[[^\]]*\]/) || [''])[0];
+    eq(`${name} asks for exactly the secret it already had`, secrets, `secrets: [${own}]`);
   }
+  // Nothing anywhere may make an X credential a deploy-time requirement.
+  ck(/const creds = xCredentials\(\);/.test(fn),
+     'the credentials come from the environment, not from a secret param',
+     (fn.match(/const creds = [^\n]*/) || [''])[0].trim());
 }
 
 let bad = 0;
