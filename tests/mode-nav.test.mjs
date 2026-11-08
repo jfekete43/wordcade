@@ -250,9 +250,21 @@ function MODE_LABEL(m) { return MODE_LABELS[m]; }
 // screen. Marking the mode only once a flag flips means the nav still says
 // SPRINT a second after MARATHON was pressed, which reads as a missed tap on
 // a phone - so the nav marks where you are GOING while it is going there.
-// Open modes only: goToMode refuses a closed one, so a switch to Marathon
-// never starts and there would be nothing for the nav to mark.
-for (const [from, to] of [['sprint', 'gauntlet'], ['gauntlet', 'sprint'], ['endless', 'clash']]) {
+// Open modes only: goToMode refuses a closed one, so a switch to a closed
+// mode never starts and there would be nothing for the nav to mark.
+//
+// Derived from OPEN_KEYS rather than written out. The pairs used to name
+// sprint and gauntlet, and closing the Trifecta turned this from a check
+// into a crash - nav.find(current) came back undefined for a button the nav
+// correctly no longer draws. Every open mode now gets a turn as both ends.
+const SWITCHES = OPEN_KEYS.flatMap((from, i) => {
+  const to = OPEN_KEYS[(i + 1) % OPEN_KEYS.length];
+  return from === to ? [] : [[from, to]];
+});
+ck(SWITCHES.length === OPEN_KEYS.length && OPEN_KEYS.length >= 3,
+   'every open mode is both left and entered somewhere in the pairs below',
+   SWITCHES.map((x) => x.join('->')).join(' '));
+for (const [from, to] of SWITCHES) {
   const nav = await page.evaluate(([f, t]) => {
     window.setFlags({ [f]: true });   // still in the old mode: no flag has flipped
     window.setPending(t);
@@ -271,10 +283,14 @@ for (const [from, to] of [['sprint', 'gauntlet'], ['gauntlet', 'sprint'], ['endl
   eq(`and exactly one slot is marked during the switch`, nav.filter((b) => b.current).length, 1);
 }
 {
-  // And when it lands, the flag is the only thing speaking again.
-  const nav = await page.evaluate(() => { window.setFlags({ gauntlet: true }); return window.readNav(); });
+  // And when it lands, the flag is the only thing speaking again. Driven
+  // through an OPEN mode read off the table rather than a named one: this
+  // said `gauntlet`, and closing the Trifecta turned it into an assertion
+  // that a button the nav correctly no longer draws is lit.
+  const landed = OPEN_KEYS[OPEN_KEYS.length - 1];
+  const nav = await page.evaluate((m) => { window.setFlags({ [m]: true }); return window.readNav(); }, landed);
   eq('once the mode arrives the nav is back on the flags alone',
-     nav.filter((b) => b.current).map((b) => b.mode), ['gauntlet']);
+     nav.filter((b) => b.current).map((b) => b.mode), [landed]);
 }
 
 // Order is stable, so a slot does not jump between modes as you move around.

@@ -234,7 +234,12 @@ const CHALLENGES = {
     { id: "d_marathon", req: 30, field: "played", reward: 7500 },
     { id: "d_flawless", req: 1, field: "guess1", reward: 5000 },
     { id: "d_sprint", req: 1, field: "sprintDone", reward: 2500 },
-    { id: "d_trifecta", req: 1, field: "gauntletSwept", reward: 5000 },
+    { id: "d_longhaul", req: 5, field: "marathonWords", reward: 3000 },
+    // d_trifecta ("solve every word in today's Trifecta") was here. The
+    // daily three are drawn HERE, server-side, where there is no MODES
+    // table to consult - so a closed mode's daily challenge has no runtime
+    // filter to save it and would simply be undoable. The career ones can
+    // stay where they are; challengeAvailable() hides those at render.
   ],
   career: [
     { id: "c_homerun", req: 1, field: "guess1", reward: 10000 },
@@ -259,6 +264,13 @@ const CHALLENGES = {
     { id: "c_sprint_regular", req: 50, field: "sprintSolved", reward: 25000 },
     { id: "c_sprint_week", req: 7, field: "sprintBestStreak", reward: 20000 },
     { id: "c_sprint_month", req: 30, field: "sprintBestStreak", reward: 100000 },
+    // Marathon. `req: 20` is MARATHON_WORD_COUNT; challenges.test.mjs pins
+    // the two together, because a challenge asking for twenty words in a
+    // week that is no longer twenty words long is one nobody can finish.
+    { id: "c_marathon_finish", req: 20, field: "bestMarathonWords", reward: 25000 },
+    { id: "c_marathon_regular", req: 4, field: "marathonWeeks", reward: 20000 },
+    { id: "c_marathon_grind", req: 12, field: "marathonWeeks", reward: 100000 },
+    { id: "c_marathon_big", req: 7500, field: "bestMarathonScore", reward: 50000 },
     { id: "c_trifecta_regular", req: 25, field: "gauntletPlayed", reward: 20000 },
     { id: "c_trifecta_clean3", req: 3, field: "gauntletBestStreak", reward: 25000 },
     { id: "c_trifecta_clean10", req: 10, field: "gauntletBestStreak", reward: 100000 },
@@ -337,14 +349,16 @@ const DAILY_GAUNTLET_MAX_GUESSES = 5;
 // truncates legal names, and one wider wastes characters a phone does not
 // have to spare inside a code block.
 const HANDLE_MAX = 12;
-// Marathon: one set of words per calendar month, played at whatever pace you
-// like. Fifty rather than a hundred to start — the question this mode is
-// being run to answer is whether anyone finishes, and fifty answers it inside
-// one month instead of never.
-const MARATHON_WORD_COUNT = 50;
+// Marathon: one set of words per calendar WEEK, played at whatever pace you
+// like. It was fifty words a month, which is the same three-a-day pace over
+// a commitment four times longer — and a month-long mode asks a different
+// kind of thing from a player than the rest of the game does. A week is
+// short enough to start over from behind, which is the thing a long mode
+// most needs.
+const MARATHON_WORD_COUNT = 20;
 // Easy / medium / hard, summing to MARATHON_WORD_COUNT. Drawn from the same
 // three difficulty thirds the Daily Puzzle uses.
-const MARATHON_TIER_SPLIT = [17, 16, 17];
+const MARATHON_TIER_SPLIT = [7, 6, 7];
 const SUDDEN_DEATH_ROUND_MS = 90000; // a full 5-guess board per side, not one quick guess — needs real thinking time
 const SUDDEN_DEATH_MAX_ROUNDS = 1; // one word decides it — if neither side solves it, the match is a genuine tie rather than dragging a drawn 7-minute match out by another 90s per extra round
 
@@ -399,19 +413,25 @@ function getTodayDateStr() {
  */
 function runDocId(mode, uid, dateStr) { return `${mode}_${uid}_${dateStr}`; }
 
-// The modes that record one. Marathon keeps its month on the user doc and
-// writes no run at all; a standard run is created by the client and takes a
-// random id, so there is nothing to look up.
+// The modes that record one. Marathon writes one run per finished WORD
+// rather than one per period, so it has no single id to look up — and its
+// board reads /users, so its rows were never stale in the first place. A
+// standard run is created by the client and takes a random id.
 const PER_DAY_RUN_MODES = ["daily", "sprint"];
 
-// The Eastern calendar MONTH, "YYYY-MM". Marathon's whole identity: the word
-// set, the attempt and the board are all keyed by it, and it rolling over is
-// what ends one marathon and starts the next. Eastern for the same reason
-// every other boundary in the game is — so the month turns at one moment for
-// everybody rather than at each viewer's midnight.
-function getMonthKeyStr() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(new Date());
-}
+/*
+ * Is the Trifecta open? Mirrors MODES.gauntlet.hidden in index.html, which is
+ * where the decision actually lives — this side only needs to know so it can
+ * stop generating a puzzle nobody can reach.
+ *
+ * A flag rather than removing the export: the scheduled function stays
+ * deployed and does nothing, so reopening the mode is one word here and one
+ * word there, instead of a deploy that has to recreate a schedule. Everything
+ * else about the mode — the handlers, the archive, the stored runs, the
+ * rules — is untouched and still correct, which is the same bargain the
+ * client's `hidden` makes.
+ */
+const TRIFECTA_OPEN = false;
 
 // Calendar arithmetic on a YYYY-MM-DD string, used by the Sprint streak to
 // ask "was the last solve yesterday". Parsed as UTC deliberately: the string
@@ -469,6 +489,20 @@ function periodKeyFor(when, period) {
   return utc.toISOString().slice(0, 10);
 }
 
+// Marathon's WEEK: the Eastern date of that week's Monday, "YYYY-MM-DD".
+// Marathon's whole identity — the word set, the attempt and the board are all
+// keyed by it, and it rolling over is what ends one marathon and starts the
+// next. Eastern for the same reason every other boundary in the game is, so
+// the week turns at one moment for everybody rather than at each viewer's
+// midnight.
+//
+// Asks periodKeyFor for "weekly" by name rather than taking its default:
+// LEADERBOARD_PERIOD can be flipped to monthly, and that is a decision about
+// how wide the leaderboard's window is, not about how long a marathon lasts.
+function getMarathonKeyStr() {
+  return periodKeyFor(new Date(), "weekly");
+}
+
 /*
  * A counter for every `field` any daily challenge reads - plus the rest of the
  * guess distribution, so a challenge on guess3 needs no server change. Not a
@@ -497,6 +531,10 @@ function freshDailyStats(today) {
     // that mean "ever" and "today" must not share a name.
     sprintDone: 0,
     gauntletSwept: 0,
+    // Not 0-or-1 like the two above: Marathon is the one mode you can play
+    // as much of as you like in a day, which is the whole thing a daily
+    // challenge on it can ask about.
+    marathonWords: 0,
     claimed: [],
     activeIds: shuffled.slice(0, 3).map((c) => c.id),
   };
@@ -596,6 +634,9 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
         // not make "solve today's Sprint" read 2.
         sprintDone: Math.min(1, (daily.sprintDone || 0) + (isSprintSolve ? 1 : 0)),
         gauntletSwept: Math.min(1, (daily.gauntletSwept || 0) + (isGauntletSweep ? 1 : 0)),
+        // Uncapped, and counted off the run's own mode rather than a
+        // predicate: one Marathon run IS one finished word.
+        marathonWords: (daily.marathonWords || 0) + (run.mode === "marathon" ? wordsPlayed : 0),
         claimed: daily.claimed || [],
         activeIds: daily.activeIds || freshDailyStats(today).activeIds,
       },
@@ -672,7 +713,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // ---- Marathon's live standing -----------------------------------------
     // The board reads these off /users rather than aggregating /runs, the
     // same denormalisation the weekly and daily boards use and for the same
-    // reason: built from runs it would read every run of the month on every
+    // reason: built from runs it would read every run of the week on every
     // page load.
     //
     // SET from the totals the run carries, not incremented. Each finished
@@ -680,18 +721,43 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // fields would then climb on their own and look like play. Carrying the
     // running total makes a replay idempotent.
     //
-    // A total from a PREVIOUS month does not count against this one, so the
+    // A total from a PREVIOUS week does not count against this one, so the
     // comparison floor drops to 0 when the key changes. That is what makes
-    // the month reset without anything having to sweep it.
+    // the week reset without anything having to sweep it.
     if (run.mode === "marathon" && run.marathonKey) {
-      const priorInMonth = user.marathonKey === run.marathonKey
+      const priorInWeek = user.marathonKey === run.marathonKey
         ? Math.max(0, Number(user.marathonScore) || 0)
         : -1;
       const incoming = Math.max(0, Number(run.marathonScore) || 0);
+      // The career side of Marathon, which until now did not exist: the mode
+      // stored this week and nothing else, so there was nothing all-time to
+      // rank and nothing for a career challenge to count.
+      //
+      // Compare-and-set, like bestRunScore, for the same reason the block
+      // below only moves forward: a late-arriving earlier word carries a
+      // SMALLER running total, and a plain assignment would walk the best
+      // backwards.
+      const words = Math.max(0, Number(run.marathonWords) || 0);
+      if (incoming > Math.max(0, Number(user.bestMarathonScore) || 0)) {
+        update.bestMarathonScore = incoming;
+        update.bestMarathonWeek = run.marathonKey;
+      }
+      if (words > Math.max(0, Number(user.bestMarathonWords) || 0)) {
+        update.bestMarathonWords = words;
+      }
+
       // Only move forward. Two words finished close together can have their
       // triggers delivered out of order, and the later-arriving earlier word
       // must not drag the standing backwards.
-      if (incoming > priorInMonth) {
+      if (incoming > priorInWeek) {
+        // A key this player has not been seen on is a week started. Counted
+        // here, inside the block that SETS marathonKey, so it moves exactly
+        // once per week however that week's runs are ordered - whichever word
+        // lands first is the one that counts it, and every later one sees the
+        // key already changed.
+        if (user.marathonKey !== run.marathonKey) {
+          update.marathonWeeks = Math.max(0, Number(user.marathonWeeks) || 0) + 1;
+        }
         update.marathonKey = run.marathonKey;
         update.marathonScore = incoming;
         update.marathonWords = Math.max(0, Number(run.marathonWords) || 0);
@@ -1581,7 +1647,7 @@ function pickSprintWord(stats) {
   return { word: ranked[i].w.toUpperCase(), tier };
 }
 
-// Marathon's month of words: MARATHON_TIER_SPLIT drawn from each difficulty
+// Marathon's week of words: MARATHON_TIER_SPLIT drawn from each difficulty
 // third, stored easy-to-hard. The stored order is canonical and the same for
 // everybody; the order a given player MEETS them in is a per-player shuffle
 // of this one (see marathonOrderFor).
@@ -1609,7 +1675,7 @@ function pickMarathonWords(stats) {
 }
 
 // A small deterministic PRNG, so one player's running order is reproducible
-// from their uid and the month alone. Math.random would do the job once and
+// from their uid and the week alone. Math.random would do the job once and
 // then be unable to explain itself; this can be re-derived when somebody asks
 // why they got the words in the order they did.
 function mulberry32(seed) {
@@ -1631,17 +1697,17 @@ function seedFrom(str) {
   return h >>> 0;
 }
 
-// The order ONE player meets the month's words in: a shuffle WITHIN each
+// The order ONE player meets the week's words in: a shuffle WITHIN each
 // difficulty band, never across them.
 //
 // Across-the-board shuffling was the obvious version and it is wrong: it
-// throws away the ramp, so a player can meet the hardest word of the month at
-// position three. Shuffling inside each band keeps the month opening gently
+// throws away the ramp, so a player can meet the hardest word of the week at
+// position three. Shuffling inside each band keeps the week opening gently
 // and closing hard for everyone, while still meaning no two players hit the
 // same word at the same position — which is the point, because it makes
 // "word 12 is brutal" unspoilable.
-function marathonOrderFor(uid, month, wordCount) {
-  const rng = mulberry32(seedFrom(`${uid}:${month}`));
+function marathonOrderFor(uid, week, wordCount) {
+  const rng = mulberry32(seedFrom(`${uid}:${week}`));
   const order = [];
   let start = 0;
   for (const size of MARATHON_TIER_SPLIT) {
@@ -1683,6 +1749,10 @@ async function loadWordStats() {
 // generate fallback (below) covers the rare case this hasn't fired yet
 // when the first player of the day opens the Daily Puzzle.
 exports.generateDailyPuzzle = onSchedule({ schedule: "0 0 * * *", timeZone: "America/New_York" }, async () => {
+  // A day's three words, for a mode nobody can open: a document and an
+  // invocation every night for nothing. getOrCreateTodaysGauntlet still
+  // creates one lazily if the mode reopens mid-day, so nothing is lost.
+  if (!TRIFECTA_OPEN) return;
   const today = getTodayDateStr();
   const puzzleRef = db.collection("dailyPuzzles").doc(today);
   const sprintRef = db.collection("sprintPuzzles").doc(today);
@@ -1890,16 +1960,29 @@ const digestNum = (n) => Number(n || 0).toLocaleString("en-US");
  * the row and cost six characters to do it. Sprint keeps the clock, because
  * that is the one thing its score does not tell you.
  *
- * Sprint rows come to 31 characters, the Trifecta's to 23.
+ * Sprint rows come to 31 characters, Marathon's to 28, the Trifecta's to 23.
  */
-const DIGEST_W = { place: 3, name: HANDLE_MAX, clock: 7, score: 5 };
+const DIGEST_W = { place: 3, name: HANDLE_MAX, clock: 7, words: 4, score: 5 };
+
+// The one extra column each mode earns, if any. Sprint's clock is the thing
+// its score cannot tell you - every solve is one of six values. Marathon's is
+// how far through the week you got, which separates a big score made of
+// twenty cheap words from one made of eight sharp ones. The Trifecta needed
+// neither: three words and a score IS the whole run.
+function digestExtra(mode) {
+  if (mode === "sprint") return { head: "TIME", w: DIGEST_W.clock };
+  if (mode === "marathon") return { head: "DONE", w: DIGEST_W.words };
+  return null;
+}
 
 function digestHeader(mode) {
   const lead = " ".repeat(DIGEST_W.place + 2);
   const name = "PLAYER".padEnd(DIGEST_W.name);
-  return mode === "sprint"
-    ? `${lead}${name} ${"TIME".padStart(DIGEST_W.clock)} ${"SCORE".padStart(DIGEST_W.score)}`
-    : `${lead}${name} ${"SCORE".padStart(DIGEST_W.score)}`;
+  const extra = digestExtra(mode);
+  const score = "SCORE".padStart(DIGEST_W.score);
+  return extra
+    ? `${lead}${name} ${extra.head.padStart(extra.w)} ${score}`
+    : `${lead}${name} ${score}`;
 }
 
 function digestTable(rows, mode) {
@@ -1907,6 +1990,10 @@ function digestTable(rows, mode) {
     const place = ("#" + (i + 1)).padStart(DIGEST_W.place);
     const name = digestName(r.username, DIGEST_W.name);
     const score = digestNum(r.score).padStart(DIGEST_W.score);
+    if (mode === "marathon") {
+      const done = Math.max(0, Number(r.marathonWords) || 0);
+      return `${place}  ${name} ${String(done).padStart(DIGEST_W.words)} ${score}`;
+    }
     if (mode !== "sprint") return `${place}  ${name} ${score}`;
     // A dash, not 0.0s. An unsolved Sprint stores elapsedMs as null and
     // Number(null) is 0, so the clock read as an instant solve for the one
@@ -1928,11 +2015,20 @@ function digestTable(rows, mode) {
  */
 function buildDigest({ mode, dateStr, rows, words }) {
   const isSprint = mode === "sprint";
-  const n = puzzleNumber(dateStr, isSprint ? SPRINT_EPOCH : TRIFECTA_EPOCH);
-  const name = isSprint ? "Sprint" : "Trifecta";
-  const title = `${isSprint ? "\u{1F579}️" : "\u{1F525}"} Lexathon ${name}${n ? " #" + n : ""}`;
+  const isMarathon = mode === "marathon";
+  // Marathon has no epoch to count from: it ran monthly for a while and then
+  // weekly, so "Marathon #9" would be nine of two different things. The
+  // footer carries the week instead, which is the thing anyone comparing two
+  // posts actually needs.
+  const n = isMarathon ? null : puzzleNumber(dateStr, isSprint ? SPRINT_EPOCH : TRIFECTA_EPOCH);
+  const name = isSprint ? "Sprint" : isMarathon ? "Marathon" : "Trifecta";
+  const icon = isSprint ? "\u{1F579}️" : isMarathon ? "\u{1F3C3}" : "\u{1F525}";
+  const title = `${icon} Lexathon ${name}${n ? " #" + n : ""}`;
   const list = (words || []).filter(Boolean).map((w) => String(w).toUpperCase());
-  const answer = list.length
+  // Marathon's answers are deliberately absent, not missing: twenty words is
+  // a wall of bold text above the thing people came to read, where three fit
+  // on a line and one is the whole post.
+  const answer = list.length && !isMarathon
     ? (isSprint ? `The word was **${list[0]}**` : `The words were **${list.join("** · **")}**`)
     : "";
   const body = ["```", digestHeader(mode), digestTable(rows, mode), "```"].join("\n");
@@ -1942,9 +2038,9 @@ function buildDigest({ mode, dateStr, rows, words }) {
     embeds: [{
       title,
       url: "https://lexathon.gg",
-      color: isSprint ? 0x7a4a73 : 0x5c5ca8,
+      color: isSprint ? 0x7a4a73 : isMarathon ? 0x1d5c5c : 0x5c5ca8,
       description: [answer, body].filter(Boolean).join("\n"),
-      footer: { text: prettyDigestDate(dateStr) },
+      footer: { text: isMarathon ? `Week of ${prettyDigestDate(dateStr)}` : prettyDigestDate(dateStr) },
     }],
   };
 }
@@ -2011,17 +2107,65 @@ function channelId(url) {
  * can undo. The claim is released again if the POST fails, so a Discord
  * outage costs the day's post rather than every future one.
  */
+/*
+ * Post one digest to every channel configured for it, exactly once each.
+ *
+ * Shared by the daily and weekly schedules. It was inlined in the daily one,
+ * and the weekly one would have been a second copy of the only part of this
+ * that is subtle: the CLAIM. A digest that posts twice is worse than one
+ * that does not post, so each destination takes its own claim document
+ * before the request goes out, and hands it back if the request fails - so a
+ * retry re-posts only where the post actually failed.
+ *
+ * `build` is called at most once however many channels there are: the board
+ * is the same board everywhere, and it costs a read or two to render.
+ */
+async function deliverDigest({ mode, key, urls, label, build }) {
+  let payload = null;
+  for (const url of urls) {
+    const to = `${label} -> ${channelId(url)}`;
+    const claimRef = db.collection("digestPosts").doc(`${mode}_${key}_${channelId(url)}`);
+    const claimed = await db.runTransaction(async (tx) => {
+      if ((await tx.get(claimRef)).exists) return false;
+      tx.set(claimRef, {
+        mode, puzzleDate: key, channel: channelId(url),
+        at: FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
+    if (!claimed) { console.log(`digest ${to}: already posted`); continue; }
+
+    try {
+      if (!payload) payload = await build();
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Discord returned ${res.status} ${(await res.text()).slice(0, 200)}`);
+      console.log(`digest ${to}: posted`);
+    } catch (e) {
+      // Hand THIS channel's day back so the next run, or a manual retry, can
+      // post it. The channels that already have it keep their claims.
+      await claimRef.delete().catch(() => {});
+      console.error(`digest ${to}: post failed, claim released`, e);
+    }
+  }
+}
+
 exports.postDailyDigest = onSchedule({
   schedule: "10 9 * * *",
   timeZone: "America/New_York",
-  secrets: [DISCORD_SPRINT_WEBHOOK, DISCORD_TRIFECTA_WEBHOOK],
+  secrets: [DISCORD_SPRINT_WEBHOOK],
 }, async () => {
   const dateStr = shiftDateStr(getTodayDateStr(), -1);
+  // Sprint alone. The Trifecta's job was here and is gone with the mode; its
+  // webhook now carries the weekly Marathon digest below, under the secret
+  // name it was set with - renaming the secret would mean setting it again
+  // by hand, for nothing.
   const jobs = [
     { mode: "sprint", secret: DISCORD_SPRINT_WEBHOOK.value(), tiebreak: "elapsedMs", dir: "asc",
       puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word] },
-    { mode: "daily", secret: DISCORD_TRIFECTA_WEBHOOK.value(), tiebreak: "wordsGuessed", dir: "desc",
-      puzzle: db.collection("dailyPuzzles").doc(dateStr), words: (d) => d.words || [] },
   ];
 
   for (const job of jobs) {
@@ -2037,46 +2181,59 @@ exports.postDailyDigest = onSchedule({
     // nobody played, which is not what a leaderboard channel is for.
     if (snap.empty) { console.log(`digest ${label}: no runs, nothing to post`); continue; }
 
-    // Read and rendered ONCE, however many channels it goes to: the day's
-    // board is the same board everywhere, and the puzzle read is a document
-    // read per destination otherwise.
-    let payload = null;
-    for (const url of urls) {
-      const to = `${label} -> ${channelId(url)}`;
-      const claimRef = db.collection("digestPosts").doc(`${job.mode}_${dateStr}_${channelId(url)}`);
-      const claimed = await db.runTransaction(async (tx) => {
-        if ((await tx.get(claimRef)).exists) return false;
-        tx.set(claimRef, {
-          mode: job.mode, puzzleDate: dateStr, channel: channelId(url),
-          at: FieldValue.serverTimestamp(),
+    await deliverDigest({
+      mode: job.mode, key: dateStr, urls, label,
+      build: async () => {
+        const pSnap = await job.puzzle.get();
+        return buildDigest({
+          mode: job.mode, dateStr, rows: snap.docs.map((d) => d.data()),
+          words: pSnap.exists ? job.words(pSnap.data()) : [],
         });
-        return true;
-      });
-      if (!claimed) { console.log(`digest ${to}: already posted`); continue; }
-
-      try {
-        if (!payload) {
-          const pSnap = await job.puzzle.get();
-          payload = buildDigest({
-            mode: job.mode, dateStr, rows: snap.docs.map((d) => d.data()),
-            words: pSnap.exists ? job.words(pSnap.data()) : [],
-          });
-        }
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error(`Discord returned ${res.status} ${(await res.text()).slice(0, 200)}`);
-        console.log(`digest ${to}: posted ${snap.size} row(s)`);
-      } catch (e) {
-        // Hand THIS channel's day back so tomorrow's run, or a manual retry,
-        // can post it. The channels that already have it keep their claims.
-        await claimRef.delete().catch(() => {});
-        console.error(`digest ${to}: post failed, claim released`, e);
-      }
-    }
+      },
+    });
   }
+});
+
+/*
+ * The Marathon week, posted on Monday morning once the week it reports on is
+ * over.
+ *
+ * Read off /users, not /runs, because that is where the board lives: a
+ * Marathon score is a running total for a week, denormalised onto the player
+ * by onRunCreated, and rebuilding it from the week's runs would be a read
+ * per word per player. The week's final standings are simply still sitting
+ * there under last week's key until each player's first run of the new week
+ * overwrites them - which is exactly why this runs on Monday MORNING and
+ * reports the week that just ended, rather than at the stroke of the
+ * rollover.
+ *
+ * 09:10 Eastern, the same hour as the daily digest, for the same reason: it
+ * is a morning post, not a midnight one.
+ */
+exports.postWeeklyDigest = onSchedule({
+  schedule: "10 9 * * 1",
+  timeZone: "America/New_York",
+  secrets: [DISCORD_TRIFECTA_WEBHOOK],
+}, async () => {
+  // The week that just ended: seven days before today's key, which on a
+  // Monday is last Monday.
+  const week = shiftDateStr(getMarathonKeyStr(), -7);
+  const label = `marathon ${week}`;
+  const urls = webhookUrls(DISCORD_TRIFECTA_WEBHOOK.value());
+  if (!urls.length) { console.log(`digest ${label}: no webhook configured, skipped`); return; }
+
+  const snap = await db.collection("users")
+    .where("marathonKey", "==", week)
+    .orderBy("marathonScore", "desc")
+    .limit(10).get();
+  if (snap.empty) { console.log(`digest ${label}: nobody played, nothing to post`); return; }
+
+  await deliverDigest({
+    mode: "marathon", key: week, urls, label,
+    build: async () => buildDigest({
+      mode: "marathon", dateStr: week, rows: snap.docs.map((d) => d.data()), words: [],
+    }),
+  });
 });
 
 async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
@@ -2099,14 +2256,14 @@ async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
   return puzzle;
 }
 
-// Marathon's month of words. Lazily created the same way the other two are,
-// so the first player of a month is not blocked by a schedule that has not
-// fired. No exclusion against the Daily or Sprint: fifty words over a month
-// will overlap a few of the month's dailies by chance, and that is fine —
-// meeting a word twice weeks apart is not learning the answer, and excluding
-// thirty-odd days of other modes' words up front would mean generating them
-// up front too.
-async function getOrCreateThisMonthsMarathon(tx, ref, month) {
+// Marathon's week of words. Lazily created the same way the other two are,
+// so the first player of a week is not blocked by a schedule that has not
+// fired. No exclusion against the Daily or Sprint: twenty words over a week
+// may overlap one of the week's dailies by chance, and that is fine —
+// meeting a word twice days apart is not learning the answer, and excluding
+// a week of other modes' words up front would mean generating them up front
+// too.
+async function getOrCreateThisWeeksMarathon(tx, ref, week) {
   const snap = await tx.get(ref);
   if (snap.exists) return snap.data();
   const puzzle = {
@@ -2118,17 +2275,21 @@ async function getOrCreateThisMonthsMarathon(tx, ref, month) {
   return puzzle;
 }
 
-function marathonAttemptRef(uid, month) {
-  return db.collection("marathonAttempts").doc(uid).collection("months").doc(month);
+function marathonAttemptRef(uid, week) {
+  // `weeks`, not `months`: the old monthly attempts are still sitting under
+  // marathonAttempts/{uid}/months and are simply never read again. Nothing
+  // sweeps them, because a half-finished marathon from October is a record
+  // of something that happened, and they cost nothing where they are.
+  return db.collection("marathonAttempts").doc(uid).collection("weeks").doc(week);
 }
 
-// What the client is allowed to know about its own marathon. The month's
+// What the client is allowed to know about its own marathon. The week's
 // words never appear: the player is told only which position they are on and
 // what their own guesses scored. `order` is theirs and is safe — it is a
 // permutation of indices into a list they cannot read.
 function publicMarathonState(attempt, currentWord) {
   return {
-    month: attempt.month,
+    week: attempt.week,
     wordIndex: attempt.wordIndex,
     wordCount: attempt.wordCount,
     score: attempt.score,
@@ -2496,66 +2657,69 @@ exports.guessSprintWord = onCall(readableFailures("Submitting that Sprint guess"
 }));
 
 // ============================================================================
-// MARATHON — one set of fifty words per calendar month, at your own pace.
+// MARATHON — one set of twenty words per calendar week, at your own pace.
 //
 // The two things that make this different from the Daily Puzzle, beyond
 // length:
 //
-// IT IS SCORED WHILE IT IS STILL RUNNING. A month-long mode whose board only
+// IT IS SCORED WHILE IT IS STILL RUNNING. A week-long mode whose board only
 // populates at the end has no board for most of its life, so each finished
 // word writes its own /runs document and the existing onRunCreated payout
 // applies it immediately. That also means points arrive as you play rather
-// than thirty days later, and the board — which reads denormalised fields on
-// the user doc, the same way the weekly and daily boards do — is live.
+// than next Monday, and the board — which reads denormalised fields on the
+// user doc, the same way the weekly and daily boards do — is live.
 //
-// EVERYONE GETS THE SAME WORDS IN A DIFFERENT ORDER. The month's fifty are
+// EVERYONE GETS THE SAME WORDS IN A DIFFERENT ORDER. The week's twenty are
 // one list, stored easy-to-hard; each player walks it through their own
 // permutation, shuffled within difficulty bands so the ramp survives. Two
 // players comparing notes cannot spoil each other, because "word 12" is not
 // the same word for them.
 //
 // Joining late is not catered for, deliberately: there is one marathon a
-// month and it starts when the month does.
+// week and it starts when the week does. A week is short enough that
+// arriving on Thursday means waiting days rather than weeks for a clean
+// start, which is most of why it is no longer a month.
 // ============================================================================
 
-exports.generateMarathonPuzzle = onSchedule({ schedule: "5 0 1 * *", timeZone: "America/New_York" }, async () => {
-  const month = getMonthKeyStr();
-  const ref = db.collection("marathonPuzzles").doc(month);
+// 00:05 Eastern every Monday, five minutes after the week key rolls over.
+exports.generateMarathonPuzzle = onSchedule({ schedule: "5 0 * * 1", timeZone: "America/New_York" }, async () => {
+  const week = getMarathonKeyStr();
+  const ref = db.collection("marathonPuzzles").doc(week);
   const stats = await loadWordStats();
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    // Never overwrite a month already in progress — people are partway
+    // Never overwrite a week already in progress — people are partway
     // through it, and changing the words under them would void their score.
     if (snap.exists) return;
     tx.set(ref, { words: pickMarathonWords(stats), wordCount: MARATHON_WORD_COUNT, generatedAt: FieldValue.serverTimestamp() });
   });
 });
 
-exports.startMarathon = onCall(readableFailures("Starting this month's Marathon", async (request) => {
+exports.startMarathon = onCall(readableFailures("Starting this week's Marathon", async (request) => {
   const uid = requireAuth(request); // guests included, same as Sprint and the Daily
-  const month = getMonthKeyStr();
-  const ref = marathonAttemptRef(uid, month);
-  const puzzleRef = db.collection("marathonPuzzles").doc(month);
+  const week = getMarathonKeyStr();
+  const ref = marathonAttemptRef(uid, week);
+  const puzzleRef = db.collection("marathonPuzzles").doc(week);
 
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (snap.exists) return { attempt: publicMarathonState(snap.data(), null) };
 
-    const puzzle = await getOrCreateThisMonthsMarathon(tx, puzzleRef, month);
+    const puzzle = await getOrCreateThisWeeksMarathon(tx, puzzleRef, week);
     const wordCount = Array.isArray(puzzle.words) && puzzle.words.length
       ? puzzle.words.length
       : MARATHON_WORD_COUNT;
     const attempt = {
-      month,
+      week,
       wordIndex: 0,
       wordCount,
       score: 0,
       wordsSolved: 0,
       status: "active",
       // Stored rather than re-derived on every guess: it is this player's
-      // month and it must not be able to change halfway through, whatever
+      // week and it must not be able to change halfway through, whatever
       // happens to the seeding code later.
-      order: marathonOrderFor(uid, month, wordCount),
+      order: marathonOrderFor(uid, week, wordCount),
       history: Array.from({ length: wordCount }, () => ({ guesses: [], solved: false })),
     };
     tx.set(ref, attempt);
@@ -2570,26 +2734,26 @@ exports.guessMarathonWord = onCall(readableFailures("Submitting that Marathon gu
   if (!/^[A-Z]{5}$/.test(guess)) throw new HttpsError("invalid-argument", "Guess must be a 5-letter word.");
   if (!DAILY_ALL_VALID_WORDS.has(guess)) throw new HttpsError("invalid-argument", "Not in word list.");
 
-  const month = getMonthKeyStr();
-  const ref = marathonAttemptRef(uid, month);
-  const puzzleRef = db.collection("marathonPuzzles").doc(month);
+  const week = getMarathonKeyStr();
+  const ref = marathonAttemptRef(uid, week);
+  const puzzleRef = db.collection("marathonPuzzles").doc(week);
   const userRef = db.collection("users").doc(uid);
 
   return db.runTransaction(async (tx) => {
     const [attemptSnap, puzzleSnap, userSnap] = await Promise.all([tx.get(ref), tx.get(puzzleRef), tx.get(userRef)]);
-    if (!attemptSnap.exists) throw new HttpsError("failed-precondition", "Start this month's Marathon first.");
-    if (!puzzleSnap.exists) throw new HttpsError("not-found", "This month's Marathon is missing.");
+    if (!attemptSnap.exists) throw new HttpsError("failed-precondition", "Start this week's Marathon first.");
+    if (!puzzleSnap.exists) throw new HttpsError("not-found", "This week's Marathon is missing.");
     const attempt = attemptSnap.data();
     const puzzle = puzzleSnap.data();
     const username = userSnap.exists ? userSnap.data().username : null;
     const equipped = userSnap.exists ? userSnap.data().equipped : null;
-    if (attempt.status !== "active") throw new HttpsError("failed-precondition", "This month's Marathon is already finished.");
+    if (attempt.status !== "active") throw new HttpsError("failed-precondition", "This week's Marathon is already finished.");
 
     const wordIndex = attempt.wordIndex;
     const wordEntry = attempt.history[wordIndex];
     if (wordEntry.guesses.length >= DAILY_GAUNTLET_MAX_GUESSES) throw new HttpsError("failed-precondition", "No guesses left on this word.");
 
-    // The player's own permutation decides which of the month's words this
+    // The player's own permutation decides which of the week's words this
     // position actually is. Falls back to the canonical order for an attempt
     // written before `order` existed, rather than throwing on it.
     const order = Array.isArray(attempt.order) && attempt.order.length === attempt.wordCount
@@ -2626,14 +2790,14 @@ exports.guessMarathonWord = onCall(readableFailures("Submitting that Marathon gu
     });
 
     if (wordFinished) {
-      // One /runs document per finished WORD, not per month. That is what
+      // One /runs document per finished WORD, not per week. That is what
       // makes the board live and the points arrive as you play; onRunCreated
       // does the rest, exactly as it does for every other mode. The id is
       // deterministic on the position, so a retry lands on the same document
       // and its payoutApplied guard makes it a no-op.
       const g = [0, 0, 0, 0, 0];
       if (solved) g[guessNumber - 1] = 1;
-      const runRef = db.collection("runs").doc(`marathon_${uid}_${month}_${wordIndex}`);
+      const runRef = db.collection("runs").doc(`marathon_${uid}_${week}_${wordIndex}`);
       tx.set(runRef, {
         uid, username, equipped, score: earned, isWipeout: false, lostScore: 0,
         wordsGuessed: solved ? 1 : 0, wordsPlayed: 1,
@@ -2643,7 +2807,7 @@ exports.guessMarathonWord = onCall(readableFailures("Submitting that Marathon gu
         // the nav right now; writing this anyway means reopening it does not
         // also mean remembering to wire it up.
         wordLog: buildWordLog([{ word: target, guesses: guessNumber, solved }]),
-        mode: "marathon", marathonKey: month,
+        mode: "marathon", marathonKey: week,
         // The running totals this word leaves the player on, so onRunCreated
         // can set the board fields outright instead of incrementing them —
         // an increment would double-count the moment a trigger is retried.

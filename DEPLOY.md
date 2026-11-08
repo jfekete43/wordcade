@@ -329,15 +329,25 @@ publisher requirements when you actually apply.
 
 ## Discord digests
 
-`postDailyDigest` posts yesterday's top ten to Discord every morning at **9:10
-Eastern** — one message for Sprint, one for the Trifecta, each naming the day's
-puzzle number and the answer words.
+Two schedules, one habit:
 
-Yesterday, not today, and that is the whole design: a morning post about today
-would be three people deep and wrong by lunchtime, while yesterday's standings
-are final and its answers are spent, which is what lets the post name the
-words. A day nobody played posts nothing — a daily "nobody played" message is a
-daily reminder that nobody played.
+- **`postDailyDigest`** posts yesterday's Sprint top ten every morning at
+  **9:10 Eastern**, naming the day's puzzle number and the answer word.
+- **`postWeeklyDigest`** posts the Marathon top ten **Monday at 9:10
+  Eastern**, for the week that just ended — place, player, words finished and
+  score. No answer list: twenty words is a wall of bold text above the thing
+  people came to read.
+
+Yesterday and last week, never today, and that is the whole design: a morning
+post about today would be three people deep and wrong by lunchtime, while a
+finished period's standings are final and its answers are spent. A period
+nobody played posts nothing — a daily "nobody played" message is a daily
+reminder that nobody played.
+
+**The Marathon digest uses `DISCORD_TRIFECTA_WEBHOOK`**, which is not a typo.
+It is the same webhook URL you set by hand when the Trifecta had the daily
+slot; the Trifecta is closed and Marathon inherited the channel. Renaming the
+secret would mean setting it again for nothing.
 
 ### Making the webhooks
 
@@ -346,8 +356,8 @@ In Discord, on a server you administer:
 1. **Server Settings → Integrations → Webhooks → New Webhook**.
 2. Pick the channel it posts to, name it (the post overrides the name with
    "Lexathon" anyway), and **Copy Webhook URL**.
-3. Do it twice if you want Sprint and the Trifecta in separate channels. The
-   same URL in both secrets puts them in one channel, one after the other.
+3. Do it twice if you want Sprint and Marathon in separate channels. The
+   same URL in both secrets puts them in one channel.
 
 **More than one server.** A webhook belongs to one channel in one server, so a
 second community needs its own webhook made the same way — not a second
@@ -397,7 +407,7 @@ already posted, or posted. Nothing is scheduled before 9:10 the next morning,
 so the first run is the morning after the deploy.
 
 A retried schedule cannot post twice: each digest claims
-`digestPosts/{mode}_{date}` before POSTing, and releases the claim only if the
+`digestPosts/{mode}_{key}_{channel}` before POSTing, and releases the claim only if the
 POST fails — so a Discord outage costs that day's post rather than every future
 one. The collection is server-only in `firestore.rules`.
 

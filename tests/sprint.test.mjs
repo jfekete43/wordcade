@@ -323,10 +323,20 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
   const modesSrc = (html.match(/        const MODES = \{\n[\s\S]*?\n        \};/) || [''])[0];
   const curSrc = (html.match(/        function currentMode\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
 
-  // Trifecta, not Marathon: Marathon is hidden in the table now and goToMode
-  // refuses a hidden mode, so a switch to it never starts. That refusal is
-  // worth its own case, below, rather than being the case everything else
-  // accidentally tests.
+  // Which mode stands in for "somewhere else" is read off the table, not
+  // written here. It said Trifecta, and Marathon was the closed one; the two
+  // swapped places and every case below started asserting the opposite of
+  // what it meant - the switch cases drove a mode goToMode now refuses, and
+  // the refusal case drove one it now allows.
+  //
+  // OTHER is an open mode that is not Sprint and not Stakes (Stakes is the
+  // fallback destination, so it cannot also be the thing being switched to).
+  // SHUT is a closed one, which goToMode must refuse outright.
+  const modeFlags = (modesSrc.match(/^ {12}(\w+):[^\n]*$/gm) || []).map((l) => [
+    /^ {12}(\w+):/.exec(l)[1], /hidden: true/.test(l)]);
+  const OTHER = modeFlags.find(([m, h]) => !h && m !== 'sprint' && m !== 'endless')[0];
+  const SHUT = modeFlags.find(([, h]) => h)[0];
+  const LABEL = (m) => (new RegExp(`^ {12}${m}:[^\n]*label: "([^"]+)"`, 'm').exec(modesSrc) || [, m])[1];
   const go = async (target, { from = 'sprint', opens = true, throws = false } = {}) => {
     const log = [];
     const rec = (n) => (...a) => { log.push(n); };
@@ -381,16 +391,17 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
   };
 
   {
-    const o = await go('gauntlet');
-    eq('leaving Sprint for Trifecta goes leave, then wait, then open',
+    const o = await go(OTHER);
+    eq(`leaving Sprint for ${LABEL(OTHER)} goes leave, then wait, then open`,
        o.log.filter((l) => /^(leaveSprint|enterModeLoading|open):?/.test(l) || l.startsWith('enterModeLoading')),
-       ['leaveSprint', 'enterModeLoading:gauntlet', 'open:gauntlet']);
+       ['leaveSprint', `enterModeLoading:${OTHER}`, `open:${OTHER}`]);
     // The decisive one: the waiting state is up BEFORE the open, because the
     // open is where the round trip is and the round trip is what gets seen.
-    ck(o.log.indexOf('enterModeLoading:gauntlet') < o.log.indexOf('open:gauntlet'),
+    ck(o.log.indexOf(`enterModeLoading:${OTHER}`) < o.log.indexOf(`open:${OTHER}`),
        'and the waiting state is up before the call that waits', o.log.join(' -> '));
-    eq('the nav says Trifecta for the whole of the wait', o.log.find((l) => l.startsWith('pendingDuringOpen')), 'pendingDuringOpen:gauntlet');
-    eq('and stops saying it once Trifecta is actually there', o.pendingMode, null);
+    eq(`the nav says ${LABEL(OTHER)} for the whole of the wait`,
+       o.log.find((l) => l.startsWith('pendingDuringOpen')), `pendingDuringOpen:${OTHER}`);
+    eq(`and stops saying it once ${LABEL(OTHER)} is actually there`, o.pendingMode, null);
     ck(!o.log.includes('showStandardSurface'),
        'with no detour through the Stakes screen at all', o.log.join(' -> '));
   }
@@ -399,12 +410,12 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
     // a cached page or a bookmarked onclick would otherwise walk into a lobby
     // nobody can fill — and would do it THROUGH the teardown above, leaving
     // the player on a loading line for a mode that is never coming.
-    const o = await go('marathon');
-    eq('a closed mode is refused outright', o.log, []);
+    const o = await go(SHUT);
+    eq(`a closed mode (${SHUT}) is refused outright`, o.log, []);
     eq('without tearing down the mode they are in', o.landedOn, 'sprint');
   }
   {
-    const o = await go('endless', { from: 'gauntlet' });
+    const o = await go('endless', { from: OTHER });
     // Stakes IS what the leave path painted, so there is nothing to wait for.
     ck(!o.log.some((l) => l.startsWith('enterModeLoading')),
        'going back to Stakes raises no waiting state, since it is already there', o.log.join(' -> '));
@@ -413,14 +424,14 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
     // Every bail is silent as far as the screen is concerned: no account, a
     // guest refused the Daily, a callable that failed. Leaving the player on
     // a header for a mode that never arrived is worse than the flash was.
-    const o = await go('gauntlet', { opens: false });
+    const o = await go(OTHER, { opens: false });
     ck(o.log.includes('showStandardSurface'),
        'an open that bails puts the player back on Stakes', o.log.join(' -> '));
     eq('and the nav stops claiming the mode that never arrived', o.pendingMode, null);
     eq('which is where they end up', o.landedOn, 'endless');
   }
   {
-    const o = await go('gauntlet', { throws: true });
+    const o = await go(OTHER, { throws: true });
     eq('an open that throws still clears the nav, because the clear is in a finally',
        o.pendingMode, null);
     ck(o.log.includes('threw'), 'the throw itself is not swallowed', o.log.join(' -> '));
@@ -547,23 +558,48 @@ ck(!/callStartSprint/.test(landing), 'nor does the landing view itself');
   const src = (html.match(/        function applyHiddenModeUi\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
   ck(!!src, 'applyHiddenModeUi is findable', src.slice(0, 60));
   const modesSrc = (html.match(/        const MODES = \{\n[\s\S]*?\n        \};/) || [''])[0];
+  // Which modes are open and closed is read off the table, not named here:
+  // this block pinned ffa closed and gauntlet open, and the Trifecta closing
+  // turned the second into an assertion that a tab correctly taken down is
+  // still up.
+  const flags = (modesSrc.match(/^ {12}(\w+):[^\n]*$/gm) || []).map((l) => [
+    /^ {12}(\w+):/.exec(l)[1], /hidden: true/.test(l)]);
+  const SHUT = flags.filter(([, h]) => h).map(([m]) => m);
+  const OPEN = flags.filter(([, h]) => !h).map(([m]) => m);
+  ck(SHUT.length > 0 && OPEN.length > 0, 'the table has some of each to check',
+     `open ${OPEN.join(',')} | shut ${SHUT.join(',')}`);
+
   const els = {};
   // Every tab the page actually ships, so a mode with no tab is not invented.
-  for (const id of ['tab-clash', 'tab-ffa', 'tab-prof-clash', 'tab-prof-ffa',
-                    'tab-prof-gauntlet', 'tab-daily']) els[id] = { style: { display: 'LEFT ALONE' } };
+  const SHIPPED = [...html.matchAll(/id="(tab-(?:prof-)?[\w-]+)"/g)].map((m) => m[1]);
+  for (const id of SHIPPED) els[id] = { style: { display: 'LEFT ALONE' } };
   // eslint-disable-next-line no-new-func
   new Function('document', `${modesSrc}
     const MODE_ORDER = Object.keys(MODES);
     ${src}; applyHiddenModeUi();`)({ getElementById: (id) => els[id] || null });
 
-  eq('a closed mode loses its leaderboard tab', els['tab-ffa'].style.display, 'none');
-  eq('and its profile tab', els['tab-prof-ffa'].style.display, 'none');
-  eq('an open mode keeps its leaderboard tab', els['tab-clash'].style.display, '');
-  eq('and its profile tab', els['tab-prof-clash'].style.display, '');
-  eq('and so does Trifecta, whose tab is keyed on the mode name it has always had',
-     els['tab-prof-gauntlet'].style.display, '');
-  // tab-daily is the leaderboard PERIOD, not a mode. Nothing should touch it.
-  eq('a tab that is not a mode is left alone entirely', els['tab-daily'].style.display, 'LEFT ALONE');
+  for (const m of SHUT) {
+    for (const id of [`tab-${m}`, `tab-prof-${m}`]) {
+      if (!els[id]) continue;   // not every mode ships both
+      eq(`a closed mode loses ${id}`, els[id].style.display, 'none');
+    }
+  }
+  for (const m of OPEN) {
+    for (const id of [`tab-${m}`, `tab-prof-${m}`]) {
+      if (!els[id]) continue;
+      eq(`an open mode keeps ${id}`, els[id].style.display, '');
+    }
+  }
+  // Every closed mode must actually HAVE a tab under its own name, or the
+  // loop above silently checks nothing. tab-daily used to be the Trifecta's
+  // and could not be reached this way at all; it is tab-gauntlet now.
+  for (const m of SHUT) {
+    ck(els[`tab-${m}`] || els[`tab-prof-${m}`],
+       `the closed ${m} has at least one tab named after it to take down`, SHIPPED.join(','));
+  }
+  // tab-all is the Stakes board under its old name - a board key, not a
+  // mode. Nothing should touch it.
+  eq('a tab that is not a mode is left alone entirely', els['tab-all'].style.display, 'LEFT ALONE');
 }
 
 // The nav answers the tap, not the server.

@@ -78,11 +78,13 @@ for (const tab of TABS) {
 }
 let loadedGauntlet = 0;
 let loadedSprint = 0;
-const setProfileTab = new Function('document', 'loadGauntletStats', 'loadSprintStats', `
+let loadedMarathon = 0;
+const setProfileTab = new Function('document', 'loadGauntletStats', 'loadSprintStats', 'loadMarathonStats', `
   const window = {};
   ${tabSrc}
   return window.setProfileTab;
-`)({ getElementById: (id) => els[id] }, () => { loadedGauntlet++; }, () => { loadedSprint++; });
+`)({ getElementById: (id) => els[id] }, () => { loadedGauntlet++; },
+   () => { loadedSprint++; }, () => { loadedMarathon++; });
 
 const shown = () => TABS.filter((tab) => els['profile-' + tab].style.display !== 'none');
 const active = () => TABS.filter((tab) => els['tab-prof-' + tab].classes.has('active'));
@@ -122,6 +124,22 @@ ck(loadedGauntlet === before + 2, 'reopening the tab re-reads rather than servin
   const g0 = loadedGauntlet;
   setProfileTab('sprint');
   ck(loadedGauntlet === g0, 'and never pays for the Trifecta tab\'s reads');
+}
+
+// Marathon is the other free one, and for the same reason: best week, weeks
+// played and the week you are on are all already on the profile.
+{
+  const m0 = loadedMarathon;
+  setProfileTab('standard');
+  ck(loadedMarathon === m0, 'another tab does not fill the Marathon panel');
+  setProfileTab('marathon');
+  ck(loadedMarathon === m0 + 1, 'opening the Marathon tab fills its stats');
+  setProfileTab('clash'); setProfileTab('marathon');
+  ck(loadedMarathon === m0 + 2, 'and reopening refills rather than leaving last week up',
+     String(loadedMarathon - m0));
+  const g1 = loadedGauntlet;
+  setProfileTab('marathon');
+  ck(loadedGauntlet === g1, 'and pays for no reads of its own');
 }
 
 let bad = 0;

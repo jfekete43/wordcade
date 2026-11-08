@@ -55,6 +55,7 @@ const src = [
   // surprising someone in a channel.
   grab(/const HANDLE_MAX = \d+;/, 'HANDLE_MAX'),
   grab(/const DIGEST_W = \{[^\n]*\};/, 'DIGEST_W'),
+  grab(/function digestExtra\(mode\) \{\n[\s\S]*?\n\}/, 'digestExtra'),
   grab(/function digestHeader\(mode\) \{\n[\s\S]*?\n\}/, 'digestHeader'),
   grab(/function digestTable\(rows, mode\) \{\n[\s\S]*?\n\}/, 'digestTable'),
   grab(/function buildDigest\(\{ mode, dateStr, rows, words \}\) \{\n[\s\S]*?\n\}/, 'buildDigest'),
@@ -205,6 +206,41 @@ const dailyRow = (username, solved, score) => ({ username, score, wordsGuessed: 
   ck(rows.every((r) => r.length <= 26), 'its rows are narrower still',
      JSON.stringify(rows.map((r) => r.length)));
 }
+// ---- what a Marathon digest says ------------------------------------------
+// A week, not a day, and the extra column is how far through it each player
+// got: a 6,000 made of twenty cheap words and one made of nine sharp ones
+// are different weeks, and the score alone cannot say which.
+{
+  const mRow = (username, marathonWords, score) => ({ username, marathonWords, score });
+  const p = D.buildDigest({ mode: 'marathon', dateStr: '2026-11-02', words: [],
+    rows: [mRow('SLIZZY', 20, 7480), mRow('SODATHIEF', 9, 3120)] });
+  const e = p.embeds[0];
+  ck(/Lexathon Marathon$/.test(e.title), 'the title names the mode', e.title);
+  // No number: the mode ran monthly and then weekly, so "Marathon #9" would
+  // be nine of two different things.
+  ck(!/#/.test(e.title), 'and carries no puzzle number', e.title);
+  ck(e.footer.text === 'Week of Monday, 2 November 2026',
+     'the footer says which week, since the title cannot', e.footer.text);
+  const rows = e.description.split('\n').filter((l) => /^\s*#\d/.test(l));
+  ck(/#1\s+SLIZZY\s+20\s+7,480/.test(rows[0]), 'place, name, words done, score', rows[0]);
+  ck(/#2\s+SODATHIEF\s+9\s+3,120/.test(rows[1]), 'and the second row lines up under it', rows[1]);
+  ck(/DONE\s+SCORE\s*$/.test(e.description.split('\n').find((l) => /PLAYER/.test(l))),
+     'under a header that names both columns',
+     e.description.split('\n').find((l) => /PLAYER/.test(l)));
+  ck(!/\d+\.\d+s|\d+:\d\d/.test(e.description), 'with no clock, which Marathon does not have',
+     e.description.slice(0, 200));
+  // Twenty words is a wall of bold text above the thing people came to read.
+  ck(!/The words were/.test(e.description), 'and no answer list, unlike the one-word and three-word modes',
+     e.description.slice(0, 200));
+  ck(rows.every((r) => r.length <= 30), 'its rows fit a phone, like the others',
+     JSON.stringify(rows.map((r) => r.length)));
+}
+{
+  // A player who finished nothing still has a row if they scored: words done
+  // is a column, not a filter, and 0 must read as 0 rather than blank.
+  const row = D.digestTable([{ username: 'started', score: 0 }], 'marathon');
+  ck(/\s0\s+0$/.test(row), 'a week with nothing finished reads as zeroes', JSON.stringify(row));
+}
 {
   // A day before the epoch has no number and must not print "#null".
   const e = D.buildDigest({ mode: 'daily', dateStr: '2026-11-03', words: ['ARISE'], rows: [dailyRow('A', 1, 10)] }).embeds[0];
@@ -294,51 +330,90 @@ for (const [mode, rows, heads] of [
   ck(!idA.includes('aaa') && !A.includes(idA), 'the id carries none of the url', `${idA} / ${A}`);
 }
 
-// ---- the job itself, at source --------------------------------------------
+// ---- the delivery, at source ----------------------------------------------
+// The claim machinery lives in deliverDigest now, shared by the daily and
+// weekly schedules. It was inlined in the daily one, and the weekly one
+// would have been a second copy of the only subtle part of this.
 {
-  const job = fn.slice(fn.indexOf('exports.postDailyDigest'), fn.indexOf('async function getOrCreateTodaysPuzzle'));
-  ck(!!job && job.length < 4000, 'the job is findable', String(job.length));
-  ck(/shiftDateStr\(getTodayDateStr\(\), -1\)/.test(job),
-     'it posts YESTERDAY, whose board is closed and whose answers are spent', job.slice(0, 200));
-  ck(/timeZone: "America\/New_York"/.test(job), 'on Eastern time, like every other schedule here');
-  ck(/secrets: \[DISCORD_SPRINT_WEBHOOK, DISCORD_TRIFECTA_WEBHOOK\]/.test(job),
-     'with the webhook URLs as secrets rather than constants');
+  const deliver = fn.slice(fn.indexOf('async function deliverDigest'), fn.indexOf('exports.postDailyDigest'));
+  ck(!!deliver && deliver.length < 3000, 'the shared delivery is findable', String(deliver.length));
   // The claim is the only thing standing between a retried schedule and two
   // identical leaderboards in the channel.
-  ck(/db\.runTransaction/.test(job) && /digestPosts/.test(job),
-     'a day is claimed in a transaction before it is posted', job.slice(0, 120));
-  ck(job.indexOf('digestPosts') < job.indexOf('fetch('),
+  ck(/db\.runTransaction/.test(deliver) && /digestPosts/.test(deliver),
+     'a post is claimed in a transaction before it is sent', deliver.slice(0, 120));
+  ck(deliver.indexOf('digestPosts') < deliver.indexOf('fetch('),
      'and claimed BEFORE the POST, not after it');
   // Making the claim is not the same as honouring it. Deleting this one line
   // leaves a transaction that writes a marker nothing ever reads, and the
   // retry posts the leaderboard a second time anyway.
-  // [\s\S] rather than [^}]: the log line in between contains `${label}`,
-  // whose closing brace ends a [^}] run before it reaches the continue.
-  ck(/if \(!claimed\)[\s\S]{0,140}?continue;/.test(job),
-     'and a day already claimed is skipped rather than posted again',
-     (job.match(/const claimed[\s\S]{0,260}/) || [''])[0].replace(/\n\s*/g, ' ').slice(0, 170));
-  ck(/claimRef\.delete\(\)/.test(job),
+  ck(/if \(!claimed\)[\s\S]{0,140}?continue;/.test(deliver),
+     'and one already claimed is skipped rather than posted again',
+     (deliver.match(/const claimed[\s\S]{0,260}/) || [''])[0].replace(/\n\s*/g, ' ').slice(0, 170));
+  ck(/claimRef\.delete\(\)/.test(deliver),
      'the claim is released if the post fails, so one outage is not permanent');
+  // One secret, one or more channels. The board is the same board
+  // everywhere, so it is rendered once however many it goes to.
+  ck(/for \(const url of urls\)/.test(deliver), 'a digest goes to every webhook the secret holds');
+  ck(/if \(!payload\) payload = await build\(\);/.test(deliver), 'and is rendered once, not once per channel');
+  // Per-channel claims. A shared one forces a choice between re-posting to a
+  // channel that already has the message and silently losing it there.
+  ck(/doc\(`\$\{mode\}_\$\{key\}_\$\{channelId\(url\)\}`\)/.test(deliver),
+     'each channel claims its own, so a failure costs only that channel',
+     (deliver.match(/const claimRef[^\n]*/) || [''])[0].trim());
+}
+
+// ---- the daily job, at source ----------------------------------------------
+{
+  const job = fn.slice(fn.indexOf('exports.postDailyDigest'), fn.indexOf('exports.postWeeklyDigest'));
+  ck(!!job && job.length < 4000, 'the daily job is findable', String(job.length));
+  ck(/shiftDateStr\(getTodayDateStr\(\), -1\)/.test(job),
+     'it posts YESTERDAY, whose board is closed and whose answers are spent', job.slice(0, 200));
+  ck(/timeZone: "America\/New_York"/.test(job), 'on Eastern time, like every other schedule here');
+  // The Trifecta's job was here and went with the mode.
+  ck(/secrets: \[DISCORD_SPRINT_WEBHOOK\]/.test(job),
+     'with Sprint\'s webhook as a secret, and only Sprint\'s now',
+     (job.match(/secrets: \[[^\]]*\]/) || [''])[0]);
+  ck(!/mode: "daily"/.test(job), 'the Trifecta digest is gone with the mode', job.slice(0, 400));
   ck(/if \(snap\.empty\)/.test(job), 'a day nobody played is skipped rather than posted empty');
   ck(/webhookUrls\(job\.secret\)/.test(job), 'and an unconfigured webhook is skipped, not posted to');
   ck(/if \(!urls\.length\)/.test(job), '...which is what a secret holding no webhook parses to');
-  // One secret, one or more channels. The day's board is the same board
-  // everywhere, so it is read and rendered once however many it goes to.
-  ck(/for \(const url of urls\)/.test(job), 'a digest goes to every webhook the secret holds');
-  ck(job.indexOf('const snap = await db.collection("runs")') < job.indexOf('for (const url of urls)'),
-     'and the day is read once, not once per channel');
-  ck(/if \(!payload\) \{/.test(job), 'and rendered once too');
-  // Per-channel claims. A shared one forces a choice between re-posting to a
-  // channel that already has the message and silently losing the day there.
-  ck(/doc\(`\$\{job\.mode\}_\$\{dateStr\}_\$\{channelId\(url\)\}`\)/.test(job),
-     'each channel claims its own day, so a failure costs only that channel',
-     (job.match(/const claimRef[^\n]*/) || [''])[0].trim());
-  ck(/limit\(10\)/.test(job), 'ten rows, which is what was asked for');
-  ck(/orderBy\("score", "desc"\)/.test(job), 'ordered by score');
-  // Each mode's tiebreak is the one its own board uses; a digest ordered
-  // differently from the screen is a different leaderboard.
-  ck(/tiebreak: "elapsedMs", dir: "asc"/.test(job), 'Sprint breaks ties on the clock, as its board does');
-  ck(/tiebreak: "wordsGuessed", dir: "desc"/.test(job), 'and Trifecta on words solved, as its board does');
+  ck(job.indexOf('const snap = await db.collection("runs")') < job.indexOf('deliverDigest'),
+     'and the day is read once, before any channel is written to');
+}
+
+// ---- the weekly Marathon job, at source -------------------------------------
+// It reuses the Trifecta's webhook secret, under the Trifecta's secret NAME:
+// the URL is the same channel, set by hand once, and renaming the secret
+// would mean setting it again for nothing.
+{
+  const job = fn.slice(fn.indexOf('exports.postWeeklyDigest'), fn.indexOf('exports.postWeeklyDigest') + 2200);
+  ck(/schedule: "10 9 \* \* 1"/.test(job), 'it runs on Monday morning', (job.match(/schedule: "[^"]*"/) || [''])[0]);
+  ck(/timeZone: "America\/New_York"/.test(job), 'Eastern, like every other schedule here');
+  ck(/secrets: \[DISCORD_TRIFECTA_WEBHOOK\]/.test(job),
+     'on the webhook the Trifecta digest used to use');
+  // The week that ENDED. Monday's key is this week; the standings worth
+  // posting are last week's, and they are still on the user docs until each
+  // player's first run of the new week overwrites them.
+  ck(/shiftDateStr\(getMarathonKeyStr\(\), -7\)/.test(job),
+     'and reports the week that just ended, not the one starting',
+     (job.match(/const week = [^\n]*/) || [''])[0].trim());
+  // /users, not /runs: the board is denormalised there, and rebuilding a
+  // week from its runs is a read per word per player.
+  ck(/db\.collection\("users"\)[\s\S]{0,120}where\("marathonKey", "==", week\)/.test(job),
+     'read off the denormalised board rather than the week\'s runs', job.slice(0, 600));
+  ck(/orderBy\("marathonScore", "desc"\)/.test(job), 'ranked by the week\'s score');
+  ck(/\.limit\(10\)/.test(job), 'top ten, like the daily one');
+  ck(/if \(snap\.empty\)/.test(job), 'a week nobody played is skipped rather than posted empty');
+  ck(/if \(!urls\.length\)/.test(job), 'and an unconfigured webhook is skipped');
+  ck(/deliverDigest\(/.test(job), 'and it posts through the shared delivery, claims and all');
+  // The composite index that query needs, or it is empty in production and
+  // green here.
+  const idx = JSON.parse(fs.readFileSync(REPO('firestore.indexes.json'), 'utf8')).indexes;
+  ck(idx.some((i) => i.collectionGroup === 'users'
+     && i.fields.length === 2
+     && i.fields[0].fieldPath === 'marathonKey' && i.fields[0].order === 'ASCENDING'
+     && i.fields[1].fieldPath === 'marathonScore' && i.fields[1].order === 'DESCENDING'),
+     'and the index it queries on is declared');
 }
 {
   // Both orderings need an index, and a missing one fails at run time in a

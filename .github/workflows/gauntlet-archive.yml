@@ -60,12 +60,24 @@ jobs:
           if [ -z "$KEY" ]; then echo "FIREBASE_SERVICE_ACCOUNT secret is not set"; exit 1; fi
           printf '%s' "$KEY" > "$RUNNER_TEMP/sa.json"
 
+      # The Trifecta is closed (MODES.gauntlet.hidden in index.html), so
+      # there are no new days to publish and this builds nothing. Skipped
+      # rather than deleted, and skipped HERE rather than by turning the
+      # workflow off, because the match cleanup below is a different job on
+      # the same schedule and still has to run every night.
+      #
+      # The pages already under /gauntlet/ stay exactly where they are: they
+      # are real URLs in sitemap.xml that people and crawlers have, and a
+      # closed mode is no reason to start 404ing a day that was played.
+      # Reopening the mode is deleting the `if` on the next line.
       - name: Build
+        if: ${{ false }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: node tools/build-gauntlet-archive.mjs ${{ inputs.all && '--all' || '' }}
 
       - name: Commit if anything changed
+        if: ${{ false }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

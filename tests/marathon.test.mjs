@@ -1,14 +1,14 @@
 /*
- * Marathon: fifty words a month, the same fifty for everyone, each player
+ * Marathon: twenty words a week, the same twenty for everyone, each player
  * walking them in their own order.
  *
  * The four things that carry this mode, all of them silent when broken:
  *
  * THE PER-PLAYER ORDER. Shuffled WITHIN difficulty bands, never across them.
  * A flat shuffle was the obvious version and it is wrong twice over: it
- * throws away the ramp (the hardest word of the month can land at position
+ * throws away the ramp (the hardest word of the week can land at position
  * three) while looking identical from the outside. The shuffle is also what
- * makes the month unspoilable, so it must actually permute — an order that
+ * makes the week unspoilable, so it must actually permute — an order that
  * quietly came back sorted would still pass every "is it a permutation" check
  * written carelessly.
  *
@@ -17,8 +17,8 @@
  * than incremented. An increment would climb on a retried trigger and look
  * like play nobody did.
  *
- * THE ANSWERS. Fifty words in one document is the biggest secret in the game;
- * one read would hand over a month.
+ * THE ANSWERS. Twenty words in one document is the biggest secret in the
+ * game; one read would hand over a week.
  *
  * THE SCALE. A marathon run is ONE word's payout, so it must stay off the
  * shared "best run today" board like the Daily and Sprint before it.
@@ -56,7 +56,7 @@ const src = [
   grab(/function pickMarathonWords\(stats\) \{\n[\s\S]*?\n\}/, 'pickMarathonWords'),
   grab(/function mulberry32\(seed\) \{\n[\s\S]*?\n\}/, 'mulberry32'),
   grab(/function seedFrom\(str\) \{\n[\s\S]*?\n\}/, 'seedFrom'),
-  grab(/function marathonOrderFor\(uid, month, wordCount\) \{\n[\s\S]*?\n\}/, 'marathonOrderFor'),
+  grab(/function marathonOrderFor\(uid, week, wordCount\) \{\n[\s\S]*?\n\}/, 'marathonOrderFor'),
 ].join('\n\n');
 console.log('extracted from functions/index.js:', src.length, 'chars');
 
@@ -68,12 +68,12 @@ const M = new Function('WORD_DIFFICULTY', 'DAILY_TARGET_WORDS',
 const N = M.MARATHON_WORD_COUNT;
 const SPLIT = M.MARATHON_TIER_SPLIT;
 
-// ---- the month's words -----------------------------------------------------
+// ---- the week's words -----------------------------------------------------
 eq('the split sums to the word count', SPLIT.reduce((a, b) => a + b, 0), N);
 eq('and there are three bands, matching the difficulty thirds', SPLIT.length, 3);
 {
   const words = M.pickMarathonWords(null);
-  eq('a month draws exactly that many words', words.length, N);
+  eq('a week draws exactly that many words', words.length, N);
   eq('with no duplicates', new Set(words).size, N);
   ck(words.every((w) => /^[A-Z]{5}$/.test(w)), 'all five uppercase letters', words.slice(0, 3).join(','));
   const all = new Set(DAILY_TARGET_WORDS.map((w) => w.toUpperCase()));
@@ -92,12 +92,12 @@ const bandOf = (i) => (i < SPLIT[0] ? 0 : i < SPLIT[0] + SPLIT[1] ? 1 : 2);
 {
   const order = M.marathonOrderFor('player-one', '2026-11', N);
   eq('an order covers every position exactly once', [...order].sort((a, b) => a - b), [...Array(N).keys()]);
-  eq('and is as long as the month', order.length, N);
+  eq('and is as long as the week', order.length, N);
 
   // The load-bearing property. Position i must hold a word from band i's own
   // slice, or the ramp is gone.
   const crossings = order.map((w, i) => (bandOf(w) === bandOf(i) ? null : `${i}->${w}`)).filter(Boolean);
-  eq('no word ever crosses a difficulty band, so the month still ramps', crossings, []);
+  eq('no word ever crosses a difficulty band, so the week still ramps', crossings, []);
 }
 
 {
@@ -109,7 +109,7 @@ const bandOf = (i) => (i < SPLIT[0] ? 0 : i < SPLIT[0] + SPLIT[1] ? 1 : 2);
 }
 
 {
-  // Different players, same month: different orders. This is the anti-spoiler
+  // Different players, same week: different orders. This is the anti-spoiler
   // property — if two players shared an order, "word 12" would be spoilable.
   const a = M.marathonOrderFor('player-one', '2026-11', N);
   const b = M.marathonOrderFor('player-two', '2026-11', N);
@@ -119,19 +119,19 @@ const bandOf = (i) => (i < SPLIT[0] ? 0 : i < SPLIT[0] + SPLIT[1] ? 1 : 2);
 }
 
 {
-  // Same player, different months: different orders, or the second month is
+  // Same player, different weeks: different orders, or the second week is
   // the first one again.
   const a = M.marathonOrderFor('player-one', '2026-11', N);
   const b = M.marathonOrderFor('player-one', '2026-12', N);
-  ck(JSON.stringify(a) !== JSON.stringify(b), 'the same player gets a different order next month');
+  ck(JSON.stringify(a) !== JSON.stringify(b), 'the same player gets a different order next week');
 }
 
 {
-  // Deterministic: the order is re-derivable from uid and month alone, which
+  // Deterministic: the order is re-derivable from uid and week alone, which
   // is what lets anyone answer "why did I get these in this order".
   const a = M.marathonOrderFor('player-one', '2026-11', N);
   const b = M.marathonOrderFor('player-one', '2026-11', N);
-  eq('the same uid and month always produce the same order', a, b);
+  eq('the same uid and week always produce the same order', a, b);
 }
 
 {
@@ -151,16 +151,16 @@ ck(/marathonScore: newScore, marathonWords: newWordIndex/.test(guessSrc),
 ck(!/marathonScore: FieldValue\.increment|marathonWords: FieldValue\.increment/.test(career),
    'the standing is never incremented — a retried trigger would climb on its own');
 ck(/update\.marathonScore = incoming;/.test(career), 'it is set from the run\'s own total');
-ck(/incoming > priorInMonth/.test(career),
+ck(/incoming > priorInWeek/.test(career),
    'and only ever moves forward, so a late-delivered earlier word cannot drag it back');
 ck(/user\.marathonKey === run\.marathonKey[\s\S]{0,120}: -1;/.test(career),
-   'a previous month does not count against this one, which is what resets the board');
+   'a previous week does not count against this one, which is what resets the board');
 
 // One run per WORD, keyed on the position, so a retry lands on the same doc.
-ck(/doc\(`marathon_\$\{uid\}_\$\{month\}_\$\{wordIndex\}`\)/.test(guessSrc),
+ck(/doc\(`marathon_\$\{uid\}_\$\{week\}_\$\{wordIndex\}`\)/.test(guessSrc),
    'each finished word writes its own run, with an id that makes a retry a no-op');
 ck(/score: earned,/.test(guessSrc),
-   "and that run's score is the one word's payout, not the month's total");
+   "and that run's score is the one word's payout, not the week's total");
 
 // ---- scale: Marathon stays off the shared board ------------------------------
 const dayGuard = (fn.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
@@ -170,10 +170,15 @@ for (const m of ['daily', 'sprint']) {
   ck(new RegExp(`run\\.mode !== "${m}"`).test(dayGuard), `and ${m} is still excluded alongside it`, dayGuard);
 }
 
-// ---- the month's words are unreachable ---------------------------------------
-ck(/match \/marathonPuzzles\/\{month\} \{\s*\n\s*allow read, write: if false;/.test(rules),
-   'no client can read the month\'s fifty words');
-ck(/match \/marathonAttempts\/\{userId\}\/months\/\{month\} \{\s*\n\s*allow read: if isOwner\(userId\);\s*\n\s*allow write: if false;/.test(rules),
+// ---- the week's words are unreachable ---------------------------------------
+ck(/match \/marathonPuzzles\/\{week\} \{\s*\n\s*allow read, write: if false;/.test(rules),
+   'no client can read the week\'s twenty words');
+// `weeks`, not `months`. The old monthly attempts are left where they are and
+// are no longer matched by any rule, which is the right answer for a
+// half-finished marathon from a period that is over.
+ck(!/marathonAttempts\/\{userId\}\/months\//.test(rules),
+   'the monthly attempt path is gone rather than left readable alongside it');
+ck(/match \/marathonAttempts\/\{userId\}\/weeks\/\{week\} \{\s*\n\s*allow read: if isOwner\(userId\);\s*\n\s*allow write: if false;/.test(rules),
    'a player reads their own attempt and writes nothing — order and score live there');
 for (const f of ['marathonScore', 'marathonWords', 'marathonKey']) {
   ck(new RegExp(`!\\('${f}' in request\\.resource\\.data\\)`).test(rules),
@@ -197,22 +202,71 @@ ck(/revealedWord: currentWord \|\| null/.test(pub),
   ck(has, 'the standings have the composite index they query, or the board is empty in production and green here');
 }
 
-// ---- the month boundary ---------------------------------------------------------
-ck(/onSchedule\(\{ schedule: "5 0 1 \* \*", timeZone: "America\/New_York" \}/.test(fn),
-   'a new month of words is generated on the 1st, Eastern');
+// ---- the week boundary ---------------------------------------------------------
+ck(/onSchedule\(\{ schedule: "5 0 \* \* 1", timeZone: "America\/New_York" \}/.test(fn),
+   'a new week of words is generated on Monday, Eastern');
+// The schedule and the key have to agree about when a week starts, or the
+// generator writes next week's puzzle into this week's document for a few
+// minutes - or misses it entirely. periodKeyFor's Monday is the definition.
+ck(/function getMarathonKeyStr\(\) \{\n  return periodKeyFor\(new Date\(\), "weekly"\);/.test(fn),
+   'and the key it writes under is periodKeyFor\'s Monday, not a second idea of a week');
 const gen = grab(/exports\.generateMarathonPuzzle = onSchedule\([\s\S]*?\n\}\);/, 'generateMarathonPuzzle');
 ck(/if \(snap\.exists\) return;/.test(gen),
-   'and a month already in progress is never overwritten, which would void everyone\'s score');
+   'and a week already in progress is never overwritten, which would void everyone\'s score');
+
+// ---- the two sides agree on when a week starts -----------------------------
+// Both delegate to their own periodKeyFor, and both ask for "weekly" by name
+// rather than taking the default - LEADERBOARD_PERIOD can be flipped to
+// monthly, and that is a decision about the leaderboard's window, not about
+// how long a marathon lasts. Run, not matched: a marathon keyed one day apart
+// on the two sides is a client that can never find its own attempt.
+{
+  const lift = (src, decls) => new Function(`${decls}\n${src}\nreturn periodKeyFor;`)();
+  const serverKey = lift(
+    (fn.match(/function periodKeyFor\(when, period\) \{\n[\s\S]*?\n\}/) || [''])[0],
+    (fn.match(/function etParts\(when\) \{\n[\s\S]*?\n\}/) || [''])[0]
+    + '\n' + (fn.match(/const LEADERBOARD_PERIOD = "[^"]*";/) || [''])[0]);
+  const clientKey = lift(
+    (html.match(/ {8}function periodKeyFor\(when, period\) \{\n[\s\S]*?\n {8}\}/) || [''])[0],
+    (html.match(/ {8}function etParts\(when\) \{\n[\s\S]*?\n {8}\}/) || [''])[0]
+    + '\n' + (html.match(/ {8}const LEADERBOARD_PERIOD = "[^"]*";/) || [''])[0]);
+
+  // Every day of a week plus both boundaries, so a disagreement cannot hide
+  // in the one day nobody tested.
+  // From a Monday (2026-11-02), fifteen days: two whole weeks and the first
+  // day of a third, so the count below is exact rather than "about two".
+  const days = [];
+  for (let i = 0; i < 15; i++) days.push(new Date(Date.UTC(2026, 10, 2 + i, 17, 0, 0)));
+  const srv = days.map((d) => serverKey(d, 'weekly'));
+  const cli = days.map((d) => clientKey(d, 'weekly'));
+  eq('server and client key every one of those days the same', srv, cli);
+  ck(srv.every((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)), 'and the key is a date', srv[0]);
+  // Mondays, and only Mondays.
+  const mondays = new Set(srv);
+  ck([...mondays].every((k) => {
+    const [y, m, d] = k.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 1;
+  }), 'and every key is a Monday', [...mondays].join(','));
+  eq('and fifteen days from a Monday touch exactly three weeks', mondays.size, 3);
+
+  ck(/function marathonKeyFor\(d\) \{\n\s+return periodKeyFor\(d, "weekly"\);/.test(html),
+     'the client asks for weekly by name');
+  ck(/function getMarathonKeyStr\(\) \{\n  return periodKeyFor\(new Date\(\), "weekly"\);/.test(fn),
+     'and so does the server');
+}
 
 // ---- the client ------------------------------------------------------------------
-// Marathon is CLOSED, not deleted: it is off the nav and goToMode refuses it,
-// and every other assertion in this file still has to pass. That is the whole
-// claim being made by hiding a mode instead of ripping it out — the puzzle
-// generator, the rules, the screens, the handlers and the scoring are all
-// still here and still correct, so reopening it is deleting one word.
-ck(/marathon: \{ label: "MARATHON", cls: "mode-marathon", color: "var\(--c-marathon\)",\s+hidden: true \}/.test(html),
-   'Marathon is in the table, closed rather than deleted',
+// Marathon is OPEN again. It spent its closed months with every assertion in
+// this file still passing — the puzzle generator, the rules, the screens, the
+// handlers and the scoring all still here and still correct — which is what
+// made reopening it deleting one word rather than rewriting a mode. The
+// Trifecta is behind the same door now.
+ck(/marathon: \{ label: "MARATHON", cls: "mode-marathon", color: "var\(--c-marathon\)" \}/.test(html),
+   'Marathon is in the table and open',
    (html.match(/marathon: \{[^}]*\}/) || [''])[0]);
+ck(/gauntlet: \{[^}]*hidden: true/.test(html),
+   'and the Trifecta is the one closed now, not deleted',
+   (html.match(/gauntlet: \{[^}]*\}/) || [''])[0]);
 {
   const nav = (html.match(/<nav class="arcade-menu"[\s\S]*?<\/nav>/) || [''])[0];
   const buttons = (nav.match(/<button/g) || []).length;
@@ -228,11 +282,11 @@ ck(/if \(isMarathonMode\) \{ submitMarathonGuess\(\); \}/.test(html),
 ck(/else if \(target === "marathon"\) await window\.openMarathon\(\);/.test(html),
    'and the only way in is through goToMode, like every other mode');
 // The board reads the denormalised fields, which is what makes it live.
-const board = html.slice(html.indexOf('async function loadMarathonBoard()'), html.indexOf('function monthKeyFor'));
-ck(/where\("marathonKey", "==", month\)/.test(board) && /orderBy\("marathonScore", "desc"\)/.test(board),
-   'the standings read the denormalised month fields off /users');
+const board = html.slice(html.indexOf('async function loadMarathonBoard()'), html.indexOf('function marathonKeyFor'));
+ck(/where\("marathonKey", "==", week\)/.test(board) && /orderBy\("marathonScore", "desc"\)/.test(board),
+   'the standings read the denormalised week fields off /users');
 ck(/collection\(db, "users"\)/.test(board),
-   'from /users rather than aggregating /runs, which is what lets it show players mid-month');
+   'from /users rather than aggregating /runs, which is what lets it show players mid-week');
 ck(/marathonWords/.test(board), 'and show how far through each player is');
 // Leaving must not discard a Stakes run, the same way Sprint's leave does not
 // — which is now literally the same way: both go through the one restore, so
@@ -290,38 +344,49 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
 }
 
 
-// ---- days left in the month --------------------------------------------------
-// A month-long mode with no visible deadline is just a long list; the clock on
-// it is the only thing that makes it a marathon. The arithmetic is the part
-// that fails quietly - an off-by-one reads as plausible all month and is only
-// wrong on the day it matters, and a hardcoded month length is right eleven
-// times a year.
+// ---- days left in the week ---------------------------------------------------
+// A week-long mode with no visible deadline is just a list; the clock on it is
+// the only thing that makes it a marathon. The arithmetic used to be the part
+// that failed quietly - a hardcoded month length is right eleven times a year
+// - and a week is the same shape of problem with one fewer way to be wrong:
+// seven is seven, but the OFF-BY-ONE is still there to get wrong, and it is
+// only visibly wrong on the day it matters.
+//
+// 2026-11-02 is a Monday, which is what a week key is.
 {
-  const daysSrc = (html.match(/function marathonDaysLeft\(monthKey, todayStr\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  const daysSrc = (html.match(/function marathonDaysLeft\(weekKey, todayStr\) \{\n[\s\S]*?\n        \}/) || [''])[0];
   ck(!!daysSrc, 'marathonDaysLeft is findable', daysSrc.slice(0, 60));
   // eslint-disable-next-line no-new-func
   const daysLeft = new Function(`${daysSrc}; return marathonDaysLeft;`)();
+  const MON = '2026-11-02';
 
-  // Counting today: on the 2nd of a 30-day month there are 29 days to play.
-  eq('the first of a 30-day month has the whole month', daysLeft('2026-11', '2026-11-01'), 30);
-  eq('the second has one fewer', daysLeft('2026-11', '2026-11-02'), 29);
-  eq('and the last day has one', daysLeft('2026-11', '2026-11-30'), 1);
-
-  // Month length is read, not assumed.
-  eq('a 31-day month is 31', daysLeft('2026-12', '2026-12-01'), 31);
-  eq('February is 28 in a common year', daysLeft('2027-02', '2027-02-01'), 28);
-  eq('and 29 in a leap year', daysLeft('2028-02', '2028-02-01'), 29);
-  eq('the leap day itself is the last one', daysLeft('2028-02', '2028-02-29'), 1);
-  // 2100 is not a leap year, which a naive divisible-by-four check gets wrong.
-  eq('and a century that is not a leap year is still 28', daysLeft('2100-02', '2100-02-01'), 28);
+  // Counting today: Monday has the whole week in front of it.
+  eq('Monday has the whole week', daysLeft(MON, MON), 7);
+  eq('Tuesday has one fewer', daysLeft(MON, '2026-11-03'), 6);
+  eq('Saturday has two', daysLeft(MON, '2026-11-07'), 2);
+  eq('and Sunday, the last day, has one', daysLeft(MON, '2026-11-08'), 1);
 
   // A page left open across the boundary must not report a negative count or
-  // a number from the wrong month.
-  eq('a month that has already rolled over has nothing left', daysLeft('2026-11', '2026-12-01'), 0);
-  eq('nor does a date before it somehow gain days', daysLeft('2026-11', '2026-10-31'), 0);
+  // a number from the wrong week.
+  eq('the next Monday has nothing left', daysLeft(MON, '2026-11-09'), 0);
+  eq('and a page open for a fortnight still has nothing left, not a negative',
+     daysLeft(MON, '2026-11-20'), 0);
+  // Not a thing that happens - the key is derived from today - but it must
+  // not read as a week already over.
+  eq('a date before the week started reads as the full week', daysLeft(MON, '2026-11-01'), 7);
 
-  eq('a malformed month yields nothing rather than a number', daysLeft('nonsense', '2026-11-02'), null);
-  eq('and so does a malformed date', daysLeft('2026-11', ''), null);
+  // The key is a DATE now, not a month, so the shape it rejects changed with
+  // it: "2026-11" used to be the valid form and is now the malformed one.
+  eq('a month-shaped key is refused rather than half-parsed', daysLeft('2026-11', '2026-11-02'), null);
+  eq('a malformed key yields nothing rather than a number', daysLeft('nonsense', '2026-11-02'), null);
+  eq('and so does a malformed date', daysLeft(MON, ''), null);
+  eq('and a missing one', daysLeft(MON, null), null);
+
+  // Every day of a real week, in order, with no gaps or repeats: the whole
+  // off-by-one surface in one assertion.
+  const across = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05',
+                  '2026-11-06', '2026-11-07', '2026-11-08'].map((d) => daysLeft(MON, d));
+  eq('a week counts down 7 to 1 and never repeats a number', across, [7, 6, 5, 4, 3, 2, 1]);
 }
 
 // The wording, and the one case where a count is the wrong thing to show.
@@ -329,10 +394,11 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
   const render = (html.match(/function renderMarathonDaysLeft\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
   ck(/"LAST DAY"/.test(render), 'the final day says so rather than counting to one', render.slice(0, 80));
   ck(/"DAYS LEFT: "/.test(render), 'and every other day carries the count');
+  ck(/"WEEK OVER"/.test(render), 'and a week that rolled over says so rather than showing a zero');
   ck(/var\(--c-loss\)/.test(render), 'the last few days are marked, so the deadline is felt before it arrives');
   ck(/getTodayDateStr\(\)/.test(render), 'today comes from the Eastern date helper, like every other boundary');
-  ck(/marathonAttempt && marathonAttempt\.month/.test(render),
-     "and the month comes from the server-issued attempt rather than the browser's idea of it");
+  ck(/marathonAttempt && marathonAttempt\.week/.test(render),
+     "and the week comes from the server-issued attempt rather than the browser's idea of it");
 }
 
 

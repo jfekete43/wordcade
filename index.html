@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Endless 5-Letter Word Game — Free &amp; Unlimited | Lexathon</title>
-    <meta name="description" content="A free word game that doesn't stop after one puzzle a day: endless 5-letter runs, a daily three-word Trifecta, and live 1v1 matches. No install, no account.">
+    <meta name="description" content="A free word game that doesn't stop after one puzzle a day: a daily Sprint, a weekly Marathon, endless 5-letter runs and live 1v1 matches. No install, no account.">
     <!-- How a shared link looks when it unfurls. Every share path in the
          game ends in a link to this site - the Stakes and Trifecta
          results, and both invite links - so without these a share is a
@@ -20,7 +20,7 @@
     <meta property="og:site_name" content="Lexathon">
     <meta property="og:url" content="https://lexathon.gg/">
     <meta property="og:title" content="An endless, competitive word game">
-    <meta property="og:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily three-word Trifecta, and live 1v1 matches. Free, no install, no account.">
+    <meta property="og:description" content="Doesn't stop after one puzzle a day: a daily Sprint, a weekly twenty-word Marathon, endless 5-letter runs and live 1v1 matches. Free, no install, no account.">
     <meta property="og:image" content="https://lexathon.gg/og-card.png?v=fe0eac68">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -28,7 +28,7 @@
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="An endless, competitive word game">
-    <meta name="twitter:description" content="Doesn't stop after one puzzle a day: endless 5-letter runs, a daily three-word Trifecta, and live 1v1 matches. Free, no install, no account.">
+    <meta name="twitter:description" content="Doesn't stop after one puzzle a day: a daily Sprint, a weekly twenty-word Marathon, endless 5-letter runs and live 1v1 matches. Free, no install, no account.">
     <meta name="twitter:image" content="https://lexathon.gg/og-card.png?v=fe0eac68">
 
     <!-- Google Search Console ownership verification. Must stay on the
@@ -1401,7 +1401,7 @@
              homepage blurb's order. -->
         <button class="mode-nav-btn mode-sprint" id="btn-nav-1" data-mode="sprint" aria-current="true" onclick="window.goToMode(this.dataset.mode)">SPRINT</button>
         <button class="mode-nav-btn mode-endless" id="btn-nav-2" data-mode="endless" onclick="window.goToMode(this.dataset.mode)">STAKES</button>
-        <button class="mode-nav-btn mode-gauntlet" id="btn-nav-3" data-mode="gauntlet" onclick="window.goToMode(this.dataset.mode)">TRIFECTA</button>
+        <button class="mode-nav-btn mode-marathon" id="btn-nav-3" data-mode="marathon" onclick="window.goToMode(this.dataset.mode)">MARATHON</button>
         <button class="mode-nav-btn mode-clash" id="btn-nav-4" data-mode="clash" onclick="window.goToMode(this.dataset.mode)">CLASH</button>
         <!-- Spare slots. renderModeNav fills as many as there are visible
              modes and hides the rest, so un-hiding a mode in the table needs
@@ -1485,11 +1485,11 @@
         <button id="sprint-card-btn" onclick="window.openSprint()">Play Today's Word</button>
     </div>
 
-    <!-- Marathon. The position is the month's shape, so it carries the
+    <!-- Marathon. The position is the week's shape, so it carries the
          fraction the way the Trifecta does; the score beside it is the
-         running month total rather than one word's. -->
+         running week total rather than one word's. -->
     <div id="marathon-header" style="display:none;">
-        <div class="score-text" id="marathon-progress-text" style="color:var(--c-marathon);">WORD <span id="marathon-word-index">1</span>/<span id="marathon-word-count">50</span></div>
+        <div class="score-text" id="marathon-progress-text" style="color:var(--c-marathon);">WORD <span id="marathon-word-index">1</span>/<span id="marathon-word-count">20</span></div>
         <div class="score-text" id="marathon-complete-text" style="color:var(--c-marathon); display:none;">COMPLETE</div>
         <div class="score-text">SCORE: <span id="marathon-score">0</span></div>
         <!-- Last, so that on a narrow screen it is the field that wraps.
@@ -1799,14 +1799,14 @@
         <ul style="list-style: none; margin: 0 0 4px; padding: 0;">
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-sprint);">Sprint</strong> — one word a day, the same word for everyone. Fewest guesses wins; the faster solve breaks a tie.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-endless);">Stakes</strong> — guess words one after another for as long as you can keep going, then bank your score.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Trifecta</strong> — three words, five guesses each. Everyone plays all three — the same three, once a day.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-marathon);">Marathon</strong> — twenty words a week at your own pace. Same twenty for everyone, in your own order.</li>
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-clash);">Clash</strong> — race one other player through the same words for seven minutes.</li>
             <!-- Closed for now (MODES.hidden). Parked in an inert template rather
                  than deleted: inert, unrendered, not indexed, and the exact
                  wording is here for the day either comes back. -->
             <template id="closed-mode-blurbs">
             <li style="margin-bottom: 5px;"><strong style="color:var(--c-ffa);">FFA</strong> — the same race with three to six players at once.</li>
-            <li style="margin-bottom: 5px;"><strong style="color:var(--c-marathon);">Marathon</strong> — fifty words a month at your own pace. Same fifty for everyone, in your own order.</li>
+            <li style="margin-bottom: 5px;"><strong style="color:var(--c-gauntlet);">Trifecta</strong> — three words, five guesses each. Everyone plays all three — the same three, once a day.</li>
             </template>
         </ul>
 
@@ -2274,7 +2274,7 @@
                     <li><b>Wallet</b> is what you can spend in the Shop; <b>Career Bank</b> tracks your lifetime total and is never spent.</li>
                     <li><b>Shop:</b> titles, banners, and text effects — purely cosmetic, some seasonal/time-limited.</li>
                     <li><b>Challenges:</b> Daily (3 rotate each day) and Career (one-time milestones) — both pay out in points.</li>
-                    <li><b>Hall of Fame:</b> Stakes (best single run, ever), Sprint (longest streak), Trifecta (best single one, ever) and Clash (Clash rating). Weekly and Today are on the home board, and today's Trifecta standings live on its own play screen.</li>
+                    <li><b>Hall of Fame:</b> Stakes (best single run, ever), Sprint (longest streak), Marathon (best single week, ever) and Clash (Clash rating). Weekly and Today are on the home board, and this week's Marathon standings live on its own play screen.</li>
                 </ul>
             </div>
 
@@ -2365,6 +2365,7 @@
                      buttons the player had just been looking at. -->
                 <button class="tab-btn" id="tab-prof-sprint" onclick="window.setProfileTab('sprint')">Sprint</button>
                 <button class="tab-btn active" id="tab-prof-standard" onclick="window.setProfileTab('standard')">Stakes</button>
+                <button class="tab-btn" id="tab-prof-marathon" onclick="window.setProfileTab('marathon')">Marathon</button>
                 <button class="tab-btn" id="tab-prof-gauntlet" onclick="window.setProfileTab('gauntlet')">Trifecta</button>
                 <button class="tab-btn" id="tab-prof-clash" onclick="window.setProfileTab('clash')">Clash</button>
                 <button class="tab-btn" id="tab-prof-ffa" onclick="window.setProfileTab('ffa')">FFA</button>
@@ -2434,6 +2435,26 @@
 
                 <div style="font-size: var(--fs-3); margin: 18px 0 8px; color: var(--c-gauntlet); text-align: center;">Today</div>
                 <div id="stat-gauntlet-today" style="text-align: center; font-size: var(--fs-3); color: var(--c-ink-3);">Checking...</div>
+            </div>
+
+            <!-- MARATHON STATS. Zero reads, like Sprint's next door: every
+                 number is on the user doc already. The Trifecta tab below
+                 pays for three on every tap, which is what a rank costs.
+
+                 Best WEEK rather than a career total, matching the Hall of
+                 Fame board it ranks you on - a marathon is a week's work,
+                 and a lifetime total would say who has been here longest. -->
+            <div id="profile-marathon" class="modal-stats" style="text-align: left; display: none;">
+                <div style="text-align: center; margin-bottom: 4px;">Best Week: <br><span id="stat-marathon-best" style="color: var(--c-marathon); font-size: var(--fs-6);">—</span> pts</div>
+                <div id="stat-marathon-best-when" style="text-align: center; margin-bottom: 20px; font-size: var(--fs-2); color: var(--c-ink-4);">&nbsp;</div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center;">🗓️ Weeks Played<br><span id="stat-marathon-weeks" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">🏁 Furthest<br><span id="stat-marathon-furthest" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
+                </div>
+
+                <div style="font-size: var(--fs-3); margin: 18px 0 8px; color: var(--c-marathon); text-align: center;">This Week</div>
+                <div id="stat-marathon-now" style="text-align: center; font-size: var(--fs-3); color: var(--c-ink-3);">&nbsp;</div>
             </div>
 
             <!-- SPRINT STATS — the only tab here that costs no reads at all.
@@ -2509,11 +2530,14 @@
                      saying. The periods that do vary live on the home board. -->
                 <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">Stakes</button>
                 <button class="tab-btn" id="tab-sprint" onclick="window.setLbTime('sprint')">Sprint</button>
-                <!-- The Profile has ranked you on this board for a long time.
-                     Three pages said it did not exist, because the check that
-                     polices that prose asked whether a tab called `gauntlet`
-                     was present and this one is called `daily`. -->
-                <button class="tab-btn" id="tab-daily" onclick="window.setLbTime('daily')">Trifecta</button>
+                <button class="tab-btn" id="tab-marathon" onclick="window.setLbTime('marathon')">Marathon</button>
+                <!-- Keyed `gauntlet`, not `daily`, which is what it was called
+                     for most of its life. The id has to BE the mode key:
+                     applyHiddenModeUi hides "tab-" + mode, so a tab named
+                     after the board rather than the mode stays on screen for
+                     a mode nobody can play. Closing the Trifecta is what
+                     turned that from a naming wrinkle into a bug. -->
+                <button class="tab-btn" id="tab-gauntlet" onclick="window.setLbTime('gauntlet')">Trifecta</button>
                 <button class="tab-btn" id="tab-clash" onclick="window.setLbTime('clash')">Clash</button>
                 <button class="tab-btn" id="tab-ffa" onclick="window.setLbTime('ffa')">FFA</button>
             </div>
@@ -2750,7 +2774,7 @@
         // time it is relevant and never again.
         const MODE_INTRO = {
             marathon: { icon: "\uD83C\uDFC3", color: "var(--c-marathon)", title: "Marathon",
-                text: "Fifty words, one calendar month, at whatever pace suits you. Everyone gets the same fifty \u2014 in a different order, so nobody can spoil anybody. The standings update as you go and show how far through you are. A new set arrives on the 1st." },
+                text: "Twenty words, one week, at whatever pace suits you. Everyone gets the same twenty \u2014 in a different order, so nobody can spoil anybody. The standings update as you go and show how far through you are. A new set arrives every Monday." },
             sprint: { icon: "\u23F1\uFE0F", color: "var(--c-sprint)", title: "Sprint",
                 text: "One word a day, the same word for everyone, five guesses. Fewest guesses wins \u2014 and if two of you tie, the faster solve takes it. The clock starts the moment you submit your first guess, so take as long as you like before that." },
             endless: { icon: "\u267E\uFE0F", color: "var(--c-endless)", title: "Stakes",
@@ -3005,10 +3029,10 @@
                     { id: "d_marathon", name: "Double Shift", desc: "Play 30 total words today.", req: 30, field: "played", reward: 7500 },
                     { id: "d_flawless", name: "Flawless", desc: "Guess a word on the 1st try today.", req: 1, field: "guess1", reward: 5000 },
                     { id: "d_sprint", mode: "sprint", name: "Daily Sprint", desc: "Solve today's Sprint word.", req: 1, field: "sprintDone", reward: 2500 },
+                    { id: "d_longhaul", mode: "marathon", name: "Long Haul", desc: "Finish 5 Marathon words today.", req: 5, field: "marathonWords", reward: 3000 },
                     // "Every word", never "all three": the Trifecta has been
                     // ten words and seven, and the server counts a sweep off
                     // the run's own word count for the same reason.
-                    { id: "d_trifecta", mode: "gauntlet", name: "Clean Sweep", desc: "Solve every word in today's Trifecta.", req: 1, field: "gauntletSwept", reward: 5000 }
                 ],
                 career: [
                     { id: "c_homerun", name: "First Try Magic", desc: "Guess a word on the 1st try.", req: 1, field: "guess1", reward: 10000 },
@@ -3038,6 +3062,10 @@
                     { id: "c_sprint_regular", mode: "sprint", name: "Creature of Habit", desc: "Solve 50 Sprints.", req: 50, field: "sprintSolved", reward: 25000 },
                     { id: "c_sprint_week", mode: "sprint", name: "Seven Straight", desc: "Solve the Sprint 7 days in a row.", req: 7, field: "sprintBestStreak", reward: 20000 },
                     { id: "c_sprint_month", mode: "sprint", name: "Thirty Straight", desc: "Solve the Sprint 30 days in a row.", req: 30, field: "sprintBestStreak", reward: 100000 },
+                    { id: "c_marathon_finish", mode: "marathon", name: "The Distance", desc: "Finish all 20 words of a Marathon week.", req: 20, field: "bestMarathonWords", reward: 25000 },
+                    { id: "c_marathon_regular", mode: "marathon", name: "Four Weeks In", desc: "Play 4 weeks of Marathon.", req: 4, field: "marathonWeeks", reward: 20000 },
+                    { id: "c_marathon_grind", mode: "marathon", name: "A Season of It", desc: "Play 12 weeks of Marathon.", req: 12, field: "marathonWeeks", reward: 100000 },
+                    { id: "c_marathon_big", mode: "marathon", name: "Big Week", desc: "Score 7,500 in a single Marathon week.", req: 7500, field: "bestMarathonScore", reward: 50000 },
                     { id: "c_trifecta_regular", mode: "gauntlet", name: "Three a Day", desc: "Finish 25 Trifectas.", req: 25, field: "gauntletPlayed", reward: 20000 },
                     // The streak is kept by a SWEEP, not by turning up: a
                     // Trifecta finished with a word missed is a day played,
@@ -3474,7 +3502,7 @@
                         // in between until its first run rewrote the whole
                         // object. firestore.rules pins each of these at 0 on
                         // create, since every one of them gates a daily reward.
-                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, sprintDone: 0, gauntletSwept: 0, claimed: [], activeIds: dailyIds } // activeIds added here
+                        claimedCareer: [], dailyStats: { date: todayStr, played: 0, guessed: 0, guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0, sprintDone: 0, gauntletSwept: 0, marathonWords: 0, claimed: [], activeIds: dailyIds } // activeIds added here
                     };
                     await setDoc(userRef, userProfileData);
                     try {
@@ -3918,13 +3946,54 @@
         // original handlers each had to know about the other panel by name,
         // which does not survive a third tab.
         window.setProfileTab = function(name) {
-            for (const tab of ["sprint", "standard", "clash", "ffa", "gauntlet"]) {
+            for (const tab of ["sprint", "standard", "marathon", "clash", "ffa", "gauntlet"]) {
                 document.getElementById("profile-" + tab).style.display = tab === name ? "block" : "none";
                 document.getElementById("tab-prof-" + tab).classList.toggle("active", tab === name);
             }
             if (name === "gauntlet") loadGauntletStats();
             if (name === "sprint") loadSprintStats();
+            if (name === "marathon") loadMarathonStats();
         };
+
+        // The Monday a marathon's week key names, as a date a person reads.
+        // Parsed as UTC because the key is already an Eastern calendar date -
+        // re-anchoring it to a timezone would slide it a day.
+        function marathonWeekLabel(key) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(key || "")) return "";
+            const [y, m, d] = key.split("-").map(Number);
+            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined,
+                { month: "short", day: "numeric", timeZone: "UTC" });
+        }
+
+        // Marathon's tab. Zero reads, like Sprint's: the week you are on and
+        // the best you have had are both already on the profile.
+        function loadMarathonStats() {
+            const p = userProfileData || {};
+            const set = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+            const n = (v) => Math.max(0, Number(v) || 0);
+
+            const best = n(p.bestMarathonScore);
+            set("stat-marathon-best", best > 0 ? best.toLocaleString() : "—");
+            const when = marathonWeekLabel(p.bestMarathonWeek);
+            set("stat-marathon-best-when", best > 0 && when ? "Week of " + when : " ");
+
+            set("stat-marathon-weeks", n(p.marathonWeeks).toLocaleString());
+            // The deepest you have ever got into a week, which is the number
+            // the finish-a-week challenge is counting - and the one a player
+            // who has never finished one is actually chasing.
+            const furthest = n(p.bestMarathonWords);
+            set("stat-marathon-furthest", furthest > 0 ? furthest + " of " + MARATHON_WORD_COUNT : "—");
+
+            // This week, read off the same denormalised fields the standings
+            // use - and only when the key says they are THIS week. A stored
+            // total from a week that has rolled over is last week's, and the
+            // board has already stopped counting it.
+            const live = p.marathonKey === marathonKeyFor(new Date());
+            const done = live ? n(p.marathonWords) : 0;
+            set("stat-marathon-now", !live || done === 0
+                ? "Not started yet \u2014 this week's twenty are waiting."
+                : n(p.marathonScore).toLocaleString() + " pts · " + done + " of " + MARATHON_WORD_COUNT + " words done");
+        }
 
         // Sprint's tab. Unlike the Trifecta's, this reads nothing: every
         // number is already on userProfileData, so it can be refilled on every
@@ -4393,8 +4462,11 @@
                     // Best single Trifecta, ever. The same field and the same
                     // ordering the Profile counts your rank against, so the two
                     // cannot disagree.
-                    daily: { field: "bestGauntletScore", fallback: 0, excludesUnset: true,
-                             empty: "No Trifectas finished yet — play today's to get on the board" },
+                    gauntlet: { field: "bestGauntletScore", fallback: 0, excludesUnset: true,
+                                empty: "No Trifectas finished yet — play today's to get on the board" },
+                    // Best single WEEK of Marathon, ever, on the same terms.
+                    marathon: { field: "bestMarathonScore", fallback: 0, excludesUnset: true,
+                                empty: "No Marathon weeks yet — finish a word to get on the board" },
                 };
                 const board = USERS_BOARD[mode];
                 if (board) {
@@ -4475,9 +4547,18 @@
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("ffaMmr", "desc"), limit(100)));
                             snapshot.forEach(doc => { rawData.push({ uid: doc.id, name: doc.data().username, score: doc.data().ffaMmr || 1000, equipped: doc.data().equipped }); });
                         }
-                        else if (currentLbTime === 'daily') {
+                        else if (currentLbTime === 'gauntlet') {
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestGauntletScore", "desc"), limit(100)));
                             snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestGauntletScore || 0, ts: d.bestGauntletDate, equipped: d.equipped }); });
+                        }
+                        else if (currentLbTime === 'marathon') {
+                            // Best WEEK, not a career total: a marathon is a
+                            // week's work and the thing worth ranking is the
+                            // best one you have had, the same shape as the
+                            // Trifecta's best single day. A career total would
+                            // rank whoever has been here longest.
+                            const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestMarathonScore", "desc"), limit(100)));
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestMarathonScore || 0, equipped: d.equipped }); });
                         }
                         else if (currentLbTime === 'sprint') {
                             // Best STREAK, not best score. A Sprint tops out at
@@ -4687,6 +4768,10 @@
         // Mirrors DAILY_GAUNTLET_MAX_GUESSES on the server, which is what
         // actually enforces it; this copy only ever labels the share.
         const SPRINT_MAX_GUESSES = 5;
+        // Mirrors MARATHON_WORD_COUNT on the server, which is what actually
+        // decides how long a week is; this copy only ever labels a screen.
+        // marathon.test.mjs pins the two together.
+        const MARATHON_WORD_COUNT = 20;
         const RUN_WORD_LOG_MAX = 300;
         let runWordLog = [];
         function logWordResult(word, guesses, solved) {
@@ -4723,16 +4808,26 @@
         //
         // FFA needs three players to start and we cannot reliably fill a
         // two-player Clash yet, so it was a button that led to a lobby nobody
-        // else was in. Marathon asks for a month of commitment and the first
-        // reaction to it was flat. Both are judgements about today, not about
-        // the code, which is why neither is being thrown away.
+        // else was in.
+        //
+        // The TRIFECTA is closed for a different reason: nothing is wrong
+        // with it, there was just one daily mode too many. Sprint and the
+        // Trifecta both asked a player to come back once a day and do a
+        // five-letter word, and sitting next to each other they read as the
+        // same errand twice. Marathon is the one that brought something else
+        // - a week of words at your own pace rather than a thing to tick off
+        // - and it comes back in the Trifecta's slot, weekly now rather than
+        // the month that made it a commitment nobody took up.
+        //
+        // All of it is a judgement about today, not about the code, which is
+        // why none of the three is being thrown away.
         const MODES = {
             sprint:   { label: "SPRINT",   cls: "mode-sprint",   color: "var(--c-sprint)" },
             endless:  { label: "STAKES",   cls: "mode-endless",  color: "var(--c-endless)" },
-            gauntlet: { label: "TRIFECTA", cls: "mode-gauntlet", color: "var(--c-gauntlet)" },
+            marathon: { label: "MARATHON", cls: "mode-marathon", color: "var(--c-marathon)" },
             clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
             ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)",      hidden: true },
-            marathon: { label: "MARATHON", cls: "mode-marathon", color: "var(--c-marathon)", hidden: true },
+            gauntlet: { label: "TRIFECTA", cls: "mode-gauntlet", color: "var(--c-gauntlet)", hidden: true },
         };
         // Derived, not restated: the slot order and the table cannot drift.
         const MODE_ORDER = Object.keys(MODES);
@@ -5009,11 +5104,11 @@
 
         // --- MARATHON -------------------------------------------------------
         //
-        // Fifty words a month at your own pace. Mechanically this is the Daily
+        // Twenty words a week at your own pace. Mechanically this is the Daily
         // Puzzle stretched out: a position, a per-word board, and a score that
         // accumulates. Two differences worth knowing when reading this:
         //
-        // The month's words are ONE list, but each player walks it through
+        // The week's words are ONE list, but each player walks it through
         // their own permutation (shuffled inside difficulty bands, server
         // side). Nothing here knows or needs the order — the server resolves
         // position to word. So "word 12" is a different word for every player
@@ -5023,32 +5118,34 @@
         // onRunCreated denormalises the running total onto the user doc. That
         // is why the standings can show people who are still going.
 
-        // Days left in the marathon's own month, counting today. The month
-        // ends when its last Eastern day does, so on the 2nd of a 30-day
-        // month there are 29 days to play, not 28.
+        // Days left in the marathon's own week, counting today. The key IS
+        // that week's Monday, so this is seven minus however far into the
+        // week today is - which is the whole calculation now that a marathon
+        // is a fixed seven days rather than a month of 28 to 31.
         //
-        // Day 0 of the NEXT month is the last day of this one, which is how
-        // February and the leap year are somebody else's problem. Both dates
-        // are Eastern strings already, so they are read as UTC and never
-        // re-anchored to a timezone.
-        function marathonDaysLeft(monthKey, todayStr) {
-            if (!/^\d{4}-\d{2}$/.test(monthKey || "") || !/^\d{4}-\d{2}-\d{2}$/.test(todayStr || "")) return null;
-            // A month that rolled over while the page sat open has nothing
-            // left, rather than a negative count or a wrong one.
-            if (todayStr.slice(0, 7) !== monthKey) return 0;
-            const [y, m] = monthKey.split("-").map(Number);
-            const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
-            return Math.max(0, daysInMonth - Number(todayStr.slice(8, 10)) + 1);
+        // Both dates are Eastern strings already, so they are read as UTC and
+        // never re-anchored to a timezone; UTC has no DST, which keeps the
+        // subtraction plain.
+        function marathonDaysLeft(weekKey, todayStr) {
+            const iso = /^\d{4}-\d{2}-\d{2}$/;
+            if (!iso.test(weekKey || "") || !iso.test(todayStr || "")) return null;
+            const day = (x) => { const [y, m, d] = x.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+            const elapsed = Math.floor((day(todayStr) - day(weekKey)) / 86400000);
+            // A week that rolled over while the page sat open has nothing
+            // left, rather than a negative count. A today BEFORE the key is
+            // not a thing that happens, and reads as the full week if it does.
+            if (elapsed < 0) return 7;
+            return Math.max(0, 7 - elapsed);
         }
 
         function renderMarathonDaysLeft() {
             const el = document.getElementById("marathon-days");
             if (!el) return;
-            const left = marathonDaysLeft(marathonAttempt && marathonAttempt.month, getTodayDateStr());
+            const left = marathonDaysLeft(marathonAttempt && marathonAttempt.week, getTodayDateStr());
             if (left === null) { el.innerText = ""; return; }
             // "1 DAY LEFT" is true but reads as a number to compare. On the
             // last day the point is that there is no tomorrow.
-            el.innerText = left === 0 ? "MONTH OVER" : left === 1 ? "LAST DAY" : "DAYS LEFT: " + left;
+            el.innerText = left === 0 ? "WEEK OVER" : left === 1 ? "LAST DAY" : "DAYS LEFT: " + left;
             el.style.color = left <= 3 ? "var(--c-loss)" : "";
         }
 
@@ -5068,9 +5165,9 @@
 
             try {
                 marathonAttempt = (await callStartMarathon()).data.attempt;
-                if (!marathonAttempt) throw new Error("Couldn't start this month's Marathon.");
+                if (!marathonAttempt) throw new Error("Couldn't start this week's Marathon.");
             } catch (e) {
-                alert(e.message || "Couldn't start this month's Marathon.");
+                alert(e.message || "Couldn't start this week's Marathon.");
                 console.error(e);
                 return;
             }
@@ -5198,7 +5295,7 @@
             const youEl = document.getElementById("daily-board-you");
             if (youEl) youEl.innerHTML = "";
             const titleEl = document.getElementById("daily-board-title");
-            if (titleEl) titleEl.innerText = "This Month's Marathon";
+            if (titleEl) titleEl.innerText = "This Week's Marathon";
             for (const id of ["daily-board-prev", "daily-board-next", "home-board-more"]) {
                 const el = document.getElementById(id);
                 if (el) el.style.display = "none";
@@ -5206,10 +5303,10 @@
             const list = document.getElementById("daily-board-list");
             if (!list) return;
             try {
-                const month = marathonAttempt ? marathonAttempt.month : monthKeyFor(new Date());
+                const week = marathonAttempt ? marathonAttempt.week : marathonKeyFor(new Date());
                 const snap = await getDocs(query(
                     collection(db, "users"),
-                    where("marathonKey", "==", month),
+                    where("marathonKey", "==", week),
                     orderBy("marathonScore", "desc"),
                     limit(10)));
                 const rows = [];
@@ -5228,23 +5325,26 @@
                             // things would be worse than either choice alone.
                             //
                             // The pace is not redundant with the score, which is
-                            // why it is here at all: 380 over ten words and 380
-                            // over twenty are a different player, and the score
+                            // why it is here at all: 380 over five words and 380
+                            // over fifteen are a different player, and the score
                             // alone conflates skill with how far through you are.
                             `<span style="color:var(--c-ink-4); margin-right: var(--s-5);">${words}w &middot; ${avg}/w</span>`
                             + boardScore(r.score));
                     }).join("")
-                    : `<div style="color:var(--c-ink-4);">Nobody has started this month yet. Be first.</div>`;
+                    : `<div style="color:var(--c-ink-4);">Nobody has started this week yet. Be first.</div>`;
             } catch (e) {
                 console.error("Marathon board failed", e);
                 list.innerHTML = `<div style="color:var(--c-ink-4);">Standings unavailable right now.</div>`;
             }
         }
 
-        // Eastern calendar month, matching getMonthKeyStr() in functions/index.js.
-        // Only used when there is no attempt to read the month off.
-        function monthKeyFor(d) {
-            return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).format(d);
+        // Marathon's week, matching getMarathonKeyStr() in functions/index.js:
+        // the Eastern date of that week's Monday. Asks periodKeyFor for
+        // "weekly" by name for the same reason the server does - the
+        // leaderboard's window is a different decision from a marathon's
+        // length. Only used when there is no attempt to read the week off.
+        function marathonKeyFor(d) {
+            return periodKeyFor(d, "weekly");
         }
 
         window.leaveMarathon = function() {

@@ -57,7 +57,7 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
 {
   const tabs = [...modal.matchAll(/id="tab-(\w+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2].trim()]);
   eq('every tab is a mode', tabs.map(([, label]) => label),
-     ['Stakes', 'Sprint', 'Trifecta', 'Clash', 'FFA']);
+     ['Stakes', 'Sprint', 'Marathon', 'Trifecta', 'Clash', 'FFA']);
   ck(!tabs.some(([, l]) => /all time|weekly|daily/i.test(l)),
      'and none of them is a time window', tabs.map(([, l]) => l).join(','));
   // FFA is a closed mode; applyHiddenModeUi takes its tab down by the
@@ -65,24 +65,33 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
   ck(tabs.some(([id]) => id === 'ffa'), 'the closed mode keeps its tab for when it reopens');
   ck(/function applyHiddenModeUi\(\)[\s\S]{0,400}"tab-" \+ m/.test(html),
      'and the hide is by convention, so a new mode tab is covered without being named');
-  // ...for the tabs whose id IS the mode's name. Two are named for their board
-  // key instead — `all` is the endless mode, `daily` is gauntlet — a vocabulary
-  // older than the mode table, and the one the Firestore fields still use. The
-  // loop cannot reach those two, so closing either mode would leave its tab
-  // standing. Both are open; this is the tripwire for the day one is not. (The
-  // same mismatch is why three pages said the Trifecta had no all-time board:
-  // the check that polices that prose was looking for a `gauntlet` tab.)
+  // ...for the tabs whose id IS the mode's name. This used to be the tripwire
+  // for two that were not: `all` for the endless mode and `daily` for
+  // gauntlet, a vocabulary older than the mode table. applyHiddenModeUi
+  // cannot reach a tab it cannot name, so closing either mode would have left
+  // its tab standing over a board nobody can play.
+  //
+  // Closing the Trifecta is the day that stopped being hypothetical, and
+  // `daily` was renamed to `gauntlet` rather than special-cased. `all` is the
+  // last one, and Stakes is the one mode that will not be closed.
   const table = between(html, 'const MODES = {', '};');
   const modeKeys = [...table.matchAll(/^\s+(\w+):\s+\{ label:/gm)].map((m) => m[1]);
   const hidden = new Set([...table.matchAll(/^\s+(\w+):\s+\{ label:[^\n]*hidden: true/gm)].map((m) => m[1]));
   ck(modeKeys.length >= 4 && hidden.size > 0, 'the mode table reads, flags and all',
      `${modeKeys.join(',')} | hidden: ${[...hidden].join(',')}`);
-  const LEGACY = { all: 'endless', daily: 'gauntlet' };
+  const LEGACY = { all: 'endless' };
   const offConvention = tabs.map(([id]) => id).filter((id) => !modeKeys.includes(id));
-  eq('the tabs outside the convention are the two legacy board keys', offConvention, ['all', 'daily']);
+  eq('one tab is left outside the convention, and it is Stakes', offConvention, ['all']);
   for (const id of offConvention) {
     ck(!hidden.has(LEGACY[id]), `${LEGACY[id]} is open, so nothing has to take the ${id} tab down`,
        [...hidden].join(','));
+  }
+  // Every CLOSED mode's tab really is reachable by the convention, which is
+  // the claim the rename was for. Derived, so the next mode to close is
+  // covered without this being edited again.
+  for (const m of hidden) {
+    ck(tabs.some(([id]) => id === m), `the closed ${m} tab is named after the mode, so it comes down`,
+       tabs.map(([id]) => id).join(','));
   }
   // The modal has called itself this all along; the menu called it something
   // else, which is how one thing came to have two names.

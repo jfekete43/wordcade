@@ -207,6 +207,13 @@ service cloud.firestore {
         && !('marathonScore' in request.resource.data)
         && !('marathonWords' in request.resource.data)
         && !('marathonKey' in request.resource.data)
+        // Marathon's career side, added when the mode reopened weekly: a
+        // place on the Hall of Fame's Marathon board and the three career
+        // challenges, which is the same argument as bestGauntletScore above.
+        && !('bestMarathonScore' in request.resource.data)
+        && !('bestMarathonWords' in request.resource.data)
+        && !('bestMarathonWeek' in request.resource.data)
+        && (!('marathonWeeks' in request.resource.data) || request.resource.data.marathonWeeks == 0)
         && !('ffaMatchesPlayed' in request.resource.data)
         && request.resource.data.totalWordsGuessed == 0
         && request.resource.data.wordsPlayed == 0
@@ -238,6 +245,7 @@ service cloud.firestore {
         && (!('guess4' in request.resource.data.dailyStats) || request.resource.data.dailyStats.guess4 == 0)
         && (!('sprintDone' in request.resource.data.dailyStats) || request.resource.data.dailyStats.sprintDone == 0)
         && (!('gauntletSwept' in request.resource.data.dailyStats) || request.resource.data.dailyStats.gauntletSwept == 0)
+        && (!('marathonWords' in request.resource.data.dailyStats) || request.resource.data.dailyStats.marathonWords == 0)
         && request.resource.data.dailyStats.claimed == [];
 
       // The ONLY field the client may ever update directly on its own
@@ -397,16 +405,20 @@ service cloud.firestore {
     // This month's fifty Marathon words. Unreadable for the same reason the
     // other two answer stores are: the client learns one word's colours at a
     // time from guessMarathonWord and nothing else. It matters more here, if
-    // anything - one read would hand over a whole month.
-    match /marathonPuzzles/{month} {
+    // anything - one read would hand over a whole week.
+    match /marathonPuzzles/{week} {
       allow read, write: if false;
     }
 
     // A player's own Marathon progress: which position they are on, what
     // they have scored, and the guesses already made. Readable by its owner
     // so a reload resumes; never writable, because `order` and `score` live
-    // here and a client that could write either could rewrite its month.
-    match /marathonAttempts/{userId}/months/{month} {
+    // here and a client that could write either could rewrite its week.
+    //
+    // `weeks`, not `months`: Marathon was monthly. The old attempts are still
+    // under .../months and are no longer readable by anyone, which is the
+    // right answer for a half-finished marathon from a period that is over.
+    match /marathonAttempts/{userId}/weeks/{week} {
       allow read: if isOwner(userId);
       allow write: if false;
     }

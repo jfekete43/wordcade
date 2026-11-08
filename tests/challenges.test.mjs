@@ -257,16 +257,44 @@ for (const r of all) {
      `${r.desc} (${wrong.join(',')})`);
 }
 
-// ---- the new modes are actually represented -------------------------------
+// A challenge asking for twenty words in a week that is no longer twenty
+// words long is one nobody can finish, and it fails silently: the row just
+// sits there at 20/25 forever. Read off the server constant, not written
+// here twice.
+{
+  const N = Number((fn.match(/const MARATHON_WORD_COUNT = (\d+);/) || [])[1]);
+  ck(N > 0, 'MARATHON_WORD_COUNT is findable', String(N));
+  const finish = client.career.find((r) => r.id === 'c_marathon_finish');
+  ck(finish, 'the finish-a-week challenge exists', client.career.map((r) => r.id).join(','));
+  eq('and asks for exactly a week of words', finish.req, N);
+  ck(new RegExp(`\\b${N}\\b`).test(finish.desc),
+     'and says the number out loud, so the row and the mode agree in words too', finish.desc);
+}
+
+// ---- every open mode is actually represented ------------------------------
 // The point of the exercise: Sprint had nothing at all, and the Trifecta had
 // one row. Held as "at least one each" rather than a count, so adding more
 // does not fail and removing the last one does.
-for (const m of ['sprint', 'gauntlet']) {
+//
+// Derived from the OPEN modes rather than naming two. It named sprint and
+// gauntlet, and the pair went wrong in both directions at once when the
+// modes were swapped: it demanded a daily challenge for the Trifecta, which
+// the check above correctly forbids for a closed mode, and it asked nothing
+// at all of Marathon, which had come back as a headline mode with no
+// challenges of any kind.
+//
+// Stakes and Clash are exempt from the per-mode tag: Stakes is what every
+// untagged challenge is already about, and a Clash challenge is about
+// winning rather than about words.
+const NEEDS_CHALLENGES = Object.keys(MODES).filter((m) => !hidden.includes(m) && !['endless', 'clash'].includes(m));
+ck(NEEDS_CHALLENGES.length >= 2, 'there is more than one mode to ask this of',
+   NEEDS_CHALLENGES.join(','));
+for (const m of NEEDS_CHALLENGES) {
   const mine = client.career.filter((r) => r.mode === m);
   ck(mine.length >= 2, `${MODES[m].label} has career challenges of its own`,
      mine.map((r) => r.id).join(',') || 'none');
 }
-for (const m of ['sprint', 'gauntlet']) {
+for (const m of NEEDS_CHALLENGES) {
   const mine = client.daily.filter((r) => new RegExp(MODES[m].label, 'i').test(`${r.name} ${r.desc}`));
   ck(mine.length >= 1, `${MODES[m].label} is in the daily rotation too`,
      mine.map((r) => r.id).join(',') || 'none');
