@@ -330,36 +330,76 @@ for (const [mode, rows, heads] of [
   ck(!idA.includes('aaa') && !A.includes(idA), 'the id carries none of the url', `${idA} / ${A}`);
 }
 
-// ---- the delivery, at source ----------------------------------------------
-// The claim machinery lives in deliverDigest now, shared by the daily and
-// weekly schedules. It was inlined in the daily one, and the weekly one
-// would have been a second copy of the only subtle part of this.
+// ---- the delivery, lifted and RUN -----------------------------------------
+// The claim is the only thing standing between a retried schedule and two
+// identical leaderboards in the channel, and it is now split across
+// claimPost and deliverDigest. Read as source text it was a handful of
+// regexes that all still matched when the claim moved; run against a fake
+// Firestore and a fake fetch, the ordering and the release are facts.
 {
-  const deliver = fn.slice(fn.indexOf('async function deliverDigest'), fn.indexOf('exports.postDailyDigest'));
-  ck(!!deliver && deliver.length < 3000, 'the shared delivery is findable', String(deliver.length));
-  // The claim is the only thing standing between a retried schedule and two
-  // identical leaderboards in the channel.
-  ck(/db\.runTransaction/.test(deliver) && /digestPosts/.test(deliver),
-     'a post is claimed in a transaction before it is sent', deliver.slice(0, 120));
-  ck(deliver.indexOf('digestPosts') < deliver.indexOf('fetch('),
-     'and claimed BEFORE the POST, not after it');
-  // Making the claim is not the same as honouring it. Deleting this one line
-  // leaves a transaction that writes a marker nothing ever reads, and the
-  // retry posts the leaderboard a second time anyway.
-  ck(/if \(!claimed\)[\s\S]{0,140}?continue;/.test(deliver),
-     'and one already claimed is skipped rather than posted again',
-     (deliver.match(/const claimed[\s\S]{0,260}/) || [''])[0].replace(/\n\s*/g, ' ').slice(0, 170));
-  ck(/claimRef\.delete\(\)/.test(deliver),
-     'the claim is released if the post fails, so one outage is not permanent');
-  // One secret, one or more channels. The board is the same board
-  // everywhere, so it is rendered once however many it goes to.
-  ck(/for \(const url of urls\)/.test(deliver), 'a digest goes to every webhook the secret holds');
-  ck(/if \(!payload\) payload = await build\(\);/.test(deliver), 'and is rendered once, not once per channel');
-  // Per-channel claims. A shared one forces a choice between re-posting to a
-  // channel that already has the message and silently losing it there.
-  ck(/doc\(`\$\{mode\}_\$\{key\}_\$\{channelId\(url\)\}`\)/.test(deliver),
+  const grabFn = (name) => (fn.match(new RegExp(
+    `^(?:async )?function ${name}\\(.*?\\) \\{\\n[\\s\\S]*?\\n\\}`, 'm')) || [''])[0];
+  const src = [grabFn('channelId'), grabFn('claimPost'), grabFn('deliverDigest')].join('\n');
+  ck(src.length > 600, 'the delivery is findable', String(src.length));
+
+  const deliver = async ({ urls, failOn = [], already = [] }) => {
+    const docs = new Set(already);
+    const order = [];
+    const db = {
+      collection: () => ({ doc: (id) => ({ id, delete: async () => { docs.delete(id); order.push('release ' + id); } }) }),
+      runTransaction: async (f) => f({
+        get: async (r) => ({ exists: docs.has(r.id) }),
+        set: (r) => { docs.add(r.id); order.push('claim ' + r.id); },
+      }),
+    };
+    let built = 0;
+    const sent = [];
+    const fetchFake = async (url, opts) => {
+      order.push('POST ' + url);
+      sent.push({ url, body: opts.body });
+      return failOn.includes(url)
+        ? { ok: false, status: 500, text: async () => 'boom' }
+        : { ok: true, status: 200, text: async () => '' };
+    };
+    const body = new Function('db', 'FieldValue', 'console', 'fetch', 'createHash', 'OPTS', `
+      ${src}
+      return deliverDigest(OPTS);`);
+    await body(db, { serverTimestamp: () => 'TS' }, { log: () => {}, error: () => {} },
+      fetchFake, (await import('crypto')).createHash,
+      { mode: 'sprint', key: '2026-11-07', urls, label: 'l',
+        build: async () => { built++; return { embeds: [] }; } });
+    return { docs: [...docs], order, sent, built };
+  };
+
+  const A = 'https://discord.com/api/webhooks/1/aaa';
+  const B = 'https://discord.com/api/webhooks/2/bbb';
+
+  const one = await deliver({ urls: [A] });
+  eq('a configured channel gets the post', one.sent.length, 1);
+  ck(one.order[0].startsWith('claim') && one.order[1].startsWith('POST'),
+     'claimed BEFORE the POST, not after it', one.order.join(' | '));
+
+  const two = await deliver({ urls: [A, B] });
+  eq('two channels both get it', two.sent.length, 2);
+  eq('but the board is rendered once, not once per channel', two.built, 1);
+  eq('and each takes a claim of its own', two.docs.length, 2);
+  ck(new Set(two.docs).size === 2, 'under distinct ids', two.docs.join(','));
+
+  const dup = await deliver({ urls: [A], already: [one.docs[0]] });
+  eq('a day already claimed is skipped rather than posted again', dup.sent.length, 0);
+
+  const half = await deliver({ urls: [A, B], failOn: [B] });
+  eq('when one channel fails the other still has its post', half.sent.length, 2);
+  eq('and only the failure hands its day back', half.docs.length, 1);
+  ck(half.order.filter((o) => o.startsWith('release')).length === 1,
+     'exactly one release, so tomorrow retries only where it failed', half.order.join(' | '));
+
+  // Per-channel claim ids. A shared one forces a choice between re-posting
+  // to a channel that already has the message and silently losing it there.
+  const deliverSrc = fn.slice(fn.indexOf('async function claimPost'), fn.indexOf('exports.postDailyDigest'));
+  ck(/claimPost\(mode, key, channelId\(url\)\)/.test(deliverSrc),
      'each channel claims its own, so a failure costs only that channel',
-     (deliver.match(/const claimRef[^\n]*/) || [''])[0].trim());
+     (deliverSrc.match(/claimPost\([^)]*\)/) || [''])[0]);
 }
 
 // ---- the daily job, at source ----------------------------------------------
@@ -370,13 +410,20 @@ for (const [mode, rows, heads] of [
      'it posts YESTERDAY, whose board is closed and whose answers are spent', job.slice(0, 200));
   ck(/timeZone: "America\/New_York"/.test(job), 'on Eastern time, like every other schedule here');
   // The Trifecta's job was here and went with the mode.
-  ck(/secrets: \[DISCORD_SPRINT_WEBHOOK\]/.test(job),
-     'with Sprint\'s webhook as a secret, and only Sprint\'s now',
-     (job.match(/secrets: \[[^\]]*\]/) || [''])[0]);
+  const daily_secrets = (job.match(/secrets: \[[^\]]*\]/) || [''])[0];
+  ck(/DISCORD_SPRINT_WEBHOOK/.test(daily_secrets),
+     'with Sprint\'s webhook as a secret', daily_secrets);
+  ck(!/DISCORD_TRIFECTA_WEBHOOK/.test(daily_secrets),
+     'and not the Trifecta\'s, which went weekly with Marathon', daily_secrets);
   ck(!/mode: "daily"/.test(job), 'the Trifecta digest is gone with the mode', job.slice(0, 400));
   ck(/if \(snap\.empty\)/.test(job), 'a day nobody played is skipped rather than posted empty');
   ck(/webhookUrls\(job\.secret\)/.test(job), 'and an unconfigured webhook is skipped, not posted to');
-  ck(/if \(!urls\.length\)/.test(job), '...which is what a secret holding no webhook parses to');
+  // Two destinations now, so the skip has to need BOTH to be unconfigured.
+  // `if (!urls.length)` alone would silently stop the X post for anyone who
+  // never set up Discord at all.
+  ck(/if \(!urls\.length && !creds\)/.test(job),
+     '...but only when X is unconfigured too, or the day goes nowhere',
+     (job.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
   ck(job.indexOf('const snap = await db.collection("runs")') < job.indexOf('deliverDigest'),
      'and the day is read once, before any channel is written to');
 }
@@ -389,8 +436,9 @@ for (const [mode, rows, heads] of [
   const job = fn.slice(fn.indexOf('exports.postWeeklyDigest'), fn.indexOf('exports.postWeeklyDigest') + 2200);
   ck(/schedule: "10 9 \* \* 1"/.test(job), 'it runs on Monday morning', (job.match(/schedule: "[^"]*"/) || [''])[0]);
   ck(/timeZone: "America\/New_York"/.test(job), 'Eastern, like every other schedule here');
-  ck(/secrets: \[DISCORD_TRIFECTA_WEBHOOK\]/.test(job),
-     'on the webhook the Trifecta digest used to use');
+  ck(/secrets: \[DISCORD_TRIFECTA_WEBHOOK[,\]]/.test(job),
+     'on the webhook the Trifecta digest used to use',
+     (job.match(/secrets: \[[^\]]*\]/) || [''])[0]);
   // The week that ENDED. Monday's key is this week; the standings worth
   // posting are last week's, and they are still on the user docs until each
   // player's first run of the new week overwrites them.
@@ -404,7 +452,9 @@ for (const [mode, rows, heads] of [
   ck(/orderBy\("marathonScore", "desc"\)/.test(job), 'ranked by the week\'s score');
   ck(/\.limit\(10\)/.test(job), 'top ten, like the daily one');
   ck(/if \(snap\.empty\)/.test(job), 'a week nobody played is skipped rather than posted empty');
-  ck(/if \(!urls\.length\)/.test(job), 'and an unconfigured webhook is skipped');
+  ck(/if \(!urls\.length && !creds\)/.test(job),
+     'and it is skipped only when neither destination is configured',
+     (job.match(/if \(!urls\.length[^\n]*/) || [''])[0].trim());
   ck(/deliverDigest\(/.test(job), 'and it posts through the shared delivery, claims and all');
   // The composite index that query needs, or it is empty in production and
   // green here.

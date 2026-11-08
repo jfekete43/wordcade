@@ -18,7 +18,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { createHash } = require("crypto");
+const { createHash, createHmac, randomBytes } = require("crypto");
 
 // A copy of words.js's word lists, generated once via a small script (see
 // the repo's DEPLOY.md) rather than parsed from words.js at runtime — keep
@@ -1932,6 +1932,14 @@ exports.aggregateWordStats = onSchedule({ schedule: "30 1 * * *", timeZone: "Ame
 const DISCORD_SPRINT_WEBHOOK = defineSecret("DISCORD_SPRINT_WEBHOOK");
 const DISCORD_TRIFECTA_WEBHOOK = defineSecret("DISCORD_TRIFECTA_WEBHOOK");
 
+// Declared up here with the webhooks, not beside the posting code below:
+// the schedules name them in an options object that is evaluated when this
+// module loads, which is before a const further down the file exists.
+const X_API_KEY = defineSecret("X_API_KEY");
+const X_API_SECRET = defineSecret("X_API_SECRET");
+const X_ACCESS_TOKEN = defineSecret("X_ACCESS_TOKEN");
+const X_ACCESS_SECRET = defineSecret("X_ACCESS_SECRET");
+
 // Must match index.html. tests/docs-consistency checks every copy against
 // every other, because a digest numbering yesterday differently from the
 // share text a player posts beside it is worse than no number.
@@ -2156,20 +2164,31 @@ function channelId(url) {
  * `build` is called at most once however many channels there are: the board
  * is the same board everywhere, and it costs a read or two to render.
  */
+/*
+ * Take one destination's claim on one day, or find it already taken.
+ *
+ * Returns the claim document to hand back if the post then fails, or null if
+ * somebody already has this day. Extracted from deliverDigest because the X
+ * post below needs exactly the same guarantee and for a sharper reason: a
+ * duplicate Discord message is embarrassing, and a duplicate X post is
+ * embarrassing AND billed.
+ */
+async function claimPost(mode, key, channel) {
+  const ref = db.collection("digestPosts").doc(`${mode}_${key}_${channel}`);
+  const claimed = await db.runTransaction(async (tx) => {
+    if ((await tx.get(ref)).exists) return false;
+    tx.set(ref, { mode, puzzleDate: key, channel, at: FieldValue.serverTimestamp() });
+    return true;
+  });
+  return claimed ? ref : null;
+}
+
 async function deliverDigest({ mode, key, urls, label, build }) {
   let payload = null;
   for (const url of urls) {
     const to = `${label} -> ${channelId(url)}`;
-    const claimRef = db.collection("digestPosts").doc(`${mode}_${key}_${channelId(url)}`);
-    const claimed = await db.runTransaction(async (tx) => {
-      if ((await tx.get(claimRef)).exists) return false;
-      tx.set(claimRef, {
-        mode, puzzleDate: key, channel: channelId(url),
-        at: FieldValue.serverTimestamp(),
-      });
-      return true;
-    });
-    if (!claimed) { console.log(`digest ${to}: already posted`); continue; }
+    const claimRef = await claimPost(mode, key, channelId(url));
+    if (!claimRef) { console.log(`digest ${to}: already posted`); continue; }
 
     try {
       if (!payload) payload = await build();
@@ -2192,7 +2211,7 @@ async function deliverDigest({ mode, key, urls, label, build }) {
 exports.postDailyDigest = onSchedule({
   schedule: "10 9 * * *",
   timeZone: "America/New_York",
-  secrets: [DISCORD_SPRINT_WEBHOOK],
+  secrets: [DISCORD_SPRINT_WEBHOOK, X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
 }, async () => {
   const dateStr = shiftDateStr(getTodayDateStr(), -1);
   // Sprint alone. The Trifecta's job was here and is gone with the mode; its
@@ -2204,10 +2223,15 @@ exports.postDailyDigest = onSchedule({
       puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word] },
   ];
 
+  const creds = xCredentials(X_API_KEY.value(), X_API_SECRET.value(),
+    X_ACCESS_TOKEN.value(), X_ACCESS_SECRET.value());
+
   for (const job of jobs) {
     const label = `${job.mode} ${dateStr}`;
     const urls = webhookUrls(job.secret);
-    if (!urls.length) { console.log(`digest ${label}: no webhook configured, skipped`); continue; }
+    // Either destination is reason enough to do the work; neither is reason
+    // to do the query. X alone has to still run when no webhook is set.
+    if (!urls.length && !creds) { console.log(`digest ${label}: nowhere to post, skipped`); continue; }
 
     const snap = await db.collection("runs")
       .where("mode", "==", job.mode).where("puzzleDate", "==", dateStr)
@@ -2217,16 +2241,33 @@ exports.postDailyDigest = onSchedule({
     // nobody played, which is not what a leaderboard channel is for.
     if (snap.empty) { console.log(`digest ${label}: no runs, nothing to post`); continue; }
 
-    await deliverDigest({
-      mode: job.mode, key: dateStr, urls, label,
-      build: async () => {
+    // Read once, rendered twice. Lazy because a day already posted
+    // everywhere should not cost the puzzle read, and memoised because
+    // Discord and X asking separately would cost it twice.
+    let data = null;
+    const gather = async () => {
+      if (!data) {
         const pSnap = await job.puzzle.get();
-        return buildDigest({
+        data = {
           mode: job.mode, dateStr, rows: snap.docs.map((d) => d.data()),
           words: pSnap.exists ? job.words(pSnap.data()) : [],
-        });
-      },
-    });
+        };
+      }
+      return data;
+    };
+
+    if (urls.length) {
+      await deliverDigest({
+        mode: job.mode, key: dateStr, urls, label,
+        build: async () => buildDigest(await gather()),
+      });
+    }
+    if (creds) {
+      await deliverTweet({
+        mode: job.mode, key: dateStr, label, creds,
+        build: async () => buildTweet(await gather()),
+      });
+    }
   }
 });
 
@@ -2249,14 +2290,16 @@ exports.postDailyDigest = onSchedule({
 exports.postWeeklyDigest = onSchedule({
   schedule: "10 9 * * 1",
   timeZone: "America/New_York",
-  secrets: [DISCORD_TRIFECTA_WEBHOOK],
+  secrets: [DISCORD_TRIFECTA_WEBHOOK, X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET],
 }, async () => {
   // The week that just ended: seven days before today's key, which on a
   // Monday is last Monday.
   const week = shiftDateStr(getMarathonKeyStr(), -7);
   const label = `marathon ${week}`;
   const urls = webhookUrls(DISCORD_TRIFECTA_WEBHOOK.value());
-  if (!urls.length) { console.log(`digest ${label}: no webhook configured, skipped`); return; }
+  const creds = xCredentials(X_API_KEY.value(), X_API_SECRET.value(),
+    X_ACCESS_TOKEN.value(), X_ACCESS_SECRET.value());
+  if (!urls.length && !creds) { console.log(`digest ${label}: nowhere to post, skipped`); return; }
 
   const snap = await db.collection("users")
     .where("marathonKey", "==", week)
@@ -2264,13 +2307,272 @@ exports.postWeeklyDigest = onSchedule({
     .limit(10).get();
   if (snap.empty) { console.log(`digest ${label}: nobody played, nothing to post`); return; }
 
-  await deliverDigest({
-    mode: "marathon", key: week, urls, label,
-    build: async () => buildDigest({
-      mode: "marathon", dateStr: week, rows: snap.docs.map((d) => d.data()), words: [],
-    }),
-  });
+  const data = {
+    mode: "marathon", dateStr: week, words: [],
+    rows: snap.docs.map((d) => marathonRow(d.data())),
+  };
+  if (urls.length) {
+    await deliverDigest({
+      mode: "marathon", key: week, urls, label, build: async () => buildDigest(data),
+    });
+  }
+  if (creds) {
+    await deliverTweet({
+      mode: "marathon", key: week, label, creds, build: async () => buildTweet(data),
+    });
+  }
 });
+
+/*
+ * A /users document as the renderers want a standings row.
+ *
+ * The weekly board reads /users rather than /runs, because that is where a
+ * Marathon week's running total lives - and a user document keeps it under
+ * `marathonScore`. It has no `score` field at all. Handed over raw, every
+ * renderer here read `r.score`, got undefined, and printed 0: a full
+ * leaderboard of zeroes, which looks like a quiet week rather than a bug.
+ *
+ * Normalised at the query, so the renderers keep one row shape across every
+ * mode instead of each learning which field this one hides its score in.
+ */
+function marathonRow(u) {
+  return {
+    username: u.username,
+    score: Math.max(0, Number(u.marathonScore) || 0),
+    marathonWords: Math.max(0, Number(u.marathonWords) || 0),
+  };
+}
+
+// ============================================================================
+// THE X (TWITTER) POST
+//
+// The same two standings the Discord digests carry, as plain text on X.
+// Discord reaches the people already playing; this is the one that reaches
+// people who are not.
+//
+// IT IS NOT FREE. X retired its free tier in February 2026 and bills prepaid
+// credits per request: roughly $0.015 to create a post, and roughly $0.200
+// for a post whose text contains a URL. A daily Sprint post plus a weekly
+// Marathon post is about 420 a year - near $6 a year with no link in the
+// body, near $85 with one. That thirteenfold difference is the entire reason
+// X_LINK is a constant rather than just part of the text below.
+//
+// Four secrets, from the X developer portal under Keys and tokens. The
+// access token and secret must be generated AFTER the app is set to Read and
+// write, or posting returns 403 with a token that reads fine:
+//   firebase functions:secrets:set X_API_KEY
+//   firebase functions:secrets:set X_API_SECRET
+//   firebase functions:secrets:set X_ACCESS_TOKEN
+//   firebase functions:secrets:set X_ACCESS_SECRET
+// Set any of them to "off" to park the posting without deleting the secret,
+// which defineSecret requires to exist for the deploy to succeed at all.
+// ============================================================================
+const X_POST_URL = "https://api.x.com/2/tweets";
+
+/*
+ * The link in the post body, or "" for none.
+ *
+ * "" is roughly $6 a year and sends readers to the profile, whose bio
+ * carries the link. "https://lexathon.gg" is roughly $85 a year and sends
+ * them straight to the game. Nothing else in a post can turn into a URL -
+ * handles are filtered to letters, digits, underscore, hyphen and spaces, so
+ * they cannot contain a dot or a slash - which is what makes "" reliably the
+ * cheap rate rather than merely usually.
+ */
+const X_LINK = "";
+
+const TWEET_MAX = 280;
+const TWEET_ROWS = 5;
+// Every URL in a post counts as a t.co link of this width, whatever its real
+// length. Budgeted rather than measured, because measuring X_LINK would make
+// a short domain look cheap and then overflow once t.co rewrote it.
+const TWEET_LINK_WEIGHT = 23;
+const TWEET_PLACE = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
+
+/*
+ * Only post when all four secrets are really set.
+ *
+ * defineSecret requires a secret to EXIST for the deploy to succeed, so the
+ * documented way to park this is to set them to "off" - which has to mean
+ * "do not post" here rather than "post with a credential called off".
+ */
+function xCredentials(apiKey, apiSecret, accessToken, accessSecret) {
+  const v = [apiKey, apiSecret, accessToken, accessSecret]
+    .map((x) => String(x == null ? "" : x).trim());
+  if (v.some((x) => !x || x.toLowerCase() === "off")) return null;
+  return { apiKey: v[0], apiSecret: v[1], accessToken: v[2], accessSecret: v[3] };
+}
+
+/*
+ * Percent-encoding as RFC 3986 defines it, which is NOT what
+ * encodeURIComponent does: it leaves ! * ' ( ) alone. An OAuth signature is
+ * computed over these bytes on both ends, so one unescaped apostrophe in a
+ * secret is a 401 with nothing in the response saying why.
+ */
+function pctEncode(value) {
+  return encodeURIComponent(String(value == null ? "" : value))
+    .replace(/[!*'()]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
+/*
+ * An OAuth 1.0a HMAC-SHA1 Authorization header (RFC 5849).
+ *
+ * Hand-rolled rather than pulled in: it is thirty lines, and the alternative
+ * is a dependency in the one place where a supply-chain problem would be
+ * handing someone else the keys to post as the game.
+ *
+ * POST /2/tweets takes a JSON body, and a JSON body is NOT signed - only
+ * query parameters and the oauth_* parameters go into the base string. That
+ * is why nothing about `text` appears here.
+ *
+ * nonce and timestamp are arguments rather than read from the clock inside,
+ * so the signature is a pure function of its inputs and can be checked
+ * against another implementation.
+ */
+function oauthHeader(method, url, creds, nonce, timestamp) {
+  const signed = {
+    oauth_consumer_key: creds.apiKey,
+    oauth_nonce: nonce,
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: String(timestamp),
+    oauth_token: creds.accessToken,
+    oauth_version: "1.0",
+  };
+  // Sorted on the ENCODED name, then the encoded value, which is what the
+  // spec says and what differs from sorting the raw strings.
+  const byPair = (a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+  const pairs = Object.keys(signed).map((k) => [pctEncode(k), pctEncode(signed[k])]).sort(byPair);
+  const base = [
+    method.toUpperCase(),
+    pctEncode(url),
+    pctEncode(pairs.map(([k, v]) => k + "=" + v).join("&")),
+  ].join("&");
+  const key = pctEncode(creds.apiSecret) + "&" + pctEncode(creds.accessSecret);
+  const signature = createHmac("sha1", key).update(base).digest("base64");
+  return "OAuth " + pairs.concat([["oauth_signature", pctEncode(signature)]])
+    .sort(byPair).map(([k, v]) => k + '="' + v + '"').join(", ");
+}
+
+/*
+ * How many of a post's 280 X actually counts this text as.
+ *
+ * Not its length. X weighs most of Latin, Cyrillic and general punctuation
+ * as one and everything else - CJK, and every emoji in the post below - as
+ * two. Counting characters would put a post with four medals in it four over
+ * the limit, and the API rejects the whole post rather than truncating.
+ */
+function tweetWeight(text) {
+  let w = 0;
+  for (const ch of String(text == null ? "" : text).normalize("NFC")) {
+    const c = ch.codePointAt(0);
+    w += (c <= 4351 || (c >= 8192 && c <= 8205) || (c >= 8208 && c <= 8223)
+      || (c >= 8242 && c <= 8247)) ? 1 : 2;
+  }
+  return w;
+}
+
+// A player-chosen name, made safe to print in a post. Handles are already
+// filtered to letters, digits, underscore, hyphen and whitespace, so there is
+// no @ to turn into a mention and no dot to turn into a link - but \s admits
+// a newline mid-handle, and one of those turns a row into two.
+function tweetName(raw) {
+  const n = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+  return n ? n.slice(0, HANDLE_MAX) : "player";
+}
+
+// "2 Nov" in the viewer's month names. Matches marathonWeekLabel in
+// index.html, so a post and the share a player puts beside it name the week
+// the same way.
+function tweetDate(dateStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ""))) return "";
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" })
+    .format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function tweetRow(r, i, mode) {
+  const place = TWEET_PLACE[i] || (i + 1) + ".";
+  const name = tweetName(r.username);
+  const score = digestNum(r.score);
+  if (mode === "marathon") {
+    const done = Math.max(0, Number(r.marathonWords) || 0);
+    return `${place} ${name} ${done}/${MARATHON_WORD_COUNT} \u00B7 ${score}`;
+  }
+  // A dash, not 0.0s, for the same reason the Discord table uses one: an
+  // unsolved Sprint stores elapsedMs as null and Number(null) is 0, which
+  // would read as an instant solve.
+  const ms = r.elapsedMs;
+  const clock = (ms === null || ms === undefined || !Number.isFinite(Number(ms)))
+    ? "-" : formatClock(ms);
+  return `${place} ${name} ${clock} \u00B7 ${score}`;
+}
+
+const tweetBody = (head, rows, tail) => [head, rows.join("\n"), tail].filter(Boolean).join("\n\n");
+
+/*
+ * The post. Same argument shape as buildDigest, so one read of the standings
+ * feeds both renderers and the two can never be reporting different days.
+ */
+function buildTweet({ mode, dateStr, rows, words }) {
+  const isSprint = mode === "sprint";
+  // Marathon has no epoch to number from - it ran monthly, then weekly - so
+  // it carries the week instead, exactly as the Discord digest does.
+  const n = isSprint ? puzzleNumber(dateStr, SPRINT_EPOCH) : null;
+  const icon = isSprint ? "\u{1F579}\uFE0F" : "\u{1F3C3}";
+  const when = tweetDate(dateStr);
+  const head = `${icon} Lexathon ${isSprint ? "Sprint" : "Marathon"}${n ? " #" + n : ""}`
+    + (when ? ` \u00B7 ${isSprint ? "" : "Week of "}${when}` : "");
+
+  // Sprint's one answer fits on a line and is the thing two players compare.
+  // Marathon's twenty do not - the same call buildDigest makes.
+  const list = (words || []).filter(Boolean).map((w) => String(w).toUpperCase());
+  const tail = isSprint && list.length ? `Word: ${list[0]}` : "";
+
+  const placed = (rows || []).slice(0, TWEET_ROWS).map((r, i) => tweetRow(r, i, mode));
+  // The link is budgeted, not measured: see TWEET_LINK_WEIGHT.
+  const budget = TWEET_MAX - (X_LINK ? TWEET_LINK_WEIGHT + 1 : 0);
+  // Dropped from the BOTTOM until it fits. A leaderboard three deep is still
+  // a leaderboard; a post one weighted unit over the limit is a 403 and a
+  // day with nothing posted at all.
+  while (placed.length > 1 && tweetWeight(tweetBody(head, placed, tail)) > budget) placed.pop();
+  return [tweetBody(head, placed, tail), X_LINK].filter(Boolean).join("\n");
+}
+
+async function postTweet(text, creds) {
+  const header = oauthHeader("POST", X_POST_URL, creds,
+    randomBytes(16).toString("hex"), Math.floor(Date.now() / 1000));
+  const res = await fetch(X_POST_URL, {
+    method: "POST",
+    headers: { "Authorization": header, "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`X returned ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return res.json();
+}
+
+/*
+ * One post, once, with its day claimed first.
+ *
+ * The same claim the Discord digests take, under the channel name "x" - a
+ * name no channelId can collide with, since those are twelve hex digits. The
+ * claim matters more here than it does there: a retried schedule that posts
+ * twice has spent twice the credits and put the same leaderboard on the
+ * timeline an hour apart, and only one of those is undoable.
+ */
+async function deliverTweet({ mode, key, label, creds, build }) {
+  const to = `${label} -> x`;
+  const claimRef = await claimPost(mode, key, "x");
+  if (!claimRef) { console.log(`tweet ${to}: already posted`); return; }
+  try {
+    await postTweet(await build(), creds);
+    console.log(`tweet ${to}: posted`);
+  } catch (e) {
+    // Hand the day back so the next run can try again. A failure that keeps
+    // its claim is a day silently lost.
+    await claimRef.delete().catch(() => {});
+    console.error(`tweet ${to}: post failed, claim released`, e);
+  }
+}
 
 async function getOrCreateTodaysPuzzle(tx, puzzleRef, today) {
   const snap = await tx.get(puzzleRef);

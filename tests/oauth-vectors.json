@@ -1,0 +1,68 @@
+[
+  {
+    "label": "plain ascii",
+    "apiKey": "key",
+    "apiSecret": "sec",
+    "accessToken": "tok",
+    "accessSecret": "toksec",
+    "nonce": "abc123",
+    "timestamp": 1762560000,
+    "url": "https://api.x.com/2/tweets",
+    "signature": "aVXp7SNEvubCmlchqMu%2BRvQqtUc%3D"
+  },
+  {
+    "label": "the five characters encodeURIComponent leaves alone",
+    "apiKey": "k!ey",
+    "apiSecret": "se*c'",
+    "accessToken": "t(o)k",
+    "accessSecret": "to!k*se'c()",
+    "nonce": "n()nce!",
+    "timestamp": 1762560001,
+    "url": "https://api.x.com/2/tweets",
+    "signature": "RWgIVoKCo6Y1JXAd29lTG3PiPdU%3D"
+  },
+  {
+    "label": "base64-shaped secrets, with + / and =",
+    "apiKey": "ab+cd/ef=",
+    "apiSecret": "QUJD+xyz/789=",
+    "accessToken": "123-tok+en/x=",
+    "accessSecret": "s3cr3t+/=",
+    "nonce": "no/n+ce=",
+    "timestamp": 1762560002,
+    "url": "https://api.x.com/2/tweets",
+    "signature": "XkTChau7NpPHdDpASuYa44XXF5o%3D"
+  },
+  {
+    "label": "credentials the shape X actually issues",
+    "apiKey": "xvz1evFS4wEEPTGEFPHBog",
+    "apiSecret": "kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw",
+    "accessToken": "370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb",
+    "accessSecret": "LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE",
+    "nonce": "kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg",
+    "timestamp": 1318622958,
+    "url": "https://api.x.com/2/tweets",
+    "signature": "lr%2BtV%2FDKclEvXKVjG6tgaSSLV0k%3D"
+  },
+  {
+    "label": "non-ascii in a credential",
+    "apiKey": "ké",
+    "apiSecret": "sé©",
+    "accessToken": "tø",
+    "accessSecret": "tøksec",
+    "nonce": "nonce-é",
+    "timestamp": 1762560003,
+    "url": "https://api.x.com/2/tweets",
+    "signature": "2GTFF5QmKGb16iuSptJ5%2BWX4sqE%3D"
+  },
+  {
+    "label": "tilde and underscore, which are unreserved and must NOT be escaped",
+    "apiKey": "a~b_c",
+    "apiSecret": "d~e_f",
+    "accessToken": "g~h_i",
+    "accessSecret": "j~k_l",
+    "nonce": "m~n_o",
+    "timestamp": 1762560004,
+    "url": "https://api.x.com/2/tweets",
+    "signature": "MS3UajAh7MEykano2uvV7DzW3RE%3D"
+  }
+]

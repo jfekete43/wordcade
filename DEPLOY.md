@@ -402,7 +402,7 @@ firebase functions:secrets:access DISCORD_SPRINT_WEBHOOK
 firebase functions:log --only postDailyDigest
 ```
 
-The log says one of four things per mode: no webhook configured, no runs,
+The log says one of four things per mode: nowhere to post, no runs,
 already posted, or posted. Nothing is scheduled before 9:10 the next morning,
 so the first run is the morning after the deploy.
 
@@ -414,6 +414,113 @@ one. The collection is server-only in `firestore.rules`.
 Changing a webhook later is the same `functions:secrets:set` command followed
 by a functions deploy; the running functions hold the old value until they are
 redeployed.
+
+## X (Twitter) posts
+
+The same two boards, on X. The schedules are the same two functions — one read
+of the standings, rendered once for Discord and once for X — so there is no
+third schedule and nothing new to keep running.
+
+```
+🕹️ Lexathon Sprint #6 · Nov 7
+
+🥇 JFEKETE 41.2s · 500
+🥈 WORDNERD_22 1:12.4 · 250
+🥉 ALICE 1:35.1 · 250
+4. BOBBY 1:58.0 · 150
+5. CARO 3:24.6 · 50
+
+Word: CRANE
+```
+
+Top five rather than ten: five is what fits a post alongside a header, and
+the sixth name was never the reason anyone clicked.
+
+### It costs money
+
+X retired its free tier in February 2026. Posting now runs on **prepaid
+credits**, billed per request:
+
+| | per post | a year of posts |
+|---|---|---|
+| post with no URL in the text | ~$0.015 | ~$6 |
+| post containing a URL | ~$0.200 | ~$85 |
+
+A daily Sprint post plus a weekly Marathon post is about 420 posts a year,
+which is where those yearly figures come from. **Check the current rates
+before you load credits** — X has repriced this twice.
+
+That thirteenfold gap is why the link is a switch. `X_LINK` in
+`functions/index.js` ships as `""`: the posts carry no URL, and readers reach
+the game through the link in the account's bio. Setting it to
+`"https://lexathon.gg"` puts the link in every post and moves you to the
+expensive rate.
+
+Nothing else in a post can become a URL by accident. Handles are filtered to
+letters, digits, underscore, hyphen and spaces, so a player cannot put a
+domain in their name — which is what makes the cheap rate reliable rather
+than merely usual.
+
+### Getting the four keys
+
+On [developer.x.com](https://developer.x.com), signed in as the account that
+should do the posting:
+
+1. Create a project and an app.
+2. **User authentication settings** → set **App permissions** to **Read and
+   write**. Do this first.
+3. **Keys and tokens** → copy the **API Key** and **API Key Secret**.
+4. On the same page, **generate** the **Access Token and Secret**.
+
+**Step 2 before step 4.** An access token generated while the app was
+read-only stays read-only, and posting fails with a `403` whose message does
+not mention permissions. If that happens, regenerate the token — changing the
+app setting afterwards does not upgrade a token already issued.
+
+### Setting them
+
+```bash
+cd ~/wordcade
+```
+```bash
+firebase functions:secrets:set X_API_KEY
+```
+```bash
+firebase functions:secrets:set X_API_SECRET
+```
+```bash
+firebase functions:secrets:set X_ACCESS_TOKEN
+```
+```bash
+firebase functions:secrets:set X_ACCESS_SECRET
+```
+```bash
+firebase deploy --only functions:postDailyDigest
+```
+```bash
+firebase deploy --only functions:postWeeklyDigest
+```
+
+**All four have to exist before the deploy**, the same as the Discord
+webhooks: `defineSecret` fails a deploy for a secret that is not there. To
+keep X off, set each of the four to the literal `off`. Any one of them unset
+or `off` parks the posting with a line in the log, and the Discord digests
+carry on untouched.
+
+### Checking it worked
+
+```bash
+firebase functions:log --only postDailyDigest
+```
+
+`tweet sprint <date> -> x: posted`, or the reason it did not. The first run is
+9:10 the morning after the deploy.
+
+A retried schedule cannot post twice: the X post claims
+`digestPosts/{mode}_{key}_x` before it goes out, beside the per-channel claims
+the Discord digests take, and releases it only if the post fails. That matters
+more here than it does on Discord — a duplicate there is embarrassing, and a
+duplicate here is embarrassing and billed.
 
 ## Arcade Handle screening
 
