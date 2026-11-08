@@ -5418,6 +5418,9 @@
             renderSprintCard();
             refreshClaimableDot();
             autoOpenSprintResult();
+            // Yesterday's placement. Fire and forget, like the Trifecta's:
+            // two reads that must not hold up the screen.
+            showPreviousCallout("sprint");
         }
 
         // opts.silent: load the day straight onto the result screen, with no
@@ -5866,9 +5869,16 @@
             renderModeNav();
             renderSprintCard();
             loadSprintBoard();
-            // Fire and forget, like the Trifecta's: two reads that must not
-            // hold up the screen a visitor arrives on.
-            showPreviousCallout("sprint");
+            // Yesterday's placement is NOT painted here, though this is the
+            // screen it belongs on. It needs a signed-in user, and this runs
+            // about 300ms after load, before auth has necessarily resolved -
+            // so for the returning player it exists for, it painted nothing
+            // and was never asked again. applyProfileToLanding() does it,
+            // which is the body that exists for exactly this: the things the
+            // landing owes a profile it did not have when it first painted.
+            //
+            // The Trifecta's never had the problem because openDailyGauntlet
+            // is a tap, and a tap is always after sign-in.
         }
 
         window.leaveSprint = function() {
@@ -6543,16 +6553,37 @@
         // you actually just played. A placement from five days ago is noise,
         // and finding "your most recent one" would need an index on
         // (uid, mode, puzzleDate) that nothing else in the game wants.
+
+        // Which day each strip is already reporting on. applyProfileToLanding
+        // runs twice on a sign-in - once on the profile read, once when the
+        // refresh callable lands behind it - and without this the second run
+        // blanks a painted strip and fetches the same two documents again,
+        // which reads as a flicker and costs twice.
+        //
+        // Safe to hold because yesterday is over: a day nobody can still play
+        // is a day where nobody can still move past you. Today's standing is
+        // the one that keeps changing, and nothing here reports it.
+        const calloutShown = {};
+
         async function showPreviousCallout(kind) {
             const cfg = ARCHIVES[kind];
             const el = cfg && document.getElementById(cfg.callout);
             if (!el) return;
+
+            const dateStr = shiftDateStr(getTodayDateStr(), -1);
+            // Checked before the strip is cleared, or the early return would
+            // blank the very thing it is protecting.
+            if (calloutShown[kind] === dateStr) return;
             el.style.display = "none";
             el.innerHTML = "";
             if (!currentUser) return;
 
-            const dateStr = shiftDateStr(getTodayDateStr(), -1);
             const run = await fetchMyArchiveRun(cfg, dateStr);
+            // Settled from here on, whether there is a run or not: a day
+            // nobody can still play is a day nobody can still have played.
+            // Recorded BEFORE the early return so the second caller does not
+            // re-ask on behalf of a player who simply did not play.
+            calloutShown[kind] = dateStr;
             if (!run) return; // didn't play yesterday — nothing to report
 
             const num = cfg.number(dateStr);
@@ -6575,6 +6606,9 @@
             const cfg = ARCHIVES[kind];
             const el = cfg && document.getElementById(cfg.callout);
             if (el) el.style.display = "none";
+            // Forgotten, not just hidden: coming back into the mode has to
+            // paint it again rather than find a memo saying it is already up.
+            delete calloutShown[kind];
         }
 
         window.openDailyGauntlet = async function() {

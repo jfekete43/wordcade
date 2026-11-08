@@ -40,6 +40,7 @@ const src = [
   grab(/        function runScore\(r\) \{[^\n]*\}/, 'runScore'),
   grab(/        function runClock\(r\) \{\n[\s\S]*?\n        \}/, 'runClock'),
   grab(/        const ARCHIVES = \{\n[\s\S]*?\n        \};/, 'ARCHIVES'),
+  grab(/        const calloutShown = \{\};/, 'calloutShown'),
   grab(/        async function showPreviousCallout\(kind\) \{\n[\s\S]*?\n        \}/, 'showPreviousCallout'),
   grab(/        function hidePreviousCallout\(kind\) \{\n[\s\S]*?\n        \}/, 'hidePreviousCallout'),
 ].join('\n\n');
@@ -51,12 +52,16 @@ const TODAY = '2026-12-01';
 const build = (opts) => {
   const els = {};
   const el = (id) => (els[id] = els[id] || { id, innerHTML: '', style: {} });
+  // currentUser is rewritten to a global rather than passed in, so a test can
+  // sign in HALFWAY THROUGH a module's life - which is the whole bug: the
+  // boot timer painted the strip while auth was still resolving.
+  globalThis.__u = opts.signedIn === false ? null : { uid: 'me' };
   const api = new Function(
-    'document', 'currentUser', 'getTodayDateStr', 'fetchMyArchiveRun', 'fetchArchiveStanding',
+    'document', 'getTodayDateStr', 'fetchMyArchiveRun', 'fetchArchiveStanding',
     'placeBadge', 'PLACE_BADGES', 'asked',
-    `${src}\nreturn { showPreviousCallout, hidePreviousCallout, ARCHIVES };`)(
+    `${src}\nreturn { showPreviousCallout, hidePreviousCallout, ARCHIVES };`
+      .replace(/\bcurrentUser\b/g, 'globalThis.__u'))(
     { getElementById: el },
-    opts.signedIn === false ? null : { uid: 'me' },
     () => TODAY,
     async (cfg, dateStr) => { opts.asked.push(['run', cfg.callout, dateStr]); return opts.run; },
     async (cfg, dateStr) => {
@@ -94,9 +99,26 @@ const after = (from, to) => {
   if (a < 0 || b < 0) throw new Error(`no forward slice ${from} -> ${to}`);
   return html.slice(a, b);
 };
+// Asked for by the body that runs once there IS a profile, NOT by the landing.
+//
+// This is the bug the strip shipped with: showSprintLanding runs about 300ms
+// after load, from the boot timer, and showPreviousCallout returns at once
+// without a signed-in user. For a returning player whose auth had not
+// resolved yet - which is most of them, most of the time - it painted nothing
+// and nothing ever asked again, because showSprintLanding has exactly one
+// caller and it is that timer. The Trifecta's never had the problem: its
+// caller is a tap, and a tap is always after sign-in.
 const landing = after('function showSprintLanding()', 'window.leaveSprint = function');
-ck(landing.length > 200 && /showPreviousCallout\("sprint"\)/.test(landing),
-   'the Sprint landing asks for it', String(landing.length));
+ck(landing.length > 200, 'found the landing', String(landing.length));
+ck(!/showPreviousCallout\(/.test(landing),
+   'the landing does NOT paint it, because it runs before auth resolves', landing.slice(0, 200));
+const profileBody = after('function applyProfileToLanding() {', '\n        }');
+ck(/showPreviousCallout\("sprint"\)/.test(profileBody),
+   'the body that runs once there is a profile paints it instead', profileBody);
+// That body is the convergence point for both sign-in paths, and the only
+// reason it exists. A second one would put the landing back where it was.
+ck((html.match(/showPreviousCallout\("sprint"\)/g) || []).length === 1,
+   'and it is the only place that asks for Sprint\'s');
 const leaving = after('window.leaveSprint = function', '// --- PLACEMENT BADGES ---');
 ck(leaving.length > 100 && /hidePreviousCallout\("sprint"\)/.test(leaving),
    'and leaving Sprint takes it down, so it does not follow you to Stakes', String(leaving.length));
@@ -169,6 +191,74 @@ ck(/showPreviousCallout\("daily"\)/.test(html) && /hidePreviousCallout\("daily"\
   await api.showPreviousCallout('sprint');
   eq('a strip left from last time is cleared before anything is read',
      [els['sprint-callout'].innerHTML, els['sprint-callout'].style.display], ['', 'none']);
+}
+
+// ---- painted once, not once per caller ----------------------------------
+// applyProfileToLanding runs twice on a sign-in: once on the profile read,
+// once when the refresh callable lands behind it. Without a memo the second
+// run blanks a painted strip and fetches the same two documents again.
+{
+  const o = { asked: [], run: { score: 1250, wordsGuessed: 3, elapsedMs: 20000 }, standing: { place: 2, total: 7 } };
+  const { api, els } = build(o);
+  await api.showPreviousCallout('sprint');
+  const first = o.asked.length;
+  const painted = els['sprint-callout'].innerHTML;
+  ck(first === 2 && painted.length > 0, 'the first call reads twice and paints', first + ' reads');
+
+  await api.showPreviousCallout('sprint');
+  eq('the second call reads nothing', o.asked.length, first);
+  eq('and leaves the strip exactly as it was', els['sprint-callout'].innerHTML, painted);
+  eq('...still shown', els['sprint-callout'].style.display, 'block');
+}
+{
+  // A player who did not play yesterday is equally settled - there is no
+  // later moment at which they might have.
+  const o = { asked: [], run: null };
+  const { api, els } = build(o);
+  await api.showPreviousCallout('sprint');
+  eq('a day not played costs one read', o.asked.length, 1);
+  await api.showPreviousCallout('sprint');
+  eq('and is not asked about again', o.asked.length, 1);
+  eq('the strip stays down', els['sprint-callout'].style.display, 'none');
+}
+{
+  // Leaving the mode forgets it, so coming back paints rather than finding a
+  // memo saying it is already up over a strip hidden on the way out.
+  const o = { asked: [], run: { score: 500, wordsGuessed: 1 }, standing: { place: 1, total: 3 } };
+  const { api, els } = build(o);
+  await api.showPreviousCallout('sprint');
+  api.hidePreviousCallout('sprint');
+  eq('leaving hides it', els['sprint-callout'].style.display, 'none');
+  await api.showPreviousCallout('sprint');
+  eq('and coming back paints it again', o.asked.length, 4);
+  eq('...shown once more', els['sprint-callout'].style.display, 'block');
+}
+{
+  // The bug, played out. The boot timer asked while auth was still resolving,
+  // and nothing asked again. The strip must not remember that nothing as
+  // though it were an answer.
+  const o = { asked: [], signedIn: false, run: { score: 900, wordsGuessed: 2 }, standing: { place: 3, total: 9 } };
+  const { api, els } = build(o);
+  await api.showPreviousCallout('sprint');
+  eq('signed out, nothing is read', o.asked.length, 0);
+  eq('and nothing is shown', els['sprint-callout'].style.display, 'none');
+
+  globalThis.__u = { uid: 'me' };   // auth lands
+  await api.showPreviousCallout('sprint');
+  eq('once auth arrives it reads after all', o.asked.length, 2);
+  ck(els['sprint-callout'].innerHTML.includes('3rd of 9'),
+     'and the returning player finally gets their placement', els['sprint-callout'].innerHTML);
+  eq('shown', els['sprint-callout'].style.display, 'block');
+}
+{
+  // Two modes, two memos. One strip being up must not silence the other.
+  const o = { asked: [], run: { score: 1250, wordsGuessed: 3 }, standing: { place: 2, total: 7 } };
+  const { api, els } = build(o);
+  await api.showPreviousCallout('sprint');
+  await api.showPreviousCallout('daily');
+  ck(els['sprint-callout'].innerHTML.length > 0 && els['gauntlet-callout'].innerHTML.length > 0,
+     'both strips paint', els['sprint-callout'].innerHTML.length + '/' + els['gauntlet-callout'].innerHTML.length);
+  eq('each paying for its own reads', o.asked.length, 4);
 }
 
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);

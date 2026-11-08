@@ -173,7 +173,8 @@ const authSrc = between(html,
   '                tryAutoJoinFromUrl();', 'auth handler');
 
 const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200,
-                       slowSprint = 300, inSprint = false, playedSprint = false } = {}) => {
+                       slowSprint = 300, slowCallout = 60,
+                       inSprint = false, playedSprint = false } = {}) => {
   const log = [];
   let now = 0;
   // A fake clock: each "request" resolves after its own cost, and we record
@@ -225,6 +226,13 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200,
       // for the same reason renderSprintCard is: it fetches nothing, and
       // what this file counts is round trips.
       const refreshClaimableDot = () => {};
+      // Yesterday's placement strip: two reads, started by the profile body
+      // and not awaited by it. Modelled with the clock rather than stubbed
+      // silent, because they are reads the boot path genuinely makes now -
+      // and what this file exists to prove is that a slow one does not hold
+      // up sign-in. It moved here FROM showSprintLanding, which runs before
+      // auth resolves and so asked on behalf of nobody.
+      const showPreviousCallout = async () => { await req('callout', ${slowCallout}); };
       ${applyProfileSrc}
       ${autoOpenSrc}
       ${authSrc}
@@ -265,6 +273,25 @@ const trace = async ({ slowProfile = 40, slowAttempt = 40, slowRefresh = 200,
   ck(cold.indexOf('handler:done') < cold.indexOf('startSprint:done') || !cold.includes('startSprint:done'),
      'a five-second cold start on it does not hold up sign-in', cold.join(' -> '));
   ck(cold.includes('startSprint:start'), 'though it is genuinely started', cold.join(' -> '));
+}
+
+// ===== 2c. yesterday's placement strip ==================================
+// It used to be painted by showSprintLanding, which the boot timer runs about
+// 300ms in - before auth has resolved - so it returned without a signed-in
+// user and nothing asked again. It is asked for by applyProfileToLanding
+// instead, which is the body that exists for things the landing owes a
+// profile it did not have yet. Which means it is now on the boot path, and
+// has to earn its place there the same way everything else does.
+{
+  const ev = (await trace({ inSprint: true })).map((x) => x.ev);
+  ck(ev.includes('callout:start'), 'the strip is asked for on a signed-in boot', ev.join(' -> '));
+  ck(ev.indexOf('callout:start') > ev.indexOf('profileRead:done'),
+     'after the profile read, never in front of it', ev.join(' -> '));
+
+  const cold = (await trace({ inSprint: true, slowCallout: 5000 })).map((x) => x.ev);
+  ck(cold.indexOf('handler:done') < cold.indexOf('callout:done') || !cold.includes('callout:done'),
+     'and a five-second cold start on it does not hold up sign-in', cold.join(' -> '));
+  ck(cold.includes('callout:start'), 'though it is genuinely started', cold.join(' -> '));
 }
 
 const log = await trace();
