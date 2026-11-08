@@ -47,6 +47,7 @@ const src = [
   grab(/        function dailyPlayedWords\(attempt\) \{\n[\s\S]*?\n        \}/),
   grab(/        const TRIFECTA_EPOCH = "[^"]*";/),
   grab(/        function gauntletNumber\(dateStr\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function guessMark\(count, solved\) \{\n[\s\S]*?\n        \}/),
   grab(/        window\.shareDailyStats = function\(\) \{\n[\s\S]*?\n        \}/),
   grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
@@ -269,15 +270,17 @@ ck(viaSheet.shared.text === viaClip.copied, 'both paths produce identical text')
   ck(shareRun(false, {}).copied === viaClip.copied,
      'and an options object that says nothing about it changes nothing');
 }
-// Which calls ask for which, read off the call sites themselves: the three
-// score shares suppress, the two match invites do not.
+// Which calls ask for which, read off the call sites themselves: the four
+// score shares suppress, the two match invites do not. The count is written
+// out on purpose -- a new share added without a thought about the card has to
+// come through here and say which side it is on.
 {
   const calls = [...html.matchAll(/shareViaSheetOrClipboard\(\s*"([^"]*)"[\s\S]{0,260}?\);/g)]
     .map((m) => [m[1], /preview: false/.test(m[0])]);
-  eq('every share call is accounted for', calls.length, 5);
-  eq('the three score shares drop the card',
+  eq('every share call is accounted for', calls.length, 6);
+  eq('the four score shares drop the card',
      calls.filter(([, off]) => off).map(([t]) => t).sort(),
-     ['Lexathon', 'Lexathon Sprint', 'Lexathon Trifecta']);
+     ['Lexathon', 'Lexathon Marathon', 'Lexathon Sprint', 'Lexathon Trifecta']);
   eq('and both match invites keep it',
      calls.filter(([, off]) => !off).map(([t]) => t),
      ['Lexathon \u2014 Join My Match', 'Lexathon \u2014 Join My Match']);

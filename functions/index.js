@@ -2296,6 +2296,16 @@ function publicMarathonState(attempt, currentWord) {
     wordsSolved: attempt.wordsSolved || 0,
     status: attempt.status,
     guesses: (attempt.history && attempt.history[attempt.wordIndex] && attempt.history[attempt.wordIndex].guesses) || [],
+    // How many guesses each position cost this player, and whether it landed.
+    // Their own guesses, which is the one thing they already know - it says
+    // nothing about WHICH words these were, and the per-player order means a
+    // position is not even the same word for two people. The share at the end
+    // of a week is built from it; without it the client has no idea how its
+    // own week went, because guessMarathonWord returns one guess at a time.
+    results: (attempt.history || []).map((h) => ({
+      guesses: ((h && h.guesses) || []).length,
+      solved: !!(h && h.solved),
+    })),
     // Only ever the word already finished and revealed, never the live one.
     revealedWord: currentWord || null,
   };

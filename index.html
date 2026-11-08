@@ -2050,7 +2050,11 @@
             <div class="modal-stats" id="marathon-end-desc"></div>
             <div id="marathon-end-note" style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 15px;"></div>
             <div class="modal-buttons">
-                <button class="btn-primary" onclick="document.getElementById('marathon-end-modal').style.display='none'">View the Standings</button>
+                <!-- Share leads, for the same reason it leads on Sprint's:
+                     in a mode nobody has heard of, it is the only button
+                     that brings anybody else in. The other two navigate. -->
+                <button class="btn-primary" id="btn-marathon-share" onclick="window.shareMarathonResult()">Share Result</button>
+                <button class="btn-quiet" onclick="document.getElementById('marathon-end-modal').style.display='none'">View the Standings</button>
                 <button class="btn-quiet" onclick="window.leaveMarathon()">Play Another Mode</button>
             </div>
         </div>
@@ -3192,6 +3196,26 @@
             const [y, m, d] = dailyBoardDateKey(offset).split("-").map(Number);
             return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined,
                 { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+        }
+
+        // One word's result, as a mark: the guesses it cost, or a cross for a
+        // word that was never solved.
+        //
+        // Shared by the Trifecta's share and Marathon's. They draw the same
+        // fact, and a second copy is how the two drift - the Trifecta's
+        // crosses would stay crosses while Marathon's quietly became red
+        // squares, which is the one pairing a colour-blind reader cannot
+        // separate from a green.
+        //
+        // A keycap is a digit, U+FE0F and U+20E3, and only renders for 1-9.
+        // Anything outside that falls back to a green mark rather than
+        // emitting a broken sequence; both modes cap a word at five guesses,
+        // so the fallback is unreachable and is here so that raising the cap
+        // degrades instead of breaking.
+        function guessMark(count, solved) {
+            if (!solved) return "\u274C";
+            const n = Math.max(0, Number(count) || 0);
+            return n >= 1 && n <= 9 ? `${n}\uFE0F\u20E3` : "\u{1F7E9}";
         }
 
         // The display text of an equipped title, or "" for none.
@@ -5237,6 +5261,19 @@
             marathonAttempt.guesses = (marathonAttempt.guesses || []).concat([{ guess: currentGuess, colors: result.colors }]);
             marathonAttempt.score = result.score;
             marathonAttempt.wordsSolved = result.wordsSolved;
+            // The finished word's own line in the grid the share draws.
+            // Recorded here for the same reason the guesses above are: the
+            // server answers one guess at a time, and re-reading the whole
+            // attempt to learn what we just did would be a round trip per
+            // word. startMarathon seeds the array, so a week resumed in a new
+            // session already has the days before today in it.
+            if (result.wordFinished) {
+                if (!Array.isArray(marathonAttempt.results)) marathonAttempt.results = [];
+                marathonAttempt.results[marathonAttempt.wordIndex] = {
+                    guesses: (marathonAttempt.guesses || []).length,
+                    solved: !!result.solved,
+                };
+            }
             marathonAttempt.wordIndex = result.wordIndex;
             if (result.marathonFinished) marathonAttempt.status = "finished";
 
@@ -5272,6 +5309,59 @@
             }, 800);
         }
 
+        // The week, as a grid. One mark per word in the order THIS player
+        // met them, five to a row.
+        //
+        // Five to a row because twenty in a line is wider than a phone, and
+        // because four rows of five reads as a block rather than a ribbon.
+        // The width comes from the row, not the word count: a legacy
+        // fifty-word month still draws, in ten rows.
+        //
+        // Worth saying what this grid is NOT: it is not comparable position
+        // by position. Everyone gets the same twenty words in their own
+        // order, so somebody else's third mark is a different word from
+        // yours. That is the same property that makes it spoiler-free, and
+        // the line underneath is what two people actually compare.
+        const MARATHON_SHARE_COLS = 5;
+        const RUN_ICON = "\u{1F3C3}";
+        const TROPHY_ICON = "\u{1F3C6}";
+        const FLAG_ICON = "\u{1F3C1}";
+        const MID_SEP = "\u00B7";
+        const DASH_SEP = "\u2014";
+
+        window.shareMarathonResult = function() {
+            if (!marathonAttempt) return;
+            const results = Array.isArray(marathonAttempt.results) ? marathonAttempt.results : [];
+            const count = Math.max(0, Number(marathonAttempt.wordCount) || results.length);
+            const solved = results.filter((r) => r && r.solved).length;
+
+            const rows = [];
+            for (let i = 0; i < results.length; i += MARATHON_SHARE_COLS) {
+                rows.push(results.slice(i, i + MARATHON_SHARE_COLS)
+                    .map((r) => guessMark(r && r.guesses, r && r.solved)).join(""));
+            }
+            const grid = rows.join("\n");
+
+            // A clean week gets said outright, the way a swept Trifecta does.
+            // Twenty words without a miss is the thing worth posting.
+            const perfect = count > 0 && solved === count;
+            // PERFECT carries its own separator, so the badge does not run
+            // into the count the way "PERFECT 20/20" does. Same shape as the
+            // Trifecta's line, which is the other mode that can sweep.
+            const lead = perfect ? `${TROPHY_ICON} PERFECT ${MID_SEP}` : FLAG_ICON;
+            const line = `${lead} ${solved}/${count} ${MID_SEP} `
+                + `${(Number(marathonAttempt.score) || 0).toLocaleString()} pts`;
+
+            // No average. With twenty numbers printed above it, the average is
+            // their mean computed for a reader who can see them - the same
+            // restatement the Trifecta dropped its own for.
+            const when = marathonWeekLabel(marathonAttempt.week);
+            const heading = RUN_ICON + " Lexathon Marathon" + (when ? " " + DASH_SEP + " Week of " + when : "");
+            const message = [heading, grid, line].filter(Boolean).join("\n");
+            shareViaSheetOrClipboard("Lexathon Marathon", message, "https://lexathon.gg",
+                document.getElementById("btn-marathon-share"), "Share Result", { preview: false });
+        }
+
         function showMarathonEndModal(attempt) {
             const solved = Number(attempt.wordsSolved) || 0;
             const count = Number(attempt.wordCount) || 0;
@@ -5281,7 +5371,7 @@
                 + `<div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-top:6px;">${solved} of ${count} words solved`
                 + (solved ? ` &middot; ${((attempt.score || 0) / solved).toFixed(0)} avg per word` : "") + "</div>";
             document.getElementById("marathon-end-note").innerText =
-                "That is the month. A new set of words arrives on the 1st.";
+                "That is the week. A new set of twenty arrives on Monday.";
             document.getElementById("marathon-end-modal").style.display = "flex";
         }
 
@@ -8597,13 +8687,7 @@
             // rather than emitting a broken sequence; the game caps a word at
             // five guesses, so the fallback is unreachable today and is here
             // so that raising the cap degrades instead of breaking.
-            const keycap = (n) => `${n}\uFE0F\u20E3`;
-            const mark = (h) => {
-                if (!h.solved) return "\u274C";
-                const n = h.guesses.length;
-                return n >= 1 && n <= 9 ? keycap(n) : "\u{1F7E9}";
-            };
-            const bar = played.map(mark).join("")
+            const bar = played.map((h) => guessMark(h.guesses.length, h.solved)).join("")
                 + "\u2B1C".repeat(Math.max(0, dailyAttempt.wordCount - played.length));
             // A clean sweep gets said outright — the whole point of a share is
             // to make a great run look like one.

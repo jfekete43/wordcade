@@ -186,9 +186,43 @@ for (const f of ['marathonScore', 'marathonWords', 'marathonKey']) {
 }
 
 // The attempt the client receives must never carry the words.
+//
+// RUN, not matched. This read the source text for "words" and stripped the
+// identifiers that legitimately contain it, which made it a check on the
+// COMMENTS as much as the code - a comment explaining why the words are
+// absent failed it. What matters is the object that comes back, so the
+// attempt is handed a hostile one carrying the answers and the result is
+// searched for them.
 const pub = grab(/function publicMarathonState\(attempt, currentWord\) \{\n[\s\S]*?\n\}/, 'publicMarathonState');
-ck(!/words/.test(pub.replace(/wordIndex|wordCount|wordsSolved|currentWord|revealedWord/g, '')),
-   'the public attempt shape carries no word list', pub.slice(0, 200));
+{
+  const publicState = new Function(`${pub}\nreturn publicMarathonState;`)();
+  const ANSWERS = ['CRANE', 'SLOTH', 'PRISM'];
+  const out = publicState({
+    week: '2026-11-02', wordIndex: 1, wordCount: 3, score: 500, wordsSolved: 1,
+    status: 'active',
+    // Neither of these is on a real attempt; both are what a careless future
+    // edit would put there, and the point is that copying the attempt
+    // wholesale would hand them over.
+    words: ANSWERS,
+    order: [2, 0, 1],
+    history: [{ guesses: ['CRANE'], solved: true }, { guesses: [], solved: false }, { guesses: [], solved: false }],
+  }, null);
+  const flat = JSON.stringify(out);
+  for (const w of ANSWERS) {
+    ck(!flat.includes(w), `the public attempt never carries ${w}`, flat.slice(0, 200));
+  }
+  ck(!('words' in out), 'nor a words key at all', Object.keys(out).join(','));
+  // `order` is the player's own permutation of INDICES, which is safe on its
+  // own - but it is also not needed client-side, and anything sent is a
+  // thing that has to stay safe.
+  ck(!('order' in out), 'nor the order, which the client never needs', Object.keys(out).join(','));
+  // What it DOES carry: the player's own guess counts, which is what the
+  // end-of-week share is drawn from.
+  ck(Array.isArray(out.results) && out.results.length === 3,
+     'but it does carry one result per position', JSON.stringify(out.results));
+  eq('a solved word reports its guess count', out.results[0], { guesses: 1, solved: true });
+  eq('and an unplayed one reports nothing yet', out.results[2], { guesses: 0, solved: false });
+}
 ck(/revealedWord: currentWord \|\| null/.test(pub),
    'only an already-finished word is ever revealed');
 
