@@ -154,6 +154,19 @@ ck(/id="tab-marathon"/.test(html), 'and a Hall of Fame tab of its own');
      els['stat-marathon-now'].innerText);
 }
 
+// ---- wins, which is not the same question as weeks played ---------------
+{
+  const { els } = run({ marathonWins: 2, marathonWeeks: 4 });
+  eq('the panel shows wins off marathonWins', els['stat-marathon-wins'].innerText, '2');
+  ck(els['stat-marathon-wins'].innerText !== els['stat-marathon-weeks'].innerText,
+     '...and not the weeks-played count beside it', els['stat-marathon-weeks'].innerText);
+  eq('weeks played still reads weeks played', els['stat-marathon-weeks'].innerText, '4');
+}
+{
+  const { els } = run({});
+  eq('never having won a week reads zero', els['stat-marathon-wins'].innerText, '0');
+}
+
 // ---- the average, and the perfect weeks ----------------------------------
 // Per week PLAYED. Dividing career points by the weeks that have existed
 // would make the number a measure of attendance, and a weekly mode you are

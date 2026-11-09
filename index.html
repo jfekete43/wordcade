@@ -2454,6 +2454,7 @@
 
                 <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-4); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
                     <div style="text-align: center;">🗓️ Weeks Played<br><span id="stat-marathon-weeks" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">🥇 Wins<br><span id="stat-marathon-wins" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                     <div style="text-align: center;">🏁 Furthest<br><span id="stat-marathon-furthest" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
                 </div>
 
@@ -2495,6 +2496,7 @@
                 <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
                     <div style="text-align: center;">⚡ Avg Guesses<br><span id="stat-sprint-avg" style="color:var(--c-ink); font-size: var(--fs-5);">—</span></div>
                     <div style="text-align: center;">🎯 Solved<br><span id="stat-sprint-solved" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center;">🥇 Wins<br><span id="stat-sprint-wins" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                 </div>
 
                 <!-- The pills and the chart are drawn by renderSprintStats,
@@ -4041,6 +4043,9 @@
 
             const weeks = n(p.marathonWeeks);
             set("stat-marathon-weeks", weeks.toLocaleString());
+            // Weeks finished FIRST. Settled on Monday morning by the digest,
+            // for the same reason Sprint's is: the week has to be over.
+            set("stat-marathon-wins", n(p.marathonWins).toLocaleString());
 
             // Points per week played, not per week that has existed. Missing
             // a week is the normal shape of a weekly mode, and dividing by
@@ -4106,6 +4111,11 @@
             const total = Number(p.sprintGuessTotal) || 0;
             set("stat-sprint-avg", won > 0 ? (total / won).toFixed(1) : "—");
             set("stat-sprint-solved", won.toLocaleString());
+            // Days finished FIRST, which is a different question from how
+            // many you solved. Settled by the morning digest once the day is
+            // closed, because a win can be taken off you by somebody playing
+            // later the same day.
+            set("stat-sprint-wins", Math.max(0, Number(p.sprintWins) || 0).toLocaleString());
 
             // null, not 0: zero means "today was a miss" and lights the X row.
             renderSprintStats(null, "sprint-prof");
@@ -5922,7 +5932,10 @@
             const pill = (value, label) => '<div class="stat-pill"><b>' + value + '</b><em>' + label + "</em></div>";
             at("stats").innerHTML =
                 pill(played, "Played")
-                + pill(played ? Math.round((won / played) * 100) : 0, "Win %")
+                // "Solve %", not "Win %". It is the share of Sprints
+                // SOLVED, and a Wins counter now sits two rows up meaning
+                // days finished first - one word cannot be both.
+                + pill(played ? Math.round((won / played) * 100) : 0, "Solve %")
                 + pill(Number(p.sprintStreak) || 0, "Current<br>Streak")
                 + pill(Number(p.sprintBestStreak) || 0, "Max<br>Streak");
 

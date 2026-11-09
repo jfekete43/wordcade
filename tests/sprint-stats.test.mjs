@@ -42,10 +42,14 @@ console.log('extracted from index.html:', src.length, 'chars');
 // Only the ids the panel writes to. A write to an id that is not here throws
 // rather than vanishing, which is what stops a typo in the null-guarded
 // `set()` helper from quietly drawing nothing.
-const PANEL_IDS = [
-  'stat-sprint-best-time', 'stat-sprint-best-when', 'stat-sprint-avg', 'stat-sprint-solved',
-  'sprint-prof-stats', 'sprint-prof-dist-wrap', 'sprint-prof-dist',
-];
+// Scraped out of the panel rather than written down here. A list kept by
+// hand goes stale in the direction that hides the bug: an element nobody
+// added to it is simply never checked, and the fake below would still hand
+// the loader an object to write into. From past the panel div's own tag,
+// since the container is shown and hidden by the tab switcher.
+const PANEL = html.slice(html.indexOf('<div id="profile-sprint"'),
+                         html.indexOf('<div class="modal-buttons">', html.indexOf('<div id="profile-sprint"')));
+const PANEL_IDS = [...PANEL.slice(PANEL.indexOf('>')).matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
 const run = (profile, ids = PANEL_IDS) => {
   const els = {};
   for (const id of ids) els[id] = { id, innerText: '', innerHTML: '', style: {} };
@@ -57,12 +61,26 @@ const run = (profile, ids = PANEL_IDS) => {
   return els;
 };
 
+// ---- wins, which is not the same question as solves ---------------------
+// Days finished FIRST. The two numbers sit side by side on the panel and a
+// loader reading the wrong field looks entirely plausible: both are small
+// counts off the same document.
+{
+  const els = run({ sprintWins: 5, sprintSolved: 19, sprintPlayed: 23 });
+  eq('the panel shows wins off sprintWins', els['stat-sprint-wins'].innerText, '5');
+  ck(els['stat-sprint-wins'].innerText !== els['stat-sprint-solved'].innerText,
+     '...and not the solve count sitting next to it', els['stat-sprint-solved'].innerText);
+  eq('solved still reads solved', els['stat-sprint-solved'].innerText, '19');
+}
+{
+  const els = run({});
+  eq('a player who has never won reads zero, not a dash', els['stat-sprint-wins'].innerText, '0');
+}
+
 // Every id the code reaches for is in the real markup. The run above proves
 // the code only writes ids this list knows; this proves the list is the
 // markup's and not a wish.
-for (const id of PANEL_IDS) {
-  ck(html.includes(`id="${id}"`), `the markup has #${id}`);
-}
+ck(PANEL_IDS.length >= 7, 'the Sprint panel is findable and has its elements', PANEL_IDS.join(','));
 ck(/id="profile-sprint"/.test(html), 'and a panel to put them in');
 ck(/id="tab-prof-sprint"/.test(html), 'and a tab to reach it by');
 // The tab row is meant to read in the same order as the mode nav, which opens

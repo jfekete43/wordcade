@@ -185,6 +185,12 @@ service cloud.firestore {
         && !('sprintG3' in request.resource.data)
         && !('sprintG4' in request.resource.data)
         && !('sprintG5' in request.resource.data)
+        // Leaderboard wins, settled by the morning digest once the board is
+        // closed - never by a client. Without these a fresh account could
+        // arrive claiming a hundred firsts, the same argument gauntletWins
+        // above was pinned for.
+        && !('sprintWins' in request.resource.data)
+        && !('marathonWins' in request.resource.data)
         // Each of these gates a one-time career challenge, and claimChallenge
         // pays out against whatever the user document SAYS: a profile that
         // arrives claiming ten clean Trifectas is paid for ten clean
@@ -456,6 +462,13 @@ service cloud.firestore {
     // mean a uid written into a file that ships in the repository, and a
     // second place for the answer to "who is the admin" to disagree.
     match /adminDrafts/{id} {
+      allow read, write: if false;
+    }
+
+    // Who won which board, and the record that stops a retried schedule
+    // paying the same win twice. Server-only: a client that could write here
+    // could either claim a win or block one from ever being awarded.
+    match /boardAwards/{id} {
       allow read, write: if false;
     }
 

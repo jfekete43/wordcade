@@ -924,8 +924,12 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
     const o = draw(P, 4);
     // The four Wordle numbers, in that order.
     const nums = [...o.pills.matchAll(/<b>([^<]*)<\/b>/g)].map((m) => m[1]);
-    eq('four pills: played, win rate, current streak, max streak', nums, ['12', '92', '5', '7']);
-    ck(/Played/.test(o.pills) && /Win %/.test(o.pills), 'labelled', o.pills.slice(0, 120));
+    eq('four pills: played, solve rate, current streak, max streak', nums, ['12', '92', '5', '7']);
+    ck(/Played/.test(o.pills) && /Solve %/.test(o.pills), 'labelled', o.pills.slice(0, 120));
+    // "Solve %", never "Win %": sprintWins counts days finished FIRST and is
+    // drawn two rows up on the same screen. The pill is the share of Sprints
+    // solved, which on a day you came second is still 100%.
+    ck(!/Win %/.test(o.pills), 'and not as a "win", which now means something else here', o.pills.slice(0, 120));
     ck(/Current<br>Streak/.test(o.pills) && /Max<br>Streak/.test(o.pills),
        'with the two streaks on two lines so four fit across a phone');
 

@@ -2217,7 +2217,10 @@ exports.postDailyDigest = onSchedule({
   // by hand, for nothing.
   const jobs = [
     { mode: "sprint", secret: DISCORD_SPRINT_WEBHOOK.value(), tiebreak: "elapsedMs", dir: "asc",
-      puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word] },
+      puzzle: db.collection("sprintPuzzles").doc(dateStr), words: (d) => [d.word],
+      // The same two fields the query orders by, so "tied at the top" means
+      // what the board means rather than a second opinion about it.
+      rank: (r) => [Number(r.score) || 0, Number(r.elapsedMs)] },
   ];
 
   const creds = xCredentials();
@@ -2236,6 +2239,11 @@ exports.postDailyDigest = onSchedule({
     // Nobody played. A daily "nobody played" post is a daily reminder that
     // nobody played, which is not what a leaderboard channel is for.
     if (snap.empty) { console.log(`digest ${label}: no runs, nothing to post`); continue; }
+
+    // Settled before anything is posted: the post can fail and be retried,
+    // and the win is not the post's to lose.
+    await awardBoardWin(job.mode, dateStr,
+      topTied(snap.docs.map((d) => d.data()), job.rank).map((r) => r.uid));
 
     // Read once, rendered twice. Lazy because a day already posted
     // everywhere should not cost the puzzle read, and memoised because
@@ -2301,6 +2309,9 @@ exports.postWeeklyDigest = onSchedule({
     .orderBy("marathonScore", "desc")
     .limit(10).get();
   if (snap.empty) { console.log(`digest ${label}: nobody played, nothing to post`); return; }
+
+  await awardBoardWin("marathon", week,
+    topTied(snap.docs, (d) => Math.max(0, Number(d.data().marathonScore) || 0)).map((d) => d.id));
 
   const data = {
     mode: "marathon", dateStr: week, words: [],
@@ -2557,6 +2568,57 @@ const DRAFT_LINK = "https://lexathon.gg";
  * overwrites the same document with the same text. No claim needed - unlike
  * a post, a write that happens twice leaves no trace of having done so.
  */
+/*
+ * Everyone tied at the top of an already-sorted board.
+ *
+ * Usually one row. Marathon scores are multiples of a fixed table and three
+ * players can finish a week dead level, and handing the win to whichever of
+ * them the index happened to return first would be a coin toss nobody can
+ * see. Sprint ties need the same score AND the same millisecond, which is
+ * vanishingly rare and still answered here rather than by luck.
+ */
+function topTied(rows, keyOf) {
+  const out = [];
+  for (const r of rows) {
+    if (out.length && String(keyOf(r)) !== String(keyOf(rows[0]))) break;
+    out.push(r);
+  }
+  return out;
+}
+
+/*
+ * The win, settled once the board it was played on is closed.
+ *
+ * It cannot be known when a run ends - somebody playing later the same day
+ * takes it off you - so it is counted here, at the one moment that already
+ * has the finished field in hand: the morning digest. No extra query and no
+ * second schedule; the standings have just been read to be posted.
+ *
+ * boardAwards/{mode}_{key} is what makes a retried schedule safe. The claim
+ * and the counters move in ONE transaction, because a claim written beside
+ * an increment rather than with it leaves a window where a retry can pay
+ * twice - and a career counter that climbs on its own is worse than none.
+ *
+ * set+merge rather than update, like the Trifecta's awards before it: a
+ * player can delete their account and leave a run behind, and update() on a
+ * missing document would fail the whole transaction.
+ */
+async function awardBoardWin(mode, key, uids) {
+  const winners = [...new Set(uids.filter(Boolean))];
+  if (!winners.length) return;
+  const field = mode === "sprint" ? "sprintWins" : "marathonWins";
+  const ref = db.collection("boardAwards").doc(`${mode}_${key}`);
+  const paid = await db.runTransaction(async (tx) => {
+    if ((await tx.get(ref)).exists) return false;
+    for (const uid of winners) {
+      tx.set(db.collection("users").doc(uid), { [field]: FieldValue.increment(1) }, { merge: true });
+    }
+    tx.set(ref, { mode, key, winners, at: FieldValue.serverTimestamp() });
+    return true;
+  });
+  console.log(`win ${mode} ${key}: ${paid ? `awarded to ${winners.length}` : "already awarded"}`);
+}
+
 async function saveDraft({ mode, dateStr, rows, words }) {
   const name = mode === "sprint" ? "Sprint" : "Marathon";
   await db.collection("adminDrafts").doc(`${mode}_${dateStr}`).set({
