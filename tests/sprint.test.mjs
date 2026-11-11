@@ -681,9 +681,16 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
      (boardSrc.match(/sprint-archive-btn[\s\S]{0,160}/) || [''])[0].replace(/\s+/g, ' ').slice(0, 150));
   // The Stakes board shares this card and must take it back down, or the
   // button sits under an All-Time leaderboard offering past Sprints.
-  const chrome = html.slice(html.indexOf('function renderHomeBoardChrome()'));
-  ck(/document\.getElementById\("sprint-archive-btn"\)\.style\.display = "none";/.test(chrome.slice(0, 1600)),
+  const chrome = (html.match(/        function renderHomeBoardChrome\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(chrome.length > 200, 'the Stakes board chrome is findable', String(chrome.length));
+  ck(/document\.getElementById\("sprint-archive-btn"\)\.style\.display = "none";/.test(chrome),
      'and the Stakes board takes it back down, because they share the card');
+  // Marathon shares it too, and used not to. Arriving from Sprint left "Past
+  // Sprints" under the Marathon standings.
+  const mb = (html.match(/        async function loadMarathonBoard\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/"sprint-archive-btn"/.test(mb),
+     'and so does the Marathon board, which shares the same card',
+     (mb.match(/[^\n]*sprint-archive-btn[^\n]*/) || [''])[0].trim());
 }
 
 // ...and the tab row comes back on every route out, not just this mode's.

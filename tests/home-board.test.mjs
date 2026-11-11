@@ -37,6 +37,8 @@ const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
+const deq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
+  `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
 const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
   `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
 
@@ -89,18 +91,43 @@ for (const [k, b] of Object.entries(HOME_BOARDS)) {
 // in the DOM and still activates from the keyboard.
 const expandSrc = 'function expandHomeBoard() {'
   + between(html, 'window.expandHomeBoard = function() {', '\n        };', 'expandHomeBoard') + '\n}';
-const runExpand = (board) => {
+// The card is shared with Sprint and Marathon now, so the button follows a
+// variable the three loaders set rather than reading the home table - which
+// would have been right only on the home screen.
+const runExpand = (tab) => {
   const calls = [];
   // eslint-disable-next-line no-new-func
-  new Function('window', 'homeBoard', 'HOME_BOARDS', `${expandSrc}; expandHomeBoard();`)(
-    { showLeaderboard: () => calls.push('open'), setLbTime: (t) => calls.push('tab:' + t) },
-    board, HOME_BOARDS);
+  new Function('window', 'boardLbTab', `${expandSrc}; expandHomeBoard();`)(
+    { showLeaderboard: () => calls.push('open'), setLbTime: (t) => calls.push('tab:' + t) }, tab);
   return calls;
 };
-eq('expanding all-time opens the Hall of Fame on its own tab', runExpand('all'), ['open', 'tab:all']);
-eq('expanding the week opens nothing, rather than a tab that is not there',
-   runExpand('weekly'), []);
-eq('and neither does the day', runExpand('daily'), []);
+// Driven through the home table, so a tab renamed there is still followed.
+eq('expanding all-time opens the Hall of Fame on its own tab',
+   runExpand(HOME_BOARDS.all.lb), ['open', 'tab:all']);
+eq('expanding a board with no tab of its own opens nothing', runExpand(undefined), []);
+for (const name of Object.keys(HOME_BOARDS)) {
+  const lb = HOME_BOARDS[name].lb;
+  deq(`the ${name} board ${lb ? 'opens ' + lb : 'offers no expand'}`,
+      runExpand(lb), lb ? ['open', 'tab:' + lb] : []);
+}
+// And the home board actually sets it, or the button would open whichever
+// tab the last mode screen left behind.
+{
+  const chrome = (html.match(/        function renderHomeBoardChrome\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+  ck(/boardLbTab = HOME_BOARDS\[homeBoard\]\.lb;/.test(chrome),
+     'the home board points the button at its own tab',
+     (chrome.match(/[^\n]*boardLbTab[^\n]*/) || [''])[0].trim());
+}
+// Sprint and Marathon point it at theirs. They used to hide the button
+// outright, so their all-time boards had no way in from the game screen.
+for (const [fname, tab] of [['loadSprintBoard', 'sprint'], ['loadMarathonBoard', 'marathon']]) {
+  const src = (html.match(new RegExp(`        async function ${fname}\\(\\) \\{\\n[\\s\\S]*?\\n        \\}`)) || [''])[0];
+  ck(src.length > 200, `${fname} is findable`, String(src.length));
+  ck(new RegExp(`boardLbTab = "${tab}";`).test(src), `${fname} points the button at the ${tab} tab`,
+     (src.match(/[^\n]*boardLbTab[^\n]*/) || [''])[0].trim());
+  ck(!/more\.style\.display = "none"|moreEl\.style\.display = "none"/.test(src),
+     `${fname} no longer hides the way into its own leaderboard`);
+}
 
 // ---- the default, in three places that must agree ------------------------
 const declared = (html.match(/let homeBoard = "(\w+)"/) || [])[1];

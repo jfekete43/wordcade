@@ -816,7 +816,12 @@
         /* Tighter than the modal's, which has a title above it and room to
            spare; this one sits inside a card on the home screen. */
         #home-board-tabs { margin-bottom: var(--s-5); }
-        #home-board-more { width: 100%; margin-top: var(--s-5); padding: var(--s-4);
+        /* Two buttons that are sometimes one. Sprint shows both (its archive
+           and the deep board); Stakes and Marathon show one. flex:1 on each
+           means whichever are up share the width, so a lone button is still
+           full width and nothing has to be told which case it is in. */
+        #board-actions { display: flex; gap: var(--s-3); margin-top: var(--s-5); }
+        #board-actions button { flex: 1 1 0; min-width: 0; padding: var(--s-4);
             border-radius: var(--r-2); font-size: var(--fs-2); font-weight: var(--fw-bold);
             letter-spacing: var(--ls-ui); cursor: pointer; font-family: inherit; }
         #daily-board-head button { background: transparent; border: 1px solid var(--c-line); color: var(--c-ink-4); border-radius: 4px;
@@ -1717,12 +1722,15 @@
         </div>
         <div id="daily-board-list" style="font-size: var(--fs-3); color: var(--c-ink-3); font-style: italic;">Loading…</div>
         <div id="daily-board-you"></div>
-        <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
-        <!-- Sprint borrows this whole card (see loadSprintBoard), and unlike
-             the Trifecta it has no header of its own to hang a button on. So
-             its way into the archive sits where the Stakes board keeps its
-             expand button - one of the two is up at a time, never both. -->
-        <button id="sprint-archive-btn" class="btn-quiet" style="display:none;" onclick="window.openArchive('sprint')">Past Sprints</button>
+        <!-- Sprint and Marathon borrow this whole card (see loadSprintBoard
+             and loadMarathonBoard), and neither has a header of its own to
+             hang a button on, so both of these live here. The expand button
+             is not Stakes' alone any more: it follows whichever board the
+             card is currently showing, through boardLbTab. -->
+        <div id="board-actions">
+            <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
+            <button id="sprint-archive-btn" class="btn-quiet" style="display:none;" onclick="window.openArchive('sprint')">Past Sprints</button>
+        </div>
     </div>
 
     <!-- Sprint, once today is done. The end modal says all of this, but
@@ -3383,8 +3391,8 @@
             // the same question until the weekly tab was retired, at which
             // point this line still offered a button that expandHomeBoard()
             // returns out of.
-            document.getElementById("home-board-more").style.display =
-                HOME_BOARDS[homeBoard].lb ? "" : "none";
+            boardLbTab = HOME_BOARDS[homeBoard].lb;
+            document.getElementById("home-board-more").style.display = boardLbTab ? "" : "none";
             // Sprint's, and only ever Sprint's — this card is shared.
             document.getElementById("sprint-archive-btn").style.display = "none";
         }
@@ -3470,11 +3478,23 @@
 
         // The Hall of Fame is the same boards at a hundred rows instead of ten,
         // so expanding opens it on the tab you were already reading.
+        /*
+         * Which Hall of Fame tab "Full leaderboard" opens.
+         *
+         * The card is shared three ways - Stakes' home board, Sprint's day
+         * and Marathon's week - so the button cannot read the home board's
+         * table and be right. Each loader says where it goes; one variable,
+         * because it is one button.
+         *
+         * Worth having rather than sending everyone to the same place: the
+         * card is ten rows and the Hall of Fame is a hundred.
+         */
+        let boardLbTab = HOME_BOARDS.all.lb;
+
         window.expandHomeBoard = function() {
-            const lb = HOME_BOARDS[homeBoard].lb;
-            if (!lb) return;
+            if (!boardLbTab) return;
             window.showLeaderboard();
-            window.setLbTime(lb);
+            window.setLbTime(boardLbTab);
         };
 
         window.stepDailyBoard = function(dir) {
@@ -5454,10 +5474,17 @@
             if (youEl) youEl.innerHTML = "";
             const titleEl = document.getElementById("daily-board-title");
             if (titleEl) titleEl.innerText = "This Week's Marathon";
-            for (const id of ["daily-board-prev", "daily-board-next", "home-board-more"]) {
+            // sprint-archive-btn is in this list because the card is shared:
+            // arriving here from Sprint left "Past Sprints" sitting under the
+            // Marathon standings, offering last week's Sprints from a screen
+            // that is not Sprint.
+            for (const id of ["daily-board-prev", "daily-board-next", "sprint-archive-btn"]) {
                 const el = document.getElementById(id);
                 if (el) el.style.display = "none";
             }
+            boardLbTab = "marathon";
+            const moreEl = document.getElementById("home-board-more");
+            if (moreEl) moreEl.style.display = "";
             const list = document.getElementById("daily-board-list");
             if (!list) return;
             try {
@@ -6088,8 +6115,11 @@
             const next = document.getElementById("daily-board-next");
             if (prev) prev.style.display = "none";
             if (next) next.style.display = "none";
+            // Sprint's own all-time board, a hundred deep, where this used
+            // to hide the way in entirely.
+            boardLbTab = "sprint";
             const more = document.getElementById("home-board-more");
-            if (more) more.style.display = "none";
+            if (more) more.style.display = "";
             const past = document.getElementById("sprint-archive-btn");
             if (past) past.style.display = sprintNumber(shiftDateStr(getTodayDateStr(), -1)) ? "block" : "none";
 
