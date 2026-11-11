@@ -271,61 +271,77 @@ Then it is just `dep`. Cloud Shell's home directory persists, so that survives.
 
 ## Analytics
 
-Cloudflare Web Analytics, chosen over Google Analytics because it is cookieless:
-it sets no cookies and stores no personal data, so the site needs **no consent
-banner**. GA would have meant a cookie wall on the landing page of a game whose
-pitch is "click and play".
+Two of them, doing different jobs.
+
+**Cloudflare Web Analytics** counts visits. It is cookieless, so it needs no
+consent and runs for everyone — including the majority who decline the banner.
+This is the number you can actually trust.
+
+**Google Analytics** (`G-74FPWNG390`, the property already linked to the
+Firebase project) shows where people arrive from. It sets cookies, so it runs
+only for visitors who accept.
+
+### How consent works
+
+`consent.js` is loaded by every page and does all of it: Consent Mode v2
+defaults, the banner, the remembered choice, and the Google tag.
+
+**Nothing reaches Google before a yes.** The consent defaults are queued into
+`dataLayer`, which is a local array and no network at all, and `gtag.js` is
+only injected once consent has been given — this visit or a previous one.
+Decline and it is never loaded.
+
+Google's own Consent Mode pattern is to load the tag immediately with consent
+denied and collect cookieless pings. That is defensible, and it is what a
+certified CMP will do here when AdSense arrives. "A declined visitor is not
+contacted at all" is the version that needs no argument, and this site can
+afford it.
+
+The choice lives in `localStorage` under `wordcade_consent`. Clearing site
+data asks again.
+
+### Changing it
+
+The measurement ID is one constant at the top of `consent.js`. To turn GA off
+entirely, delete the `<script defer src="/consent.js">` line — `tests/docs-consistency`
+will then fail until the privacy policy stops claiming it, which is the point.
 
 **No deploy is involved** — these are static pages, live within a minute of the
 push.
 
-### Turning it on
+### Sixty pages carry this
 
-1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com) (free; you do
-   **not** need to move your DNS).
-2. **Analytics & Logs → Web Analytics → Add a site**, enter `lexathon.gg`.
-3. Copy the token out of the snippet it shows you (the value inside
-   `data-cf-beacon='{"token":"…"}'`).
-4. Stamp it into every page at once:
+Seven static pages, the Trifecta archive index, fifty-two generated archive
+days, and the shared `head()` in `tools/gauntlet-archive-render.mjs` for any
+built later. They carry one line each rather than a copy of the banner, which
+is the whole reason `consent.js` is a file: sixty copies is sixty chances for
+one of them to say something the policy does not.
 
-```bash
-node tools/set-analytics-token.mjs <token>
-node tools/set-analytics-token.mjs --status    # confirm 8 live, 0 pending
-git add -A && git commit -m "Turn on analytics" && git push
-```
-
-5. Give it ~30 minutes.
-
-`--off` puts every page back to the pending comment; `--status` says what each
-one currently has.
-
-### Why a tool rather than find-and-replace
-
-Eight files carry the block: the seven static pages, plus the shared `head()` in
-`tools/gauntlet-archive-render.mjs`, which covers **every generated Daily Puzzle
-archive page**. Those archive pages are the ones in `sitemap.xml`, so they are a
-real way in — and because they come out of a renderer rather than the repo, they
-are exactly the ones a manual edit misses. The failure is silent: the page just
-reports no traffic. `tests/docs-consistency` fails if any file is missing the
-block, if only some are live, or if two tokens are in use.
-
-The archive pages pick up a token change on the next daily rebuild, or
-immediately with `node tools/build-gauntlet-archive.mjs --all`.
+`tests/docs-consistency` fails if any page carrying the Cloudflare block is
+missing `consent.js`, if the privacy policy stops naming either tracker, or if
+the consent defaults stop being denied.
 
 ### What it does not cover
 
-Gameplay. How many people finished the Daily Puzzle, how far runs get, which modes
-get played — all of that is already in Firestore, and a query over your own data
-answers it better than event tracking would. This is only for acquisition: how
-many people arrived, and from where.
+Gameplay. How many people finished the Daily Puzzle, how far runs get, which
+modes get played — all of that is already in Firestore, and a query over your
+own data answers it better than event tracking would. This is only for
+acquisition: how many people arrived, and from where.
 
-### If you ever add AdSense
+### Before AdSense
 
-AdSense and Analytics are separate products; AdSense has never required GA. But
-personalised ads need a certified consent platform for EEA/UK traffic, so the
-cookie banner arrives **with AdSense**, not with analytics. At that point adding
-GA is a marginal extra. Nothing here locks you out. Re-check Google's current
-publisher requirements when you actually apply.
+The banner here is hand-written, which is fine for Analytics. **It is not
+enough for AdSense.** Google has required a *certified* CMP for publishers
+serving ads to EEA/UK traffic since January 2024, and the certified list is
+Google's to decide. When you apply, the banner gets replaced by a certified
+CMP, and that CMP takes over the Consent Mode signals `consent.js` sets today.
+
+The groundwork is done either way: all four Consent Mode v2 signals
+(`ad_storage`, `ad_user_data`, `ad_personalization`, `analytics_storage`) are
+already declared and already default to denied, which is the part reviews
+usually find half-wired.
+
+Re-check Google's current publisher requirements when you actually apply.
 
 ## Discord digests
 

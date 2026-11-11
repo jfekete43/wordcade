@@ -452,17 +452,52 @@ ok('with one token between them',
    new Set(analytics.map((a) => a.token)).size === 1,
    JSON.stringify([...new Set(analytics.map((a) => a.token))]));
 if (liveCount === 0) console.log('NOTE  analytics is present but not live yet — tools/set-analytics-token.mjs <token>');
-// The privacy policy has to describe what is actually loaded, in both states.
-ok('privacy.html does not claim Google Analytics, which the site does not load',
-   !/Google Analytics/i.test(text['privacy.html']) && !/gtag|googletagmanager/i.test(read('index.html')),
-   (text['privacy.html'].match(/Google Analytics[^.]*/) || [''])[0]);
-ok('and names the analytics that IS loaded',
+// The privacy policy has to describe what is actually loaded. This block used
+// to assert the opposite - that no Google Analytics existed anywhere - which
+// was correct right up until it was not, and is the reason the policy could
+// not quietly fall out of step with the site.
+ok('every page that counts visits also carries the consent script',
+   analytics.every((a) => /\/consent\.js/.test(read(a.f))),
+   analytics.filter((a) => !/\/consent\.js/.test(read(a.f))).map((a) => a.f).join(', '));
+ok('privacy.html names Google Analytics, which the site now loads',
+   /Google Analytics/i.test(text['privacy.html']));
+ok('and still names Cloudflare, which runs for everyone',
    /Cloudflare Web Analytics/i.test(text['privacy.html']));
-// The no-banner claim is only true while the thing is cookieless. If a
-// cookie-setting tracker is ever added, this sentence has to go with it.
-ok('the no-cookie-banner claim matches a cookieless tracker',
-   !/cookie banner/i.test(text['privacy.html']) || /sets no cookies/i.test(text['privacy.html']),
-   'privacy.html claims no banner is needed');
+ok('and says nothing reaches Google without acceptance',
+   /unless you accept/i.test(text['privacy.html']),
+   (text['privacy.html'].match(/[^.]*unless you accept[^.]*/) || [''])[0]);
+// The old sentence said the site has no cookie banner. It has one now, and a
+// policy that still denied it would be worse than one that said nothing.
+ok('and no longer claims there is no cookie banner',
+   !/no cookie banner/i.test(text['privacy.html']),
+   (text['privacy.html'].match(/[^.]*no cookie banner[^.]*/) || [''])[0]);
+
+// ---- the consent script itself ------------------------------------------
+// The banner is only worth having if the tag actually waits for it.
+{
+  const consent = read('consent.js');
+  for (const signal of ['ad_storage', 'ad_user_data', 'ad_personalization', 'analytics_storage']) {
+    ok(`consent defaults to denied for ${signal}`,
+       new RegExp(`${signal}: "denied"`).test(consent));
+  }
+  // gtag.js is injected, not written into the page, and only from the one
+  // function the accept path calls - so "before consent" is a thing that
+  // cannot happen by accident.
+  const inject = (consent.match(/function loadAnalytics\(\) \{[\s\S]*?\n  \}/) || [''])[0];
+  ok('the Google tag is findable', inject.length > 100, String(inject.length));
+  ok('it is loaded only inside loadAnalytics',
+     (consent.match(/googletagmanager/g) || []).length === 1
+     && /googletagmanager/.test(inject));
+  ok('and that runs only on a granted choice',
+     /if \(value === "granted"\) loadAnalytics\(\);/.test(consent)
+     && /if \(choice === "granted"\) \{ loadAnalytics\(\); return; \}/.test(consent),
+     (consent.match(/[^\n]*loadAnalytics\(\);[^\n]*/g) || []).join(' | '));
+  ok('a remembered refusal loads nothing',
+     /if \(choice === "denied"\) return;/.test(consent));
+  // Private browsing throws on localStorage rather than returning null.
+  ok('storage is wrapped, because private mode throws rather than returning null',
+     (consent.match(/try \{/g) || []).length >= 2);
+}
 
 // A policy change means a new effective date, and the two pages move together.
 const effective = (page) => (pages[page].match(/Effective Date: ([^<]+)</) || [])[1];

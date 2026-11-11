@@ -273,6 +273,10 @@
 
 <div style="margin: 26px auto 12px; max-width: 420px; text-align: center; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--c-ink-5);">&copy; 2026 Lexathon &middot; All rights reserved</div>
 
+    <!-- Consent + Google Analytics. One file for every page; it loads
+         nothing from Google until a visitor has said yes. See consent.js. -->
+    <script defer src="/consent.js"></script>
+
     <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
          Change the token or turn it off everywhere at once with:
              node tools/set-analytics-token.mjs <token|--off> -->

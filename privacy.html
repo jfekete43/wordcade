@@ -147,7 +147,7 @@
 
     <div class="container">
         <h1>Privacy Policy</h1>
-        <div style="font-size: var(--fs-2); color: var(--c-ink-5); text-align: center; margin-bottom: 20px;">Effective Date: September 27th, 2026</div>
+        <div style="font-size: var(--fs-2); color: var(--c-ink-5); text-align: center; margin-bottom: 20px;">Effective Date: November 11th, 2026</div>
 
         <p>Welcome to Lexathon. This Privacy Policy explains how we collect, use, and protect your information when you play our game.</p>
 
@@ -167,7 +167,8 @@
             <li>Show your chat messages to the other players in that match.</li>
             <li>Look into reports of abuse or cheating, which may involve reading the chat from a specific match.</li>
             <li>Ensure the technical stability of the game.</li>
-            <li>Count visits, so we can tell whether the game is reaching anyone. This is done without cookies and without tracking individuals.</li>
+            <li>Count visits, so we can tell whether the game is reaching anyone. The count itself is done without cookies and without tracking individuals.</li>
+            <li>Understand how people find the game &mdash; which sites link here, roughly where visitors are &mdash; using Google Analytics, <strong>and only if you accept it</strong> when asked.</li>
             <li>Serve advertisements, if and when advertising is enabled (see "Third-Party Services" below).</li>
         </ul>
 
@@ -183,7 +184,8 @@
         <p>Lexathon utilizes third-party services that may collect information used to identify you. These include:</p>
         <ul>
             <li><strong>Firebase (Google):</strong> Hosting, sign-in, and the database that stores your progress and the leaderboards.</li>
-            <li><strong>Cloudflare Web Analytics:</strong> Counts visits so we know whether anyone is finding the game. It sets no cookies, stores no personal data, and cannot follow you to other sites &mdash; which is why Lexathon has no cookie banner. It records only the page visited, the site that linked you here, and coarse details like country and device type.</li>
+            <li><strong>Cloudflare Web Analytics:</strong> Counts visits so we know whether anyone is finding the game. It sets no cookies, stores no personal data, and cannot follow you to other sites, so it runs for everyone and needs no consent. It records only the page visited, the site that linked you here, and coarse details like country and device type.</li>
+            <li><strong>Google Analytics:</strong> Shows us how people arrive at the game. It sets cookies and is the reason Lexathon asks. <strong>Nothing is sent to Google unless you accept</strong> &mdash; the script is not even loaded until then, and declining means it is never loaded at all. Your choice is remembered in your browser; clearing site data asks again. Advertising and personalisation signals are switched off.</li>
             <li><strong>Advertising Partners:</strong> Lexathon does not currently serve ads, and no advertising network is loaded on the site. Should that change, third-party ad networks may use cookies to serve ads based on your prior visits to this or other websites, and this policy will say so before any such network is enabled.</li>
         </ul>
 
@@ -198,6 +200,10 @@
     </div>
 
 <div style="margin: 26px auto 12px; max-width: 420px; text-align: center; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--c-ink-5);">&copy; 2026 Lexathon &middot; All rights reserved</div>
+
+    <!-- Consent + Google Analytics. One file for every page; it loads
+         nothing from Google until a visitor has said yes. See consent.js. -->
+    <script defer src="/consent.js"></script>
 
     <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
          Change the token or turn it off everywhere at once with:

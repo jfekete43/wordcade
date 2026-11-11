@@ -430,6 +430,10 @@ function head(title, description, canonical) {
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <style>${STYLE}
     </style>
+    <!-- Consent + Google Analytics. One file for every page; it loads
+         nothing from Google until a visitor has said yes. See consent.js. -->
+    <script defer src="/consent.js"></script>
+
     <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
          Change the token or turn it off everywhere at once with:
              node tools/set-analytics-token.mjs <token|--off> -->
