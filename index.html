@@ -579,6 +579,7 @@
         body.reduce-motion .banner_depth::after,
         body.reduce-motion .banner_moire,
         body.reduce-motion .banner_mercury::after,
+        body.reduce-motion .banner_watercolor,
         body.reduce-motion .effect_foil,
         body.reduce-motion .effect_chrome,
         body.reduce-motion .effect_oilslick,
@@ -964,8 +965,14 @@
 
            background-color rather than background: each banner's own shorthand
            resets the colour to transparent, so this sets the layer underneath
-           and leaves every gradient on top of it untouched. */
-        [class*="banner_"]:not(.banner_default) { background-color: #121213; }
+           and leaves every gradient on top of it untouched.
+
+           The light banners are the other exception, for the same reason
+           in reverse: they were drawn FOR paper, so a black plate under
+           one is exactly the mismatch this rule exists to prevent. A
+           :not() list takes the specificity of its most specific
+           argument, so adding them changes nothing for the dark ones. */
+        [class*="banner_"]:not(.banner_default, .banner_linen, .banner_sage, .banner_firstlight, .banner_blueprint, .banner_goldleaf, .banner_watercolor) { background-color: #121213; }
         .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid #00ffff; border-radius: 3px;}
         .banner_magenta { background: linear-gradient(90deg, rgba(255,0,255,0.15) 0%, rgba(255,0,255,0.02) 100%); border-left: 3px solid #ff00ff; border-radius: 3px;}
         .banner_matrix::after { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(0deg, rgba(0,255,0,0.08) 0px, transparent 2px, transparent 4px); z-index: -1; animation: matrix-scroll 10s linear infinite; border-left: 3px solid #00ff00; border-radius: 3px;}
@@ -1000,6 +1007,22 @@
            Not in this list: Void Black and Event Horizon, whose whole design
            is dark ink legible by its halo. They need no plate and a light one
            would destroy them. */
+        /* The light banners take the page's ink, the same exception
+           .banner_default gets above and for the same reason: .effect_none is
+           white because every banner that existed when it was written was
+           black. Written with :is() rather than eighteen selectors. */
+        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) :is(.lb-name, .daily-board-name).effect_none,
+        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor).lb-name.effect_none { color: var(--c-ink); }
+        /* And inside the shop's preview monitor, which forces white with an
+           ID and therefore outranks any number of classes. */
+        #shop-preview-monitor :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) .lb-name.effect_none { color: var(--c-ink); }
+        /* The ten neon effects need their black plate here too - a white
+           glitch on linen is the same invisible name the plate above exists
+           to prevent. */
+        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) .lb-name:is(.effect_pulse, .effect_glitch, .effect_electric, .effect_fire, .effect_chromatic, .effect_supernova, .effect_neon_outline, .effect_static, .effect_haunted, .effect_countdown) {
+            background-color: #121213; padding: 0 7px; border-radius: 3px;
+        }
+
         .banner_default .lb-name.effect_pulse,
         .banner_default .lb-name.effect_glitch,
         .banner_default .lb-name.effect_electric,
@@ -1024,6 +1047,34 @@
         .banner_galactic { background: radial-gradient(circle, #2b1055 0%, #000 100%); border-left: 3px solid #ff00ff; border-radius: 3px; }
         .banner_carbon { background: repeating-linear-gradient(45deg, #111 0, #111 2px, #222 2px, #222 4px); border-left: 3px solid #555; border-radius: 3px; }
         .banner_champ { background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.3) 100%); border-left: 3px solid #ffd700; border-radius: 3px; }
+
+        /* THE LIGHT BANNERS. Paper-first, drawn from the palette rather than
+           from neon, and light enough to take the page's own dark ink - which
+           is the whole point, and which the three rules further up pay for. */
+        .banner_linen { background-color: #f3ece0;
+            background-image: repeating-linear-gradient(90deg, rgba(90,78,60,.07) 0 1px, transparent 1px 4px),
+                              repeating-linear-gradient(0deg, rgba(90,78,60,.07) 0 1px, transparent 1px 4px);
+            border-left: 3px solid var(--c-line-2); border-radius: 3px; }
+        .banner_sage { background-color: #dbe7d9;
+            background-image: linear-gradient(180deg, #eef3ec 0%, #dbe7d9 100%);
+            border-left: 3px solid var(--c-endless); border-radius: 3px; }
+        .banner_firstlight { background-color: #ffd9b2;
+            background-image: linear-gradient(100deg, #fff7ea 0%, #ffe8ca 55%, #ffd9b2 100%);
+            border-left: 3px solid var(--c-present); border-radius: 3px; }
+        .banner_blueprint { background-color: #e9eff5;
+            background-image: linear-gradient(rgba(36,104,143,.16) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(36,104,143,.16) 1px, transparent 1px);
+            background-size: 12px 12px; border-left: 3px solid var(--c-correct); border-radius: 3px; }
+        .banner_goldleaf { background-color: #e6cd8e;
+            background-image: linear-gradient(100deg, #fdf6e3 0%, #f2e2b6 45%, #e6cd8e 100%);
+            border-left: 3px solid #b8912f; border-radius: 3px; }
+        /* The one animated light banner, and the only one priced like it.
+           Reuses the `shine` keyframe the name effects already use rather
+           than adding a second way to say the same thing. */
+        .banner_watercolor { background-color: #e9f0fa;
+            background-image: linear-gradient(100deg, #fde9e6 0%, #e9f0fa 28%, #eaf5ea 58%, #fdf3e2 100%);
+            background-size: 220% auto; animation: shine 9s linear infinite;
+            border-left: 3px solid #c6a3bd; border-radius: 3px; }
 
         /* NEW EFFECTS */
         .effect_pulse { color: #00ffff; animation: text-pulse 2s infinite; }
@@ -3001,6 +3052,17 @@
                     { id: "banner_aurora", name: "Aurora", desc: "Lights dancing overhead.", cost: 23000 },
                     { id: "banner_solaris", name: "Solaris", desc: "A pulsing solar flare.", cost: 26500 },
                     { id: "banner_bloodmoon", name: "Blood Moon", desc: "Something's different tonight.", cost: 34500 },
+                    // The light set. Every banner above was drawn for the old
+                    // black UI and still carries it; on paper they read as
+                    // holes punched in the page. These are built from the
+                    // site's own palette instead, so a row wearing one still
+                    // looks like part of the card it sits in.
+                    { id: "banner_linen", name: "Linen", desc: "Woven, pressed, unbothered.", cost: 1100 },
+                    { id: "banner_sage", name: "Sage", desc: "Quiet, and sure of it.", cost: 2400 },
+                    { id: "banner_firstlight", name: "First Light", desc: "Up before anybody else.", cost: 3600 },
+                    { id: "banner_blueprint", name: "Blueprint", desc: "Drawn to scale.", cost: 5900 },
+                    { id: "banner_goldleaf", name: "Gold Leaf", desc: "Thin, and worth it.", cost: 12500 },
+                    { id: "banner_watercolor", name: "Watercolor", desc: "Still drying.", cost: 18000 },
                     { id: "banner_frostbite", name: "Frostbite", desc: "Winter event exclusive — Dec 1 to Jan 5.", cost: 4600, seasonal: { fromMonthDay: "12-01", toMonthDay: "01-05" } },
                     // Holiday banners. These name a season rather than a date
                     // pair, so they are buyable exactly while the site is
