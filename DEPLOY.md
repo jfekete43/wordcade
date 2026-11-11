@@ -447,6 +447,10 @@ Both schedules write a ready-to-paste draft every time they run, whatever
 else is or is not configured. It needs no setup to be *written* — only to be
 *read*.
 
+Each draft is the board, the link, and `#lexathon #wordle` on the last line.
+The tags are in `TWEET_TAGS` in `functions/index.js`; a hashtag is not a URL,
+so they cost nothing on the metered path either.
+
 **It does not touch Discord.** The webhooks go to channels other people
 read, and a "paste this into X" note belongs on an admin screen. The drafts
 go to a `adminDrafts` collection that `firestore.rules` closes to every

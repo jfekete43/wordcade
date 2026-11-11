@@ -109,8 +109,9 @@ const konst = (name) => grab(new RegExp(`^const ${name} = [^\\n]*;`, 'm'), name)
 const TWEET_MAX = Number(/^const TWEET_MAX = (\d+);/m.exec(fn)[1]);
 const TWEET_ROWS = Number(/^const TWEET_ROWS = (\d+);/m.exec(fn)[1]);
 const WORDS = Number(/^const MARATHON_WORD_COUNT = (\d+);/m.exec(fn)[1]);
+const TAGS = /^const TWEET_TAGS = "([^"]*)";/m.exec(fn)[1];
 const parts = [konst('HANDLE_MAX'), konst('SPRINT_EPOCH'), konst('MARATHON_WORD_COUNT'),
-  konst('TWEET_ROWS'), konst('TWEET_LINK_WEIGHT'), konst('TWEET_PLACE'),
+  konst('TWEET_ROWS'), konst('TWEET_LINK_WEIGHT'), konst('TWEET_TAGS'), konst('TWEET_PLACE'),
   func('puzzleNumber'), func('formatClock'), grab(/^const digestNum = [^\n]*;/m, 'digestNum'),
   func('tweetWeight'), func('tweetName'), func('tweetDate'), func('tweetRow'),
   grab(/^const tweetBody = [^\n]*;/m, 'tweetBody'), func('buildTweet')].join('\n\n');
@@ -141,8 +142,9 @@ const marathonRows = (n) => Array.from({ length: n }, (_, i) =>
   ck(lines[3].startsWith('\u{1F949}'), 'third the bronze', lines[3]);
   ck(/41\.2s/.test(lines[1]), 'a Sprint row carries the clock', lines[1]);
   ck(/500/.test(lines[1]), 'and the score', lines[1]);
-  eq('and the answer goes last, the way the Discord digest puts it first',
-     lines.at(-1), 'Word: CRANE');
+  eq('and the answer closes the body, where the Discord digest opens with it',
+     lines.at(-2), 'Word: CRANE');
+  eq('with the tags under it', lines.at(-1), TAGS);
 }
 {
   const out = build({ mode: 'marathon', dateStr: '2026-11-02', rows: marathonRows(3), words: [] });
@@ -222,8 +224,9 @@ eq('the limit in the source is X\u2019s own 280', TWEET_MAX, 280);
 {
   const out = builder('https://lexathon.gg')(
     { mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(3), words: ['CRANE'] });
-  eq('with a link configured it goes on its own last line',
-     out.split('\n').at(-1), 'https://lexathon.gg');
+  const tailLines = out.split('\n').filter(Boolean);
+  eq('with a link configured it goes on its own line', tailLines.at(-2), 'https://lexathon.gg');
+  eq('and the tags sit under it', tailLines.at(-1), TAGS);
   ck(!build({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(3), words: ['CRANE'] })
       .includes('lexathon.gg'),
      'and with none configured the post carries no URL at all');
@@ -231,6 +234,75 @@ eq('the limit in the source is X\u2019s own 280', TWEET_MAX, 280);
 // The default costs thirteen times less per post, so which one is committed
 // is worth pinning rather than discovering on a bill.
 eq('X_LINK ships empty, which is the cheap rate', /^const X_LINK = "([^"]*)";/m.exec(fn)[1], '');
+
+// ---- the tags --------------------------------------------------------------
+// #wordle is where somebody who has just played one is looking, which is the
+// entire point. A hashtag is not a URL, so none of this moves the post onto
+// X's expensive per-URL rate.
+{
+  eq('two tags, exactly as asked for', TAGS, '#lexathon #wordle');
+  ck(!/https?:|www\.|\.(gg|com|co)\b/.test(TAGS),
+     'and nothing in them can be read as a URL, which is what keeps the cheap rate', TAGS);
+
+  for (const mode of ['sprint', 'marathon']) {
+    const out = build({ mode, dateStr: mode === 'sprint' ? '2026-11-07' : '2026-11-02',
+      rows: mode === 'sprint' ? sprintRows(5) : marathonRows(5), words: [] });
+    eq(`the ${mode} post ends with them`, out.split('\n').filter(Boolean).at(-1), TAGS);
+  }
+  // On one line, not two: three trailing blocks reads as padding. Counted on
+  // the last line alone, because "Sprint #7" in the header has a # as well.
+  const out = build({ mode: 'sprint', dateStr: '2026-11-07', rows: sprintRows(3), words: ['CRANE'] });
+  const last = out.split('\n').filter(Boolean).at(-1);
+  eq('both tags share a line', (last.match(/#/g) || []).length, 2);
+  eq('and that line is nothing but the tags', last, TAGS);
+
+  // Budgeted, or the post goes over and X rejects the whole thing. At a
+  // budget tight enough to bite, the tags have to cost rows the same way
+  // the link does.
+  const rowsAt = (max) => builder('', max)({ mode: 'marathon', dateStr: '2026-11-02',
+    rows: marathonRows(TWEET_ROWS), words: [] }).split('\n').filter((l) => /\d+\/\d+/.test(l)).length;
+  const weighTags = weigh(TAGS);
+  ck(rowsAt(120) < rowsAt(120 + weighTags + 2),
+     'the tags are paid for out of the row budget, not added on top of it',
+     `${rowsAt(120)} rows vs ${rowsAt(120 + weighTags + 2)} with their width given back`);
+}
+
+// ---- the finished post measures under the limit ---------------------------
+// The checks above pin each PIECE of the budget. This pins the only thing
+// that actually matters: whatever the budget arithmetic is, the post that
+// comes out has to measure at or under the limit the way X measures it -
+// every URL counting a flat t.co width however short its text.
+//
+// Swept rather than spot-checked. A budget out by one or two units is
+// invisible on a post that lands 80 under, and shows up only where the
+// trimming is the binding constraint - which is exactly where it matters,
+// because X rejects the whole post rather than truncating it.
+{
+  const LINK_W = Number(/^const TWEET_LINK_WEIGHT = (\d+);/m.exec(fn)[1]);
+  const URL = /https?:\/\/\S+/g;
+  const postWeight = (text) =>
+    weigh(text.replace(URL, '')) + (text.match(URL) || []).length * LINK_W;
+
+  const over = [];
+  for (const link of ['', 'https://lexathon.gg']) {
+    for (let max = 70; max <= 280; max += 3) {
+      for (const [mode, rows, words] of [
+        ['sprint', sprintRows(TWEET_ROWS), ['CRANE']],
+        ['marathon', marathonRows(TWEET_ROWS), []],
+      ]) {
+        const out = builder(link, max)({
+          mode, dateStr: mode === 'sprint' ? '2026-11-07' : '2026-11-02', rows, words });
+        // One row is the floor; below that there is nothing left to drop and
+        // the post is as short as it can be made.
+        const kept = out.split('\n').filter((l) => /^(\u{1F947}|\u{1F948}|\u{1F949}|\d+\.)/u.test(l)).length;
+        if (kept < 2) continue;
+        const w = postWeight(out);
+        if (w > max) over.push(`${mode} link=${link ? 'y' : 'n'} max=${max} measured=${w}`);
+      }
+    }
+  }
+  deq('a trimmed post never measures over its limit, at any budget', over.slice(0, 3), []);
+}
 
 // ---- a handle is the last free text a stranger controls ------------------
 {
@@ -322,7 +394,9 @@ eq('X_LINK ships empty, which is the cheap rate', /^const X_LINK = "([^"]*)";/m.
   ck(/2026/.test(w.label), 'in a form a person reads', w.label);
 
   // THE POINT: the link is there even though X_LINK is empty.
-  eq('the text carries the link on its own last line', w.text.split('\n').at(-1), 'https://lexathon.gg');
+  const wl = w.text.split('\n').filter(Boolean);
+  eq('the text carries the link on its own line', wl.at(-2), 'https://lexathon.gg');
+  eq('and the tags last of all', wl.at(-1), TAGS);
   ck(/\u{1F947} PLAYER1/u.test(w.text), 'with the board above it', w.text.split('\n')[2]);
   ck(/Word: CRANE/.test(w.text), 'and the answer', w.text);
   ck(weigh(w.text) <= TWEET_MAX, 'and it still fits a post', `${weigh(w.text)} of ${TWEET_MAX}`);

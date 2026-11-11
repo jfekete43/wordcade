@@ -2394,6 +2394,18 @@ const TWEET_ROWS = 5;
 // length. Budgeted rather than measured, because measuring X_LINK would make
 // a short domain look cheap and then overflow once t.co rewrote it.
 const TWEET_LINK_WEIGHT = 23;
+/*
+ * The tags on the end of every post.
+ *
+ * #wordle is where people who have just played one are looking, which is
+ * the whole point of putting it there; #lexathon is so the game's own posts
+ * and anybody else's collect in one place.
+ *
+ * Free on the metered path too: X charges extra for a post containing a
+ * URL, and a hashtag is not one. Budgeted below all the same, because 280
+ * is 280.
+ */
+const TWEET_TAGS = "#lexathon #wordle";
 const TWEET_PLACE = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
 
 /*
@@ -2536,13 +2548,23 @@ function buildTweet({ mode, dateStr, rows, words, link = X_LINK }) {
   const tail = isSprint && list.length ? `Word: ${list[0]}` : "";
 
   const placed = (rows || []).slice(0, TWEET_ROWS).map((r, i) => tweetRow(r, i, mode));
-  // The link is budgeted, not measured: see TWEET_LINK_WEIGHT.
-  const budget = TWEET_MAX - (link ? TWEET_LINK_WEIGHT + 1 : 0);
+
+  // Link and tags share the last block. The link is BUDGETED rather than
+  // measured - t.co rewrites every URL to a fixed width, so a short domain
+  // that looks cheap here would overflow once posted - while the tags are
+  // weighed as written, because they go up exactly as written.
+  const trailer = [link, TWEET_TAGS].filter(Boolean).join("\n");
+  const trailerWeight = (link ? TWEET_LINK_WEIGHT : 0)
+    + (TWEET_TAGS ? tweetWeight(TWEET_TAGS) : 0)
+    + (link && TWEET_TAGS ? 1 : 0)   // the newline between them
+    + (trailer ? 2 : 0);             // the blank line above the block
+  const budget = TWEET_MAX - trailerWeight;
+
   // Dropped from the BOTTOM until it fits. A leaderboard three deep is still
   // a leaderboard; a post one weighted unit over the limit is a 403 and a
   // day with nothing posted at all.
   while (placed.length > 1 && tweetWeight(tweetBody(head, placed, tail)) > budget) placed.pop();
-  return [tweetBody(head, placed, tail), link].filter(Boolean).join("\n\n");
+  return [tweetBody(head, placed, tail), trailer].filter(Boolean).join("\n\n");
 }
 
 /*
