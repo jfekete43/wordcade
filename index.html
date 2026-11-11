@@ -5789,6 +5789,15 @@
             if (!silent) await showModeIntro("sprint");
 
             sprintOpening = true;
+            // Wake the OTHER function. guessSprintWord is a separate
+            // container from startSprint, so without this the first guess of
+            // every session is the one that pays to boot it - and that is the
+            // guess the player is watching.
+            //
+            // Deliberately not awaited: it races the start call, and a warm-up
+            // that fails or hangs must cost the player nothing. Its only job
+            // is to have happened by the time they type five letters.
+            callGuessSprintWord({ warm: true }).catch(() => {});
             try {
                 sprintAttempt = (await callStartSprint()).data.attempt;
                 if (!sprintAttempt) throw new Error("Couldn't start today's Sprint.");

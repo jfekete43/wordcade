@@ -3068,6 +3068,25 @@ exports.startSprint = onCall(readableFailures("Starting today's Sprint", async (
 
 exports.guessSprintWord = onCall(readableFailures("Submitting that Sprint guess", async (request) => {
   const uid = requireAuth(request);
+
+  /*
+   * A warm-up ping, not a guess.
+   *
+   * startSprint and this are separate functions, which means separate
+   * containers: opening the mode warms the wrong one, so the first guess of
+   * every session paid a cold start on its own. The client fires one of
+   * these when Sprint opens and does not wait for it.
+   *
+   * Returning here is the whole point - by the time this line runs, the
+   * container is up and index.js has been evaluated, which includes parsing
+   * words.json and building the word Sets. That module load is the expensive
+   * part; the guess itself is microseconds.
+   *
+   * After requireAuth so it is not a free invocation, and before every read,
+   * so a ping costs no Firestore and cannot touch an attempt.
+   */
+  if (request.data && request.data.warm) return { warm: true };
+
   const raw = (request.data && request.data.guess) || "";
   const guess = String(raw).toUpperCase().trim();
   if (!/^[A-Z]{5}$/.test(guess)) throw new HttpsError("invalid-argument", "Guess must be a 5-letter word.");

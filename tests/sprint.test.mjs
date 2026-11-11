@@ -1223,13 +1223,14 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   const statsSrc2 = (html.match(/        function renderGuessDistribution\(counts, wrap, dist, lit, accent\) \{\n[\s\S]*?\n        \}/) || [''])[0] + '\n'
     + (html.match(/        function renderSprintStats\(todayRow, prefix\) \{\n[\s\S]*?\n        \}/) || [''])[0];
 
+  let warmResult = async () => ({ data: {} });
   const open = async (opts, attempt) => {
     const els = new Map();
     const el = (id) => { if (!els.has(id)) els.set(id, { id, innerHTML: '', style: {} }); return els.get(id); };
     const called = [];
     const rec = (name) => (...a) => called.push(name);
     // eslint-disable-next-line no-new-func
-    const body = new Function('document', 'currentUser', 'callStartSprint', 'userProfileData',
+    const body = new Function('document', 'currentUser', 'callStartSprint', 'callGuessSprintWord', 'userProfileData',
       'showModeIntro', 'renderModeNav', 'showStandardPanels', 'loadSprintBoard', 'boardDisplay',
       'resetKeyboardColors', 'setSprintPlaySurfaceVisible', 'paintFinishedSprintBoard',
       'setSprintResultSurface', 'setSprintClock', 'setSprintScoreLabel',
@@ -1243,6 +1244,7 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
     const out = await body(
       { getElementById: el }, { uid: 'u' },
       async () => ({ data: { attempt } }),
+      async (arg) => { called.push('warm:' + JSON.stringify(arg)); return warmResult(); },
       { sprintPlayed: 9, sprintSolved: 8, sprintStreak: 3, sprintBestStreak: 5, sprintG3: 8 },
       rec('showModeIntro'), rec('renderModeNav'), rec('showStandardPanels'), rec('loadSprintBoard'),
       { innerHTML: '' }, rec('resetKeyboardColors'), rec('setSprintPlaySurfaceVisible'),
@@ -1252,6 +1254,47 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
     return { called, out, disp: (id) => (els.get(id) || { style: {} }).style.display,
              html_: (id) => (els.get(id) || {}).innerHTML };
   };
+
+  // ---- the warm-up ping ------------------------------------------------
+  // guessSprintWord is a separate container from startSprint, so opening the
+  // mode warms the wrong one and the first guess of the session pays to boot
+  // it - the one guess the player is actually watching.
+  {
+    const o = await open(undefined, { status: 'in_progress', guesses: [] });
+    ck(o.called.includes('warm:{"warm":true}'),
+       'opening Sprint pings guessSprintWord to wake its container', o.called.join(', '));
+    const warmAt = o.called.indexOf('warm:{"warm":true}');
+    ck(warmAt >= 0 && warmAt < o.called.indexOf('startSprintRound'),
+       'and does it on the way in, not after the round has started', o.called.join(', '));
+  }
+  {
+    // Not awaited, and swallowed. A warm-up is an optimisation; one that
+    // fails or hangs must cost the player nothing.
+    warmResult = async () => { throw new Error('cold'); };
+    const o = await open(undefined, { status: 'in_progress', guesses: [] });
+    ck(o.called.includes('startSprintRound'),
+       'a warm-up that rejects does not stop the round opening', o.called.join(', '));
+    warmResult = async () => new Promise(() => {});
+    const o2 = await open(undefined, { status: 'in_progress', guesses: [] });
+    ck(o2.called.includes('startSprintRound'),
+       'and one that never answers does not hang the open either', o2.called.join(', '));
+
+    // Swallowed, not merely survived. Without the .catch the open still
+    // works and the only trace is an unhandled rejection in the console -
+    // on every mode open, every time the function is cold. Caught here
+    // rather than inferred from "it opened anyway", which cannot tell the
+    // two apart.
+    const unhandled = [];
+    const onUnhandled = (e) => unhandled.push(e);
+    process.on('unhandledRejection', onUnhandled);
+    warmResult = async () => { throw new Error('cold'); };
+    await open(undefined, { status: 'in_progress', guesses: [] });
+    await new Promise((r) => setTimeout(r, 20));
+    process.off('unhandledRejection', onUnhandled);
+    eq('and a rejected warm-up is swallowed rather than left unhandled',
+       unhandled.length, 0);
+    warmResult = async () => ({ data: {} });
+  }
 
   const done = { status: 'finished', solved: true, score: 300, elapsedMs: 41000,
                  guesses: [{ guess: 'AAAAA', colors: [0, 0, 0, 0, 0] },
@@ -1390,6 +1433,28 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
        // a legitimate field, so the loose pattern failed on correct code.
        Object.keys(p).filter((k) => /^sprintG\d$/.test(k)), []);
   }
+}
+
+// ---- the warm branch costs nothing --------------------------------------
+// The ping exists to boot the container and evaluate index.js - which is
+// where words.json is parsed and the word Sets are built, the part that
+// actually takes the time. Everything past that point is work a ping must
+// not do.
+{
+  const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
+  const guess = (fnSrc.match(/exports\.guessSprintWord = onCall\([\s\S]*?\n\}\)\);/) || [''])[0];
+  ck(guess.length > 400, 'guessSprintWord is findable', String(guess.length));
+  const warmAt = guess.indexOf('request.data.warm');
+  ck(warmAt > 0, 'it answers a warm ping', (guess.match(/[^\n]*request\.data\.warm[^\n]*/) || [''])[0].trim());
+  ck(warmAt < guess.indexOf('db.'),
+     'and returns before it touches Firestore, so a ping costs no read');
+  ck(warmAt < guess.indexOf('runTransaction'), 'and well before the transaction');
+  // After requireAuth, so a ping is not a free unauthenticated invocation.
+  const authAt = guess.indexOf('requireAuth(request)');
+  ck(authAt > 0, 'it requires a signed-in caller at all', guess.slice(0, 160).replace(/\s+/g, ' '));
+  ck(authAt > 0 && authAt < warmAt,
+     'and does it BEFORE the warm branch, so a ping is not a free invocation',
+     guess.slice(0, 200).replace(/\s+/g, ' '));
 }
 
 // ---- the screen a finished Sprint leaves behind ---------------------------
