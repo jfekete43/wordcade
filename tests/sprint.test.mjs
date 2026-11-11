@@ -40,6 +40,8 @@ const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const rules = fs.readFileSync(REPO('firestore.rules'), 'utf8');
 
 const t = [];
+const deq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
+  `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
 const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
 const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
   `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
@@ -1229,7 +1231,8 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
     // eslint-disable-next-line no-new-func
     const body = new Function('document', 'currentUser', 'callStartSprint', 'userProfileData',
       'showModeIntro', 'renderModeNav', 'showStandardPanels', 'loadSprintBoard', 'boardDisplay',
-      'resetKeyboardColors', 'setSprintPlaySurfaceVisible', 'setSprintClock', 'setSprintScoreLabel',
+      'resetKeyboardColors', 'setSprintPlaySurfaceVisible', 'paintFinishedSprintBoard',
+      'setSprintResultSurface', 'setSprintClock', 'setSprintScoreLabel',
       'setSprintWorth', 'showSprintEndModal', 'startSprintRound', 'called', 'OPTS', `
         let isSprintMode = false, sprintAttempt = null, sprintOpening = false;
         const window = {};
@@ -1243,6 +1246,7 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
       { sprintPlayed: 9, sprintSolved: 8, sprintStreak: 3, sprintBestStreak: 5, sprintG3: 8 },
       rec('showModeIntro'), rec('renderModeNav'), rec('showStandardPanels'), rec('loadSprintBoard'),
       { innerHTML: '' }, rec('resetKeyboardColors'), rec('setSprintPlaySurfaceVisible'),
+      rec('paintFinishedSprintBoard'), rec('setSprintResultSurface'),
       rec('setSprintClock'), rec('setSprintScoreLabel'), rec('setSprintWorth'),
       rec('showSprintEndModal'), rec('startSprintRound'), called, opts);
     return { called, out, disp: (id) => (els.get(id) || { style: {} }).style.display,
@@ -1264,6 +1268,14 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
     ck(/stat-bar-fill/.test(o.html_('sprint-panel-dist')) && /stat-pill/.test(o.html_('sprint-panel-stats')),
        'and the panel it put up has the stats in it', o.html_('sprint-panel-stats').slice(0, 80));
     eq('with the board loaded under it, since that is the screen', o.called.filter((c) => c === 'loadSprintBoard').length, 1);
+    // The grid stays. Opening a day already played used to clear it and hide
+    // the whole play surface, so the screen a player came back to had no
+    // trace of the run they had done.
+    ck(o.called.includes('paintFinishedSprintBoard'), 'and the finished grid is repainted', o.called.join(', '));
+    ck(o.called.includes('setSprintResultSurface'), 'and shown as a result', o.called.join(', '));
+    ck(!o.called.includes('setSprintPlaySurfaceVisible'),
+       'rather than the play surface being hidden outright, which took the grid with it',
+       o.called.join(', '));
   }
   {
     // Finishing a word is still a result you just got.
@@ -1377,6 +1389,132 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
        // \d, not just the prefix: sprintGuessTotal starts the same way and is
        // a legitimate field, so the loose pattern failed on correct code.
        Object.keys(p).filter((k) => /^sprintG\d$/.test(k)), []);
+  }
+}
+
+// ---- the screen a finished Sprint leaves behind ---------------------------
+// The round ends and the grid used to go with it: the player was left with a
+// leaderboard and a stats panel, and no sign of the run they had just done.
+// It stays now, above the standings and the stats in that order.
+{
+  const grab = (re, what) => {
+    const m = html.match(re);
+    if (!m) throw new Error('could not extract ' + what);
+    return m[0];
+  };
+  const surfaceSrc = grab(/        function setSprintResultSurface\(\) \{\n[\s\S]*?\n        \}/, 'setSprintResultSurface');
+  const playSrc = grab(/        function setSprintPlaySurfaceVisible\(visible\) \{\n[\s\S]*?\n        \}/, 'setSprintPlaySurfaceVisible');
+  const paintSrc = grab(/        function paintFinishedSprintBoard\(\) \{\n[\s\S]*?\n        \}/, 'paintFinishedSprintBoard');
+
+  const run = (src, call, attempt) => {
+    const els = {};
+    const el = (id) => (els[id] = els[id] || { id, innerHTML: '', style: {} });
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'sprintAttempt', 'escapeHtml', 'ATTEMPT', `
+      ${src}
+      ${call}`)({ getElementById: el }, attempt,
+      (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;'), attempt);
+    return els;
+  };
+
+  // ---- the three surfaces --------------------------------------------
+  {
+    const solvedAttempt = { solved: true, answer: 'CRANE', guesses: [] };
+    const e = run(surfaceSrc, 'setSprintResultSurface();', solvedAttempt);
+    eq('the grid stays up', e.board.style.display, 'grid');
+    eq('the legend with it, because it is the key to that grid', e.legend.style.display, 'flex');
+    eq('the keyboard goes, because there is nothing left to type', e.keyboard.style.display, 'none');
+    eq('and a solved run prints no answer, having it on the board already',
+       e['sprint-answer'].style.display, 'none');
+  }
+  {
+    const e = run(surfaceSrc, 'setSprintResultSurface();',
+                  { solved: false, answer: 'CRANE', guesses: [] });
+    eq('a miss shows the answer', e['sprint-answer'].style.display, 'block');
+    ck(/The word was/.test(e['sprint-answer'].innerHTML),
+       'in the same words the end modal uses', e['sprint-answer'].innerHTML);
+    ck(/CRANE/.test(e['sprint-answer'].innerHTML), 'with the word in it', e['sprint-answer'].innerHTML);
+  }
+  {
+    // publicSprintState only attaches the answer to a FINISHED attempt, so
+    // the field can legitimately be absent. "The word was " on its own is
+    // worse than nothing.
+    const e = run(surfaceSrc, 'setSprintResultSurface();', { solved: false, guesses: [] });
+    eq('a miss with no answer to show shows nothing', e['sprint-answer'].style.display, 'none');
+    const e2 = run(surfaceSrc, 'setSprintResultSurface();', null);
+    eq('and no attempt at all is not an error', e2['sprint-answer'].style.display, 'none');
+  }
+  {
+    // The word comes from the server, but it lands in innerHTML.
+    const e = run(surfaceSrc, 'setSprintResultSurface();',
+                  { solved: false, answer: '<b>X', guesses: [] });
+    ck(/&lt;/.test(e['sprint-answer'].innerHTML), 'the word is escaped on its way in',
+       e['sprint-answer'].innerHTML);
+    ck(!/<B>|<b>/.test(e['sprint-answer'].innerHTML),
+       '...and no tag survives it - the word is uppercased first, so a check for "<b>" alone proves nothing',
+       e['sprint-answer'].innerHTML);
+  }
+  // It is a result-only element and lives in the play area every mode shares.
+  for (const visible of [true, false]) {
+    const e = run(playSrc, `setSprintPlaySurfaceVisible(${visible});`, null);
+    eq(`the answer comes down when the play surface is set ${visible}`,
+       e['sprint-answer'].style.display, 'none');
+  }
+
+  // ---- the live finish, which the openSprint harness does not reach ----
+  // That harness covers reopening a day already played. This is the other
+  // way in: the moment the last guess lands.
+  {
+    const submit = grab(/        async function submitSprintGuess\(\) \{\n[\s\S]*?\n        \}/, 'submitSprintGuess');
+    const finished = (submit.match(/reflectSprintLocally\(result\);[\s\S]*?\}, 1200\);/) || [''])[0];
+    ck(finished.length > 80, 'the finish branch is findable', finished.replace(/\s+/g, ' ').slice(0, 90));
+    ck(/paintFinishedSprintBoard\(\)/.test(finished),
+       'finishing a round repaints the grid as a result', finished.replace(/\s+/g, ' ').slice(0, 140));
+    ck(/setSprintResultSurface\(\)/.test(finished), 'and shows it');
+    ck(!/setSprintPlaySurfaceVisible/.test(finished),
+       'rather than hiding the play surface, which used to take the grid with it',
+       finished.replace(/\s+/g, ' ').slice(0, 140));
+    // The answer is handed to the modal AND kept on the attempt: the result
+    // surface reads it from there, and so does the screen on a later visit.
+    ck(/sprintAttempt\.answer = result\.answer/.test(submit),
+       'and the finished run keeps its own answer, not just the modal\u2019s copy',
+       (submit.match(/[^\n]*sprintAttempt\.answer[^\n]*/) || [''])[0].trim());
+  }
+
+  // ---- the repaint ----------------------------------------------------
+  {
+    const made = [];
+    const els = {};
+    const el = (id) => (els[id] = els[id] || { id, innerText: '', classList: { add: () => {} } });
+    // eslint-disable-next-line no-new-func
+    new Function('createBoard', 'renderCompletedGuessRow', 'colorCodeToName', 'sprintAttempt', `
+      ${paintSrc}
+      paintFinishedSprintBoard();`)(
+      (rows) => made.push(['board', rows]),
+      (i, letters, colors) => made.push(['row', i, letters.join(''), colors.join(',')]),
+      (c) => 'c' + c,
+      { guesses: [{ guess: 'CRANE', colors: [0, 1, 2, 0, 0] },
+                  { guess: 'SLOTH', colors: [2, 2, 2, 2, 2] }] });
+    // Drawn to the guesses MADE, not the five a round allows: three empty
+    // rows between the grid and the standings is three rows of nothing on
+    // the screen where the standings are the point.
+    deq('the board is drawn to the number of guesses played', made[0], ['board', 2]);
+    deq('the first row is repainted with its own letters and colours',
+        made[1], ['row', 0, 'CRANE', 'c0,c1,c2,c0,c0']);
+    deq('and so is the second', made[2], ['row', 1, 'SLOTH', 'c2,c2,c2,c2,c2']);
+    eq('and nothing else is drawn', made.length, 3);
+  }
+  {
+    const made = [];
+    // eslint-disable-next-line no-new-func
+    const paint = (attempt) => new Function('createBoard', 'renderCompletedGuessRow',
+      'colorCodeToName', 'sprintAttempt', `${paintSrc}\npaintFinishedSprintBoard();`)(
+      (rows) => made.push(rows), () => made.push('row'), (c) => c, attempt);
+    paint(null);
+    paint({});
+    paint({ guesses: 'nonsense' });
+    deq('a missing, empty or malformed attempt draws an empty board rather than throwing',
+        made, [0, 0, 0]);
   }
 }
 

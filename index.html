@@ -1659,6 +1659,15 @@
         <div class="legend-item"><div class="legend-box" id="legend-present"></div> Wrong Spot</div>
     </div>
 
+    <!-- The answer, on the result screen of a Sprint that was NOT solved.
+         The end modal says it once and is then dismissed; on the screen the
+         player is left with - and on the screen they come back to later the
+         same day - the one thing they still want is the word. Hidden by
+         default and shown only by setSprintResultSurface, because this sits
+         in the play area every mode shares. -->
+    <div id="sprint-answer" style="display:none; text-align:center; margin: 0 0 var(--s-4);
+         font-size: var(--fs-3); color: var(--c-ink-3);"></div>
+
     <div id="board"></div>
 
     <div id="skip-word-container">
@@ -5628,7 +5637,62 @@
             }, 28);
         }
 
+        /*
+         * The board as a RESULT rather than as a game.
+         *
+         * Drawn to the number of guesses actually made, not the five a round
+         * allows: a solve in two followed by three empty rows puts three rows
+         * of nothing between the grid and the standings, on the screen where
+         * the standings are the point.
+         *
+         * Both ways in go through it - finishing a round, and opening a day
+         * already spent - so a player lands on the same screen either way.
+         * sprintAttempt.guesses carries the run locally (submitSprintGuess
+         * appends to it), so this does not wait on a read.
+         */
+        function paintFinishedSprintBoard() {
+            const prior = Array.isArray(sprintAttempt && sprintAttempt.guesses) ? sprintAttempt.guesses : [];
+            createBoard(prior.length);
+            prior.forEach((g, i) =>
+                renderCompletedGuessRow(i, g.guess.split(""), g.colors.map(colorCodeToName)));
+        }
+
+        /*
+         * Finished, not gone.
+         *
+         * The grid is what a player wants to look at once the round is over -
+         * it IS their result - so it stays, above the standings and the stats
+         * in the order the markup already has them.
+         *
+         * The keyboard does not stay. Nothing is left to type, and six dead
+         * rows of it sitting between the board and the leaderboard is the
+         * difference between seeing where you placed and scrolling to find
+         * out. The legend stays because it is the key to the grid now on
+         * screen, and it costs one line.
+         */
+        function setSprintResultSurface() {
+            document.getElementById("legend").style.display = "flex";
+            document.getElementById("board").style.display = "grid";
+            document.getElementById("keyboard").style.display = "none";
+
+            // Only on a miss. A solved board already shows the word, in the
+            // row that solved it, and printing it again under a green line
+            // reads as a consolation.
+            const el = document.getElementById("sprint-answer");
+            const word = String((sprintAttempt && sprintAttempt.answer) || "").toUpperCase();
+            const show = !!sprintAttempt && !sprintAttempt.solved && !!word;
+            el.style.display = show ? "block" : "none";
+            // Same sentence the end modal uses, so the screen it leaves
+            // behind does not word it differently.
+            if (show) el.innerHTML = "The word was "
+                + '<span style="color: var(--c-loss); font-weight: var(--fw-bold);'
+                + ' letter-spacing: var(--ls-num);">' + escapeHtml(word) + "</span>";
+        }
+
         function setSprintPlaySurfaceVisible(visible) {
+            // A result-only element: it must not survive into a live round,
+            // nor follow the player back to Stakes.
+            document.getElementById("sprint-answer").style.display = "none";
             document.getElementById("legend").style.display = visible ? "flex" : "none";
             document.getElementById("board").style.display = visible ? "grid" : "none";
             document.getElementById("keyboard").style.display = visible ? "flex" : "none";
@@ -5753,8 +5817,9 @@
             loadSprintBoard();
 
             if (sprintAttempt.status === "finished") {
-                boardDisplay.innerHTML = ""; resetKeyboardColors();
-                setSprintPlaySurfaceVisible(false);
+                resetKeyboardColors();
+                paintFinishedSprintBoard();
+                setSprintResultSurface();
                 setSprintClock(sprintAttempt.elapsedMs || 0);
                 // Already done today: this is a result, not an offer.
                 setSprintScoreLabel("SCORE");
@@ -5819,6 +5884,10 @@
             sprintAttempt.score = result.score;
             sprintAttempt.status = result.finished ? "finished" : "active";
             sprintAttempt.elapsedMs = result.elapsedMs;
+            // Kept on the attempt, not just handed to the modal: the result
+            // surface reads it from here, and on a day reopened later it is
+            // where publicSprintState puts it too.
+            if (result.answer) sprintAttempt.answer = result.answer;
 
             animateRowReveal(rowIndex, guessArr, result.colors.map(colorCodeToName));
 
@@ -5854,7 +5923,8 @@
                 if (result.finished) {
                     reflectSprintLocally(result);
                     setTimeout(() => {
-                        setSprintPlaySurfaceVisible(false);
+                        paintFinishedSprintBoard();
+                        setSprintResultSurface();
                         showSprintEndModal(sprintAttempt, false, result.answer);
                         loadSprintBoard();
                     }, 1200);
