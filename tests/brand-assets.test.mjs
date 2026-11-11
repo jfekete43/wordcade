@@ -148,6 +148,10 @@ try {
     ['social/header-row-1500x500.png', 1500, 500, 'header'],
     ['social/header-board-1500x500.png', 1500, 500, 'header'],
     ['social/header-tiles-1500x500.png', 1500, 500, 'header'],
+    // Reddit's profile banner is 5:1 where X's is 3:1. Only the centred
+    // wordmark is rendered at it: the other three put content near the edges,
+    // which is the first thing a banner crop takes.
+    ['social/header-wordmark-1920x384.png', 1920, 384, 'header'],
   ];
   for (const [f, w, h, kind] of SOCIAL) {
     const m = await probe(f);

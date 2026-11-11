@@ -227,6 +227,18 @@ for (const [file, px, style] of [
 console.log("headers (X: 1500x500)");
 for (const [name, inner] of Object.entries(HEADERS)) await shoot(`${name}-1500x500.png`, page(inner, 1500, 500), 1500, 500);
 
+/* Reddit's profile banner is wider and shorter than X's - 5:1 against 3:1.
+ * Published figures disagree (1920x384 is the most cited, 1600x480 and
+ * 1200x400 also appear) and none of them come from Reddit, so this renders
+ * the widest of them: a 5:1 image letterboxes harmlessly into a shallower
+ * frame, where a 3:1 one would have its top and bottom cut off.
+ *
+ * Only the centred wordmark. The other three put content near the edges,
+ * which is exactly what a banner crop takes first - the same reason it is
+ * the one to use on X. */
+console.log("headers (Reddit: 1920x384)");
+await shoot("header-wordmark-1920x384.png", page(HEADERS["header-wordmark"], 1920, 384), 1920, 384);
+
 await browser.close();
 console.log(`\nwrote ${fs.readdirSync(OUT).length} files to social/`);
 console.log(`  board is a real game: ${GUESSES.join(" -> ")} against ${ANSWER}`);
