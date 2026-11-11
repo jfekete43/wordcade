@@ -53,11 +53,24 @@ const loader = between(html, 'window.loadLeaderboardData = async function',
 ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are both found',
    `${modal.length}/${loader.length}`);
 
+// ---- the tab that ships active is the one that loads ----------------------
+// Two separate declarations of the same fact: the `active` class in the
+// markup and currentLbTime in the script. Disagree and the modal opens with
+// one tab highlighted while a different board loads under it.
+{
+  const activeTab = (modal.match(/class="tab-btn active" id="tab-(\w+)"/) || [])[1];
+  const dflt = (html.match(/let currentLbTime = '(\w+)'/) || [])[1];
+  eq('the markup ships exactly one tab active',
+     (modal.match(/tab-btn active/g) || []).length, 1);
+  eq('and the script opens on that same board', dflt, activeTab);
+  eq('which is Sprint', activeTab, 'sprint');
+}
+
 // ---- the tabs name modes, not windows -------------------------------------
 {
   const tabs = [...modal.matchAll(/id="tab-(\w+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2].trim()]);
-  eq('every tab is a mode', tabs.map(([, label]) => label),
-     ['Stakes', 'Sprint', 'Marathon', 'Trifecta', 'Clash', 'FFA']);
+  eq('every tab is a mode, Sprint leading', tabs.map(([, label]) => label),
+     ['Sprint', 'Stakes', 'Marathon', 'Trifecta', 'Clash', 'FFA']);
   ck(!tabs.some(([, l]) => /all time|weekly|daily/i.test(l)),
      'and none of them is a time window', tabs.map(([, l]) => l).join(','));
   // FFA is a closed mode; applyHiddenModeUi takes its tab down by the
@@ -136,14 +149,45 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
   eq('one day reads as a day', fmt(1, 'sprint'), '1 day');
   eq('and more than one reads as days', fmt(12, 'sprint'), '12 days');
   eq('a streak of none still says the unit', fmt(0, 'sprint'), '0 days');
+  // The flame says the streak is still RUNNING, which the board's own number
+  // cannot: it ranks on the best ever, and a record is not a state.
+  {
+    const live = (html.match(/        function sprintStreakLive\(d\) \{\n[\s\S]*?\n        \}/) || [''])[0];
+    ck(live.length > 200, 'the liveness test is findable', String(live.length));
+    const shift = (d, n) => {
+      const t = new Date(d + 'T00:00:00Z');
+      t.setUTCDate(t.getUTCDate() + n);
+      return t.toISOString().slice(0, 10);
+    };
+    const run = new Function('getTodayDateStr', 'shiftDateStr',
+      `${live}\nreturn sprintStreakLive;`)(() => '2026-11-11', shift);
+    const doc = (o) => Object.assign(
+      { sprintBestStreak: 10, sprintStreak: 10, sprintLastDate: '2026-11-11' }, o);
+    ck(run(doc({})), 'a best streak that is also current and played today is live');
+    ck(run(doc({ sprintLastDate: '2026-11-10' })),
+       'and yesterday counts, because a streak breaks on a day MISSED');
+    ck(!run(doc({ sprintLastDate: '2026-11-09' })),
+       'but two days ago is a lapsed streak, whatever the stored number says');
+    ck(!run(doc({ sprintStreak: 3 })),
+       'a best of ten with a current of three is not a ten-day streak');
+    ck(!run(doc({ sprintBestStreak: 0, sprintStreak: 0 })),
+       'and nobody with no streak at all is lit');
+    ck(!run({}), 'a document with none of the fields is not an error');
+  }
+  // Both rows that can carry it get it from the same function.
+  ck(/entry\.live \? STREAK_FLAME/.test(loader), 'the board rows can show it', 'entry.live');
+  ck(/mode === "sprint" && sprintStreakLive\(live\) \? STREAK_FLAME/.test(html),
+     'and so can your own line, off the same test', 'your position');
+  ck(/live: sprintStreakLive\(d\)/.test(loader),
+     'computed from the document the board already read, so it costs no extra query');
   eq('and no other board gets a unit at all', fmt(4600, 'all'), '4,600');
   eq('which is still grouped', fmt(4600, 'sprint'), '4,600 days');
   // Both places that print a score in that column go through it, so your own
   // line cannot read "3" under a list of "3 days".
-  ck(/lb-score">\$\{lbScoreText\(currentLbTime, entry\.score\)\}/.test(loader),
-     'the board rows print through it', (loader.match(/lb-score">[^<]{0,60}/) || [''])[0]);
-  ck(/paint\(`#\$\{\(ahead\.data\(\)\.count \+ 1\)\.toLocaleString\(\)\}`, lbScoreText\(mode, mine\)/.test(html),
-     'and so does your own position', (html.match(/paint\(`#\$\{\(ahead[^\n]{0,120}/) || [''])[0]);
+  ck(/lb-score">[^<]*lbScoreText\(currentLbTime, entry\.score\)/.test(loader),
+     'the board rows print through it', (loader.match(/lb-score">[^<]{0,90}/) || [''])[0]);
+  ck(/paint\([\s\S]{0,220}?lbScoreText\(mode, mine\)/.test(html),
+     'and so does your own position', (html.match(/paint\(`#\$\{\(ahead[\s\S]{0,160}/) || [''])[0]);
 }
 // ---- the date stamp belongs to one tab ----------------------------------
 // Stakes is the all-time board, and when a best run happened is half of what

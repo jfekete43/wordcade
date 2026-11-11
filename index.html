@@ -2584,8 +2584,12 @@
                      window and left you to guess the game; every board here is
                      all-time, so the window was the one thing that did not need
                      saying. The periods that do vary live on the home board. -->
-                <button class="tab-btn active" id="tab-all" onclick="window.setLbTime('all')">Stakes</button>
-                <button class="tab-btn" id="tab-sprint" onclick="window.setLbTime('sprint')">Sprint</button>
+                <!-- Sprint first, and the one that ships active. It is the
+                     daily everyone plays and the board that goes out under the
+                     game's own name every morning; Stakes led here only
+                     because it was the first mode to exist. -->
+                <button class="tab-btn active" id="tab-sprint" onclick="window.setLbTime('sprint')">Sprint</button>
+                <button class="tab-btn" id="tab-all" onclick="window.setLbTime('all')">Stakes</button>
                 <button class="tab-btn" id="tab-marathon" onclick="window.setLbTime('marathon')">Marathon</button>
                 <!-- Keyed `gauntlet`, not `daily`, which is what it was called
                      for most of its life. The id has to BE the mode key:
@@ -4511,12 +4515,42 @@
         // the week lives on the home board, under a heading that says so.
         // periodKeyFor() stays - that board still queries by key.
 
-        let currentLbTime = 'all'; 
+        let currentLbTime = 'sprint'; 
         // A streak is days, not points, and printing a bare 3 in the column
         // next to Stakes' 4,600 invites reading it as a score. One helper
         // rather than two: the board and your own line are the same column,
         // and the version that lived only in the board row left your own
         // position reading "3" directly under a list of "3 days".
+        /*
+         * Whether a Sprint streak shown on the board is still RUNNING.
+         *
+         * The board ranks on sprintBestStreak, which is a record rather than
+         * a state, so a flame beside it has to mean "this number is also
+         * their current streak, and it has not lapsed". Both halves matter:
+         *
+         *   - the best IS the current one. A player whose best is ten and
+         *     who is three days into a new one is not on a ten-day streak,
+         *     and lighting their ten would say they were.
+         *   - the current one is still alive. sprintStreak is only rewritten
+         *     when a run happens, so somebody who stopped three days ago is
+         *     still carrying the number they stopped on. Only the date knows.
+         *
+         * Read off documents the board has already fetched, so this costs
+         * nothing: /users is readable whole by any signed-in player.
+         */
+        function sprintStreakLive(d) {
+            const best = Math.max(0, Number(d && d.sprintBestStreak) || 0);
+            const now = Math.max(0, Number(d && d.sprintStreak) || 0);
+            if (!best || now !== best) return false;
+            const last = String((d && d.sprintLastDate) || "");
+            const today = getTodayDateStr();
+            // Today OR yesterday. A streak breaks on a day MISSED, and today
+            // is not missed until it is over - so somebody who solved
+            // yesterday and has not played yet is still on one.
+            return last === today || last === shiftDateStr(today, -1);
+        }
+        const STREAK_FLAME = '<span title="Streak still running" aria-label="Streak still running">\u{1F525}</span> ';
+
         const lbScoreText = (mode, score) => Number(score || 0).toLocaleString()
             + (mode === 'sprint' ? (Number(score) === 1 ? ' day' : ' days') : '');
         window.showLeaderboard = function() { document.activeElement.blur(); document.getElementById('main-menu-modal').style.display = 'none'; document.getElementById("leaderboard-modal").style.display = "flex"; window.loadLeaderboardData(); }
@@ -4617,7 +4651,8 @@
 
                     const ahead = await getCountFromServer(query(collection(db, "users"),
                         where(board.field, ">", mine)));
-                    paint(`#${(ahead.data().count + 1).toLocaleString()}`, lbScoreText(mode, mine),
+                    paint(`#${(ahead.data().count + 1).toLocaleString()}`,
+                        (mode === "sprint" && sprintStreakLive(live) ? STREAK_FLAME : "") + lbScoreText(mode, mine),
                         mine === 0 ? board.empty : "");
                     return;
                 }
@@ -4690,7 +4725,7 @@
                             // about - coming back - and it is the number the
                             // end-of-round screen already shows you.
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("sprintBestStreak", "desc"), limit(100)));
-                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.sprintBestStreak || 0, equipped: d.equipped }); });
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.sprintBestStreak || 0, equipped: d.equipped, live: sprintStreakLive(d) }); });
                         }
                         else if (currentLbTime === 'all') {
                             // Each player's best single run, read off their own
@@ -4728,7 +4763,7 @@
                                 titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
                             }
             
-                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${dateStr}</div></div><div class="lb-score">${lbScoreText(currentLbTime, entry.score)}</div></div>`;
+                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.live ? STREAK_FLAME : ""}${lbScoreText(currentLbTime, entry.score)}</div></div>`;
                         }); 
                         // A rating board only indexes players who have earned a
                         // rating, so a brand-new one really is empty rather than
