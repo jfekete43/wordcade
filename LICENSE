@@ -1,0 +1,29 @@
+Copyright (c) 2026 Lexathon. All rights reserved.
+
+This source is published so the game can be served from GitHub Pages and so
+anyone curious can read how it works. Publishing it is not a grant of any
+licence to it, and no part of it is placed in the public domain.
+
+You may:
+
+  - read the source; and
+  - fork it on GitHub in order to propose a change back to this project.
+
+You may not, without prior written permission:
+
+  - copy, redistribute, publish or sublicense this project or any
+    substantial part of it, in source or compiled form;
+  - host a public or private instance of it, modified or otherwise;
+  - reuse its text, artwork, word lists or puzzle generation in another
+    work; or
+  - use the name "Lexathon", or any confusingly similar name, for a game or
+    service of your own.
+
+Third-party dependencies loaded or installed by this project are covered by
+their own licences, not by this one.
+
+This notice governs copyright only. Nothing in it is a waiver of any other
+right, and nothing in it purports to restrict a use that applicable law
+permits regardless of licence.
+
+Enquiries: https://lexathon.gg

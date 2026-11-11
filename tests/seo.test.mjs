@@ -32,6 +32,37 @@ ck('found the site pages', pages.length >= 8, pages.join(','));
 const read = (f) => fs.readFileSync(REPO(f), 'utf8');
 const grab = (src, re) => { const m = src.match(re); return m ? m[1] : null; };
 
+// ---- the copyright notice --------------------------------------------------
+// On every page, saying the same thing. A notice does not create the right -
+// that exists from the moment the thing is written - but it removes the
+// "I assumed it was free to take" reading, which matters more than usual
+// here because the source is a public repository and looks like an offer.
+//
+// Derived from the directory listing above, so a page added later is covered
+// without anybody remembering to add it to a list.
+{
+  const NOTICE = /&copy; (\d{4}) Lexathon &middot; All rights reserved/;
+  const years = new Set();
+  const missing = [];
+  for (const page of pages) {
+    const m = read(page).match(NOTICE);
+    if (!m) missing.push(page);
+    else years.add(m[1]);
+  }
+  ck('every page carries the copyright notice', missing.length === 0, missing.join(','));
+  ck('and all of them say the same year', years.size === 1, [...years].join(','));
+}
+// Published, but not given away. An empty or missing LICENSE on a public
+// repository reads as "help yourself", which is the opposite of the point.
+{
+  const licence = read('LICENSE');
+  ck('there is a LICENSE', licence.length > 400, String(licence.length));
+  ck('it reserves rights rather than granting them', /All rights reserved/.test(licence), licence.slice(0, 60));
+  ck('it says publishing the source is not a licence to it',
+     /not a grant of any\s+licence/.test(licence), licence.slice(0, 120));
+  ck('and it names the mark it is protecting', /"Lexathon"/.test(licence));
+}
+
 const seen = { title: new Map(), desc: new Map() };
 for (const page of pages) {
   const src = read(page);
