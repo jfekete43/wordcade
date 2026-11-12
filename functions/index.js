@@ -2511,8 +2511,12 @@ function tweetName(raw) {
 function tweetDate(dateStr) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ""))) return "";
   const [y, m, d] = String(dateStr).split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  // Same rollover guard as marathonWeekLabel, for the same reason: the
+  // regex above pins the shape and Date.UTC happily accepts month 13.
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return "";
   return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" })
-    .format(new Date(Date.UTC(y, m - 1, d)));
+    .format(t);
 }
 
 function tweetRow(r, i, mode) {

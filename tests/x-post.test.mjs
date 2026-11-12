@@ -618,6 +618,24 @@ ck(/\.slice\(0, 12\)/.test(func('channelId')),
      (fn.match(/const creds = [^\n]*/) || [''])[0].trim());
 }
 
+// The regex in front of tweetDate pins the SHAPE of a date, not its
+// existence, and Date.UTC rolls a month 13 into the next year rather than
+// rejecting it. A digest heading that names a week nobody played is worse
+// than one that names none, so an impossible key gets no label.
+{
+  const tDate = new Function(`${func('tweetDate')}\nreturn tweetDate;`)();
+  eq('a real date is named', tDate('2026-11-02'), 'Nov 2');
+  eq('the last day of a month is real', tDate('2026-01-31'), 'Jan 31');
+  eq('and the first of the next one', tDate('2026-02-01'), 'Feb 1');
+  eq('a leap day in a leap year is real', tDate('2028-02-29'), 'Feb 29');
+  for (const impossible of ['2026-13-99', '2026-02-30', '2026-00-10', '2026-11-00', '2027-02-29']) {
+    eq(`${impossible} names no day, so it is not labelled`, tDate(impossible), '');
+  }
+  for (const junk of ['', 'sometime', '2026-11-2', null, undefined]) {
+    eq(`${JSON.stringify(junk)} is not a date either`, tDate(junk), '');
+  }
+}
+
 let bad = 0;
 for (const [ok, name, detail] of t) {
   if (!ok) bad++;

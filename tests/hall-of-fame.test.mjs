@@ -198,12 +198,17 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
 {
   const rowSrc = between(html, 'finalData.forEach((entry, index) => {', '\n                        });');
   const row = new Function('entry', 'index', 'currentLbTime', 'escapeHtml', 'safeCosmetic',
-    'titleText', 'getRankDetails', 'lbScoreText', 'boardDate',
+    'titleText', 'getRankDetails', 'lbScoreText', 'boardDate', 'marathonWeekLabel',
     `let html = ""; const finalData = [entry];\n${rowSrc}\n});\nreturn html;`);
-  const call = (mode, ts) => row(
+  // The real one, not a stub: the week label is the thing under test below,
+  // and a stub would only prove the test can spell its own return value.
+  const weekLabel = new Function(
+    between(html, 'function marathonWeekLabel(key) {', '\n        }')
+    + '\n}\nreturn marathonWeekLabel;')();
+  const call = (mode, ts, title = '') => row(
     { name: 'SODA', score: 4600, equipped: {}, ts }, 0, mode,
-    (x) => String(x), (v, f) => f, () => '', () => ({ class: '', name: 'BRONZE' }),
-    (m, sc) => String(sc), (x) => (x ? '10/2/2026' : ''));
+    (x) => String(x), (v, f) => f, () => title, () => ({ class: '', name: 'BRONZE' }),
+    (m, sc) => String(sc), (x) => (x ? '10/2/2026' : ''), weekLabel);
 
   ck(call('all', true).includes('10/2/2026'), 'the Stakes tab stamps its rows', call('all', true));
   for (const mode of ['career', 'clash', 'ffa', 'daily', 'sprint']) {
@@ -216,6 +221,31 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
   const sub = (markup) => (markup.match(/class="lb-date"[^>]*>([\s\S]*?)<\/div>/) || [, 'NO SUB-LINE'])[1];
   eq('a player with no stored timestamp is stamped with nothing', sub(call('all', null)), '');
   ck(!/\s-\s/.test(sub(call('all', null))), '...not even the dash in front of it', sub(call('all', null)));
+
+  // The sub-line joins an equipped title and a stamp, and the separator
+  // belongs to the TITLE: most players have no title, and a dash with
+  // nothing on its left is not a separator, it is a typo. This was wrong on
+  // Stakes for as long as Stakes has stamped rows.
+  const subText = (markup) => sub(markup).replace(/<[^>]*>/g, '');
+  eq('a title and a stamp are joined', subText(call('all', true, 'Final Boss')),
+     'Final Boss - 10/2/2026');
+  eq('a stamp with no title stands alone', subText(call('all', true)), '10/2/2026');
+  eq('a title with no stamp stands alone', subText(call('all', null, 'Final Boss')), 'Final Boss');
+  eq('and neither is nothing at all', subText(call('all', null)), '');
+
+  // Marathon ranks a best WEEK, so naming the week is the same half-claim a
+  // date makes on Stakes - and it says "Week of", the way the Profile and the
+  // share already do, rather than a bare date that could be read as a day.
+  const mara = call('marathon', '2026-11-02');
+  ck(mara.includes('Week of'), 'the Marathon tab names the week its best came from', sub(mara));
+  ck(/Nov\s*2/.test(mara), '...and names the right one', sub(mara));
+  ck(!mara.includes('10/2/2026'),
+     '...through the week helper, not the run-date formatter', sub(mara));
+  // Bests set before the week started being recorded have no key at all.
+  for (const missing of [null, undefined, '', 'sometime', '2026-13-99']) {
+    eq(`a Marathon best stored without a usable week (${JSON.stringify(missing)}) is stamped with nothing`,
+       sub(call('marathon', missing)), '');
+  }
 }
 
 {
@@ -281,6 +311,40 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
   ck(!M.isPreTrifectaBest(null), 'and nothing at all is not an error');
   ck(M.isPreTrifectaBest({ bestGauntletScore: 900, bestGauntletDate: 'sometime' }),
      'a malformed date is treated as no date rather than trusted');
+}
+
+// The row above is handed a ts; this is where a ts comes FROM. Run, not
+// matched: the branch is lifted whole and driven with a fake snapshot, so
+// both halves of its claim - rank by best week, stamp with the week that
+// best came from - are exercised rather than spelled.
+{
+  const src = between(html, "else if (currentLbTime === 'marathon') {", '\n                        }');
+  const body = src.slice(src.indexOf('{') + 1);
+  const ordered = [];
+  const run = async (docs) => {
+    const rawData = [];
+    const fn = new Function('rawData', 'getDocs', 'query', 'collection', 'orderBy', 'limit', 'db',
+      `return (async () => {${body}})();`);
+    await fn(rawData,
+      async (q) => ({ forEach: (cb) => docs.forEach((d) => cb({ id: d.uid, data: () => d })) }),
+      (...a) => a, () => 'users',
+      (field, dir) => { ordered.push(field + ' ' + dir); return 'orderBy'; },
+      (n) => 'limit' + n, {});
+    return rawData;
+  };
+
+  const rows = await run([
+    { uid: 'u1', username: 'SODA', bestMarathonScore: 7200, bestMarathonWeek: '2026-11-02', equipped: {} },
+    { uid: 'u2', username: 'OLD' },
+  ]);
+  ck(ordered.includes('bestMarathonScore desc'),
+     'the Marathon board ranks by best WEEK, all-time, not a career total', ordered.join(' / '));
+  eq('and carries that week onto the row', rows[0].ts, '2026-11-02');
+  eq('under the score it belongs to', rows[0].score, 7200);
+  // A best set before the week started being stored has none, and the row
+  // renderer turns that into no stamp (checked above) rather than a guess.
+  eq('a best with no stored week carries none', rows[1].ts, undefined);
+  eq('and still ranks, at zero', rows[1].score, 0);
 }
 
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);

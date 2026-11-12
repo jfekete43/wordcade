@@ -4121,7 +4121,12 @@
         function marathonWeekLabel(key) {
             if (!/^\d{4}-\d{2}-\d{2}$/.test(key || "")) return "";
             const [y, m, d] = key.split("-").map(Number);
-            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined,
+            const t = new Date(Date.UTC(y, m - 1, d));
+            // The regex pins the SHAPE, not the date: Date.UTC rolls over, so
+            // "2026-13-99" comes back as Apr 9 2027. A label that invents a
+            // week is worse than no label, so an impossible key gets none.
+            if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return "";
+            return t.toLocaleDateString(undefined,
                 { month: "short", day: "numeric", timeZone: "UTC" });
         }
 
@@ -4777,7 +4782,7 @@
                             // Trifecta's best single day. A career total would
                             // rank whoever has been here longest.
                             const snapshot = await getDocs(query(collection(db, "users"), orderBy("bestMarathonScore", "desc"), limit(100)));
-                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestMarathonScore || 0, equipped: d.equipped }); });
+                            snapshot.forEach(doc => { const d = doc.data(); rawData.push({ uid: doc.id, name: d.username, score: d.bestMarathonScore || 0, ts: d.bestMarathonWeek, equipped: d.equipped }); });
                         }
                         else if (currentLbTime === 'sprint') {
                             // Best STREAK, not best score. A Sprint tops out at
@@ -4814,8 +4819,21 @@
                             // Through boardDate, which is also what the ten-row
                             // card uses: this tab and that card are the same
                             // board at two depths.
-                            const when = currentLbTime === 'all' ? boardDate(entry.ts) : "";
-                            const dateStr = when ? `<span style="font-weight:normal;"> - ${escapeHtml(when)}</span>` : "";
+                            // Marathon names its week instead, through the
+                            // same helper the Profile and the share use, so
+                            // all three say "Week of Nov 2" and not three
+                            // different things. A best set before the week
+                            // was recorded has no key, and the helper
+                            // returns "" for that rather than inventing one.
+                            const mWeek = currentLbTime === 'marathon' ? marathonWeekLabel(entry.ts) : "";
+                            const when = currentLbTime === 'all' ? boardDate(entry.ts)
+                                : mWeek ? 'Week of ' + mWeek
+                                : "";
+                            // No separator baked in: it belongs to the title, and
+                            // most players have none. A dash with nothing on its
+                            // left is not a separator, it is a typo - which is what
+                            // sat under every untitled player on Stakes.
+                            const dateStr = when ? `<span style="font-weight:normal;">${escapeHtml(when)}</span>` : "";
                             let eq = entry.equipped || {}; let bannerClass = safeCosmetic(eq.banner, 'banner_default'); let nameClass = safeCosmetic(eq.effect, 'effect_none');
                             let titleStr = escapeHtml(titleText(eq));
                             // Both rating boards show the tier the number puts
@@ -4825,7 +4843,7 @@
                                 titleStr = `<span class="${rankObj.class}" style="text-transform:uppercase;">${rankObj.name}</span>`;
                             }
             
-                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${dateStr}</div></div><div class="lb-score">${entry.live ? STREAK_FLAME : ""}${lbScoreText(currentLbTime, entry.score)}</div></div>`;
+                            html += `<div class="lb-entry ${bannerClass}"><div class="lb-rank">#${index + 1}</div><div class="lb-name-col"><div class="lb-name ${nameClass}">${escapeHtml(entry.name || "Guest")}</div><div class="lb-date" style="color:var(--c-clash);">${titleStr}${titleStr && dateStr ? " - " : ""}${dateStr}</div></div><div class="lb-score">${entry.live ? STREAK_FLAME : ""}${lbScoreText(currentLbTime, entry.score)}</div></div>`;
                         }); 
                         // A rating board only indexes players who have earned a
                         // rating, so a brand-new one really is empty rather than
