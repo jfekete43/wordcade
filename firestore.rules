@@ -191,6 +191,13 @@ service cloud.firestore {
         // above was pinned for.
         && !('sprintWins' in request.resource.data)
         && !('marathonWins' in request.resource.data)
+        // Stakes' two, settled by the daily maintenance job rather than by a
+        // Cloud Function - a Stakes run carries no date key, so the window
+        // has to be cut from timestamps, which is work the job already does
+        // to build the day's board. Same argument for pinning them either
+        // way: a client that can write these can award itself the season.
+        && !('dayWins' in request.resource.data)
+        && !('weekWins' in request.resource.data)
         // Each of these gates a one-time career challenge, and claimChallenge
         // pays out against whatever the user document SAYS: a profile that
         // arrives claiming ten clean Trifectas is paid for ten clean

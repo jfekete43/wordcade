@@ -2446,10 +2446,22 @@
 
             <!-- STANDARD STATS -->
             <div id="profile-standard" class="modal-stats" style="text-align: left;">
-                <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: var(--c-present); font-size: var(--fs-6);">0</span> pts</div>
+                <div style="text-align: center; margin-bottom: 20px;">Career Bank: <br><span id="stat-career-bank" style="color: var(--c-present); font-size: var(--fs-6);">0</span> pts
+                    <!-- Where that bank puts you, counted live. A position
+                         rather than a count, so it belongs with the number it
+                         is a position on and not in a row of tallies. -->
+                    <div id="stat-standing" style="font-size: var(--fs-2); color: var(--c-ink-4); margin-top: 4px;">&nbsp;</div>
+                </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
                     <div style="text-align: center;">🔥 Login Streak<br><span id="stat-login-streak" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                     <div style="text-align: center;">🎯 Best No-Miss<br><span id="stat-nomiss-streak" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                </div>
+                <!-- Board wins: how often you finished first, as opposed to how
+                     much you played. Settled once a day and once a week by the
+                     maintenance job, never by the client. -->
+                <div style="display: flex; margin-bottom: var(--s-6); color: var(--c-ink-4); font-size: var(--fs-2); padding: 0 var(--s-3);">
+                    <div style="text-align: center; flex: 1 1 0; min-width: 0;">&#129351; Daily Wins<br><span id="stat-day-wins" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
+                    <div style="text-align: center; flex: 1 1 0; min-width: 0;">&#127942; Weekly Wins<br><span id="stat-week-wins" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: var(--c-ink-3); font-size: var(--fs-3); padding: 0 5px;">
                     <div style="text-align: center;">Played<br><span id="stat-played" style="color:var(--c-ink); font-size: var(--fs-5);">0</span></div>
@@ -4003,6 +4015,41 @@
             } catch(e) { return "?"; }
         }
         
+        /*
+         * Where you sit on the all-time Stakes board.
+         *
+         * Counted, not ranked: one aggregation query for how many players are
+         * ahead of your best run, +1. That is exact at any size and costs a
+         * single read, where fetching the board and finding yourself in it
+         * would cost one per player and still only see the top hundred.
+         * Same instrument renderHomeBoardYou() uses, for the same reason.
+         *
+         * Painted after the panel rather than with it: the panel is already
+         * open by the time this resolves, and a profile that waits on a
+         * network round trip to show a career bank it already has is worse
+         * than one number arriving a moment late.
+         */
+        async function renderStakesStanding(data) {
+            const el = document.getElementById("stat-standing");
+            if (!el) return;
+            const mine = Math.max(0, Number(data && data.bestRunScore) || 0);
+            // No best run is no position on the board - not #1 by default and
+            // not last either. The board does not list you yet, so say that
+            // rather than a number that would be a lie in either direction.
+            if (mine <= 0) { el.innerText = "Unranked"; return; }
+            el.innerText = "\u2026";
+            try {
+                const ahead = await getCountFromServer(
+                    query(collection(db, "users"), where("bestRunScore", ">", mine)));
+                el.innerText = "#" + (ahead.data().count + 1).toLocaleString() + " all-time";
+            } catch (e) {
+                // A failed count is not "unranked" either - it is not known.
+                // Blank the line rather than report a position nobody counted.
+                console.error("Stakes standing lookup failed", e);
+                el.innerText = "\u00A0";
+            }
+        }
+
         window.openProfileMenu = async function() {
                 document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
                 if (userProfileData.isGuest) { document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`; document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block"; } 
@@ -4026,6 +4073,12 @@
                     document.getElementById("stat-played").innerText = played; 
                    document.getElementById("stat-win-rate").innerText = winRate + "%";
                     document.getElementById("stat-avg-score").innerText = avgScore.toLocaleString();
+                    // Settled counters, read straight off the doc. A player who
+                    // has never won has no field rather than a stored zero, which
+                    // reads the same here and costs nothing to store.
+                    document.getElementById("stat-day-wins").innerText = (data.dayWins || 0).toLocaleString();
+                    document.getElementById("stat-week-wins").innerText = (data.weekWins || 0).toLocaleString();
+                    renderStakesStanding(data);
                     let distHtml = ""; const counts = [data.guess1 || 0, data.guess2 || 0, data.guess3 || 0, data.guess4 || 0, data.guess5 || 0, fails]; const labels = ["1", "2", "3", "4", "5", "X"]; let trueMax = Math.max(...counts, 1); 
                     for(let i = 0; i < 6; i++) {
                         let pct = Math.round((counts[i] / trueMax) * 100); let barColor = i === 5 ? "var(--c-loss)" : "var(--c-correct)"; let justify = pct > 10 ? "flex-end" : "flex-start"; let pad = pct > 10 ? "padding-right: 8px;" : "padding-left: 8px; color: var(--c-ink-3);";

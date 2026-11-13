@@ -24,6 +24,7 @@
  * account (Cloud Shell, or a GitHub Action with the key in Secrets).
  */
 import * as B from "./daily-board.mjs";
+import { awardWin } from "./award-win.mjs";
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -51,7 +52,7 @@ if (one) {
 console.log(`building ${dates.length} day(s): ${dates.join(", ")}  (today is ${today} Eastern)`);
 
 const { initializeApp, applicationDefault, getApps } = await import("firebase-admin/app");
-const { getFirestore, Timestamp } = await import("firebase-admin/firestore");
+const { getFirestore, Timestamp, FieldValue } = await import("firebase-admin/firestore");
 if (!getApps().length) initializeApp({ credential: applicationDefault() });
 const db = getFirestore();
 
@@ -74,6 +75,7 @@ const etMidnight = (dayKey) => {
 };
 
 let written = 0;
+let awarded = 0;
 for (const date of dates) {
   const start = etMidnight(date);
   const end = etMidnight(B.shiftDay(date, 1));
@@ -81,13 +83,25 @@ for (const date of dates) {
     .where("timestamp", ">=", Timestamp.fromDate(start))
     .where("timestamp", "<", Timestamp.fromDate(end))
     .get();
-  const board = B.buildDayBoard(date, snap.docs.map((d) => d.data()));
+  const runs = snap.docs.map((d) => d.data());
+  const board = B.buildDayBoard(date, runs);
   const line = `  ${date}  ${String(snap.size).padStart(4)} run(s) -> ${board.top.length} row(s), ${board.players} player(s)`
     + (board.top.length ? `  top: ${board.top[0].name} ${board.top[0].score.toLocaleString()}` : "  (nobody)");
   console.log(line);
   if (!DRY) {
     await db.collection("dailyBoards").doc(date).set({ ...board, builtAt: Timestamp.now() });
     written++;
+    // Settled from the same runs the board was drawn from, so the counter and
+    // the board a player is looking at can never disagree about who won.
+    // Claim-guarded, so re-running a day - a retried workflow, or --days over
+    // a range to backfill - pays nobody twice.
+    const win = await awardWin(db, FieldValue, {
+      claim: `standardDay_${date}`, field: "dayWins", uids: B.topWinners(runs),
+    });
+    awarded += win.awarded ? 1 : 0;
+    console.log(`    win ${date}: ` + (win.awarded
+      ? `awarded to ${win.winners.length}` : win.reason));
   }
 }
-console.log(DRY ? "\n--dry-run: nothing written" : `\nwrote ${written} board document(s)`);
+console.log(DRY ? "\n--dry-run: nothing written"
+  : `\nwrote ${written} board document(s), settled ${awarded} new day win(s)`);

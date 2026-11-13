@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       all:
-        description: "Rebuild every past day instead of just yesterday"
+        description: "Rebuild every past day, and backfill 60 days / 20 weeks of board wins"
         type: boolean
         default: false
       cleanup_dry_run:
@@ -101,7 +101,17 @@ jobs:
         if: always()
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: node tools/build-daily-boards.mjs
+        run: node tools/build-daily-boards.mjs ${{ inputs.all && '--days=60' || '' }}
+
+      # Settles the Stakes week once it is finished. Runs every day, not just
+      # on Mondays: the award is claim-guarded, so a week already settled is
+      # skipped, and a missed or failed Monday heals itself the next morning
+      # instead of losing that week's win for good.
+      - name: Settle last week's Stakes win
+        if: always()
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: node tools/build-week-wins.mjs ${{ inputs.all && '--weeks=20' || '' }}
 
       # Runs regardless of the archive's outcome, and without --legacy: the
       # recurring path only ever deletes matches with a server-stamped
