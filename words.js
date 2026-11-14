@@ -1513,7 +1513,6 @@ quart
 quash
 quasi
 queen
-queer
 quell
 query
 quest
@@ -9579,6 +9578,7 @@ quayd
 quays
 qubit
 quean
+queer
 queme
 quena
 quern
