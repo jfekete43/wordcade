@@ -1332,9 +1332,30 @@ exports.changeUsername = onCall(async (request) => {
   }
 
   const userRef = db.collection("users").doc(uid);
+
+  // Today's per-day run documents carry a frozen copy of the handle, and that
+  // copy is what the Sprint board and the morning digest actually rank - so
+  // without this a player renamed themselves and their own board kept calling
+  // them the old thing. onEquippedChanged already patches these same two
+  // documents for cosmetics; username is the field it does not touch, which
+  // is why a new banner used to appear beside an old name on one row.
+  //
+  // Bounded on purpose: today's documents, reached by exact id, never a query
+  // over a player's history. Renaming someone with a thousand runs would be a
+  // thousand writes, and a finished day is a record of who played it under
+  // that name - the same reasoning the stored day boards keep that day's
+  // cosmetics rather than re-resolving them.
+  const today = getTodayDateStr();
+  const runRefs = PER_DAY_RUN_MODES.map((mode) => db.collection("runs").doc(runDocId(mode, uid, today)));
+
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef);
     if (!snap.exists) throw new HttpsError("not-found", "Profile not found.");
+    // Every read before any write - a Firestore transaction requires it - so
+    // today's runs are fetched here rather than after the update below. getAll
+    // on ids that do not exist returns missing snapshots rather than throwing,
+    // so a player who has not played today costs two reads and writes nothing.
+    const runSnaps = await tx.getAll(...runRefs);
     const data = snap.data();
     // Renaming is free. It used to cost 5,000 pts after the first one, which
     // is a toll on the one thing a new player wants to fix about their
@@ -1346,6 +1367,11 @@ exports.changeUsername = onCall(async (request) => {
       usernameLower: name.toLowerCase(),
       handleChanges: (data.handleChanges || 0) + 1,
     });
+    // In the SAME transaction as the rename, so there is no window where a
+    // player's profile says one name and today's board says another.
+    for (const runSnap of runSnaps) {
+      if (runSnap.exists) tx.update(runSnap.ref, { username: name });
+    }
     // `cost` is still reported, and is still zero. A browser on a cached copy
     // of index.html subtracts this from its local wallet, and dropping the
     // field would make that `wallet -= undefined`.

@@ -14,6 +14,19 @@
  * outside /runs (a write to /users would retrigger it), and it leaves past
  * days alone.
  *
+ * A run carries a frozen copy of the player's NAME for the same reason, and
+ * that one had no fix at all: renaming yourself left the Sprint board and the
+ * morning digest calling you the old thing, while the Hall of Fame tab one tap
+ * away - which reads /users - called you the new one. On a single row a new
+ * banner appeared beside an old name, because the trigger above patches
+ * `equipped` and only `equipped`.
+ *
+ * changeUsername patches the same two documents, in the same transaction as
+ * the rename, so there is no window where the profile and the board disagree.
+ * Deliberately bounded to TODAY: patching a player's whole history is one
+ * write per run, and a finished day is a record of who played it under that
+ * name. The second half of this file covers that.
+ *
  * The real handler is lifted out and run against a fake Firestore.
  *
  * Pure; no emulator, no browser.
@@ -279,6 +292,94 @@ const same = new Function(`${grab(fn, /function wornMap\(value\) \{\n[\s\S]*?\n\
   eq('anywhere else nothing is reloaded', run(false), []);
   ck(/applyEquippedCosmetics\(\); refreshModeBoard\(\)/.test(html),
      'and equipping something is what calls it');
+}
+
+// ---- the other frozen field: the handle ------------------------------------
+{
+  const start = fn.indexOf('exports.changeUsername = onCall(');
+  const open = fn.indexOf('async (request) => {', start);
+  let d = 0, body = '';
+  for (let k = fn.indexOf('{', open); k < fn.length; k++) {
+    if (fn[k] === '{') d++;
+    else if (fn[k] === '}') { d--; if (!d) { body = fn.slice(open, k + 1); break; } }
+  }
+  ck(body.length > 200, 'lifted the real changeUsername handler', String(body.length));
+
+  const rename = async ({ runsToday = ['sprint'], noProfile = false, name = 'NEWNAME' } = {}) => {
+    const writes = [], reads = [], order = [];
+    let txs = 0;
+    const docs = new Map();
+    // A Map key set to undefined still answers has() true, so an absent
+    // profile has to be an absent KEY.
+    if (!noProfile) docs.set('users/u1', { username: 'OLDNAME', handleChanges: 2 });
+    for (const m of runsToday) docs.set(`runs/${m}_u1_2026-11-14`, { username: 'OLDNAME', score: 500 });
+    const ref = (path) => ({ path });
+    const snapOf = (r) => ({ exists: docs.has(r.path), data: () => docs.get(r.path), ref: r });
+    const db = {
+      collection: (c) => ({ doc: (id) => ref(`${c}/${id}`) }),
+      runTransaction: async (f) => {
+        txs++;
+        const out = await f({
+          get: async (r) => { order.push('read'); reads.push(r.path); return snapOf(r); },
+          getAll: async (...rs) => { order.push('read'); rs.forEach((r) => reads.push(r.path)); return rs.map(snapOf); },
+          update: (r, v) => { order.push('write'); writes.push({ path: r.path, v }); },
+        });
+        // Firestore rejects a read issued after a write in the same
+        // transaction. The fake enforces it so the ordering is a property of
+        // the code rather than of the order it happens to be written in.
+        const fw = order.indexOf('write'), lr = order.lastIndexOf('read');
+        if (fw >= 0 && lr > fw) throw new Error('READ AFTER WRITE in transaction');
+        return out;
+      },
+    };
+    const handler = new Function('requireAuth', 'HANDLE_MAX', 'HttpsError', 'HANDLE', 'handleTaken',
+      'db', 'getTodayDateStr', 'runDocId', 'PER_DAY_RUN_MODES', `return (${body});`)(
+      () => 'u1', 12, class extends Error { constructor(c, m) { super(m); this.code = c; } },
+      { isBlockedHandle: () => false }, async () => false,
+      db, () => '2026-11-14', (m, u, dd) => `${m}_${u}_${dd}`, ['daily', 'sprint']);
+    const result = await handler({ data: { username: name } });
+    return { writes, reads, txs, result };
+  };
+
+  const r = await rename({ runsToday: ['sprint'] });
+  eq('the rename and the run patch are ONE transaction', r.txs, 1);
+  ck(r.writes.some((w) => w.path === 'users/u1' && w.v.username === 'NEWNAME'),
+     'the profile is renamed', JSON.stringify(r.writes));
+  ck(r.writes.some((w) => w.path === 'runs/sprint_u1_2026-11-14' && w.v.username === 'NEWNAME'),
+     "today's Sprint run is renamed with it - which is what the board ranks",
+     JSON.stringify(r.writes));
+  const runWrite = r.writes.find((w) => w.path.startsWith('runs/')) || { v: {} };
+  eq('and only the name is touched, not the score or the cosmetics',
+     Object.keys(runWrite.v), ['username']);
+
+  const absent = await rename({ runsToday: [] });
+  eq('a player who has not played today writes no run at all',
+     absent.writes.filter((w) => w.path.startsWith('runs/')).length, 0);
+  ck(absent.writes.some((w) => w.path === 'users/u1'), '...but is still renamed',
+     JSON.stringify(absent.writes));
+
+  const both = await rename({ runsToday: ['daily', 'sprint'] });
+  eq('both per-day modes are patched',
+     both.writes.filter((w) => w.path.startsWith('runs/')).map((w) => w.path).sort(),
+     ['runs/daily_u1_2026-11-14', 'runs/sprint_u1_2026-11-14']);
+  // Bounded: exact ids, never a query. A rename must not cost a write per run
+  // the player has ever recorded.
+  eq('three reads - the profile and the two run ids', both.reads.length, 3);
+  ck(both.reads.every((pth) => pth === 'users/u1' || /^runs\/(daily|sprint)_u1_2026-11-14$/.test(pth)),
+     'reached by exact id, with no query over the player history', both.reads.join(', '));
+  ck(!both.writes.some((w) => /_2026-11-13$/.test(w.path)),
+     'and yesterday is left alone - a finished day records who played it then',
+     both.writes.map((w) => w.path).join(', '));
+
+  let threw = null;
+  try { await rename({ noProfile: true }); } catch (e) { threw = e.message; }
+  ck(/Profile not found/.test(threw || ''), 'a missing profile still refuses', String(threw));
+
+  // The board behind the menu has to be told, the same way equipping tells it.
+  const handler = html.slice(html.indexOf('const result = await callChangeUsername('),
+                             html.indexOf('const result = await callChangeUsername(') + 900);
+  ck(/refreshModeBoard\(\)/.test(handler),
+     'and the client repaints the board it was renamed in front of', handler.slice(0, 200));
 }
 
 let bad = 0;

@@ -3781,6 +3781,11 @@
                     // Update the input field visually so the user sees the sanitized version
                     document.getElementById("username-input").value = userProfileData.username;
 
+                    // The board behind the menu ranks /runs, and the rename just
+                    // patched today's rows server-side - so reload it for the same
+                    // reason equipping does: the player should close their way back
+                    // out to a board that already calls them the new name.
+                    refreshModeBoard();
                     alert("Success! Your Arcade Handle is now: " + userProfileData.username);
                     document.getElementById('profile-modal').style.display='none';
                     document.getElementById('main-menu-modal').style.display='flex';

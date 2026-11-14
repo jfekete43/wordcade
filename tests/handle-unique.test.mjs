@@ -50,6 +50,13 @@ const SRC = {
   unique: grab(fn, /async function uniqueHandle\(base, uid\) \{\n[\s\S]*?\n\}/, 'uniqueHandle'),
   change: grab(fn, /exports\.changeUsername = onCall\(async \(request\) => \{\n[\s\S]*?\n\}\);/, 'changeUsername'),
   created: grab(fn, /exports\.onUserProfileCreated = onDocumentCreated\("users\/\{userId\}", async \(event\) => \{\n[\s\S]*?\n\}\);/, 'onUserProfileCreated'),
+  // changeUsername also patches today's run documents, so the handle a board
+  // ranks cannot outlive the rename. Those three come along because the
+  // handler names them; what they do is covered by equip-refresh, which has a
+  // Firestore with runs in it.
+  today: grab(fn, /function getTodayDateStr\(\) \{\n[\s\S]*?\n\}/, 'getTodayDateStr'),
+  runId: grab(fn, /function runDocId\(mode, uid, dateStr\) \{[^\n]*\}/, 'runDocId'),
+  perDay: grab(fn, /const PER_DAY_RUN_MODES = \[[^\]]*\];/, 'PER_DAY_RUN_MODES'),
 };
 console.log('lifted from functions/index.js:', Object.values(SRC).join('').length, 'chars');
 
@@ -77,6 +84,10 @@ const fakeDb = (users) => {
     }),
     runTransaction: async (body) => body({
       get: async (ref) => ({ exists: Object.hasOwn(users, ref.id), data: () => users[ref.id] }),
+      // This store holds users and nothing else, so a run id reads as absent
+      // and changeUsername writes none - which is the point here: renaming
+      // must still work for a player who has not played today.
+      getAll: async (...refs) => refs.map((ref) => ({ exists: false, ref })),
       update: (ref, patch) => { writes.push([ref.id, patch]); Object.assign(users[ref.id], patch); },
     }),
   };
@@ -87,7 +98,8 @@ const lift = (db, parts) => {
   const exported = {};
   const helpers = new Function('exports', 'db', 'HANDLE', 'HttpsError', 'onCall', 'onDocumentCreated',
     'requireAuth', 'FieldValue', 'console',
-    `${SRC.max}\n${SRC.taken}\n${SRC.unique}\n${parts.map((k) => SRC[k]).join('\n')}\n` +
+    `${SRC.max}\n${SRC.taken}\n${SRC.unique}\n${SRC.today}\n${SRC.runId}\n${SRC.perDay}\n` +
+    `${parts.map((k) => SRC[k]).join('\n')}\n` +
     `return { handleTaken, uniqueHandle };`)
     (exported, db, HANDLE, FakeHttpsError, (h) => h, (_p, h) => h,
      (req) => req.auth.uid, { increment: (n) => ({ __inc: n }) }, { warn() {}, error() {} });
