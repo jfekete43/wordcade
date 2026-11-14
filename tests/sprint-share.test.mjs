@@ -102,7 +102,7 @@ const attempt = (rows, over) => ({
     { solved: true, score: 150, elapsedMs: 64300 }));
   const lines = out.message.split('\n');
   eq('heading, one row per guess, result', lines.length, 5);
-  eq('the heading numbers the puzzle', lines[0], '🕹️ Lexathon Sprint #13');
+  eq('the heading numbers the puzzle', lines[0], '⚡ Lexathon Sprint #13');
   eq('the grid is one line per guess, in the board\'s own colours',
      lines.slice(1, 4), ['⬜🟧⬜⬜⬜', '🟦🟦⬜🟧⬜', '🟦🟦🟦🟦🟦']);
   eq('the result is the clock, then the points',
@@ -144,7 +144,7 @@ const attempt = (rows, over) => ({
   // rather than reading "#0" or "#-3".
   const before = buildShare({ ...attempt([row('22222')], { solved: true, score: 500, elapsedMs: 1000 }), date: '2020-01-01' });
   eq('a date before the epoch drops the number rather than printing a silly one',
-     before.message.split('\n')[0], '🕹️ Lexathon Sprint');
+     before.message.split('\n')[0], '⚡ Lexathon Sprint');
 }
 
 // ---- one route out ----------------------------------------------------------

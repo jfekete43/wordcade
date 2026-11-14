@@ -6317,7 +6317,7 @@
                 : `\u274C X/${SPRINT_MAX_GUESSES}`;
 
             const num = sprintNumber(sprintAttempt.date);
-            const heading = num ? `\u{1F579}\uFE0F Lexathon Sprint #${num}` : "\u{1F579}\uFE0F Lexathon Sprint";
+            const heading = num ? `\u26A1 Lexathon Sprint #${num}` : "\u26A1 Lexathon Sprint";
             const shareMessage = `${heading}\n${grid}\n${resultLine}`;
             // Routed through the shared helper rather than calling
             // navigator.share directly: that is what keeps desktop on the
@@ -9027,7 +9027,7 @@
                 resultLine = "💀 Wiped out with nothing banked";
                 hook = "Think you can do better?";
             }
-            const shareMessage = `🕹️ Lexathon\n${resultLine}\n${hook}`;
+            const shareMessage = `\u{1F3B2} Lexathon\n${resultLine}\n${hook}`;
             shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score", { preview: false });
         }
 

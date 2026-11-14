@@ -2095,7 +2095,7 @@ function buildDigest({ mode, dateStr, rows, words }) {
   // posts actually needs.
   const n = isMarathon ? null : puzzleNumber(dateStr, isSprint ? SPRINT_EPOCH : TRIFECTA_EPOCH);
   const name = isSprint ? "Sprint" : isMarathon ? "Marathon" : "Trifecta";
-  const icon = isSprint ? "\u{1F579}️" : isMarathon ? "\u{1F3C3}" : "\u{1F525}";
+  const icon = isSprint ? "\u26A1" : isMarathon ? "\u{1F3C3}" : "\u{1F525}";
   const title = `${icon} Lexathon ${name}${n ? " #" + n : ""}`;
   const list = (words || []).filter(Boolean).map((w) => String(w).toUpperCase());
   // Marathon's answers are deliberately absent, not missing: twenty words is
@@ -2573,7 +2573,7 @@ function buildTweet({ mode, dateStr, rows, words, link = X_LINK }) {
   // Marathon has no epoch to number from - it ran monthly, then weekly - so
   // it carries the week instead, exactly as the Discord digest does.
   const n = isSprint ? puzzleNumber(dateStr, SPRINT_EPOCH) : null;
-  const icon = isSprint ? "\u{1F579}\uFE0F" : "\u{1F3C3}";
+  const icon = isSprint ? "\u26A1" : "\u{1F3C3}";
   const when = tweetDate(dateStr);
   const head = `${icon} Lexathon ${isSprint ? "Sprint" : "Marathon"}${n ? " #" + n : ""}`
     + (when ? ` \u00B7 ${isSprint ? "" : "Week of "}${when}` : "");

@@ -71,7 +71,7 @@ const endRunAndShare = new Function('kind', 'runScore', 'runWords', `
 
 // --- cashing out ----------------------------------------------------------
 let out = endRunAndShare('cashout', 12400, 31);
-ck(out.captured.message === '🕹️ Lexathon\n💰 Banked 12,400 pts · 31 words\nCan you beat it?',
+ck(out.captured.message === '🎲 Lexathon\n💰 Banked 12,400 pts · 31 words\nCan you beat it?',
    'a cash-out says what was banked and how many words', JSON.stringify(out.captured.message));
 ck(out.captured.message.split('\n').length === 3, 'heading, result, hook', out.captured.message.split('\n').length);
 ck(out.captured.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.captured.url));
@@ -86,7 +86,7 @@ ck(out.captured.defaultLabel === 'Share Score', 'and restores its own label', JS
 // --- the bug this file exists for ----------------------------------------
 out = endRunAndShare('wipeout', 12400, 31);
 ck(out.scoreAfter === 0, 'the wipeout path really did zero the live score first', String(out.scoreAfter));
-ck(out.captured.message === '🕹️ Lexathon\n💀 Wiped out — lost 12,400 pts · 31 words\nBank your points sooner than I did.',
+ck(out.captured.message === '🎲 Lexathon\n💀 Wiped out — lost 12,400 pts · 31 words\nBank your points sooner than I did.',
    'a wipeout reports the loss, not a cash-out', JSON.stringify(out.captured.message));
 // Matches the win line's verb, whatever it is called this week: the bug was a
 // wipeout announcing a payout it never made.
@@ -97,7 +97,7 @@ ck(!/\b0 pts\b/.test(out.captured.message), 'so no "0 pts" after a twelve-thousa
 // Wiped out holding nothing. "lost 0 pts" would be wrong as well as bleak, and
 // since score only ever rises alongside wordsGuessed, no points means no words.
 out = endRunAndShare('wipeout', 0, 0);
-ck(out.captured.message === '🕹️ Lexathon\n💀 Wiped out with nothing banked\nThink you can do better?',
+ck(out.captured.message === '🎲 Lexathon\n💀 Wiped out with nothing banked\nThink you can do better?',
    'nothing banked gets its own line rather than "lost 0 pts"', JSON.stringify(out.captured.message));
 ck(!/0 pts|0 words/.test(out.captured.message), 'and counts nothing', out.captured.message);
 
