@@ -3480,7 +3480,13 @@
             // point this line still offered a button that expandHomeBoard()
             // returns out of.
             boardLbTab = HOME_BOARDS[homeBoard].lb;
-            document.getElementById("home-board-more").style.display = boardLbTab ? "" : "none";
+            const moreBtn = document.getElementById("home-board-more");
+            moreBtn.style.display = boardLbTab ? "" : "none";
+            // Stakes' All Time card and the Hall of Fame's Stakes tab rank the
+            // same field, so here the name is honest: ten rows becoming a
+            // hundred. The card is shared, so the label is set per board
+            // rather than left wherever the last mode put it.
+            moreBtn.textContent = "Full leaderboard";
             // Sprint's, and only ever Sprint's — this card is shared.
             document.getElementById("sprint-archive-btn").style.display = "none";
         }
@@ -3580,6 +3586,18 @@
         let boardLbTab = HOME_BOARDS.all.lb;
 
         window.expandHomeBoard = function() {
+            // Sprint's card is TODAY's runs. The Hall of Fame's Sprint tab
+            // ranks all-time best STREAK - a different board, with a different
+            // player on top of it - so sending this button there answered a
+            // question nobody had asked. The full version of what the card is
+            // showing is that same day at full depth, which is exactly what
+            // the archive's day view renders, and which the Past Sprints
+            // button beside this one already opens for every other day.
+            if (boardLbTab === "sprint") {
+                window.openArchive("sprint");
+                window.viewPastDay(getTodayDateStr());
+                return;
+            }
             if (!boardLbTab) return;
             window.showLeaderboard();
             window.setLbTime(boardLbTab);
@@ -5667,7 +5685,11 @@
             }
             boardLbTab = "marathon";
             const moreEl = document.getElementById("home-board-more");
-            if (moreEl) moreEl.style.display = "";
+            // Named for what it opens. This card shows THIS week; the Hall of
+            // Fame's Marathon tab ranks each player's best week ever, so
+            // "Full leaderboard" would be the same lie Sprint's was. Marathon
+            // has no deep this-week view to point at yet.
+            if (moreEl) { moreEl.style.display = ""; moreEl.textContent = "All-time bests"; }
             const list = document.getElementById("daily-board-list");
             if (!list) return;
             try {
@@ -6368,11 +6390,11 @@
             const next = document.getElementById("daily-board-next");
             if (prev) prev.style.display = "none";
             if (next) next.style.display = "none";
-            // Sprint's own all-time board, a hundred deep, where this used
-            // to hide the way in entirely.
+            // Today's board, a hundred deep, where this used to hide the way
+            // in entirely.
             boardLbTab = "sprint";
             const more = document.getElementById("home-board-more");
-            if (more) more.style.display = "";
+            if (more) { more.style.display = ""; more.textContent = "Full leaderboard"; }
             const past = document.getElementById("sprint-archive-btn");
             if (past) past.style.display = sprintNumber(shiftDateStr(getTodayDateStr(), -1)) ? "block" : "none";
 

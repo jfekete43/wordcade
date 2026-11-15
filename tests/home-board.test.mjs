@@ -97,8 +97,10 @@ const expandSrc = 'function expandHomeBoard() {'
 const runExpand = (tab) => {
   const calls = [];
   // eslint-disable-next-line no-new-func
-  new Function('window', 'boardLbTab', `${expandSrc}; expandHomeBoard();`)(
-    { showLeaderboard: () => calls.push('open'), setLbTime: (t) => calls.push('tab:' + t) }, tab);
+  new Function('window', 'boardLbTab', 'getTodayDateStr', `${expandSrc}; expandHomeBoard();`)(
+    { showLeaderboard: () => calls.push('open'), setLbTime: (t) => calls.push('tab:' + t),
+      openArchive: (k) => calls.push('archive:' + k), viewPastDay: (d) => calls.push('day:' + d) },
+    tab, () => '2026-11-15');
   return calls;
 };
 // Driven through the home table, so a tab renamed there is still followed.
@@ -110,6 +112,33 @@ for (const name of Object.keys(HOME_BOARDS)) {
   deq(`the ${name} board ${lb ? 'opens ' + lb : 'offers no expand'}`,
       runExpand(lb), lb ? ['open', 'tab:' + lb] : []);
 }
+// SPRINT IS NOT THE HOME TABLE'S SHAPE. Every case above comes out of
+// HOME_BOARDS, and "sprint" is not in it - so nothing here ever ran the
+// Sprint case, and the button spent its life opening the wrong board. The
+// Sprint card ranks TODAY's runs; the Hall of Fame's Sprint tab ranks
+// all-time best streak, which is a different board with a different player
+// on top. Expanding has to deepen what is on screen, not swap it for
+// something else that happens to share a mode name.
+deq('Sprint expands into today at full depth', runExpand('sprint'),
+    ['archive:sprint', 'day:2026-11-15']);
+ck(!runExpand('sprint').some((c) => c === 'open' || c.startsWith('tab:')),
+   '...and does not open the Hall of Fame at all', runExpand('sprint').join(', '));
+
+// The card is shared by three modes, so whatever the button says has to be
+// set per board rather than left wherever the last mode put it.
+const labelFor = (anchorSrc) => {
+  const at = html.indexOf(anchorSrc);
+  if (at < 0) return null;
+  const m = html.slice(at, at + 900).match(/home-board-more"\)[\s\S]*?textContent = "([^"]+)"/);
+  return m ? m[1] : null;
+};
+eq('the home card calls it Full leaderboard - the same board, deeper',
+   labelFor('boardLbTab = HOME_BOARDS[homeBoard].lb;'), 'Full leaderboard');
+eq('so does Sprint, which now really does open that', labelFor('boardLbTab = "sprint";'), 'Full leaderboard');
+// Marathon's card shows THIS week and its tab ranks best week ever, so it is
+// named for what it opens rather than repeating Sprint's mistake.
+eq('Marathon is named for what it opens', labelFor('boardLbTab = "marathon";'), 'All-time bests');
+
 // And the home board actually sets it, or the button would open whichever
 // tab the last mode screen left behind.
 {
