@@ -2037,6 +2037,10 @@ const digestNum = (n) => Number(n || 0).toLocaleString("en-US");
  */
 const DIGEST_W = { place: 3, name: HANDLE_MAX, clock: 7, words: 4, score: 5 };
 
+// How deep a digest goes. Ten is what fits a Discord code block without
+// scrolling; the X post takes TWEET_ROWS off the top of the same list.
+const DIGEST_ROWS = 10;
+
 // The one extra column each mode earns, if any. Sprint's clock is the thing
 // its score cannot tell you - every solve is one of six values. Marathon's is
 // how far through the week you got, which separates a big score made of
@@ -2267,7 +2271,7 @@ exports.postDailyDigest = onSchedule({
     const snap = await db.collection("runs")
       .where("mode", "==", job.mode).where("puzzleDate", "==", dateStr)
       .orderBy("score", "desc").orderBy(job.tiebreak, job.dir)
-      .limit(10).get();
+      .limit(DIGEST_ROWS).get();
     // Nobody played. A daily "nobody played" post is a daily reminder that
     // nobody played, which is not what a leaderboard channel is for.
     if (snap.empty) { console.log(`digest ${label}: no runs, nothing to post`); continue; }
@@ -2336,18 +2340,32 @@ exports.postWeeklyDigest = onSchedule({
   const urls = webhookUrls(DISCORD_TRIFECTA_WEBHOOK.value());
   const creds = xCredentials();
 
-  const snap = await db.collection("users")
-    .where("marathonKey", "==", week)
-    .orderBy("marathonScore", "desc")
-    .limit(10).get();
-  if (snap.empty) { console.log(`digest ${label}: nobody played, nothing to post`); return; }
+  // Only marathon runs carry marathonKey, so one equality filter is the whole
+  // query and no composite index is needed for it.
+  const runSnap = await db.collection("runs").where("marathonKey", "==", week).limit(5000).get();
+  const standings = marathonStandings(runSnap.docs);
+  if (!standings.length) { console.log(`digest ${label}: nobody played, nothing to post`); return; }
 
+  const rows = standings.slice(0, DIGEST_ROWS);
+
+  // Names live rather than as the run froze them: a run carries the handle
+  // the player had when they played that word, and renaming is free. At most
+  // DIGEST_ROWS documents, fetched by exact id in one round trip, and a
+  // player who has since deleted their account keeps the name on the run.
+  const userSnaps = await db.getAll(...rows.map((r) => db.collection("users").doc(r.uid)));
+  rows.forEach((r, i) => {
+    const u = userSnaps[i];
+    if (u && u.exists && u.data().username) r.username = u.data().username;
+  });
+
+  // Settled off the same standings the post is built from, so the winner the
+  // counter credits is the winner the post names.
   await awardBoardWin("marathon", week,
-    topTied(snap.docs, (d) => Math.max(0, Number(d.data().marathonScore) || 0)).map((d) => d.id));
+    topTied(standings, (r) => r.marathonScore).map((r) => r.uid));
 
   const data = {
     mode: "marathon", dateStr: week, words: [],
-    rows: snap.docs.map((d) => marathonRow(d.data())),
+    rows: rows.map(marathonRow),
   };
   if (urls.length) {
     await deliverDigest({
@@ -2374,6 +2392,55 @@ exports.postWeeklyDigest = onSchedule({
  * Normalised at the query, so the renderers keep one row shape across every
  * mode instead of each learning which field this one hides its score in.
  */
+/*
+ * A finished Marathon week's standings, rebuilt from the week's own runs.
+ *
+ * NOT from /users, which is where the live board reads them. That document
+ * carries marathonKey - the week a player is CURRENTLY on - and onRunCreated
+ * moves it the moment they play the first word of the new week. So a query
+ * for "players whose marathonKey is last week" quietly loses everyone who
+ * has already started this one, and the Monday-morning digest runs nine
+ * hours into exactly that window. Two players, one of them an early riser,
+ * and the post named one of them while the win went to the runner-up.
+ *
+ * A marathon run carries the key of the week it BELONGS to and never moves,
+ * so the week still describes itself however long afterwards it is read.
+ * One document per word per player; marathonScore is the running total that
+ * word left them on, so a player's furthest word carries their final score.
+ *
+ * It costs a read per word per player instead of one per player, which is
+ * the trade the old query was making. At a week's real size that is tens of
+ * reads once a week, and the cheaper query was wrong.
+ */
+function marathonStandings(docs) {
+  const best = new Map();
+  for (const d of docs || []) {
+    const r = typeof d.data === "function" ? d.data() : d;
+    if (!r || !r.uid) continue;
+    const words = Math.max(0, Number(r.marathonWords) || 0);
+    const prev = best.get(r.uid);
+    if (!prev || words > prev.marathonWords) {
+      best.set(r.uid, {
+        uid: r.uid,
+        username: r.username,
+        marathonScore: Math.max(0, Number(r.marathonScore) || 0),
+        marathonWords: words,
+      });
+    }
+  }
+  // Shaped like the /users row this replaced, so marathonRow stays the one
+  // place a row is shaped. Emitting `score` here instead would print 0 for
+  // everybody - which is exactly what this digest did the last time two
+  // field names drifted apart.
+  //
+  // Score, then how far they got, then the uid so a dead-level pair comes
+  // back in the same order every time rather than however the index felt.
+  return [...best.values()].sort((a, b) =>
+    b.marathonScore - a.marathonScore
+    || b.marathonWords - a.marathonWords
+    || a.uid.localeCompare(b.uid));
+}
+
 function marathonRow(u) {
   return {
     username: u.username,

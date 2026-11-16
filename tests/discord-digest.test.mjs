@@ -442,23 +442,34 @@ for (const [mode, rows, heads] of [
      'on the webhook the Trifecta digest used to use',
      (job.match(/secrets: \[[^\]]*\]/) || [''])[0]);
   // The week that ENDED. Monday's key is this week; the standings worth
-  // posting are last week's, and they are still on the user docs until each
-  // player's first run of the new week overwrites them.
+  // posting are last week's.
   ck(/shiftDateStr\(getMarathonKeyStr\(\), -7\)/.test(job),
      'and reports the week that just ended, not the one starting',
      (job.match(/const week = [^\n]*/) || [''])[0].trim());
-  // /users, not /runs: the board is denormalised there, and rebuilding a
-  // week from its runs is a read per word per player.
-  ck(/db\.collection\("users"\)[\s\S]{0,120}where\("marathonKey", "==", week\)/.test(job),
-     'read off the denormalised board rather than the week\'s runs', job.slice(0, 600));
-  ck(/orderBy\("marathonScore", "desc"\)/.test(job), 'ranked by the week\'s score');
-  ck(/\.limit\(10\)/.test(job), 'top ten, like the daily one');
-  ck(/if \(snap\.empty\)/.test(job), 'a week nobody played is skipped rather than posted empty');
+
+  // THE WEEK'S OWN RUNS, not /users. This assertion used to require the
+  // opposite, and was wrong in a way that read as a design note: /users
+  // carries marathonKey, which is the week a player is CURRENTLY on, and
+  // onRunCreated moves it on their first word of the new week. The digest
+  // fires at 09:10 Monday, nine hours into that window, so anyone who had
+  // already started the new week was silently absent from the old one's
+  // results - and from the win settled off the same snapshot. It took a
+  // two-player week with one early riser to show it: the post named one
+  // player and the runner-up was credited the win.
+  ck(/db\.collection\("runs"\)[\s\S]{0,160}where\("marathonKey", "==", week\)/.test(job),
+     'rebuilt from the week\'s own runs, which never move off it', job.slice(0, 700));
+  ck(!/db\.collection\("users"\)[\s\S]{0,160}where\("marathonKey", "==", week\)/.test(job),
+     '...and not from the field that has already moved on', job.slice(0, 700));
+  ck(/marathonStandings\(/.test(job), 'reduced to one row per player, their furthest word');
+  ck(/DIGEST_ROWS/.test(job), 'top ten, like the daily one');
+  ck(/if \(!standings\.length\)/.test(job), 'a week nobody played is skipped rather than posted empty');
   ck(!/nowhere to post/.test(job),
      'and no early exit either, for the same reason', job.slice(0, 400));
   ck(/deliverDigest\(/.test(job), 'and it posts through the shared delivery, claims and all');
-  // The composite index that query needs, or it is empty in production and
-  // green here.
+  // The composite index is still declared, but for the CLIENT's Marathon
+  // board, which legitimately reads the live /users standings for the week
+  // in progress. The digest no longer needs it - one equality filter on
+  // marathonKey over /runs is served by the automatic single-field index.
   const idx = JSON.parse(fs.readFileSync(REPO('firestore.indexes.json'), 'utf8')).indexes;
   ck(idx.some((i) => i.collectionGroup === 'users'
      && i.fields.length === 2
@@ -480,6 +491,72 @@ for (const [mode, rows, heads] of [
 {
   ck(/match \/digestPosts\/\{id\} \{\s*\n\s*allow read, write: if false;/.test(rules),
      'and no client can read, forge or delete a posted-marker');
+}
+
+// ---- rebuilding a finished week, run ---------------------------------------
+// The regexes above pin WHERE the digest reads. This runs the reducer those
+// reads feed, against the week that actually broke.
+{
+  const grab = (n) => {
+    const i = fn.indexOf('function ' + n + '(');
+    if (i < 0) throw new Error('no ' + n);
+    let d = 0;
+    for (let k = fn.indexOf('{', i); k < fn.length; k++) {
+      if (fn[k] === '{') d++;
+      else if (fn[k] === '}') { d--; if (!d) return fn.slice(i, k + 1); }
+    }
+    throw new Error('unbalanced ' + n);
+  };
+  const M = new Function(`${grab('marathonStandings')}\n${grab('marathonRow')}\n`
+    + 'return { marathonStandings, marathonRow };')();
+
+  // One document per word, the way guessMarathonWord writes them:
+  // marathonScore is the running total that word left the player on.
+  const words = (uid, name, list) => list.map(([idx, total]) => ({
+    uid, username: name, marathonKey: '2026-11-09', marathonWords: idx, marathonScore: total,
+  }));
+  const asDocs = (arr) => arr.map((d) => ({ data: () => d }));
+
+  const week = [
+    ...words('u_win', 'BLACKTAR', [[1, 100], [2, 260], [19, 980], [20, 1040]]),
+    ...words('u_2nd', 'ELERUMMY', [[1, 80], [10, 500], [20, 980]]),
+  ];
+  const st = M.marathonStandings(asDocs(week));
+  eq('both players of a two-player week are in the standings',
+     st.map((r) => r.username), ['BLACKTAR', 'ELERUMMY']);
+  eq('the winner is ranked on their FURTHEST word, not their first',
+     [st[0].marathonScore, st[0].marathonWords], [1040, 20]);
+  eq('and the runner-up keeps their own total', st[1].marathonScore, 980);
+
+  // The failure itself. /users holds the week a player is CURRENTLY on, so
+  // the moment the winner starts Monday's Marathon they stop matching a
+  // query for last week - and the 09:10 digest runs nine hours into that.
+  const usersAt0910 = [
+    { uid: 'u_win', username: 'BLACKTAR', marathonKey: '2026-11-16', marathonScore: 140 },
+    { uid: 'u_2nd', username: 'ELERUMMY', marathonKey: '2026-11-09', marathonScore: 980 },
+  ];
+  eq('the old /users query really did print one name for a two-player week',
+     usersAt0910.filter((u) => u.marathonKey === '2026-11-09').map((u) => u.username),
+     ['ELERUMMY']);
+  eq('...and would have handed the win to the runner-up',
+     usersAt0910.filter((u) => u.marathonKey === '2026-11-09')[0].uid, 'u_2nd');
+  eq('where the runs still name the real winner', M.marathonStandings(asDocs(week))[0].uid, 'u_win');
+
+  // Shape: marathonRow stays the one place a row is shaped, and the two
+  // field names have to agree or every score prints 0 - which this digest
+  // has already done once.
+  const row = M.marathonRow(st[0]);
+  eq('a standing maps cleanly through marathonRow',
+     [row.username, row.score, row.marathonWords], ['BLACKTAR', 1040, 20]);
+  ck(row.score !== 0, 'and does NOT come back as a zero', JSON.stringify(row));
+
+  eq('a tie on score falls to how far they got',
+     M.marathonStandings(asDocs([...words('a', 'A', [[12, 500]]), ...words('b', 'B', [[18, 500]])]))
+       .map((r) => r.username), ['B', 'A']);
+  eq('a week nobody played is empty, not an error', M.marathonStandings([]), []);
+  eq('and neither is nothing at all', M.marathonStandings(null), []);
+  eq('a run with no uid is not a player',
+     M.marathonStandings([{ data: () => ({ marathonScore: 999 }) }]).length, 0);
 }
 
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);

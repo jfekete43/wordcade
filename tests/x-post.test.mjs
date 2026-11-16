@@ -552,8 +552,8 @@ ck(/\.slice\(0, 12\)/.test(func('channelId')),
       { username: 'NEW', score: 0, marathonWords: 0 });
   // The query site must actually use it, or the fix is a function nobody calls.
   const weekly = fn.slice(fn.indexOf('exports.postWeeklyDigest'), fn.indexOf('function marathonRow'));
-  ck(/rows: snap\.docs\.map\(\(d\) => marathonRow\(d\.data\(\)\)\)/.test(weekly),
-     'and the weekly schedule maps its documents through it',
+  ck(/rows: rows\.map\(marathonRow\)/.test(weekly),
+     'and the weekly schedule maps its standings through it',
      (weekly.match(/[^\n]*rows:[^\n]*/) || [''])[0].trim());
 }
 

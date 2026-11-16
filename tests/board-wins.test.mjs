@@ -153,10 +153,16 @@ const award = async ({ mode, key, uids, already = false }) => {
      'the weekly schedule settles the Marathon win', (weekly.match(/[^\n]*awardBoardWin[^\n]*/) || [''])[0].trim());
   ck(/marathonScore/.test(weekly.slice(weekly.indexOf('awardBoardWin'), weekly.indexOf('awardBoardWin') + 200)),
      'ranked on the week’s score');
-  // /users documents: the uid IS the document id, not a field on it.
-  ck(/\.map\(\(d\) => d\.id\)/.test(weekly),
-     'taking the uid from the document id, which is where a /users uid lives',
-     (weekly.match(/[^\n]*d\.id[^\n]*/) || [''])[0].trim());
+  // Settled off the rebuilt standings, so the winner the counter credits is
+  // the winner the post names. It used to read uids off /users document ids
+  // from a query that had already dropped anyone who started the new week -
+  // which handed a real week's win to the runner-up.
+  ck(/topTied\(standings,/.test(weekly),
+     'settled off the same standings the post is built from',
+     (weekly.match(/[^\n]*topTied[^\n]*/) || [''])[0].trim());
+  ck(/\.map\(\(r\) => r\.uid\)/.test(weekly),
+     'taking the uid off the run, which is where a /runs uid lives',
+     (weekly.match(/[^\n]*r\.uid[^\n]*/) || [''])[0].trim());
   ck(weekly.indexOf('awardBoardWin') < weekly.indexOf('deliverDigest'),
      'and settled before posting too');
 }
