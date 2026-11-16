@@ -176,12 +176,16 @@ const fn = read('functions/index.js');
 const onRun = (fn.match(/exports\.onRunCreated = onDocumentCreated\([\s\S]*?\n\}\);/) || [''])[0];
 ck(/update\.dayBestScore = score;/.test(onRun), 'onRunCreated maintains the day field');
 ck(/update\.dayBestKey = dayKey;/.test(onRun), 'and stamps which day it belongs to');
-// Matched as the whole guard rather than as one mode's clause: the guard now
-// excludes Sprint too, and a regex pinned to the exact original text failed
-// on a change that made it MORE correct.
-const dayGuard = (onRun.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
-ck(/run\.mode !== "daily"/.test(dayGuard), 'Trifecta runs do not reach it, same as the stored board', dayGuard);
-ck(/run\.mode !== "sprint"/.test(dayGuard), 'and neither do Sprint runs, which are capped at one word', dayGuard);
+// Asked of the predicate, not of its spelling. This comment used to describe
+// a regex that broke on a change making the guard more correct - and the
+// guard has since moved again, into a named isStakesRun() that bestRunScore
+// and periodBestScore now share. Running it cannot break that way.
+const stakesRun = new Function(
+  `${fn.match(/function isStakesRun\(run\) \{\n[\s\S]*?\n\}/)[0]}\nreturn isStakesRun;`)();
+ck(!stakesRun({ mode: 'daily' }), 'Trifecta runs do not reach it, same as the stored board');
+ck(!stakesRun({ mode: 'sprint' }), 'and neither do Sprint runs, which are capped at one word');
+ck(!stakesRun({ mode: 'marathon' }), 'nor Marathon words, which are one word apiece');
+ck(stakesRun({}), 'while a Stakes run, which carries no mode at all, does');
 // The reset. Without the key check a player who scored 9,000 yesterday would
 // need to beat 9,000 to appear on today's board at all.
 ck(/user\.dayBestKey === dayKey[\s\S]{0,120}: 0;/.test(onRun),

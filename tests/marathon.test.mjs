@@ -162,12 +162,26 @@ ck(/doc\(`marathon_\$\{uid\}_\$\{week\}_\$\{wordIndex\}`\)/.test(guessSrc),
 ck(/score: earned,/.test(guessSrc),
    "and that run's score is the one word's payout, not the week's total");
 
-// ---- scale: Marathon stays off the shared board ------------------------------
-const dayGuard = (fn.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
-ck(/run\.mode !== "marathon"/.test(dayGuard),
-   'a Marathon word never lands on the "best run today" board', dayGuard);
+// ---- scale: Marathon stays off the Stakes boards ---------------------------
+// A Marathon run document is ONE WORD's payout, so it is the sharpest
+// mismatch of the three against an endless Stakes run. This used to be an
+// inline mode test in front of dayBestScore and nowhere else; bestRunScore
+// and periodBestScore took every mode, so Marathon words were feeding the
+// Stakes all-time and weekly boards. Run, not matched.
+const stakesRun = new Function(
+  `${fn.match(/function isStakesRun\(run\) \{\n[\s\S]*?\n\}/)[0]}\nreturn isStakesRun;`)();
+ck(!stakesRun({ mode: 'marathon' }), 'a Marathon word is not a Stakes run');
 for (const m of ['daily', 'sprint']) {
-  ck(new RegExp(`run\\.mode !== "${m}"`).test(dayGuard), `and ${m} is still excluded alongside it`, dayGuard);
+  ck(!stakesRun({ mode: m }), `and ${m} is excluded alongside it`);
+}
+ck(stakesRun({}), 'while a Stakes run, which carries no mode at all, is');
+const stakesSites = [
+  [/if \(isStakesRun\(run\) && score > Math\.max\(0, Number\(user\.bestRunScore\)/, 'the all-time best'],
+  [/if \(isStakesRun\(run\) && score > priorInWindow\)/, "the week's best"],
+  [/if \(isStakesRun\(run\)\) \{\n      const dayKey/, "today's best"],
+];
+for (const [re, what] of stakesSites) {
+  ck(re.test(fn), `${what} is guarded by isStakesRun`, String(re));
 }
 
 // ---- the week's words are unreachable ---------------------------------------

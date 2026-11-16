@@ -133,7 +133,33 @@ ck(/update\.periodBestKey = periodKey;/.test(onRun), 'and stamps which window it
 // to beat 9,000 to appear on this week's board at all.
 ck(/user\.periodBestKey === periodKey[\s\S]{0,120}: 0;/.test(onRun),
    'a previous window\'s best does not count against this one', onRun.match(/const priorInWindow[\s\S]*?;/)?.[0]);
-ck(/if \(score > priorInWindow\)/.test(onRun), 'and a score only counts if it beats this window\'s');
+ck(/if \(isStakesRun\(run\) && score > priorInWindow\)/.test(onRun),
+   'and a score only counts if it beats this window\'s',
+   (onRun.match(/[^\n]*priorInWindow\)[^\n]*/) || [''])[0].trim());
+// ...and only if it is a Stakes score at all. This board resets its floor
+// to zero every Monday, so a 250 from a Sprint does not need to be good -
+// it only needs to be the first thing written that week.
+const stakesRun = new Function(
+  `${fn.match(/function isStakesRun\(run\) \{\n[\s\S]*?\n\}/)[0]}\nreturn isStakesRun;`)();
+ck(!stakesRun({ mode: 'sprint' }) && !stakesRun({ mode: 'marathon' }) && !stakesRun({ mode: 'daily' }),
+   'and only a Stakes run can set it at all');
+ck(stakesRun({}), 'a Stakes run carrying no mode being the one that can');
+
+// The seeding tool has to agree, or a backfill puts straight back what the
+// trigger now refuses. It is a separate program with its own copy of the
+// rule, so the rule is checked against the predicate rather than assumed.
+{
+  const tool = fs.readFileSync(REPO('tools/backfill-period-best.mjs'), 'utf8');
+  for (const mode of ['daily', 'sprint', 'marathon']) {
+    ck(new RegExp(`r\\.mode === "${mode}"`).test(tool),
+       `the period-best backfill skips ${mode} runs too`,
+       (tool.match(/[^\n]*r\.mode ===[^\n]*/) || [''])[0].trim());
+  }
+  // Which is the same set the live predicate refuses - checked, not trusted.
+  const skipped = ['daily', 'sprint', 'marathon'].filter((m) => !stakesRun({ mode: m }));
+  ck(skipped.join(',') === 'daily,sprint,marathon',
+     'and skips exactly the modes the live guard does', skipped.join(','));
+}
 
 // --- the read path --------------------------------------------------------
 // The window moved OUT of the Hall of Fame and onto the home board: that modal

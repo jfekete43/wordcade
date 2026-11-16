@@ -208,11 +208,24 @@ const fnSrc = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 // is the harder case - one word caps it at 500 - so a player whose only game
 // was Sprint would otherwise appear here with a score nothing else on the
 // board can be compared to.
-const dayGuard = (fnSrc.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
-ck(/run\.mode !== "daily"/.test(dayGuard),
-   'because the Trifecta is still excluded from the field that tab reads', dayGuard);
-ck(/run\.mode !== "sprint"/.test(dayGuard),
-   'and Sprint is excluded from it too', dayGuard);
+const stakesRun = new Function(
+  `${fnSrc.match(/function isStakesRun\(run\) \{\n[\s\S]*?\n\}/)[0]}\nreturn isStakesRun;`)();
+ck(!stakesRun({ mode: 'daily' }),
+   'because the Trifecta is excluded from the fields these tabs read');
+ck(!stakesRun({ mode: 'sprint' }), 'and Sprint is excluded from them too');
+ck(!stakesRun({ mode: 'marathon' }), 'and Marathon');
+ck(stakesRun({}), 'while a Stakes run, which carries no mode, is not');
+// All THREE tabs, not just Today. Only dayBestScore was guarded; bestRunScore
+// and periodBestScore took every mode, so All Time quietly carried
+// Sprint-sized rows and Weekly was topped by them.
+const stakesSites = [
+  [/if \(isStakesRun\(run\) && score > Math\.max\(0, Number\(user\.bestRunScore\)/, 'the all-time best'],
+  [/if \(isStakesRun\(run\) && score > priorInWindow\)/, "the week's best"],
+  [/if \(isStakesRun\(run\)\) \{\n      const dayKey/, "today's best"],
+];
+for (const [re, what] of stakesSites) {
+  ck(re.test(fnSrc), `${what} is guarded by isStakesRun`, String(re));
+}
 ck(!/>Daily</.test(tabsMarkup), 'and no tab on this board says Daily at all', tabsMarkup.slice(0, 120));
 
 // ---- the chrome, run for real against a fake DOM -------------------------

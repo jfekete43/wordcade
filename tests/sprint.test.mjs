@@ -203,12 +203,29 @@ ck(/mode: "sprint", puzzleDate: today/.test(guessSrc),
 ck(/\n\s*elapsedMs,/.test(guessSrc),
    'and always carries elapsedMs, because a document missing an ordered field falls out of the query');
 
-// ---- scale: Sprint stays off the shared board ------------------------------
-const dayGuard = (fn.match(/if \(run\.mode !== [^)]*\) \{/) || [''])[0];
-ck(/run\.mode !== "sprint"/.test(dayGuard),
-   'a Sprint never lands on the "best run today" board', dayGuard);
-ck(/run\.mode !== "daily"/.test(dayGuard),
-   'and the Trifecta is still excluded alongside it', dayGuard);
+// ---- scale: Sprint stays off the Stakes boards -----------------------------
+// One word caps a Sprint at 500 against a Stakes run with no ceiling, so it
+// can never be a meaningful row there. This used to be an inline mode test
+// in front of dayBestScore and nowhere else - bestRunScore and
+// periodBestScore took every mode, so Sprint runs were feeding the Stakes
+// all-time board, and topping the weekly one whose floor resets each Monday.
+// Run, not matched: the predicate is lifted and asked.
+const stakesRun = new Function(
+  `${fn.match(/function isStakesRun\(run\) \{\n[\s\S]*?\n\}/)[0]}\nreturn isStakesRun;`)();
+ck(!stakesRun({ mode: 'sprint' }), 'a Sprint is not a Stakes run');
+ck(!stakesRun({ mode: 'marathon' }), 'nor is a Marathon word');
+ck(!stakesRun({ mode: 'daily' }), 'nor is a Trifecta');
+ck(stakesRun({}), 'and a Stakes run, which carries no mode at all, is');
+// All three Stakes board fields have to ask it, or they drift apart again -
+// which is exactly how this started.
+const stakesSites = [
+  [/if \(isStakesRun\(run\) && score > Math\.max\(0, Number\(user\.bestRunScore\)/, 'the all-time best'],
+  [/if \(isStakesRun\(run\) && score > priorInWindow\)/, "the week's best"],
+  [/if \(isStakesRun\(run\)\) \{\n      const dayKey/, "today's best"],
+];
+for (const [re, what] of stakesSites) {
+  ck(re.test(fn), `${what} is guarded by isStakesRun`, String(re));
+}
 
 // ---- career counters -------------------------------------------------------
 const career = fn.slice(fn.indexOf('Sprint\'s career record'), fn.indexOf('The recurring board'));

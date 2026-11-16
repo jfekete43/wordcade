@@ -60,13 +60,16 @@ console.log(`${snap.size} run(s) since ${windowStart.toISOString()}`);
 
 // Best run per player, and only runs the board would have counted: a wipeout
 // scores 0 and onRunCreated requires score > 0, so this must agree or the
-// backfill would seed rows the live path never would.
+// backfill would seed rows the live path never would. Same for the mode -
+// the Stakes boards take Stakes runs, and a Sprint or a Marathon word
+// seeded here is the contamination the live path was fixed to stop.
 const best = new Map();
 for (const doc of snap.docs) {
   const r = doc.data();
   const uid = r.uid;
   const score = Math.max(0, Number(r.score) || 0);
   if (!uid || score <= 0) continue;
+  if (r.mode === "daily" || r.mode === "sprint" || r.mode === "marathon") continue;
   // Guard against a run whose own timestamp puts it in a different window than
   // the range query implies (clock skew at the boundary).
   if (r.timestamp && periodKeyFor(r.timestamp.toDate(), PERIOD) !== key) continue;

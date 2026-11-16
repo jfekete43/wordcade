@@ -426,6 +426,32 @@ function runDocId(mode, uid, dateStr) { return `${mode}_${uid}_${dateStr}`; }
 const PER_DAY_RUN_MODES = ["daily", "sprint"];
 
 /*
+ * Does this run belong on a STAKES board?
+ *
+ * Stakes is the endless run and the only mode whose score has no ceiling.
+ * It is also the only one that writes a run with no `mode` at all, so this
+ * is a list of what to keep OUT rather than what to let in:
+ *
+ *   daily    a fixed set of words against an endless run - a different
+ *            scale entirely, and it has its own board already.
+ *   sprint   one word, capped at 500. On the all-time board that is a low
+ *            row; on the WEEKLY board, whose floor drops back to zero every
+ *            Monday, a 250 from a Sprint simply wins it.
+ *   marathon one run document per WORD, so the score on it is a single
+ *            word's payout - the sharpest mismatch of the three.
+ *
+ * dayBestScore has tested this since it was written, inline. bestRunScore
+ * and periodBestScore never did, which is the bug: Sprint and Marathon runs
+ * have been feeding the Stakes all-time and weekly boards. Named here so the
+ * three fields cannot drift apart again, and so the backfills can ask the
+ * same question.
+ */
+function isStakesRun(run) {
+  const mode = run && run.mode;
+  return mode !== "daily" && mode !== "sprint" && mode !== "marathon";
+}
+
+/*
  * Is the Trifecta open? Mirrors MODES.gauntlet.hidden in index.html, which is
  * where the decision actually lives — this side only needs to know so it can
  * stop generating a puzzle nobody can reach.
@@ -665,7 +691,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // max() against the stored value, which makes them idempotent — the
     // backfill in refreshProfile can run against the same field without
     // risking a higher value being clobbered by a lower one.
-    if (score > Math.max(0, Number(user.bestRunScore) || 0)) {
+    if (isStakesRun(run) && score > Math.max(0, Number(user.bestRunScore) || 0)) {
       update.bestRunScore = score;
       // The board shows when a best was set. Prefer the run's own timestamp;
       // it is written by the same operation that created this doc, so it is
@@ -871,7 +897,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     const priorInWindow = user.periodBestKey === periodKey
       ? Math.max(0, Number(user.periodBestScore) || 0)
       : 0;
-    if (score > priorInWindow) {
+    if (isStakesRun(run) && score > priorInWindow) {
       update.periodBestKey = periodKey;
       update.periodBestScore = score;
       update.periodBestAt = run.timestamp || FieldValue.serverTimestamp();
@@ -893,7 +919,7 @@ exports.onRunCreated = onDocumentCreated("runs/{runId}", async (event) => {
     // compared to anything else on it.
     // Marathon is excluded on the same grounds, and more sharply still: it
     // writes one run per WORD, so its score here is a single word's payout.
-    if (run.mode !== "daily" && run.mode !== "sprint" && run.mode !== "marathon") {
+    if (isStakesRun(run)) {
       const dayKey = getTodayDateStr();
       const priorToday = user.dayBestKey === dayKey
         ? Math.max(0, Number(user.dayBestScore) || 0)
@@ -1539,12 +1565,16 @@ exports.refreshProfile = onCall(async (request) => {
       try {
         const runsRef = db.collection("runs");
         const [bestAnySnap, bestDailySnap] = await Promise.all([
-          tx.get(runsRef.where("uid", "==", uid).orderBy("score", "desc").limit(1)),
+          tx.get(runsRef.where("uid", "==", uid).orderBy("score", "desc").limit(25)),
           tx.get(runsRef.where("uid", "==", uid).where("mode", "==", "daily").orderBy("score", "desc").limit(1)),
         ]);
         updates.bestsBackfilled = true;
-        if (!bestAnySnap.empty) {
-          const best = bestAnySnap.docs[0].data();
+        // The best STAKES run, not the best run of any mode: a Sprint or a
+        // Marathon word seeded into bestRunScore is the same contamination
+        // onRunCreated was letting through, arriving by the other door.
+        const bestStakes = bestAnySnap.docs.map((d) => d.data()).find(isStakesRun);
+        if (bestStakes) {
+          const best = bestStakes;
           const bestScore = Math.max(0, Number(best.score) || 0);
           if (bestScore > Math.max(0, Number(data.bestRunScore) || 0)) {
             updates.bestRunScore = bestScore;
