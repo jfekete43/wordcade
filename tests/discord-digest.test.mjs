@@ -117,6 +117,39 @@ const dailyRow = (username, solved, score) => ({ username, score, wordsGuessed: 
   const same = [0, 999, 41200, 59950, 60000, 72300, 611000].every((ms) => clientFmt(ms) === D.formatClock(ms));
   ck(same, 'and reads exactly as the in-game clock does',
      [0, 41200, 60000, 72300].map((ms) => `${clientFmt(ms)}|${D.formatClock(ms)}`).join(' '));
+
+  // PAST AN HOUR. The clock starts on a player's first guess and runs until
+  // they solve, so walking away and coming back is an ordinary four-hour
+  // row. It used to print as unbounded minutes - a real one read "272:23.5",
+  // which is eight characters in a seven-character column, and Discord
+  // wrapped that player's score onto a line of its own.
+  //
+  // Rolling into h:mm:ss.t would have been NINE and made it worse. The
+  // tenths are what go instead: at four hours they are noise, and the board
+  // sorts on raw elapsedMs, never on this string.
+  eq('an hour exactly', D.formatClock(3600000), '1h00m');
+  eq('the row that wrapped', D.formatClock(16343500), '4h32m');
+  eq('just under an hour keeps its tenths', D.formatClock(3599900), '59:59.9');
+  eq('and the minute below that', D.formatClock(3540000), '59:00.0');
+  eq('three-figure hours drop the minutes rather than overflow', D.formatClock(360000000), '100h');
+
+  // The column guarantee, swept rather than spot-checked: every second of
+  // two days, which is already longer than an attempt can live - the day
+  // rollover ends one - plus a coarse sweep far past it.
+  const W = Number(/clock: (\d+)/.exec(fn)[1]);
+  let widest = 0, widestMs = 0, disagree = 0, checked = 0;
+  const sweep = [];
+  for (let sec = 0; sec <= 48 * 3600; sec += 1) sweep.push(sec * 1000);
+  for (let min = 0; min <= 400 * 24 * 60; min += 11) sweep.push(min * 60000 + 12345);
+  for (const ms of sweep) {
+    const a = D.formatClock(ms);
+    checked += 1;
+    if (a !== clientFmt(ms)) disagree += 1;
+    if (a.length > widest) { widest = a.length; widestMs = ms; }
+  }
+  eq(`the two clocks agree on all ${checked.toLocaleString()} of them`, disagree, 0);
+  ck(widest <= W, `and none of them overflows the ${W}-character column`,
+     `widest ${widest}: ${JSON.stringify(D.formatClock(widestMs))}`);
 }
 
 // ---- a player cannot break out of the code block --------------------------

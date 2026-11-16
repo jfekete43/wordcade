@@ -1988,6 +1988,21 @@ function puzzleNumber(dateStr, epoch) {
 function formatClock(ms) {
   const total = Math.max(0, Number(ms) || 0) / 1000;
   if (total < 60) return total.toFixed(1) + "s";
+  // Past an hour the tenths are noise, and the digest's clock column is
+  // seven characters wide. "272:23.5" is eight, which is what pushed a
+  // score onto a line of its own; "4:32:23.5" would be nine, so rolling
+  // into hours alone makes it worse. "4h32m" is five and says more.
+  // Ordering is untouched: the board sorts on raw elapsedMs, never on this.
+  if (total >= 3600) {
+    const h = Math.floor(total / 3600);
+    const mm = Math.floor((total - h * 3600) / 60);
+    // Three-figure hours drop the minutes rather than overflow the column.
+    // Unreachable today - an attempt dies at the midnight rollover, so the
+    // clock cannot pass a day - but the column's guarantee is cheaper to
+    // make total than to keep arguing is safe.
+    if (h >= 100) return h + "h";
+    return h + "h" + (mm < 10 ? "0" : "") + mm + "m";
+  }
   const m = Math.floor(total / 60);
   const sec = total - m * 60;
   return m + ":" + (sec < 10 ? "0" : "") + sec.toFixed(1);
