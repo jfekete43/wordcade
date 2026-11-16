@@ -5667,6 +5667,63 @@
         // This month's standings. Read off /users rather than aggregated from
         // /runs, which is what lets it show players who are still going: the
         // running total is denormalised there by onRunCreated.
+        /*
+         * My own row, from what I already know rather than from the trigger.
+         *
+         * The board reads /users, and those fields are written by
+         * onRunCreated - a Firestore trigger that fires AFTER the guess
+         * returns. The board reloads 600ms after a word finishes, which is a
+         * race the trigger regularly wins: the player sees the row they had
+         * one word ago, refreshes, and it is right. Intermittent by nature,
+         * which is why it looked like it came and went.
+         *
+         * For every OTHER player that lag is invisible. For the one who just
+         * finished a word it is the entire reason they looked, and their own
+         * numbers are already in hand - guessMarathonWord returned score and
+         * wordIndex, which are the same two values it wrote to /users as
+         * marathonScore and marathonWords. So the row is merged in locally
+         * and the board re-sorted, the same bargain liveEquipped makes for
+         * cosmetics: the trigger catches up in its own time, and the next
+         * reload agrees with this one.
+         *
+         * Only ever forwards. If the stored row is already further along
+         * than the attempt in memory, the stored one wins - a stale local
+         * attempt must never drag a row backwards.
+         */
+        function withMyMarathonRow(rows, week) {
+            if (!currentUser || !marathonAttempt) return rows;
+            // Guard the week: the board can be showing one the attempt is not
+            // for, and crediting this week's score to last week's board would
+            // be a worse bug than the one being fixed.
+            if (marathonAttempt.week !== week) return rows;
+
+            const mineWords = Math.max(0, Number(marathonAttempt.wordIndex) || 0);
+            const mineScore = Math.max(0, Number(marathonAttempt.score) || 0);
+            if (mineWords <= 0 && mineScore <= 0) return rows;
+
+            const stored = rows.find((r) => r.uid === currentUser.uid);
+            if (stored && (Math.max(0, Number(stored.words) || 0) >= mineWords)) return rows;
+
+            const row = {
+                uid: currentUser.uid,
+                // The stored name first: it is the one every other row is
+                // drawn with, and the profile is only a fallback for a player
+                // whose first word of the week has not landed yet.
+                name: (stored && stored.name) || (userProfileData && userProfileData.username) || "You",
+                score: mineScore,
+                words: mineWords,
+                equipped: (userProfileData && userProfileData.equipped)
+                    || (stored && stored.equipped) || null,
+            };
+            const out = rows.filter((r) => r.uid !== currentUser.uid);
+            out.push(row);
+            // Re-sorted, because the merged score can have moved me past
+            // somebody - a row showing the right number in the wrong place is
+            // its own bug report.
+            return out.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0)
+                || (Number(b.words) || 0) - (Number(a.words) || 0));
+        }
+
         async function loadMarathonBoard() {
             // Same borrow as Sprint, and the same bug without it.
             document.getElementById("daily-board-container").style.display = "block";
@@ -5702,10 +5759,11 @@
                 const rows = [];
                 snap.forEach((d) => {
                     const v = d.data();
-                    rows.push({ name: v.username, score: v.marathonScore, words: v.marathonWords, equipped: v.equipped });
+                    rows.push({ uid: d.id, name: v.username, score: v.marathonScore, words: v.marathonWords, equipped: v.equipped });
                 });
-                list.innerHTML = rows.length
-                    ? rows.map((r, i) => {
+                const merged = withMyMarathonRow(rows, week);
+                list.innerHTML = merged.length
+                    ? merged.map((r, i) => {
                         const words = Number(r.words) || 0;
                         const avg = words ? Math.round((Number(r.score) || 0) / words) : 0;
                         return dailyBoardRow(i + 1, r.name, r.equipped,

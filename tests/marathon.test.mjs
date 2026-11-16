@@ -480,6 +480,84 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
   ck(endsOnScore(builder('Marathon')), 'and so does the Marathon row, in the same slot');
 }
 
+// ---- my own row does not wait for the trigger ------------------------------
+// The board reads /users, and onRunCreated writes those fields from a
+// Firestore trigger that fires after the guess returns. The reload runs
+// 600ms later, which the trigger regularly beats - so a player finished a
+// word and watched a board still showing the one before it, intermittently,
+// which is the worst way for a bug to present.
+{
+  const i = html.indexOf('function withMyMarathonRow(rows, week) {');
+  ck(i > 0, 'the board merges my own row before rendering', String(i));
+  let d = 0, src = '';
+  for (let k = html.indexOf('{', i); k < html.length; k++) {
+    if (html[k] === '{') d++;
+    else if (html[k] === '}') { d--; if (!d) { src = html.slice(i, k + 1); break; } }
+  }
+  const run = (rows, week, { user = { uid: 'me' }, attempt, profile } = {}) =>
+    // eslint-disable-next-line no-new-func
+    new Function('currentUser', 'marathonAttempt', 'userProfileData',
+      `${src}\nreturn withMyMarathonRow;`)(user, attempt, profile)(rows, week);
+
+  const WEEK = '2026-11-16';
+  const mine = (words, score) => ({ week: WEEK, wordIndex: words, score });
+  const row = (uid, name, words, score) => ({ uid, name, words, score, equipped: { title: 't' } });
+
+  // The reported case: on word 9 of 20, score 420, board still saying 7w.
+  // marathonWords on /users and wordIndex off the callable are the same
+  // value - newWordIndex - so there is nothing to estimate.
+  {
+    const out = run([row('me', 'SLIZZY', 7, 420)], WEEK, { attempt: mine(8, 420) });
+    eq('my row catches up to the word I am actually on', [out[0].words, out[0].score], [8, 420]);
+    eq('and keeps the name the board drew it with', out[0].name, 'SLIZZY');
+    eq('and its cosmetics', out[0].equipped, { title: 't' });
+    eq('without duplicating me', out.length, 1);
+  }
+  // A word that scored moves me up, so the number and the position agree.
+  {
+    const out = run([row('x', 'RIVAL', 9, 500), row('me', 'SLIZZY', 7, 420)],
+                    WEEK, { attempt: mine(8, 560) });
+    eq('a scoring word re-sorts me past a rival', out.map((r) => r.name), ['SLIZZY', 'RIVAL']);
+    eq('with the real numbers', [out[0].words, out[0].score], [8, 560]);
+  }
+  // Forwards only. A reload that lands after the trigger has already gone
+  // further must not be pulled back by an attempt still in memory.
+  eq('a stale local attempt cannot drag the row backwards',
+     run([row('me', 'SLIZZY', 12, 900)], WEEK, { attempt: mine(8, 420) })
+       .map((r) => [r.words, r.score])[0], [12, 900]);
+  eq('and an equal one leaves it alone',
+     run([row('me', 'SLIZZY', 8, 420)], WEEK, { attempt: mine(8, 420) })
+       .map((r) => [r.words, r.score])[0], [8, 420]);
+
+  // First word of the week: nothing stored yet, so the profile supplies the
+  // name rather than the player being absent from their own board.
+  {
+    const out = run([row('x', 'RIVAL', 3, 200)], WEEK,
+                    { attempt: mine(1, 100), profile: { username: 'SLIZZY', equipped: { banner: 'b' } } });
+    eq('my first word puts me on the board rather than waiting',
+       out.map((r) => r.name), ['RIVAL', 'SLIZZY']);
+  }
+
+  // The guards, each of which would otherwise write a number onto the wrong
+  // board or the wrong player.
+  eq('a board for another week is left alone',
+     run([row('me', 'SLIZZY', 7, 420)], '2026-11-09', { attempt: mine(8, 420) })[0].words, 7);
+  eq('signed out changes nothing',
+     run([row('me', 'SLIZZY', 7, 420)], WEEK, { user: null, attempt: mine(8, 420) })[0].words, 7);
+  eq('no attempt in memory changes nothing',
+     run([row('me', 'SLIZZY', 7, 420)], WEEK, { attempt: null })[0].words, 7);
+  eq('and a zero attempt does not invent a row', run([], WEEK, { attempt: mine(0, 0) }).length, 0);
+
+  // The loader has to actually call it, or the merge is a function nobody runs.
+  const loader = html.slice(html.indexOf('async function loadMarathonBoard()'),
+                            html.indexOf('async function loadMarathonBoard()') + 2500);
+  ck(/withMyMarathonRow\(rows, week\)/.test(loader),
+     'and the loader merges before it renders', loader.slice(0, 200));
+  ck(/uid: d\.id/.test(loader),
+     'carrying the uid, which is how a row is recognised as mine',
+     (loader.match(/[^\n]*rows\.push[^\n]*/) || [''])[0].trim());
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
