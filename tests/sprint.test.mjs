@@ -1600,6 +1600,45 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   }
 }
 
+// ---- a perfect Sprint has a clock, and it reads zero -----------------------
+// The clock starts ON the first guess, so a first-guess solve - the only way
+// to score 500 - has an elapsed time of exactly 0. The board tested that
+// value for truthiness, so every 500 rendered with no clock at all: the same
+// empty cell an UNSOLVED run gets. A legitimate perfect score looked like a
+// run that had bypassed the timer, which is what it got reported as.
+{
+  const loader = html.slice(html.indexOf('async function loadSprintBoard()'),
+                            html.indexOf('Sprint board failed'));
+  const cellSrc = (loader.match(/\(r\.elapsedMs[\s\S]*?\)\r?\n\s*\+ boardScore\(r\.score\)/) || [''])[0];
+  ck(cellSrc.length > 40, 'found the Sprint board score cell', String(cellSrc.length));
+  // Run, not matched - truthiness against null is precisely the kind of
+  // difference a regex over the source reads straight past.
+  // eslint-disable-next-line no-new-func
+  const cell = new Function('r', 'formatSprintTime', 'boardScore',
+    `return ${cellSrc.replace(/\+ boardScore\(r\.score\)\s*$/, '+ boardScore(r.score)')};`);
+  const fmt = (ms) => `T${ms}`;
+  const score = (sc) => `S${sc}`;
+
+  eq('a first-guess 500 shows its clock, at zero',
+     cell({ elapsedMs: 0, score: 500 }, fmt, score).includes('T0'), true);
+  eq('...rather than the blank cell an unsolved run gets',
+     cell({ elapsedMs: null, score: 0 }, fmt, score).includes('T'), false);
+  eq('an ordinary solve is unaffected',
+     cell({ elapsedMs: 18100, score: 150 }, fmt, score).includes('T18100'), true);
+  eq('and a run with no clock field at all is still blank',
+     cell({ score: 0 }, fmt, score).includes('T'), false);
+
+  // The archive cell has always tested === null. Two spellings of one
+  // decision disagreed on the single value it mattered for, so the same row
+  // read differently depending on which screen you opened it from.
+  const archive = html.slice(html.indexOf('scoreCell: (r) => (runClock(r)'), 
+                             html.indexOf('scoreCell: (r) => (runClock(r)') + 300);
+  ck(/runClock\(r\) === null/.test(archive),
+     'and the archive still tests the same way, so the two screens agree', archive.slice(0, 80));
+  ck(!/\(r\.elapsedMs \?/.test(html),
+     'no copy of this cell tests the clock for truthiness any more', '');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

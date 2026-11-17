@@ -6490,7 +6490,9 @@
                         // the clock reads as the detail behind it rather than
                         // competing with it. A margin, not a space: a single
                         // space put two numbers close enough to scan as one.
-                        (r.elapsedMs ? '<span style="color:var(--c-ink-4); margin-right: var(--s-5);">' + formatSprintTime(r.elapsedMs) + "</span>" : "")
+                        (r.elapsedMs === null || r.elapsedMs === undefined
+                            ? ""
+                            : '<span style="color:var(--c-ink-4); margin-right: var(--s-5);">' + formatSprintTime(r.elapsedMs) + "</span>")
                         + boardScore(r.score))).join("")
                     : '<div style="color:var(--c-ink-4);">Nobody has finished today\u2019s word yet. Be first.</div>';
             } catch (e) {
