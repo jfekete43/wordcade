@@ -2606,16 +2606,25 @@
          is how a feature goes unused: dark mode went in and the only way to
          find out was to open Settings and read every row.
 
-         THE WINDOW IS AUTHORED, not counted from the player's first view. A
-         per-player timer means somebody who comes back after ten days is
-         told about a fortnight-old change, and the announcement never
-         actually ends - it just trails off one player at a time. A date in
-         the entry ends it for everyone at once.
+         ONE LIVE ANNOUNCEMENT AT A TIME: the newest, which is the first
+         entry in the table. It stays up for a player until they dismiss it
+         - there is no expiry date, because an announcement that times out
+         is one that some of the people it was written for never read. A new
+         entry replaces whatever came before it and, since the seen list is
+         keyed by id, it appears for EVERYBODY, including the people who
+         dismissed the last one. Earlier entries stay in the table as a
+         record of what was said and are never shown again.
 
          KEYED BY ID, not by a single "seen announcements" flag. One flag
          means the SECOND announcement never shows to anybody who dismissed
          the first, which is how this kind of thing quietly stops working
          six months after it is built.
+
+         RETURNING PLAYERS ONLY. A newcomer gets the welcome cards and
+         nothing else: having to read both, back to back, before playing a
+         word is how a new player decides this is a lot of work. The test
+         for "newcomer" is whether this browser has been through a welcome
+         card yet - see hasSeenWelcomeCard.
 
          There is no "don't show again" checkbox on the card, because
          dismissing it already is that: the id goes in the seen list and
@@ -3303,15 +3312,20 @@
                 text: "The same race as Clash with 3-6 players at once. Highest score when time runs out takes first \u2014 everyone else still earns something." },
         };
         // WHAT'S NEW - see the note on #announce-modal for the shape of this.
-        // One entry per thing worth telling people about. `from` and `until`
-        // are Eastern day keys, the same ones the boards are cut on, and the
-        // window is inclusive at both ends: a week is from .. from + 7.
+        // NEWEST FIRST. The entry at the top is the live one; everything
+        // below it is a record of what has already been said. To announce
+        // something, add it at the top - that is the whole operation, and it
+        // reaches everyone, including anybody who dismissed the last one.
+        //
+        // `date` is the day it shipped. It does not decide anything - the
+        // position does - but the suite checks the two agree, so an entry
+        // added in the wrong place is caught rather than silently buried.
         //
         // `cta.run` names a function on window. It is a NAME rather than a
         // function so the table stays data - something that can be read, or
         // one day listed on a What's New page, without executing anything.
         const ANNOUNCEMENTS = [
-            { id: "dark-mode", from: "2026-11-18", until: "2026-11-25",
+            { id: "dark-mode", date: "2026-11-18",
               icon: "\u{1F319}", accent: "var(--c-sprint)", title: "Dark Mode",
               text: "The whole game comes in dark now as well as paper. Open Settings and tap Appearance to pick Light, Dark or Auto \u2014 Auto follows whatever your phone is set to and changes with it.",
               cta: { label: "Open Settings", run: "openSettingsMenu" } },
@@ -3325,14 +3339,32 @@
         }
         // Pure, and separated from everything that shows it, so which card a
         // given player is owed can be checked without a browser.
-        function pendingAnnouncement(today, seen, muted, list) {
+        function pendingAnnouncement(seen, muted, list) {
             if (muted) return null;
-            const live = (list || ANNOUNCEMENTS).filter((a) =>
-                today >= a.from && today <= a.until && !seen.includes(a.id));
-            // Newest first. A backlog must not make somebody read last
-            // month's news before this month's.
-            live.sort((a, b) => (a.from === b.from ? 0 : a.from < b.from ? 1 : -1));
-            return live[0] || null;
+            const current = (list || ANNOUNCEMENTS)[0];
+            if (!current || seen.includes(current.id)) return null;
+            return current;
+        }
+
+        // Has this browser been through a welcome card yet?
+        //
+        // Asked of localStorage rather than of the profile, because it is a
+        // question about THIS BROWSER rather than about the account: a
+        // long-time player opening the game on a new phone is about to be
+        // shown the welcome cards again, and should not get an announcement
+        // stacked on top of those either.
+        //
+        // No mode intro fires on the landing - they go up when you enter a
+        // mode - so a genuinely new player reaches the end of their first
+        // session with none of these keys set, gets the welcome cards and
+        // nothing else, and finds the announcement waiting next time.
+        function hasSeenWelcomeCard() {
+            try {
+                for (let i = 0; i < localStorage.length; i++) {
+                    if ((localStorage.key(i) || "").indexOf("wordcade_mode_intro_") === 0) return true;
+                }
+            } catch (e) { /* storage blocked: treat them as new and say nothing */ }
+            return false;
         }
 
         let currentAnnouncement = null;
@@ -3349,18 +3381,18 @@
                 .some((m) => getComputedStyle(m).display !== "none");
         }
 
-        function maybeShowAnnouncement(brandNewAccount) {
+        function maybeShowAnnouncement() {
             // onAuthStateChanged refires mid-session (linking a Google
             // account), and a card that reappears after it was dismissed is
             // worse than one that never showed.
             if (announcementTriedThisLoad) return;
             announcementTriedThisLoad = true;
-            // Everything is new to somebody who arrived thirty seconds ago,
-            // and they have a mode intro card coming already.
-            if (brandNewAccount) return;
+            // Returning players only. Nobody reads the welcome cards and an
+            // announcement on the same visit.
+            if (!hasSeenWelcomeCard()) return;
             // A tap-to-join is mid-flow; same reason the mode intro skips it.
             if (new URLSearchParams(location.search).has("join")) return;
-            const a = pendingAnnouncement(getTodayDateStr(), announcementsSeen(), !Settings.get().announcements);
+            const a = pendingAnnouncement(announcementsSeen(), !Settings.get().announcements);
             if (!a || somethingElseIsOpen()) return;
 
             currentAnnouncement = a;
@@ -4259,8 +4291,7 @@
                 // card dropped on it, and on a delay so the board has painted
                 // first - an announcement that beats the game to the screen
                 // is an interruption rather than news.
-                const freshAccount = !docSnap.exists();
-                setTimeout(() => maybeShowAnnouncement(freshAccount), 1400);
+                setTimeout(() => maybeShowAnnouncement(), 1400);
                 // Opened from the address bar, once there is a signed-in
                 // user for getDrafts to check. Anonymous sign-in carries no
                 // verified email, so an uninvited visitor gets a refusal
