@@ -227,7 +227,8 @@ try {
 
   // Both generators must READ the palette rather than restate it — that is
   // the thing that actually stops this drifting again, and it is cheap to pin.
-  for (const tool of ['tools/build-icons.mjs', 'tools/build-og-card.mjs', 'tools/build-social-images.mjs']) {
+  for (const tool of ['tools/build-icons.mjs', 'tools/build-og-card.mjs', 'tools/build-social-images.mjs',
+                      'tools/build-milestone-card.mjs']) {
     const src = fs.readFileSync(REPO(tool), 'utf8');
     ck(/index\.html/.test(src) && /--c-/.test(src),
        `${tool} reads the palette out of index.html`);
