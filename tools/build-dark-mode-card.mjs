@@ -65,22 +65,82 @@ const palette = (selector) => {
 const LIGHT = palette(":root");
 const DARK = palette(":root.dark");
 
-// SPIRT, graded the way the board would grade it against SPLIT: S in place,
-// I in the word but not there, P and R and T absent. A real row rather than
-// a decorative one - it is the only part of the card that has to be true.
-const ROW = [["S", "correct"], ["P", "absent"], ["I", "present"], ["R", "absent"], ["T", "typed"]];
+/*
+ * THE ROW IS DERIVED, NOT TYPED OUT.
+ *
+ * It used to be a hand-written list of letters and verdicts with a comment
+ * saying what it was a grading of. The comment was wrong - it named an
+ * answer that would have marked a second letter correct - and the card was
+ * showing a pattern no board could ever produce, under a note claiming it
+ * was "the only part of the card that has to be true". Deriving it is the
+ * only way that comment can stay honest.
+ *
+ * SHADE against SAUCE: S in place, H not in the word, A in the word but not
+ * there, D not in the word, E in place. The word is also the point - a card
+ * announcing dark mode should have a word on it that a person reads as a
+ * word, which the obscure five-letter filler it replaced did not.
+ */
+const GUESS = "SHADE";
+const ANSWER = "SAUCE";
+
+const WORDS = fs.readFileSync(path.join(REPO, "words.js"), "utf8");
+const wordList = (name) => {
+  const m = WORDS.match(new RegExp("const " + name + " = `([^`]*)`"));
+  if (!m) throw new Error(`could not read ${name} out of words.js`);
+  return new Set(m[1].toUpperCase().trim().split(/\s+/));
+};
+const ANSWERS = wordList("rawAnswers");
+const VALID = new Set([...ANSWERS, ...wordList("rawGuesses")]);
+if (!VALID.has(GUESS)) throw new Error(`${GUESS} is not a word the game would accept`);
+if (!ANSWERS.has(ANSWER)) throw new Error(`${ANSWER} is never an answer, so nothing could be graded against it`);
+
+// The game's rule: exact matches are claimed first, then the letters left
+// over are consumed left to right - so a repeated letter cannot be marked
+// present more times than the answer actually contains it. Doing the two
+// passes in one would mark the first of a pair present even when the second
+// is the one in place.
+const gradeGuess = (guess, answer) => {
+  const out = Array(5).fill("absent");
+  const left = {};
+  for (let i = 0; i < 5; i++) {
+    if (guess[i] === answer[i]) out[i] = "correct";
+    else left[answer[i]] = (left[answer[i]] || 0) + 1;
+  }
+  for (let i = 0; i < 5; i++) {
+    if (out[i] === "correct") continue;
+    if (left[guess[i]] > 0) { out[i] = "present"; left[guess[i]]--; }
+  }
+  return out;
+};
+// Asked something with a repeated letter before it is trusted with the real
+// pair, because the word on this card has none - so the two-pass rule above
+// is the one line here that the card itself cannot prove. SASSY against
+// BASIS: the A and the middle S are in place, the FIRST S takes the only
+// spare S in the answer, and the second one has nothing left to claim.
+// Collapsing the passes into a single `answer.includes()` marks that fourth
+// letter present and nothing else here would notice.
+{
+  const probe = gradeGuess("SASSY", "BASIS").join(" ");
+  const want = "present correct correct absent absent";
+  if (probe !== want) throw new Error(`the grader is wrong before it starts: got "${probe}", wanted "${want}"`);
+}
+const VERDICTS = gradeGuess(GUESS, ANSWER);
+const ROW = [...GUESS].map((ch, i) => [ch, VERDICTS[i]]);
+// All three verdicts, or the card is not showing the palette it is about.
+for (const v of ["correct", "present", "absent"]) {
+  if (!VERDICTS.includes(v)) throw new Error(`${GUESS} vs ${ANSWER} never shows a "${v}" tile`);
+}
 const MARK = "LEXATHON".split("");
 
 const layer = (p) => {
+  // Every tile is graded, so none of them is an outline. An unfilled tile on
+  // a five-letter word reads as a four-letter word with a box after it.
   const tile = (ch, state) => {
     const base = `width:116px;height:116px;border-radius:13px;display:flex;align-items:center;`
       + `justify-content:center;font-size:60px;font-weight:bold;letter-spacing:.5px;`;
-    if (state === "typed") {
-      return `<div style="${base}background:transparent;border:3px solid ${p["ink-4"]};color:${p.ink}">${ch}</div>`;
-    }
     const fill = state === "absent" ? p.absent : p[state];
     const ink = state === "absent" ? p["absent-ink"] : p["on-accent"];
-    return `<div style="${base}background:${fill};border:3px solid ${fill};color:${ink}">${ch}</div>`;
+      return `<div style="${base}background:${fill};border:3px solid ${fill};color:${ink}" data-v="${state}">${ch}</div>`;
   };
   return `
   <div style="position:absolute;inset:0;background:${p.page};color:${p.ink};
@@ -193,6 +253,25 @@ if (halves.left !== LIGHT.page || halves.right !== DARK.page) {
   process.exit(1);
 }
 
+// BOTH HALVES SHOW A CORRECT TILE. This is the whole reason the row is this
+// row: the seam cuts through the middle tile, so without a right-spot tile on
+// each side of it the dark half never shows its own blue and the card
+// demonstrates half a palette. Measured off the rendered tiles rather than
+// worked out from the letter positions, because the thing that would break it
+// is a change to the tile size or the gap.
+const blues = await page.evaluate(() => {
+  const side = (layer) => [...document.querySelectorAll(`#${layer} [data-v]`)]
+    .filter((el) => el.dataset.v === "correct")
+    .map((el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2; });
+  return { light: side("light").filter((x) => x < 600).length,
+           dark: side("dark").filter((x) => x > 600).length };
+});
+if (!blues.light || !blues.dark) {
+  console.error(`each half needs a right-spot tile of its own; light has ${blues.light}, dark has ${blues.dark}`);
+  await browser.close();
+  process.exit(1);
+}
+
 // And nothing may run off the edge. The headline is the thing that will, the
 // next time the copy changes.
 const fits = await page.evaluate(() => {
@@ -210,4 +289,5 @@ await page.screenshot({ path: OUT });
 await browser.close();
 const kb = Math.round(fs.statSync(OUT).size / 1024);
 console.log(`wrote ${path.basename(OUT)} (1200x675, ${kb} KB)`);
+console.log(`  ${GUESS} vs ${ANSWER} -> ${VERDICTS.join(" ")}`);
 console.log(`  ${aligned.n} boxes aligned on both sides; left half ${halves.left}, right half ${halves.right}`);
