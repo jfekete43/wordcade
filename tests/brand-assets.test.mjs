@@ -24,7 +24,11 @@ const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const token = (name) => {
-  const m = html.match(new RegExp('--c-' + name + ':\\s*(#[0-9a-fA-F]{3,8})\\s*;'));
+  // Sliced to :root first. There is a :root.dark palette as well now, and
+  // a whole-file search finding the light value is an accident of source
+  // order - put the dark block higher and every image here turns dark.
+  const root = html.slice(html.indexOf(":root {"), html.indexOf("}", html.indexOf(":root {")));
+  const m = root.match(new RegExp('--c-' + name + ':\\s*(#[0-9a-fA-F]{3,8})\\s*;'));
   if (!m) throw new Error('no --c-' + name + ' in index.html');
   let h = m[1].toLowerCase();
   if (h.length === 4) h = '#' + [...h.slice(1)].map((c) => c + c).join('');

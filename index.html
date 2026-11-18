@@ -197,6 +197,118 @@
                the board still has a size. */
             --cell: min(58px, calc((100vw - 64px) / 5));
         }
+
+        /* ---------------------------------------------------------------
+           DARK -- the same contract, measured the same way.
+
+           Not a second design. Every value below was SOLVED against this
+           page colour to land on the ratio its light counterpart holds on
+           paper: the six ink levels match within 0.05 at every level, and
+           all nine accents keep their 4.3-7.0:1 as text. The note at the
+           top of :root says the light palette was measured rather than
+           picked by eye; this is those same measurements reflected, so the
+           two themes are legible to the same degree rather than one being
+           a guess at the other.
+
+           TWO THINGS GENUINELY CHANGE, and both for one reason: a light
+           palette and a dark one disagree about which way round a FILL and
+           its INK go, and anything whose fill is a literal does not get
+           the memo.
+
+           1. --c-on-accent flips to a near-black. On paper every accent is
+              mid-tone and white sits on all nine; here the accents are
+              light, so white reads 2.6-4.1:1 and fails. #0b0a08 holds
+              every one of them at or above the ratio white holds on paper
+              (marathon 7.72 vs 7.67, present 4.79 vs 4.77), which is why
+              it is this value rather than simply #000.
+
+           2. The six light shop banners become light-palette islands. They
+              paint a literal background in BOTH themes, because that is
+              what the cosmetic is, while the name, rank, date and score on
+              them all read tokens -- so a plain swap puts light ink on a
+              light banner and the name measures 1.10:1. See the island
+              rule below.
+
+           Colorblind mode is the third place the same boundary bites, and
+           it is fixed where it lives, next to the Okabe-Ito pair.
+
+           Everything else in here is a value, not a decision. Add a token
+           to :root and it needs one here, measured.
+           --------------------------------------------------------------- */
+        :root.dark {
+            /* Form controls, scrollbars and the canvas behind the page are
+               painted by the UA, not by this stylesheet. Without this the
+               scrollbar stays light and the page keeps a white edge. */
+            color-scheme: dark;
+            /* signals */
+            --c-correct: #6795ad;
+            --c-present: #a57324;
+            --c-loss: #d17e75;
+            /* one per mode */
+            --c-endless: #5b8867;
+            --c-gauntlet: #9387ae;
+            --c-clash: #bc654f;
+            --c-ffa: #987d3f;
+            --c-sprint: #ae90a4;
+            --c-marathon: #89a8a3;
+            /* a letter that is in no part of the word */
+            --c-absent: #4c4842;
+            --c-absent-ink: #a9a59d;
+            /* surfaces, in the same order and the same job as :root */
+            --c-page: #1a1712;
+            --c-panel: #26231e;
+            --c-raised: #2f2c27;
+            /* --c-line is not only a line: .btn-quiet is filled with it,
+               and that button carries accent-coloured text. So this is a
+               surface an accent is READ on, and it is solved against the
+               accents rather than picked for how an edge looks. At the
+               first value the eye liked (#3e3b35) four of the nine accents
+               sat under 3:1 on it and two shipped buttons were at 2.7.
+               --c-line-2 is .btn-quiet's hover, same story.
+
+               --c-panel and --c-raised carry accents at 3.78 and 3.36
+               against light's 4.77 and 4.46: lower, still clear of the 3:1
+               that bold UI text needs, and left there on purpose - they are
+               what gives this theme its depth now that a shadow cannot. */
+            --c-line: #302d28;
+            --c-line-2: #37332e;
+            /* ink, strongest to faintest */
+            --c-ink: #e6e2da;
+            --c-ink-2: #c8c4bc;
+            --c-ink-3: #a29f97;
+            --c-ink-4: #8b8880;
+            --c-ink-5: #76726b;
+            --c-ink-6: #58554e;
+            --c-on-accent: #0b0a08;
+            /* The paper shadow is a 5%/10% warm brown, which has nothing to
+               darken here. Elevation on this page is a hole, not a smudge. */
+            --c-shadow: 0 1px 0 rgba(0, 0, 0, .35), 0 2px 10px rgba(0, 0, 0, .45);
+        }
+        /* The scrim is one colour at one opacity rather than a palette
+           entry, so it stays a literal in both themes -- and 45% of a warm
+           brown over this page is not a scrim. */
+        :root.dark .modal-overlay { background-color: rgba(0, 0, 0, .66); }
+        /* THE LIGHT-BANNER ISLAND. Point 2 above. These are the paper
+           values, unchanged, so what gets drawn on a light banner is
+           identical in both themes -- which also means board-contrast
+           measures the same numbers there that it always did.
+
+           Six tokens, because six are reachable inside a row: the name
+           (--c-ink), the rank (--c-ink-4), the date (--c-ink-5), the score
+           (--c-endless), your own row's tint (--c-correct) and the rule
+           between entries (--c-line). Declared on the banner ELEMENT, which
+           covers all three shapes the class appears in: as an ancestor of
+           the name, as the name itself, and inside the shop's preview
+           monitor. */
+        :root.dark :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) {
+            --c-ink: #2a2420;
+            --c-ink-4: #6f675a;
+            --c-ink-5: #847c6c;
+            --c-endless: #4a7c59;
+            --c-correct: #24688f;
+            --c-line: #e6dece;
+        }
+
         * { touch-action: manipulation; box-sizing: border-box; }
         /* Only 7 of ~19 interactive selectors carried font-family: inherit, so
            the on-screen keyboard, every modal button, the tabs, the inputs and
@@ -528,8 +640,15 @@
            across the common forms of color vision deficiency. Applies to
            tiles, keyboard keys, and the legend swatches — everywhere the
            game uses color alone to mean "correct" vs "wrong spot". */
-        body.colorblind .correct { background-color: #0072B2; border-color: #0072B2; color: var(--c-on-accent); }
-        body.colorblind .present { background-color: #E69F00; border-color: #E69F00; color: var(--c-ink); }
+        /* The two fills are LITERALS -- the Okabe-Ito pair is the whole
+           point of the mode and no theme may repaint it. So the ink on them
+           has to be a literal too: as tokens they followed the theme while
+           the fill did not, which took the orange tile's letter from 6.80:1
+           to 1.74:1 the moment a dark palette existed. Both values are
+           exactly what those tokens resolved to on paper, so nothing about
+           light mode changes. */
+        body.colorblind .correct { background-color: #0072B2; border-color: #0072B2; color: #ffffff; }
+        body.colorblind .present { background-color: #E69F00; border-color: #E69F00; color: #2a2420; }
         body.colorblind #legend-correct { background-color: #0072B2; }
         body.colorblind #legend-present { background-color: #E69F00; }
 
@@ -762,6 +881,73 @@
             --c-page: #f3f5fb; --c-panel: #ffffff; --c-raised: #fafbff;
             --c-line: #dee3f0; --c-line-2: #c7cfe3;
             --c-season: #1a4f94; }
+
+        /* THE SAME EIGHT SEASONS, ON A DARK PAGE.
+
+           A season repaints five SURFACE tokens and an accent, and leaves
+           the ink ramp alone. That works on paper and inverts badly: with
+           the dark theme on, a season was putting its light page back under
+           dark-theme ink, which measured 1.20:1 on an unused key. Eight
+           palettes, every one of them unreadable, and the only reason it is
+           not in the shipped game is that board-contrast now sweeps both
+           themes.
+
+           These are not hand-picked. Each one is the SAME perceptual tint
+           its light counterpart applies, taken from the light base and
+           re-applied to the dark base at CONSTANT CIE Lab L -- which is a
+           function of relative luminance alone, so every contrast ratio
+           against every ink level is the plain dark theme's, unchanged. The
+           measured drift across all eight seasons and all six ink levels is
+           0.04, which is 8-bit rounding. A season can therefore tint the
+           page and cannot make anything harder to read.
+
+           The accent is the other way round: it is read AS text on the
+           wordmark, so it keeps its hue and is lifted in L until it holds
+           the ratio the light one holds on the light page (easter 7.99:1
+           both ways, thanksgiving 5.67:1 both ways).
+
+           --c-absent is deliberately not in here, in either theme: a letter
+           that is in no part of the word is a signal, and the note at the
+           top of :root says a theme may never repaint those. */
+        :root.dark body.season-halloween {
+            --c-page: #1c170d; --c-panel: #282319; --c-raised: #312c24;
+            --c-line: #332c23; --c-line-2: #3b3227;
+            --c-season: #d27739; }
+
+        :root.dark body.season-thanksgiving {
+            --c-page: #1c170c; --c-panel: #272319; --c-raised: #312c24;
+            --c-line: #322d22; --c-line-2: #3b3226;
+            --c-season: #c48345; }
+
+        :root.dark body.season-christmas {
+            --c-page: #151817; --c-panel: #26231e; --c-raised: #2b2d2c;
+            --c-line: #24302f; --c-line-2: #233737;
+            --c-season: #62ad76; }
+
+        :root.dark body.season-newyear {
+            --c-page: #16171d; --c-panel: #26231e; --c-raised: #2b2c31;
+            --c-line: #262d3e; --c-line-2: #24344f;
+            --c-season: #b08c43; }
+
+        :root.dark body.season-valentines {
+            --c-page: #1d1519; --c-panel: #28221e; --c-raised: #312b2e;
+            --c-line: #362936; --c-line-2: #402d43;
+            --c-season: #f36c8c; }
+
+        :root.dark body.season-stpatricks {
+            --c-page: #141816; --c-panel: #26231e; --c-raised: #2b2d2c;
+            --c-line: #22302e; --c-line-2: #203835;
+            --c-season: #5ba975; }
+
+        :root.dark body.season-easter {
+            --c-page: #19161d; --c-panel: #26231e; --c-raised: #2d2c31;
+            --c-line: #2b2c3e; --c-line-2: #2e3151;
+            --c-season: #c49cf2; }
+
+        :root.dark body.season-julyfourth {
+            --c-page: #16171d; --c-panel: #26231e; --c-raised: #2b2c31;
+            --c-line: #242e3f; --c-line-2: #213451;
+            --c-season: #85a6f4; }
 
         /* One card, one measure. These six panels carried six different
            widths (90%/340, 90%/420, 95%/450, 95%/500, 95%/520) and five
@@ -1435,6 +1621,45 @@
         #skip-word-btn:hover:not(:disabled) { color: var(--c-ink); border-color: var(--c-ink-6); }
         #skip-word-btn:disabled { color: var(--c-ink-6); border-color: var(--c-line-2); cursor: default; }
     </style>
+    <!-- The browser chrome above the page. Without this the address bar
+         stays paper-coloured over a dark page. The manifest's theme_color
+         cannot do this job: it is read at install time and knows nothing
+         about a preference, so it stays paper and this one moves. -->
+    <meta name="theme-color" content="#f7f3ea">
+    <!-- THEME, APPLIED BEFORE THE FIRST PAINT.
+
+         Everything else about settings lives in the Settings module near
+         the bottom of this file, but that script runs only once the markup
+         has parsed, and a dark-mode player would watch the page flash paper
+         first. This is the smallest thing that cannot do that: read the
+         preference, resolve it, put the class on. It sits in <head> because
+         nothing paints until <body> starts rendering, and the class goes on
+         <html> rather than <body> because that is the only element which
+         exists this early.
+
+         The resolver is left on window because Settings needs the SAME one.
+         Two copies of "what does system mean" is how a toggle and a first
+         paint end up disagreeing. -->
+    <script>
+        (function () {
+            var PAGE = { light: "#f7f3ea", dark: "#1a1712" };
+            window.__applyTheme = function (pref) {
+                var mode = pref === "system"
+                    ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+                    : (pref === "dark" ? "dark" : "light");
+                document.documentElement.classList.toggle("dark", mode === "dark");
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute("content", PAGE[mode]);
+                return mode;
+            };
+            // Light unless the player has asked for otherwise. The default
+            // is a decision and not an accident of whatever the device
+            // happens to be set to; following the device is one tap away.
+            var pref = "light";
+            try { pref = (JSON.parse(localStorage.getItem("wordcade_settings") || "{}") || {}).theme || "light"; } catch (e) { /* storage blocked -- paper it is */ }
+            window.__applyTheme(pref);
+        })();
+    </script>
 </head>
 <body>
 
@@ -2628,6 +2853,12 @@
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title">Settings</h2>
             <div class="modal-stats" style="text-align: left;">
+                <!-- First, because it is the one setting in here that
+                     changes every pixel of the game. -->
+                <div class="stat-bar-container" style="justify-content: space-between; gap: 14px; margin-bottom: 18px;">
+                    <span style="text-align: left;">Appearance<div id="settings-theme-note" style="font-size: var(--fs-2); color: var(--c-ink-4); font-weight: normal;"></div></span>
+                    <button id="settings-toggle-theme" class="action-btn" onclick="window.cycleTheme()">LIGHT</button>
+                </div>
                 <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
                     <span>Sound Effects</span>
                     <button id="settings-toggle-sound" class="action-btn" onclick="window.toggleSetting('sound')">ON</button>
@@ -2825,7 +3056,7 @@
         })();
 
         // ==========================================
-        // SETTINGS — sound / colorblind / reduce-motion / seasonal themes.
+        // SETTINGS — appearance / sound / colorblind / reduce-motion / seasons.
         // Per-device display preferences, not account data, so these live in
         // localStorage (like the local run-save) rather than the Firestore
         // profile - which also means a guest gets them, and a client cannot
@@ -2833,11 +3064,22 @@
         // ==========================================
         const Settings = (() => {
             const STORAGE_KEY = "wordcade_settings";
-            const defaults = { sound: true, colorblind: false, reduceMotion: false, seasonal: true };
+            // `theme` is the one tri-state here: "light", "dark" or
+            // "system". It defaults to LIGHT rather than "system" on
+            // purpose - the game was designed on paper and that is what a
+            // first-time player should be handed, with following the
+            // device an opt-in rather than something that happens to them.
+            const defaults = { sound: true, colorblind: false, reduceMotion: false, seasonal: true, theme: "light" };
             let current = { ...defaults };
             try { current = { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; } catch (e) { /* corrupted/unavailable storage — just use defaults */ }
 
             function apply() {
+                // Delegated to the pre-paint script in <head>, which owns
+                // the resolver and the <meta> - see the note up there.
+                // Guarded because that script is the one piece of this file
+                // that can legitimately be missing: a service-worker shell
+                // cached from before it existed.
+                if (window.__applyTheme) window.__applyTheme(current.theme);
                 document.body.classList.toggle("colorblind", !!current.colorblind);
                 document.body.classList.toggle("reduce-motion", !!current.reduceMotion);
                 // Exactly one season class at a time, and none outside a window.
@@ -2845,6 +3087,17 @@
                 for (const s of Seasons.TABLE) document.body.classList.toggle("season-" + s.id, !!season && season.id === s.id);
             }
             function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(current)); } catch (e) { /* private browsing / storage blocked — setting still works for this session */ } }
+
+            // Only "system" follows the device, and it has to follow it
+            // LIVE: a phone that flips itself at sunset should take the
+            // page with it rather than wait for a reload. The deprecated
+            // addListener is still the only one Safari below 14 has.
+            if (window.matchMedia) {
+                const mq = window.matchMedia("(prefers-color-scheme: dark)");
+                const onDeviceChange = () => { if (current.theme === "system") apply(); };
+                if (mq.addEventListener) mq.addEventListener("change", onDeviceChange);
+                else if (mq.addListener) mq.addListener(onDeviceChange);
+            }
 
             return {
                 get: () => current,
@@ -3018,6 +3271,26 @@
                 const season = Seasons.current();
                 noteEl.innerText = season ? season.label : "Nothing on right now";
             }
+            // The one tri-state control, so it cannot ride the ON/OFF
+            // loop below. "AUTO" rather than "SYSTEM" because the button is
+            // as wide as its longest label and this row already carries the
+            // longest label in the modal.
+            const themeBtn = document.getElementById("settings-toggle-theme");
+            if (themeBtn) {
+                themeBtn.innerText = s.theme === "dark" ? "DARK" : s.theme === "system" ? "AUTO" : "LIGHT";
+                // Deliberately NOT the green/red the booleans use: a theme
+                // is not on or off, and a red "LIGHT" reads as broken.
+                themeBtn.style.borderColor = "var(--c-ink-4)";
+                themeBtn.style.color = "var(--c-ink-2)";
+            }
+            // Same reason the seasonal row names its season: on AUTO the
+            // button says nothing about what you are actually looking at.
+            const themeNote = document.getElementById("settings-theme-note");
+            if (themeNote) {
+                themeNote.innerText = s.theme === "system"
+                    ? "Following your device: " + (document.documentElement.classList.contains("dark") ? "Dark" : "Light")
+                    : "";
+            }
             [["sound", s.sound], ["colorblind", s.colorblind], ["reduceMotion", s.reduceMotion], ["seasonal", s.seasonal]].forEach(([key, val]) => {
                 const btn = document.getElementById(`settings-toggle-${key}`);
                 if (!btn) return;
@@ -3026,6 +3299,17 @@
                 btn.style.color = val ? "var(--c-endless)" : "var(--c-loss)";
             });
         }
+        // Three states on one button, in the order a player wants them:
+        // the default first, the thing they came here for second, the
+        // clever option third.
+        window.cycleTheme = function() {
+            const order = ["light", "dark", "system"];
+            // indexOf gives -1 for anything unrecognised, which lands on
+            // "light" - the same place a corrupted setting should land.
+            const next = order[(order.indexOf(Settings.get().theme) + 1) % order.length];
+            Settings.set("theme", next);
+            renderSettingsUI();
+        };
         window.toggleSetting = function(key) {
             const wasOn = Settings.get()[key];
             Settings.set(key, !wasOn);

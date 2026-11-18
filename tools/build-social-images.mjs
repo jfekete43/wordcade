@@ -30,7 +30,11 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const CSS = fs.readFileSync(path.join(REPO, "index.html"), "utf8").replace(/\r\n/g, "\n");
 const C = (name) => {
-  const m = CSS.match(new RegExp("--c-" + name + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;"));
+  // Sliced to :root first. There is a :root.dark palette as well now, and
+  // a whole-file search finding the light value is an accident of source
+  // order - put the dark block higher and every image here turns dark.
+  const root = CSS.slice(CSS.indexOf(":root {"), CSS.indexOf("}", CSS.indexOf(":root {")));
+  const m = root.match(new RegExp("--c-" + name + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;"));
   if (!m) throw new Error("could not read --c-" + name + " out of index.html");
   return m[1];
 };

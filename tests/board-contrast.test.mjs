@@ -13,7 +13,13 @@
  * out by hand first. A later repaint would not get that courtesy.
  *
  * Three things are checked, for a plain body, for colorblind mode, and for
- * all eight seasons:
+ * all eight seasons - and now for each of those on BOTH themes, because a
+ * dark palette is a second set of values that can be wrong in exactly the
+ * same places. It already was: colorblind mode's two Okabe-Ito fills are
+ * literals with tokenised ink on them, which put the orange tile's letter at
+ * 1.74:1 the moment the dark palette existed, and the six light shop banners
+ * went the same way at 1.10:1. Both are fixed in the stylesheet; this is what
+ * stops them coming back.
  *
  *   1. A letter is readable on the tile it sits on. Tiles are 30px bold, so
  *      3:1 is the applicable WCAG threshold.
@@ -123,17 +129,28 @@ try {
     // A tile may be transparent (an unplayed one is), and it may be faded by
     // opacity, so what the eye gets is the composite over whatever is behind.
     const over = (fg, bg, alpha) => fg.map((c, i) => c * alpha + bg[i] * (1 - alpha));
+    // What is behind EVERYTHING, for the case where nothing in the chain is
+    // opaque. It used to be a hard-coded white, which is the canvas on paper
+    // and a lie on a dark page - a transparent tile would have measured
+    // against a white that is not there.
+    const canvas = () => {
+      const c = parse(getComputedStyle(document.documentElement).backgroundColor);
+      if (c.length >= 3 && (c.length < 4 || c[3] > 0.99)) return c.slice(0, 3);
+      const b = parse(getComputedStyle(document.body).backgroundColor);
+      return b.length >= 3 && (b.length < 4 || b[3] > 0.99) ? b.slice(0, 3) : [255, 255, 255];
+    };
     const flatten = (el) => {
+      const back = canvas();
       let acc = null;
       for (let n = el; n; n = n.parentElement) {
         const cs = getComputedStyle(n);
         const col = parse(cs.backgroundColor);
         const a = col.length === 4 ? col[3] : 1;
-        const layer = over(col.slice(0, 3), [255, 255, 255], a * Number(cs.opacity || 1));
+        const layer = over(col.slice(0, 3), back, a * Number(cs.opacity || 1));
         if (a * Number(cs.opacity || 1) >= 0.999) return acc ? acc : layer;
         if (!acc) acc = a > 0 ? layer : null;
       }
-      return acc || [255, 255, 255];
+      return acc || back;
     };
     const paint = (el) => {
       const cs = getComputedStyle(el);
@@ -143,36 +160,49 @@ try {
       return { bg, fg, ink: ratio(o < 1 ? over(fg, bg, o) : fg, bg) };
     };
     const out = {};
-    for (const st of states) {
-      document.body.className = st;
-      const page = flatten(document.body);
-      const ids = ['t-empty', 't-typed', 't-correct', 't-present', 't-absent',
-                   'k-plain', 'k-correct', 'k-present', 'k-absent'];
-      const cells = {};
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        const m = paint(el);
-        cells[id] = { ink: m.ink, vsPage: dE(m.bg, page), bg: m.bg, fg: m.fg,
-                      border: getComputedStyle(el).borderTopColor,
-                      style: getComputedStyle(el).borderTopStyle };
+    // The theme class lives on <html>, not <body>: it is applied by a script
+    // in <head> and <html> is the only element that exists that early.
+    for (const theme of ['light', 'dark']) {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      for (const st of states) {
+        document.body.className = st;
+        const page = flatten(document.body);
+        const ids = ['t-empty', 't-typed', 't-correct', 't-present', 't-absent',
+                     'k-plain', 'k-correct', 'k-present', 'k-absent'];
+        const cells = {};
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          const m = paint(el);
+          cells[id] = { ink: m.ink, vsPage: dE(m.bg, page), bg: m.bg, fg: m.fg,
+                        border: getComputedStyle(el).borderTopColor,
+                        style: getComputedStyle(el).borderTopStyle };
+        }
+        out[(theme === 'dark' ? 'dark ' : '') + (st || 'plain')] = {
+          cells,
+          verdicts: {
+            'right vs wrong spot': dE(cells['t-correct'].bg, cells['t-present'].bg),
+            'right spot vs absent': dE(cells['t-correct'].bg, cells['t-absent'].bg),
+            'wrong spot vs absent': dE(cells['t-present'].bg, cells['t-absent'].bg),
+            'key right vs wrong spot': dE(cells['k-correct'].bg, cells['k-present'].bg),
+            'key right spot vs absent': dE(cells['k-correct'].bg, cells['k-absent'].bg),
+            'key wrong spot vs absent': dE(cells['k-present'].bg, cells['k-absent'].bg),
+          },
+        };
       }
-      out[st || 'plain'] = {
-        cells,
-        verdicts: {
-          'right vs wrong spot': dE(cells['t-correct'].bg, cells['t-present'].bg),
-          'right spot vs absent': dE(cells['t-correct'].bg, cells['t-absent'].bg),
-          'wrong spot vs absent': dE(cells['t-present'].bg, cells['t-absent'].bg),
-          'key right vs wrong spot': dE(cells['k-correct'].bg, cells['k-present'].bg),
-          'key right spot vs absent': dE(cells['k-correct'].bg, cells['k-absent'].bg),
-          'key wrong spot vs absent': dE(cells['k-present'].bg, cells['k-absent'].bg),
-        },
-      };
     }
     document.body.className = '';
+    document.documentElement.classList.remove('dark');
     return out;
   }, STATES);
 
-  const LETTERED = { 't-correct': 'right spot', 't-present': 'wrong spot', 't-absent': 'absent' };
+  // t-typed is the cell you are LOOKING AT while you type, and until now
+  // nothing measured it: the three graded states carry their own fills, so
+  // they survive a broken page colour, while this one is ink straight onto
+  // the page and is the first thing a wrong page colour takes out. Found by
+  // mutating a seasonal dark palette back to its light page and watching
+  // this file stay green.
+  const LETTERED = { 't-typed': 'cell you are typing in', 't-correct': 'right spot',
+                     't-present': 'wrong spot', 't-absent': 'absent' };
   const KEYED = { 'k-plain': 'unused', 'k-correct': 'right spot', 'k-present': 'wrong spot', 'k-absent': 'absent' };
 
   for (const st of Object.keys(measured)) {
@@ -239,6 +269,11 @@ try {
     host.id = 'daily-board-container';
     document.body.appendChild(host);
     const out = [];
+    // Both themes. The light shop banners are the whole reason: their fill is
+    // a literal in both, and before the island rule in the stylesheet the ink
+    // on them followed the theme while the fill did not.
+    for (const theme of ['light', 'dark']) {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     for (const bn of banners) {
       for (const ef of effects) {
         host.innerHTML = `<div class="lb-entry ${bn}"><div class="lb-rank">1</div>` +
@@ -257,15 +292,17 @@ try {
         // different — so they are measured by the check below instead, which
         // pins the halo they depend on.
         if (HALO_LEGIBLE.includes(ef)) continue;
-        let n = el, bg = [255, 255, 255];
+        let n = el, bg = null;
         while (n) {
           const c = parse(getComputedStyle(n).backgroundColor);
           if (c.length < 4 || c[3] > 0.99) { bg = c.slice(0, 3); break; }
           n = n.parentElement;
         }
-        out.push([bn, ef, ratio(parse(cs.color).slice(0, 3), bg)]);
+        out.push([theme, bn, ef, ratio(parse(cs.color).slice(0, 3), bg || [255, 255, 255])]);
       }
     }
+    }
+    document.documentElement.classList.remove('dark');
     host.remove();
     return out;
   }, { banners: bannerNames, effects: effectNames, HALO_LEGIBLE });
@@ -294,7 +331,11 @@ try {
   // black, because everything it previews was drawn for a dark UI. So the fix
   // that darkens a default name on a white card has to NOT reach inside it —
   // which the rows above cannot show, since they build their own container.
-  const preview = await p.evaluate(() => {
+  // The monitor is deliberately black in both themes - everything it previews
+  // was drawn for a dark UI - so it has to keep working in both.
+  for (const PREVIEW_THEME of ['light', 'dark']) {
+  const preview = await p.evaluate((theme) => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     const parse = (c) => (c.match(/[\d.]+/g) || []).map(Number);
     const lum = ([r, g, b]) => {
       const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -315,15 +356,24 @@ try {
     }
     const r = ratio(parse(getComputedStyle(el).color).slice(0, 3), bg);
     mon.remove();
+    document.documentElement.classList.remove('dark');
     return r;
-  });
-  ck(preview >= 4.5, 'a default name still reads inside the black shop preview',
+  }, PREVIEW_THEME);
+  ck(preview >= 4.5, `a default name still reads inside the black shop preview (${PREVIEW_THEME})`,
      preview.toFixed(2) + ':1');
+  }
 
-  const unreadable = nameRows.filter(([, , r]) => r < 4.5);
+  const unreadable = nameRows.filter(([, , , r]) => r < 4.5);
   ck(unreadable.length === 0,
-     `every name reads on every banner (${nameRows.length} pairs measured)`,
-     unreadable.slice(0, 8).map(([b, e, r]) => `${b}+${e} ${r.toFixed(2)}:1`).join(' | '));
+     `every name reads on every banner, in both themes (${nameRows.length} pairs measured)`,
+     unreadable.slice(0, 8).map(([th, b, e, r]) => `${th}:${b}+${e} ${r.toFixed(2)}:1`).join(' | '));
+  // Stated separately so the dark half cannot quietly become zero rows and
+  // still report a green cross product.
+  for (const th of ['light', 'dark']) {
+    ck(nameRows.filter(([x]) => x === th).length > 200,
+       `the ${th} half of the cross product was actually measured`,
+       String(nameRows.filter(([x]) => x === th).length));
+  }
 
   const worst = Object.entries(measured).flatMap(([st, m]) =>
     Object.entries(m.cells).map(([id, c]) => [`${st}/${id}`, c.ink]))

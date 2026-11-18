@@ -52,7 +52,11 @@ if (!Number.isInteger(PLAYERS) || PLAYERS < 2) { console.error("--players=N is r
 const OUT = val("--out") || path.join(REPO, `milestone-${PLAYERS}-players.png`);
 
 const C = (name) => {
-  const m = SRC.match(new RegExp("--c-" + name + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;"));
+  // Sliced to :root first. There is a :root.dark palette as well now, and
+  // a whole-file search finding the light value is an accident of source
+  // order - put the dark block higher and every image here turns dark.
+  const root = SRC.slice(SRC.indexOf(":root {"), SRC.indexOf("}", SRC.indexOf(":root {")));
+  const m = root.match(new RegExp("--c-" + name + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;"));
   if (!m) throw new Error("could not read --c-" + name + " out of index.html");
   return m[1];
 };

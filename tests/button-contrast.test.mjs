@@ -17,6 +17,11 @@
  * (a transparent button inherits its container's), and measure. Buttons in
  * this UI are bold and uppercase, so 3:1 is the applicable WCAG threshold.
  *
+ * Both themes, since dark mode. A filled button is the exact shape of thing
+ * a second palette breaks: --c-on-accent is white on paper and a near-black
+ * in dark, and getting that one token wrong turns every primary button in
+ * the game into 2.6:1 at once.
+ *
  * Needs Playwright, not the emulator.
  */
 import fs from 'fs';
@@ -54,7 +59,10 @@ try {
   const p = await browser.newPage({ viewport: { width: 420, height: 900 } });
   await p.goto('file://' + tmp);
 
-  const findings = await p.evaluate((MIN) => {
+  const findings = [];
+  for (const THEME of ['light', 'dark']) {
+  const themed = await p.evaluate(({ MIN, THEME }) => {
+    document.documentElement.classList.toggle('dark', THEME === 'dark');
     const parse = (c) => (c.match(/[\d.]+/g) || []).map(Number);
     const lum = ([r, g, b]) => {
       const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -76,17 +84,19 @@ try {
       const cs = getComputedStyle(el);
       const fg = parse(cs.color).slice(0, 3);
       const r = ratio(fg, effectiveBg(el));
-      out.push({ label, id: el.id || '', fg: cs.color, bg: cs.backgroundColor, ratio: Math.round(r * 100) / 100, ok: r >= MIN });
+      out.push({ theme: THEME, label, id: el.id || '', fg: cs.color, bg: cs.backgroundColor, ratio: Math.round(r * 100) / 100, ok: r >= MIN });
     }
+    document.documentElement.classList.remove('dark');
     return out;
-  }, MIN_CONTRAST);
-
-  ck(findings.length > 20, `found buttons to check (${findings.length})`);
+  }, { MIN: MIN_CONTRAST, THEME });
+  ck(themed.length > 20, `${THEME}: found buttons to check (${themed.length})`);
+  findings.push(...themed);
+  }
 
   const failures = findings.filter((f) => !f.ok);
   ck(failures.length === 0,
-     `every button's text clears ${MIN_CONTRAST}:1 against what it sits on`,
-     failures.map((f) => `${f.label || f.id} ${f.ratio}:1 (${f.fg} on ${f.bg})`).join(' | '));
+     `every button's text clears ${MIN_CONTRAST}:1 against what it sits on, in both themes`,
+     failures.map((f) => `${f.theme}:${f.label || f.id} ${f.ratio}:1 (${f.fg} on ${f.bg})`).join(' | '));
 
   // The specific regression, named so it cannot come back quietly. The bar
   // was 10:1, which only a black-on-neon palette can clear: on paper no
@@ -94,7 +104,7 @@ try {
   // a perfectly comfortable 4.99:1. What actually went wrong was the PAIR —
   // gold text on a cyan fill — so that is what is checked, plus a real
   // readability floor rather than a number borrowed from the old palette.
-  const find = findings.find((f) => /FIND PUBLIC MATCH/i.test(f.label));
+  const find = findings.find((f) => /FIND PUBLIC MATCH/i.test(f.label) && f.theme === 'light');
   ck(find && find.ratio >= 4.5, 'Find Public Match is comfortably readable, not gold-on-cyan',
      find ? `${find.ratio}:1` : 'button not found');
   const ffaRgb = (() => {
@@ -107,7 +117,7 @@ try {
      "and its text is not the gold that caused it", find ? find.fg : 'button not found');
 
   const worst = [...findings].sort((a, b) => a.ratio - b.ratio)[0];
-  console.log(`\nlowest-contrast button: "${worst.label}" at ${worst.ratio}:1 (${worst.fg} on ${worst.bg})\n`);
+  console.log(`\nlowest-contrast button: ${worst.theme} "${worst.label}" at ${worst.ratio}:1 (${worst.fg} on ${worst.bg})\n`);
 } finally {
   await browser.close();
   fs.unlinkSync(tmp);
@@ -183,8 +193,12 @@ let bad = 0;
   // rule stopped working the moment the rules became var(--c-clash), and
   // pinning literals was the wrong thing anyway: this check is about two
   // values AGREEING, so it should follow whatever the palette says they are.
+  // Scoped to :root. Folding the whole file into one object let :root.dark's
+  // values overwrite the light ones, which is the opposite of what these
+  // checks are about.
+  const rootBlock = src.slice(src.indexOf(':root {'), src.indexOf('}', src.indexOf(':root {')));
   const TOKENS = Object.fromEntries(
-    [...src.matchAll(/(--c-[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map((m) => [m[1], m[2].toLowerCase()]));
+    [...rootBlock.matchAll(/(--c-[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)].map((m) => [m[1], m[2].toLowerCase()]));
   ck(Object.keys(TOKENS).length >= 10, 'the palette block is readable', String(Object.keys(TOKENS).length));
   const resolve = (v) => {
     if (!v) return null;

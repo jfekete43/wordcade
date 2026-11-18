@@ -43,7 +43,17 @@ const grab = (re, what) => { const m = html.match(re); if (!m) throw new Error('
 // it. A repaint should not be able to make this suite pass while the nav and
 // the blurb drift apart — the point of the checks below is that they AGREE,
 // not that they hold any particular hex.
-const TOKENS = Object.fromEntries([...html.matchAll(/(--c-[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)]
+// Scoped to the :root block, NOT the whole file. There are two palettes now
+// (:root and :root.dark) and this used to fold them into one object where
+// the LAST value won - so every mode colour here silently became its dark
+// counterpart and seven checks failed at once. Taking the first match would
+// also "work", by source order, which is not a thing to rely on.
+const ROOT_BLOCK = (() => {
+  const at = html.indexOf(':root {');
+  if (at < 0) throw new Error('could not find the :root palette block');
+  return html.slice(at, html.indexOf('}', at));
+})();
+const TOKENS = Object.fromEntries([...ROOT_BLOCK.matchAll(/(--c-[\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)]
   .map((m) => [m[1], m[2].toLowerCase()]));
 const rgbOf = (tok) => {
   let h = TOKENS[tok];

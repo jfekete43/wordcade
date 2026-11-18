@@ -19,6 +19,12 @@
  * The rule the whole feature rests on: a theme changes chrome, never signal.
  * Cyan still means the right letter in every season.
  *
+ * Every season is measured on BOTH themes. A season repaints surfaces and
+ * leaves the ink ramp alone, which inverts badly: with dark mode on, each
+ * season was putting its light page back under dark-theme ink. There are
+ * eight dark seasonal palettes now and this is half of what holds them to
+ * the same rules (board-contrast sweeps the board, this one the chrome).
+ *
  * Needs Playwright.
  */
 import fs from 'fs';
@@ -265,11 +271,15 @@ const measured = await page.evaluate((ids) => {
   killer.textContent = '* { transition: none !important; }';
   document.head.appendChild(killer);
   const out = {};
+  // The theme class goes on <html>: it is applied by a script in <head>, and
+  // <html> is the only element that exists that early.
+  for (const theme of ['light', 'dark']) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
   for (const id of ['', ...ids]) {
     document.body.className = id ? 'season-' + id : '';
     const bg = getComputedStyle(document.body).backgroundColor;
     const probe = (sel) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).color : null; };
-    out[id || 'default'] = {
+    out[(theme === 'dark' ? 'dark/' : '') + (id || 'default')] = {
       bg,
       // The signals, read off the live page under this theme.
       score: probe('#score') && ratio(probe('#score'), bg),
@@ -281,23 +291,29 @@ const measured = await page.evaluate((ids) => {
       clash: getComputedStyle(document.querySelector('.mode-clash')).color,
     };
   }
+  }
   document.body.className = '';
+  document.documentElement.classList.remove('dark');
   killer.remove();
   return out;
 }, Seasons.TABLE.map((s) => s.id));
 await page.close();
 
-const base = measured.default;
+for (const theme of ['light', 'dark']) {
+const pre = theme === 'dark' ? 'dark/' : '';
+const base = measured[pre + 'default'];
 for (const s of Seasons.TABLE) {
-  const m = measured[s.id];
-  ck(`${s.id}: the background actually changed`, m.bg !== base.bg, `${m.bg} vs ${base.bg}`);
-  ck(`${s.id}: the title stays legible`, m.title >= 4.5, m.title.toFixed(2) + ':1');
-  ck(`${s.id}: the score stays legible`, m.score >= 3, m.score && m.score.toFixed(2) + ':1');
-  ck(`${s.id}: the continues counter stays legible`, m.lives >= 3, m.lives && m.lives.toFixed(2) + ':1');
+  const m = measured[pre + s.id];
+  const label = `${theme} ${s.id}`;
+  ck(`${label}: the background actually changed`, m.bg !== base.bg, `${m.bg} vs ${base.bg}`);
+  ck(`${label}: the title stays legible`, m.title >= 4.5, m.title.toFixed(2) + ':1');
+  ck(`${label}: the score stays legible`, m.score >= 3, m.score && m.score.toFixed(2) + ':1');
+  ck(`${label}: the continues counter stays legible`, m.lives >= 3, m.lives && m.lives.toFixed(2) + ':1');
   // The whole point: gameplay feedback is identical in every season.
-  ck(`${s.id}: a correct letter is still the same colour`, m.correct === base.correct, `${m.correct} vs ${base.correct}`);
-  ck(`${s.id}: a wrong-spot letter is still the same colour`, m.present === base.present, `${m.present} vs ${base.present}`);
-  ck(`${s.id}: Clash keeps its own colour`, m.clash === base.clash, `${m.clash} vs ${base.clash}`);
+  ck(`${label}: a correct letter is still the same colour`, m.correct === base.correct, `${m.correct} vs ${base.correct}`);
+  ck(`${label}: a wrong-spot letter is still the same colour`, m.present === base.present, `${m.present} vs ${base.present}`);
+  ck(`${label}: Clash keeps its own colour`, m.clash === base.clash, `${m.clash} vs ${base.clash}`);
+}
 }
 
 // No season may introduce a sideways scroll - the motifs are background layers,
