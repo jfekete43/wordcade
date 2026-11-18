@@ -359,7 +359,7 @@
            where the two read as one sentence. Sprint and Marathon put two
            independent numbers side by side instead, and at 8px they ran
            together into one string. */
-        #marathon-header { gap: var(--s-7); }
+        #marathon-header { align-items: stretch; }
         /* Sprint's two numbers are boxed now, like the Stakes board's, so
            they keep the shared header gap rather than the wider one two
            bare strings needed to stay out of each other. stretch, so a
@@ -1550,13 +1550,22 @@
          fraction the way the Trifecta does; the score beside it is the
          running week total rather than one word's. -->
     <div id="marathon-header" style="display:none;">
-        <div class="score-text" id="marathon-progress-text" style="color:var(--c-marathon);">WORD <span id="marathon-word-index">1</span>/<span id="marathon-word-count">20</span></div>
-        <div class="score-text" id="marathon-complete-text" style="color:var(--c-marathon); display:none;">COMPLETE</div>
-        <div class="score-text">SCORE: <span id="marathon-score">0</span></div>
+        <div class="stat-pill" id="marathon-progress-text"><em>Word</em><b style="color:var(--c-marathon);"><span id="marathon-word-index">1</span>/<span id="marathon-word-count">20</span></b></div>
+        <!-- Swapped in for the one above once the week is finished, when a
+             word count would be describing a board that is no longer on
+             screen. The label changes with it: it is the WEEK that is
+             complete, not a word. -->
+        <div class="stat-pill" id="marathon-complete-text" style="display:none;"><em>Week</em><b style="color:var(--c-marathon);">Complete</b></div>
+        <div class="stat-pill"><em>Score</em><b id="marathon-score">0</b></div>
         <!-- Last, so that on a narrow screen it is the field that wraps.
-             A month-long mode with no visible deadline is just a long list;
-             the clock on it is the only thing making it a marathon. -->
-        <div class="score-text" id="marathon-days"></div>
+             A week-long mode with no visible deadline is just a long list;
+             the clock on it is the only thing making it a marathon.
+
+             The label is fixed and the VALUE carries the phrasing, because
+             two of the three things this says are not numbers: the last day
+             says so rather than counting to one, and a week that has rolled
+             over says that rather than showing a zero. -->
+        <div class="stat-pill"><em>Time left</em><b id="marathon-days"></b></div>
     </div>
 
     <div id="sprint-header" style="display:none;">
@@ -5463,7 +5472,7 @@
             if (left === null) { el.innerText = ""; return; }
             // "1 DAY LEFT" is true but reads as a number to compare. On the
             // last day the point is that there is no tomorrow.
-            el.innerText = left === 0 ? "WEEK OVER" : left === 1 ? "LAST DAY" : "DAYS LEFT: " + left;
+            el.innerText = left === 0 ? "WEEK OVER" : left === 1 ? "LAST DAY" : left + " DAYS";
             el.style.color = left <= 3 ? "var(--c-loss)" : "";
         }
 
@@ -5471,8 +5480,10 @@
             document.getElementById("legend").style.display = visible ? "flex" : "none";
             document.getElementById("board").style.display = visible ? "grid" : "none";
             document.getElementById("keyboard").style.display = visible ? "flex" : "none";
-            document.getElementById("marathon-progress-text").style.display = visible ? "block" : "none";
-            document.getElementById("marathon-complete-text").style.display = visible ? "none" : "block";
+            // "flex", not "block": a stat pill IS a flex column, and setting
+            // block on it stacks its label and value the wrong way.
+            document.getElementById("marathon-progress-text").style.display = visible ? "flex" : "none";
+            document.getElementById("marathon-complete-text").style.display = visible ? "none" : "flex";
         }
 
         window.openMarathon = async function() {

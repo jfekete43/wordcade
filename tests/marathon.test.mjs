@@ -437,12 +437,45 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
   eq('a week counts down 7 to 1 and never repeats a number', across, [7, 6, 5, 4, 3, 2, 1]);
 }
 
+// The header's three numbers sit in the same pills the Stakes score board
+// uses, so a box carries its own edge and the wide gap that stood in for one
+// is gone. The days field stays LAST, because it is the longest and the one
+// that should wrap first on a narrow screen.
+{
+  const hdr = html.slice(html.indexOf('<div id="marathon-header"'),
+                         html.indexOf('\n    </div>', html.indexOf('<div id="marathon-header"')));
+  const pills = (hdr.match(/class="stat-pill"/g) || []).length;
+  eq('each number sits in its own box', pills, 4); // three shown, plus the COMPLETE swap
+  ck(hdr.indexOf('marathon-days') > hdr.indexOf('marathon-score'),
+     'and the longest field is still last, so it is the one that wraps', '');
+  ck(!/#marathon-header \{ gap:/.test(html),
+     'the wider gap went with them, a box having its own edge', '');
+  // A pill is a flex column. Showing one with display:block stacks its label
+  // and value the wrong way, which is the trap in swapping these two.
+  ck(/marathon-progress-text"\)\.style\.display = visible \? "flex"/.test(html),
+     'the COMPLETE swap shows a pill as flex, not block', '');
+  ck(/marathon-complete-text"\)\.style\.display = visible \? "none" : "flex"/.test(html),
+     '...both ways round', '');
+}
+
 // The wording, and the one case where a count is the wrong thing to show.
 {
   const render = (html.match(/function renderMarathonDaysLeft\(\) \{\n[\s\S]*?\n        \}/) || [''])[0];
-  ck(/"LAST DAY"/.test(render), 'the final day says so rather than counting to one', render.slice(0, 80));
-  ck(/"DAYS LEFT: "/.test(render), 'and every other day carries the count');
-  ck(/"WEEK OVER"/.test(render), 'and a week that rolled over says so rather than showing a zero');
+  {
+    const el = { innerText: '', style: {} };
+    // eslint-disable-next-line no-new-func
+    const run = (left) => new Function('document', 'marathonAttempt', 'marathonDaysLeft',
+      'getTodayDateStr', `${render}\nrenderMarathonDaysLeft();`)(
+      { getElementById: () => el }, { week: 'w' }, () => left, () => 'd') || el.innerText;
+    eq('the final day says so rather than counting to one', run(1), 'LAST DAY');
+    eq('a week that rolled over says so rather than showing a zero', run(0), 'WEEK OVER');
+    eq('and every other day carries the count', run(5), '5 DAYS');
+    // The label is the pill's; repeating it in the value said it twice.
+    ck(!/DAYS LEFT/.test(run(5)), '...without repeating the label the pill already carries', run(5));
+    eq('the last few days are marked, so the deadline is felt before it arrives',
+       (run(3), el.style.color), 'var(--c-loss)');
+    eq('and an ordinary day is not', (run(5), el.style.color), '');
+  }
   ck(/var\(--c-loss\)/.test(render), 'the last few days are marked, so the deadline is felt before it arrives');
   ck(/getTodayDateStr\(\)/.test(render), 'today comes from the Eastern date helper, like every other boundary');
   ck(/marathonAttempt && marathonAttempt\.week/.test(render),
