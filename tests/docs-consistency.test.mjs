@@ -180,6 +180,33 @@ for (const { id, label } of tabButtons) {
     ok(`the documented leaderboards include ${label}`, lbLine.includes(label), lbLine);
   }
 }
+// ---- about.html's mode list, which is the answer to "what is this game" ---
+// It drifted: the Trifecta sat in it, marked closed, for as long as the mode
+// had been unreachable - no nav button, no card, and its Hall of Fame tab
+// hidden by applyHiddenModeUi. A player reading About met a mode that does
+// not exist anywhere else on the site.
+//
+// The rule is NOT "hidden modes are absent". FFA is hidden too and is
+// deliberately still listed as closed, because it is paused while the player
+// base grows and is coming back. The difference between paused and retired is
+// an editorial judgement that no flag in MODES carries, so the two halves
+// below are checked differently: every OPEN mode must be named, mechanically;
+// the Trifecta's absence is pinned by name, so re-adding it has to be a
+// decision somebody makes on purpose rather than a paragraph that creeps back.
+{
+  const modeBlock = (pages['about.html'].match(/<h2>The Modes<\/h2>([\s\S]*?)<\/p>/) || ['', ''])[1];
+  ok('found the mode list on about.html', modeBlock.length > 200, String(modeBlock.length));
+  const listed = [...modeBlock.matchAll(/<strong>([^<]+)<\/strong>/g)].map((m) => m[1].trim());
+  ok('it names several modes', listed.length >= 4, listed.join(', '));
+  for (const { id, label } of tabButtons) {
+    if (hiddenModes.has(id)) continue;
+    ok(`about.html's mode list names ${label}, which is open`,
+       listed.some((x) => x.toLowerCase() === label.toLowerCase()), listed.join(', '));
+  }
+  ok('and does not name the Trifecta, which is closed for good',
+     !listed.some((x) => /trifecta/i.test(x)), listed.join(', '));
+}
+
 // Every board in that modal is all-time — that is the whole reason the tabs
 // name modes now instead of windows — so prose calling one of them today-only
 // is describing a different screen. Held to the tab LABELS: the check this
