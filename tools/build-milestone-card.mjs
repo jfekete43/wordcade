@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * A square-ish card for a milestone worth posting.
+ * A thank-you card for a milestone worth posting.
  *
  *   node tools/build-milestone-card.mjs --players=10
  *   node tools/build-milestone-card.mjs --players=10 --date=2026-11-18
@@ -9,8 +9,8 @@
  * 1200x675, which is 16:9 - the ratio X shows in a timeline without cropping
  * it. The link-unfurl card (build-og-card.mjs) is 1200x630 and is a different
  * job: that one is fetched by scrapers and has to sell the game to somebody
- * who has never heard of it. This one is attached to a post that already
- * says what happened, so it can be loud and short.
+ * who has never heard of it. This one goes out to the people who turned up,
+ * so it thanks them first and reports the number second.
  *
  * NOT generated from Firestore. The number is an argument, so the card can be
  * made from anywhere, with no credentials and no network - including from a
@@ -23,6 +23,12 @@
  * paper. The Sprint accent, the wordmark and the Sprint number are read the
  * same way - a card that names Sprint #12 when the game is on #15 is worse
  * than a card with no number at all.
+ *
+ * The confetti is the game's own MODE accents, not a festive palette invented
+ * for the occasion: the whole game turning out is the thing being celebrated,
+ * and borrowed colours would make it somebody else's party. Positions are
+ * fixed rather than generated, so the same milestone draws the same card
+ * every time it is asked for.
  */
 import fs from "fs";
 import path from "path";
@@ -70,52 +76,61 @@ const prettyDate = new Intl.DateTimeFormat("en-GB", {
 // thumbnail size.
 const MARK = "LEXATHON".split("");
 
-// One filled tile per player, in the grid the game greets you with. Blue is
-// the game's "right spot" colour, so a row of them reads as a good thing
-// without needing to be told. Ten to a row, which is both this milestone and
-// the depth of the board it is about - so twenty arrives as two full rows
-// rather than as a number you have to count.
-const DOTS = Array.from({ length: PLAYERS }, (_, i) => i);
-const DOT_ROWS = Math.ceil(PLAYERS / 10);
-const DOT = DOT_ROWS <= 1 ? 54 : DOT_ROWS === 2 ? 46 : 38;
-const DOT_GAP = DOT_ROWS <= 1 ? 11 : 9;
+// Every mode's accent, plus the two verdict colours the board is read by.
+const ACCENTS = ["sprint", "endless", "marathon", "clash", "correct", "gauntlet", "present"].map(C);
+
+// Hand-placed down both margins and across the top and bottom edges, so
+// nothing lands on the words. Fixed values rather than a generator: a card
+// that comes out differently on every run is one nobody can reproduce when
+// they want it again.
+const CONFETTI = [
+  [3, 12, 34, -18], [10, 70, 22, 24], [6, 40, 16, 9], [2, 86, 28, -32],
+  [15, 7, 18, 36], [12, 90, 20, -12], [21, 24, 14, 15], [18, 57, 12, -24],
+  [93, 10, 32, 21], [88, 64, 24, -16], [96, 42, 18, -7], [91, 87, 26, 30],
+  [82, 5, 16, -28], [85, 92, 20, 14], [76, 28, 13, 22], [79, 60, 15, -19],
+  [40, 3, 16, 28], [58, 5, 20, -22], [48, 94, 18, 12], [64, 92, 14, -30],
+  [33, 96, 15, 19], [70, 2, 13, -11],
+].map(([x, y, size, rot], i) => ({ x, y, size, rot, colour: ACCENTS[i % ACCENTS.length] }));
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     width: 1200px; height: 675px; background: ${C("page")};
     font-family: 'Liberation Sans', 'Segoe UI', Tahoma, Verdana, sans-serif;
-    color: ${C("ink")}; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 34px;
-  }
-  .mark { display: flex; gap: 7px; }
-  .mark div {
-    width: 54px; height: 59px; border-radius: 10px;
-    background: ${C("raised")}; border: 2px solid ${C("line-2")};
-    box-shadow: 0 2px 0 rgba(42,36,32,.06), 0 5px 14px rgba(42,36,32,.10);
-    font-size: 32px; font-weight: bold; letter-spacing: 1px;
+    color: ${C("ink")}; position: relative; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
   }
-  .dots { display: flex; gap: ${DOT_GAP}px; flex-wrap: wrap; justify-content: center;
-    max-width: ${10 * DOT + 9 * DOT_GAP}px; }
-  .dots div {
-    width: ${DOT}px; height: ${DOT}px; border-radius: ${Math.round(DOT / 4.5)}px;
-    background: ${C("correct")}; border: 2px solid ${C("correct")};
+  .confetti { position: absolute; inset: 0; }
+  .confetti i { position: absolute; display: block; border-radius: 4px; }
+  .stage { position: relative; display: flex; flex-direction: column;
+    align-items: center; gap: 24px; }
+  .mark { display: flex; gap: 7px; }
+  .mark div {
+    width: 50px; height: 55px; border-radius: 10px;
+    background: ${C("raised")}; border: 2px solid ${C("line-2")};
+    box-shadow: 0 2px 0 rgba(42,36,32,.06), 0 5px 14px rgba(42,36,32,.10);
+    font-size: 30px; font-weight: bold; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .count { font-size: 150px; font-weight: bold; line-height: 1;
-    letter-spacing: -2px; color: ${C("sprint")}; }
-  .what { font-size: 44px; font-weight: bold; letter-spacing: .5px; }
-  .when { font-size: 23px; color: ${C("ink-4")}; letter-spacing: 2.2px;
+  .thanks { font-size: 112px; font-weight: bold; line-height: 1; letter-spacing: -2px; }
+  .what { font-size: 40px; font-weight: bold; letter-spacing: .3px;
+    display: flex; align-items: baseline; gap: 13px; }
+  .what b { font-size: 64px; color: ${C("sprint")}; letter-spacing: -1px; }
+  .when { font-size: 21px; color: ${C("ink-4")}; letter-spacing: 2.2px;
     text-transform: uppercase; font-weight: bold; }
-  .host { font-size: 26px; color: ${C("correct")}; letter-spacing: 1px;
+  .host { font-size: 25px; color: ${C("correct")}; letter-spacing: 1px;
     font-weight: bold; }
 </style></head><body>
-  <div class="mark">${MARK.map((ch) => `<div>${ch}</div>`).join("")}</div>
-  <div class="dots">${DOTS.map(() => "<div></div>").join("")}</div>
-  <div class="count">${PLAYERS}</div>
-  <div class="what">players in a single Sprint</div>
-  <div class="when">Sprint #${sprintNo} &nbsp;&middot;&nbsp; ${prettyDate}</div>
-  <div class="host">lexathon.gg</div>
+  <div class="confetti">${CONFETTI.map((c) =>
+    `<i style="left:${c.x}%;top:${c.y}%;width:${c.size}px;height:${c.size}px;` +
+    `background:${c.colour};transform:rotate(${c.rot}deg)"></i>`).join("")}</div>
+  <div class="stage">
+    <div class="mark">${MARK.map((ch) => `<div>${ch}</div>`).join("")}</div>
+    <div class="thanks">Thank you!</div>
+    <div class="what"><b>${PLAYERS.toLocaleString("en-US")}</b> players in a single Sprint</div>
+    <div class="when">Sprint #${sprintNo} &nbsp;&middot;&nbsp; ${prettyDate}</div>
+    <div class="host">lexathon.gg</div>
+  </div>
 </body></html>`;
 
 let chromium;
@@ -131,15 +146,28 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 675 } });
 await page.setContent(html);
 await page.waitForTimeout(220);
 
-// Nothing may sit outside the frame: X crops what overflows rather than
-// scaling it, and a card with a clipped row is a card about a mistake.
-const overflow = await page.evaluate(() => ({
-  x: document.documentElement.scrollWidth - 1200,
-  y: document.documentElement.scrollHeight - 675,
-}));
-if (overflow.x > 0 || overflow.y > 0) {
-  console.error(`the card overflows its frame by ${overflow.x}x${overflow.y}px - ${PLAYERS} tiles is more than this layout holds.`);
-  console.error(`Nothing is written. A count this high wants its own card rather than a longer row of dots.`);
+// The WORDS are measured, not the page. The confetti is absolutely
+// positioned and deliberately runs to the edges, so a whole-document
+// overflow check would only ever be reporting on the decoration. What must
+// not be clipped is the stage, and it wants a margin rather than merely a
+// non-negative number - nothing touching the frame counts as fitting.
+//
+// No player count reaches this. The layout is a fixed stack now, and even
+// nine digits leaves ~200px either side; the version with a tile per player
+// could be overflowed and this is what caught it. It stays as insurance
+// against the next edit to the type or the copy, which is the thing that
+// WILL overflow it - checked by rendering the headline at 420px, where it
+// reports the clipping and writes nothing.
+const fits = await page.evaluate(() => {
+  const r = document.querySelector(".stage").getBoundingClientRect();
+  return { top: Math.round(r.top), bottom: Math.round(675 - r.bottom),
+           left: Math.round(r.left), right: Math.round(1200 - r.right) };
+});
+const MARGIN = 16;
+const tight = Object.entries(fits).filter(([, v]) => v < MARGIN);
+if (tight.length) {
+  console.error(`the card has no room left: ${tight.map(([k, v]) => `${k} ${v}px`).join(", ")}`);
+  console.error(`Nothing is written - ${PLAYERS} needs more space than this layout has.`);
   await browser.close();
   process.exit(1);
 }
