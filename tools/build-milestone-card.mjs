@@ -3,8 +3,12 @@
  * A thank-you card for a milestone worth posting.
  *
  *   node tools/build-milestone-card.mjs --players=10
- *   node tools/build-milestone-card.mjs --players=10 --date=2026-11-18
  *   node tools/build-milestone-card.mjs --players=25 --out=/tmp/card.png
+ *
+ * UNDATED, on purpose. It carries no Sprint number and no date, so it is
+ * made when the milestone lands and posted whenever suits - a card stamped
+ * with a day it was generated on is a card with a shelf life, and the thanks
+ * do not have one.
  *
  * 1200x675, which is 16:9 - the ratio X shows in a timeline without cropping
  * it. The link-unfurl card (build-og-card.mjs) is 1200x630 and is a different
@@ -20,9 +24,7 @@
  * Every colour comes out of index.html, for the reason build-og-card.mjs
  * records at length: a card holding its own copy of the palette is how the
  * last one ended up a cyan-and-magenta picture of a page that had gone to
- * paper. The Sprint accent, the wordmark and the Sprint number are read the
- * same way - a card that names Sprint #12 when the game is on #15 is worse
- * than a card with no number at all.
+ * paper. The Sprint accent and the wordmark are read the same way.
  *
  * The confetti is the game's own MODE accents, not a festive palette invented
  * for the occasion: the whole game turning out is the thing being celebrated,
@@ -39,37 +41,21 @@ const SRC = fs.readFileSync(path.join(REPO, "index.html"), "utf8").replace(/\r\n
 
 const args = process.argv.slice(2);
 const val = (f) => { const a = args.find((x) => x.startsWith(f + "=")); return a ? a.slice(f.length + 1) : null; };
-const unknown = args.filter((a) => !/^--(players=.*|date=.*|out=.*)$/.test(a));
+const unknown = args.filter((a) => !/^--(players=.*|out=.*)$/.test(a));
 if (unknown.length) { console.error("unknown argument(s): " + unknown.join(" ")); process.exit(1); }
 
 const PLAYERS = Number(val("--players"));
 if (!Number.isInteger(PLAYERS) || PLAYERS < 2) { console.error("--players=N is required (and a milestone needs at least 2)"); process.exit(1); }
 
-// Eastern, like every other date boundary in this game, so the card agrees
-// with the board it is about.
-const todayET = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
-}).format(new Date());
-const DATE = val("--date") || todayET;
-if (!/^\d{4}-\d{2}-\d{2}$/.test(DATE)) { console.error("--date must be YYYY-MM-DD"); process.exit(1); }
-const OUT = val("--out") || path.join(REPO, `milestone-${PLAYERS}-players-${DATE}.png`);
+// Named for the milestone and nothing else: the same count always produces
+// the same card, so re-running it overwrites rather than littering.
+const OUT = val("--out") || path.join(REPO, `milestone-${PLAYERS}-players.png`);
 
 const C = (name) => {
   const m = SRC.match(new RegExp("--c-" + name + ":\\s*(#[0-9a-fA-F]{3,8})\\s*;"));
   if (!m) throw new Error("could not read --c-" + name + " out of index.html");
   return m[1];
 };
-
-// The same epoch the game numbers its Sprints from, read rather than copied.
-const EPOCH = (SRC.match(/const SPRINT_EPOCH = "(\d{4}-\d{2}-\d{2})"/) || [])[1];
-if (!EPOCH) throw new Error("could not read SPRINT_EPOCH out of index.html");
-const toUTC = (x) => { const [y, m, d] = x.split("-").map(Number); return Date.UTC(y, m - 1, d); };
-const sprintNo = Math.floor((toUTC(DATE) - toUTC(EPOCH)) / 86400000) + 1;
-if (sprintNo < 1) { console.error(`${DATE} is before Sprint #1 (${EPOCH}); there was no Sprint to fill`); process.exit(1); }
-
-const prettyDate = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "UTC", day: "numeric", month: "long", year: "numeric",
-}).format(new Date(toUTC(DATE)));
 
 // The page's own wordmark: eight tiles, not a word in a typeface. It is the
 // one element that makes a card and the site read as the same product at
@@ -116,8 +102,6 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   .what { font-size: 40px; font-weight: bold; letter-spacing: .3px;
     display: flex; align-items: baseline; gap: 13px; }
   .what b { font-size: 64px; color: ${C("sprint")}; letter-spacing: -1px; }
-  .when { font-size: 21px; color: ${C("ink-4")}; letter-spacing: 2.2px;
-    text-transform: uppercase; font-weight: bold; }
   .host { font-size: 25px; color: ${C("correct")}; letter-spacing: 1px;
     font-weight: bold; }
 </style></head><body>
@@ -128,7 +112,6 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
     <div class="mark">${MARK.map((ch) => `<div>${ch}</div>`).join("")}</div>
     <div class="thanks">Thank you!</div>
     <div class="what"><b>${PLAYERS.toLocaleString("en-US")}</b> players in a single Sprint</div>
-    <div class="when">Sprint #${sprintNo} &nbsp;&middot;&nbsp; ${prettyDate}</div>
     <div class="host">lexathon.gg</div>
   </div>
 </body></html>`;
@@ -175,4 +158,4 @@ if (tight.length) {
 await page.screenshot({ path: OUT });
 await browser.close();
 const kb = Math.round(fs.statSync(OUT).size / 1024);
-console.log(`wrote ${path.basename(OUT)} (1200x675, ${kb} KB) - Sprint #${sprintNo}, ${prettyDate}`);
+console.log(`wrote ${path.basename(OUT)} (1200x675, ${kb} KB) - ${PLAYERS.toLocaleString("en-US")} players`);
