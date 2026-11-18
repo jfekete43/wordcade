@@ -2600,6 +2600,46 @@
         </div>
     </div>
 
+    <!-- WHAT'S NEW
+         One card per announcement, each with its own window and its own
+         seen flag. It exists because shipping something and saying nothing
+         is how a feature goes unused: dark mode went in and the only way to
+         find out was to open Settings and read every row.
+
+         THE WINDOW IS AUTHORED, not counted from the player's first view. A
+         per-player timer means somebody who comes back after ten days is
+         told about a fortnight-old change, and the announcement never
+         actually ends - it just trails off one player at a time. A date in
+         the entry ends it for everyone at once.
+
+         KEYED BY ID, not by a single "seen announcements" flag. One flag
+         means the SECOND announcement never shows to anybody who dismissed
+         the first, which is how this kind of thing quietly stops working
+         six months after it is built.
+
+         There is no "don't show again" checkbox on the card, because
+         dismissing it already is that: the id goes in the seen list and
+         this one is done. The small link underneath turns off every FUTURE
+         announcement, and it is a Settings row afterwards so it can be
+         turned back on - unlike a checkbox, which cannot be found again.
+         (This game used to open with a five-slide welcome tour that had a
+         pre-checked "don't show again"; see the note on the mode intro card
+         above for why it is gone. This is the other thing: one card, four
+         lines, and only when there is something to say.) -->
+    <div id="announce-modal" class="modal-overlay">
+        <div class="modal-box" id="announce-box" style="max-width: 360px;">
+            <div id="announce-icon" style="font-size: 42px; margin-bottom: 2px;"></div>
+            <div style="font-size: var(--fs-1); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; color: var(--c-ink-4); font-weight: var(--fw-bold);">What's New</div>
+            <h2 class="modal-title" id="announce-title" style="margin: var(--s-2) 0 var(--s-6);"></h2>
+            <p id="announce-text" style="color: var(--c-ink-2); font-size: var(--fs-3); line-height: 1.65; margin: 0 0 4px;"></p>
+            <div class="modal-buttons">
+                <button class="btn-primary" id="announce-cta" onclick="window.announcementAct()"></button>
+                <button class="btn-quiet" id="announce-ok" onclick="window.dismissAnnouncement(false)">Got It</button>
+            </div>
+            <button onclick="window.dismissAnnouncement(true)" style="background: none; border: none; color: var(--c-ink-5); font-size: var(--fs-2); text-decoration: underline; cursor: pointer; padding: var(--s-5) 0 0; font-family: inherit;">Stop showing these</button>
+        </div>
+    </div>
+
     <!-- HOW TO PLAY MODAL — the full reference, open anytime from the Menu -->
     <div id="howto-modal" class="modal-overlay">
         <div class="modal-box" style="max-width: 440px; text-align: left; border-color: var(--c-gauntlet);">
@@ -2949,6 +2989,13 @@
                     <span>Reduce Motion</span>
                     <button id="settings-toggle-reduceMotion" class="action-btn" onclick="window.toggleSetting('reduceMotion')">OFF</button>
                 </div>
+                <!-- Where "Stop showing these" ends up, so it can be undone.
+                     A dismissal you cannot reverse is a decision made once,
+                     in a hurry, forever. -->
+                <div class="stat-bar-container" style="justify-content: space-between; margin-bottom: 18px;">
+                    <span>Feature Updates</span>
+                    <button id="settings-toggle-announcements" class="action-btn" onclick="window.toggleSetting('announcements')">ON</button>
+                </div>
                 <!-- The longest label of the four, so it needs an explicit gap -
                      space-between alone lets it grow until it touches the button. -->
                 <div class="stat-bar-container" style="justify-content: space-between; gap: 14px;">
@@ -3147,7 +3194,7 @@
             // purpose - the game was designed on paper and that is what a
             // first-time player should be handed, with following the
             // device an opt-in rather than something that happens to them.
-            const defaults = { sound: true, colorblind: false, reduceMotion: false, seasonal: true, theme: "light" };
+            const defaults = { sound: true, colorblind: false, reduceMotion: false, seasonal: true, theme: "light", announcements: true };
             let current = { ...defaults };
             try { current = { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; } catch (e) { /* corrupted/unavailable storage — just use defaults */ }
 
@@ -3255,6 +3302,107 @@
             ffa: { icon: "\uD83D\uDC51", color: "var(--c-ffa)", title: "Free-For-All",
                 text: "The same race as Clash with 3-6 players at once. Highest score when time runs out takes first \u2014 everyone else still earns something." },
         };
+        // WHAT'S NEW - see the note on #announce-modal for the shape of this.
+        // One entry per thing worth telling people about. `from` and `until`
+        // are Eastern day keys, the same ones the boards are cut on, and the
+        // window is inclusive at both ends: a week is from .. from + 7.
+        //
+        // `cta.run` names a function on window. It is a NAME rather than a
+        // function so the table stays data - something that can be read, or
+        // one day listed on a What's New page, without executing anything.
+        const ANNOUNCEMENTS = [
+            { id: "dark-mode", from: "2026-11-18", until: "2026-11-25",
+              icon: "\u{1F319}", accent: "var(--c-sprint)", title: "Dark Mode",
+              text: "The whole game comes in dark now as well as paper. Open Settings and tap Appearance to pick Light, Dark or Auto \u2014 Auto follows whatever your phone is set to and changes with it.",
+              cta: { label: "Open Settings", run: "openSettingsMenu" } },
+        ];
+        const ANNOUNCE_KEY = "wordcade_announce_seen";
+        function announcementsSeen() {
+            try {
+                const v = JSON.parse(localStorage.getItem(ANNOUNCE_KEY) || "[]");
+                return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+            } catch (e) { return []; }
+        }
+        // Pure, and separated from everything that shows it, so which card a
+        // given player is owed can be checked without a browser.
+        function pendingAnnouncement(today, seen, muted, list) {
+            if (muted) return null;
+            const live = (list || ANNOUNCEMENTS).filter((a) =>
+                today >= a.from && today <= a.until && !seen.includes(a.id));
+            // Newest first. A backlog must not make somebody read last
+            // month's news before this month's.
+            live.sort((a, b) => (a.from === b.from ? 0 : a.from < b.from ? 1 : -1));
+            return live[0] || null;
+        }
+
+        let currentAnnouncement = null;
+        let announcementTriedThisLoad = false;
+
+        // Nothing gets stacked on anything. The consent bar is not a
+        // .modal-overlay and sits above the lot at z-index 2147483000, so it
+        // is checked by id; everything else is checked by what it computes to
+        // rather than by its inline style, which several of these are opened
+        // and closed by.
+        function somethingElseIsOpen() {
+            if (document.getElementById("consent-bar")) return true;
+            return [...document.querySelectorAll(".modal-overlay")]
+                .some((m) => getComputedStyle(m).display !== "none");
+        }
+
+        function maybeShowAnnouncement(brandNewAccount) {
+            // onAuthStateChanged refires mid-session (linking a Google
+            // account), and a card that reappears after it was dismissed is
+            // worse than one that never showed.
+            if (announcementTriedThisLoad) return;
+            announcementTriedThisLoad = true;
+            // Everything is new to somebody who arrived thirty seconds ago,
+            // and they have a mode intro card coming already.
+            if (brandNewAccount) return;
+            // A tap-to-join is mid-flow; same reason the mode intro skips it.
+            if (new URLSearchParams(location.search).has("join")) return;
+            const a = pendingAnnouncement(getTodayDateStr(), announcementsSeen(), !Settings.get().announcements);
+            if (!a || somethingElseIsOpen()) return;
+
+            currentAnnouncement = a;
+            document.getElementById("announce-icon").innerText = a.icon;
+            document.getElementById("announce-title").innerText = a.title;
+            document.getElementById("announce-text").innerText = a.text;
+            document.getElementById("announce-box").style.borderColor = a.accent || "var(--c-correct)";
+            const cta = document.getElementById("announce-cta");
+            const ok = document.getElementById("announce-ok");
+            if (a.cta) {
+                cta.innerText = a.cta.label;
+                cta.style.display = "";
+                ok.className = "btn-quiet";
+            } else {
+                // With nothing to go and do, a lone quiet button reads as the
+                // secondary half of a pair whose other half is missing.
+                cta.style.display = "none";
+                ok.className = "btn-primary";
+            }
+            document.getElementById("announce-modal").style.display = "flex";
+        }
+
+        window.announcementAct = function() {
+            const a = currentAnnouncement;
+            window.dismissAnnouncement(false);
+            if (a && a.cta && typeof window[a.cta.run] === "function") window[a.cta.run]();
+        };
+
+        window.dismissAnnouncement = function(mute) {
+            const a = currentAnnouncement;
+            currentAnnouncement = null;
+            document.getElementById("announce-modal").style.display = "none";
+            // Recorded even when muting, so switching them back on later does
+            // not replay one that has already been read.
+            if (a) {
+                const seen = announcementsSeen();
+                if (!seen.includes(a.id)) seen.push(a.id);
+                try { localStorage.setItem(ANNOUNCE_KEY, JSON.stringify(seen)); } catch (e) { /* storage blocked - it will show once more */ }
+            }
+            if (mute) Settings.set("announcements", false);
+        };
+
         const modeIntroKey = (mode) => "wordcade_mode_intro_" + mode;
         let modeIntroResolve = null;
 
@@ -3369,7 +3517,7 @@
                     ? "Following your device: " + (document.documentElement.classList.contains("dark") ? "Dark" : "Light")
                     : "";
             }
-            [["sound", s.sound], ["colorblind", s.colorblind], ["reduceMotion", s.reduceMotion], ["seasonal", s.seasonal]].forEach(([key, val]) => {
+            [["sound", s.sound], ["colorblind", s.colorblind], ["reduceMotion", s.reduceMotion], ["seasonal", s.seasonal], ["announcements", s.announcements]].forEach(([key, val]) => {
                 const btn = document.getElementById(`settings-toggle-${key}`);
                 if (!btn) return;
                 btn.innerText = val ? "ON" : "OFF";
@@ -4107,6 +4255,12 @@
                 // which point the player may be in a match.
                 if (!inAltMode()) showStandardPanels(true);
                 tryAutoJoinFromUrl();
+                // After the invite handler, so a tap-to-join never gets a
+                // card dropped on it, and on a delay so the board has painted
+                // first - an announcement that beats the game to the screen
+                // is an interruption rather than news.
+                const freshAccount = !docSnap.exists();
+                setTimeout(() => maybeShowAnnouncement(freshAccount), 1400);
                 // Opened from the address bar, once there is a signed-in
                 // user for getDrafts to check. Anonymous sign-in carries no
                 // verified email, so an uninvited visitor gets a refusal
