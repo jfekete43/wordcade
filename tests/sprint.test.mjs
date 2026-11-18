@@ -797,11 +797,15 @@ const boardSrc = html.slice(html.indexOf('async function loadSprintBoard()'),
   const clockAt = hdr.indexOf('id="sprint-clock"');
   ck(scoreAt !== -1 && clockAt !== -1, 'the header carries both a score and a clock', `${scoreAt}/${clockAt}`);
   ck(scoreAt < clockAt, 'and the score comes first, matching the board row', `score@${scoreAt} clock@${clockAt}`);
-  // 8px ran them together into one string on a phone.
-  const gap = (html.match(/#sprint-header, #marathon-header \{ gap: var\(--s-(\d+)\); \}/) || [])[1];
-  const shared = (html.match(/display: flex; gap: var\(--s-(\d+)\)/) || [])[1];
-  ck(gap && shared && Number(gap) > Number(shared),
-     'and the two numbers sit further apart than the shared header gap', `${gap} vs ${shared}`);
+  // 8px once ran two bare strings together into one on a phone, and the fix
+  // then was a wider gap. The numbers sit in the Stakes board's own pills
+  // now, so each has an edge of its own and the gap is back to the shared one.
+  const pills = (hdr.match(/class="stat-pill"/g) || []).length;
+  ck(pills === 2, 'each number sits in its own box, the same one Stakes uses', `${pills} pills`);
+  ck(/<b id="sprint-score">/.test(hdr) && /<b id="sprint-clock"/.test(hdr),
+     'and the values are the pill value element, not loose text', hdr.slice(0, 160));
+  ck(!/#sprint-header, #marathon-header \{ gap:/.test(html),
+     'so Sprint no longer needs the wider gap that stood in for an edge', '');
 }
 
 

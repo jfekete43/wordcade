@@ -148,8 +148,10 @@ const makeHarness = (reduceMotion = false) => {
   h.setSprintScoreLabel('SCORE');
   eq('the label can be changed', h.els['sprint-score-label'].innerText, 'SCORE');
 }
-ck(/<span id="sprint-score-label">WORTH<\/span>/.test(html),
+ck(/<em id="sprint-score-label">Worth<\/em>/i.test(html),
    'the markup ships reading WORTH, which is what is true before a solve');
+ck(/\.stat-pill em \{[^}]*text-transform: uppercase/.test(html),
+   '...and the pill uppercases it, so the case in the markup is not the case on screen');
 // Two labels for one slot, rather than one label that quietly changes meaning.
 ck(/setSprintScoreLabel\("SCORE"\)/.test(html), 'and it becomes SCORE once the word is done');
 ck(/setSprintScoreLabel\("WORTH"\)/.test(html), 'and WORTH again when a round starts');

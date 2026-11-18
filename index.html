@@ -359,7 +359,12 @@
            where the two read as one sentence. Sprint and Marathon put two
            independent numbers side by side instead, and at 8px they ran
            together into one string. */
-        #sprint-header, #marathon-header { gap: var(--s-7); }
+        #marathon-header { gap: var(--s-7); }
+        /* Sprint's two numbers are boxed now, like the Stakes board's, so
+           they keep the shared header gap rather than the wider one two
+           bare strings needed to stay out of each other. stretch, so a
+           label that wraps does not leave one box shorter than the other. */
+        #sprint-header { align-items: stretch; }
         /* The line that stands in for a mode header while the mode it names
            is still a round trip away. Same box as the headers it replaces,
            so the page does not jump when the real one takes its place. */
@@ -1564,8 +1569,8 @@
              you solve it is what you banked, and those are not the same
              claim. No colon - "WORTH 500" reads as a quantity, "WORTH:
              500" reads like a form field. -->
-        <div class="score-text"><span id="sprint-score-label">WORTH</span> <span id="sprint-score">500</span></div>
-        <div class="score-text" id="sprint-clock" style="color:var(--c-sprint);">0.0s</div>
+        <div class="stat-pill"><em id="sprint-score-label">Worth</em><b id="sprint-score">500</b></div>
+        <div class="stat-pill"><em>Time</em><b id="sprint-clock" style="color:var(--c-sprint);">0.0s</b></div>
     </div>
 
     <div id="daily-header" style="display:none;">
