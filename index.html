@@ -5520,19 +5520,44 @@
             if (marathonAttempt.status === "finished") {
                 boardDisplay.innerHTML = ""; resetKeyboardColors();
                 setMarathonPlaySurfaceVisible(false);
+                // The branch that does not start a round still has a header.
+                renderMarathonHeaderValues();
                 showMarathonEndModal(marathonAttempt);
             } else {
                 startMarathonRound();
             }
         }
 
+        /*
+         * The header's numbers, from the attempt in hand.
+         *
+         * These used to be written only by startMarathonRound(), which is
+         * the one path a FINISHED week never takes - openMarathon sends it
+         * to the end modal instead. So reopening Marathon after clearing
+         * the week showed the score the markup ships with, which is 0,
+         * beside a board announcing the real total. A week's work reported
+         * as nothing.
+         *
+         * Deliberately not called from the post-guess handler: that runs
+         * while the finished word is still on screen for its 600ms, and
+         * marathonAttempt.wordIndex has already moved to the next one -
+         * so it would count the player onto a word they cannot see yet.
+         * That path writes the score alone, which is the only value that
+         * has actually changed by then.
+         */
+        function renderMarathonHeaderValues() {
+            if (!marathonAttempt) return;
+            const set = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+            set("marathon-word-index", marathonAttempt.wordIndex + 1);
+            set("marathon-word-count", marathonAttempt.wordCount);
+            set("marathon-score", (marathonAttempt.score || 0).toLocaleString());
+        }
+
         function startMarathonRound() {
             setMarathonPlaySurfaceVisible(true);
             currentGuess = ""; currentRow = 0; isAnimating = false;
             createBoard(); resetKeyboardColors();
-            document.getElementById("marathon-word-index").innerText = marathonAttempt.wordIndex + 1;
-            document.getElementById("marathon-word-count").innerText = marathonAttempt.wordCount;
-            document.getElementById("marathon-score").innerText = (marathonAttempt.score || 0).toLocaleString();
+            renderMarathonHeaderValues();
             renderMarathonDaysLeft();
 
             // Replay anything already guessed on this position. startMarathon

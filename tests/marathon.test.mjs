@@ -605,6 +605,58 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
      (loader.match(/[^\n]*rows\.push[^\n]*/) || [''])[0].trim());
 }
 
+// ---- the header's numbers survive a finished week --------------------------
+// They used to be written only by startMarathonRound(), and a FINISHED week
+// never takes that path - openMarathon sends it to the end modal instead. So
+// reopening Marathon after clearing the week showed the 0 the markup ships
+// with, directly above a board announcing the real total.
+{
+  const i = html.indexOf('function renderMarathonHeaderValues() {');
+  ck(i > 0, 'the header has one writer for its numbers', String(i));
+  let d = 0, src = '';
+  for (let k = html.indexOf('{', i); k < html.length; k++) {
+    if (html[k] === '{') d++;
+    else if (html[k] === '}') { d--; if (!d) { src = html.slice(i, k + 1); break; } }
+  }
+  const run = (attempt) => {
+    const els = {};
+    // eslint-disable-next-line no-new-func
+    new Function('document', 'marathonAttempt', `${src}\nrenderMarathonHeaderValues();`)(
+      { getElementById: (id) => (els[id] = els[id] || { innerText: 'UNSET' }) }, attempt);
+    return Object.fromEntries(Object.entries(els).map(([k, v]) => [k, v.innerText]));
+  };
+
+  eq('a cleared week reports what it scored, not a zero',
+     run({ wordIndex: 19, wordCount: 20, score: 1310 })['marathon-score'], '1,310');
+  eq('...and its word count reads as finished', run({ wordIndex: 19, wordCount: 20, score: 1310 })['marathon-word-index'], 20);
+  eq('mid-week is unchanged', run({ wordIndex: 8, wordCount: 20, score: 420 })['marathon-score'], '420');
+  eq('and a fresh week really is zero', run({ wordIndex: 0, wordCount: 20, score: 0 })['marathon-score'], '0');
+  eq('a thousand is grouped, like every other score on screen',
+     run({ wordIndex: 19, wordCount: 20, score: 1310 })['marathon-score'], '1,310');
+  {
+    let threw = null, wrote = null;
+    try { wrote = Object.keys(run(null)).length; } catch (e) { threw = e.message; }
+    ck(threw === null, 'no attempt in memory does not throw', String(threw));
+    eq('...and writes nothing', wrote, 0);
+  }
+
+  // The branch that does not start a round still has a header to fill.
+  const opened = html.slice(html.indexOf('if (marathonAttempt.status === "finished") {'),
+                            html.indexOf('showMarathonEndModal(marathonAttempt);'));
+  ck(/renderMarathonHeaderValues\(\)/.test(opened),
+     'and the finished branch fills it before showing the end modal', opened.slice(0, 200));
+
+  // Deliberately NOT called after a guess: wordIndex has already moved on by
+  // then, and the finished word is still on screen for its 600ms, so calling
+  // it there would count the player onto a word they cannot see yet.
+  const afterGuess = html.slice(html.indexOf('marathonAttempt.wordIndex = result.wordIndex;'),
+                                html.indexOf('if (result.marathonFinished)'));
+  ck(!/renderMarathonHeaderValues\(\)/.test(afterGuess),
+     'but not after a guess, which would advance the word counter early', afterGuess.slice(0, 160));
+  ck(/marathon-score"\)\.innerText = \(result\.score/.test(html),
+     '...where the score alone is written, being the only value that moved', '');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'PASS ' : 'FAIL ', name, ok ? '' : ' -> ' + detail);
 const bad = t.filter(([ok]) => !ok).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
