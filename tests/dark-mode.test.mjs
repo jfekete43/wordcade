@@ -18,10 +18,12 @@
  *      cannot be, because its accents are LIGHT - white on them reads
  *      2.6-4.1:1. The dark ink has to beat what white manages on paper, for
  *      every accent, or the fills are worse off than they were.
- *   4. THE LIGHT-BANNER ISLAND. Six shop banners paint a literal background
- *      in both themes while the name, rank, date and score on them read
- *      tokens. A plain token swap puts light ink on a light banner and the
- *      name measures 1.10:1 - invisible, on a cosmetic people paid for.
+ *   4. THE PALE BANNERS. Five shop banners paint a literal background while
+ *      the name, rank, date and score on them read tokens. Leaving the fill
+ *      alone put light ink on a light banner and the name measured 1.10:1 -
+ *      invisible, on a cosmetic people paid for. They paint a dark fill in
+ *      dark mode instead, which puts every token on the row back to its
+ *      ordinary job. Blueprint left the set: it is dark in both themes.
  *   5. COLORBLIND MODE. Same fault, same cause: the Okabe-Ito pair is two
  *      literal fills, and the ink on them used to be tokens. The orange
  *      tile's letter went 6.80:1 -> 1.74:1 the moment a dark palette existed.
@@ -113,47 +115,108 @@ for (const k of ACCENTS) {
 ck(lum(hex(DARK['on-accent'])) < lum(hex(DARK.page)),
    '--c-on-accent is darker than the dark page, not white', DARK['on-accent']);
 
-// 4. the light-banner island
-// The banners are read out of the stylesheet, not listed here, so a seventh
-// light banner cannot be added without this test asking about it.
-const ISLAND_SEL = css.match(/:root\.dark :is\(([^)]*)\) \{/);
-ck(!!ISLAND_SEL, 'found the light-banner island rule');
-const islandBanners = ISLAND_SEL ? [...ISLAND_SEL[1].matchAll(/\.(banner_[a-z_]+)/g)].map((m) => m[1]) : [];
-// The same list the stylesheet carves out of the black-plate rule above it.
-const plateExempt = (css.match(/\[class\*="banner_"\]:not\(([^)]*)\)/) || ['', ''])[1];
-const lightBanners = [...plateExempt.matchAll(/\.(banner_[a-z_]+)/g)].map((m) => m[1])
+// 4. the pale banners, and Blueprint
+// Read out of the stylesheet rather than listed here, so a seventh pale
+// banner cannot be added without this test asking about it.
+const carveOut = (css.match(/\[class\*="banner_"\]:not\(([^)]*)\)/) || ['', ''])[1];
+const ownFill = [...carveOut.matchAll(/\.(banner_[a-z_]+)/g)].map((m) => m[1])
   .filter((b) => b !== 'banner_default');
-ck(lightBanners.length === 6, `found the six light banners (${lightBanners.length})`, lightBanners.join(' '));
-ck(lightBanners.every((b) => islandBanners.includes(b)),
-   'every light banner is inside the island rule',
-   lightBanners.filter((b) => !islandBanners.includes(b)).join(', '));
+ck(ownFill.length === 6, `six banners own their background (${ownFill.length})`, ownFill.join(' '));
 
-const island = (() => {
-  if (!ISLAND_SEL) return {};
-  const at = css.indexOf(ISLAND_SEL[0]);
-  const body = css.slice(at, css.indexOf('}', at));
-  const out = {};
-  for (const m of body.matchAll(/--c-([\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) out[m[1]] = m[2];
-  return out;
+// The group that takes the page's ink is what "pale" MEANS here: a banner in
+// it is one whose fill is light enough to need dark ink on paper.
+const inkGroup = (() => {
+  const m = css.match(/:is\(([^)]*)\) :is\(\.lb-name, \.daily-board-name\)\.effect_none/);
+  return m ? [...m[1].matchAll(/\.(banner_[a-z_]+)/g)].map((x) => x[1]) : [];
 })();
-// Everything a board row can draw with. ink = the name, ink-4 = the rank,
-// ink-5 = the date, endless = the score, correct = your own row's tint.
-const ROW_TOKENS = ['ink', 'ink-4', 'ink-5', 'endless', 'correct'];
-for (const k of ROW_TOKENS) {
-  ck(island[k] === LIGHT[k], `the island hands a light banner the paper --c-${k}`,
-     `${island[k] || '(absent)'} vs ${LIGHT[k]}`);
+ck(inkGroup.length === 5, `five pale banners take the page's ink (${inkGroup.length})`, inkGroup.join(' '));
+ck(!inkGroup.includes('banner_blueprint'),
+   'Blueprint is not one of them - it is dark in both themes, so it takes white');
+ck(ownFill.includes('banner_blueprint'),
+   'and it still owns its background, or the #121213 plate would take it');
+
+// The island is GONE, and must stay gone: it pinned paper ink onto these
+// rows, which is right under a pale fill and wrong under a dark one.
+// A TOKEN block specifically. There is still a :root.dark :is(.banner_...)
+// rule - the one that takes the black plate off a neon name - and matching
+// the selector alone would flag it, which is a check that fails for being
+// right.
+ck(![...css.matchAll(/:root\.dark :is\(\.banner_[^)]*\)\s*\{([^}]*)\}/g)].some((m) => /--c-/.test(m[1])),
+   'no rule pins paper ink inside a banner any more - the fill flips instead');
+
+// The light rule is the one NOT prefixed by :root.dark, and ".banner_x {"
+// occurs inside ":root.dark .banner_x {" too - so without the lookbehind
+// this reads whichever comes first in the file, which is an accident of
+// where the dark block was pasted. It read the dark fill as the light one
+// until this was anchored.
+const fillOf = (sel, dark) => {
+  const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const head = dark ? ':root\\.dark ' + esc : '(?<!:root\\.dark )' + esc;
+  const m = css.match(new RegExp(head + '\\s*\\{\\s*background-color:\\s*(#[0-9a-fA-F]{3,8})'));
+  return m ? m[1] : null;
+};
+
+// Blueprint: one fill, and it has to be a DARK one or white is sitting on pale.
+const bp = fillOf('.banner_blueprint', false);
+ck(!!bp, 'Blueprint has a fill we can measure', bp || '(none)');
+ck(!/:root\.dark \.banner_blueprint\s*\{/.test(css),
+   'and only one of them - no dark override, because it is already dark');
+if (bp) {
+  ck(ratio('#ffffff', bp) >= 4.5, 'a white name reads on Blueprint', ratio('#ffffff', bp).toFixed(2) + ':1');
+  ck(ratio(DARK.ink, bp) >= 4.5, 'and so does the dark theme\'s ink', ratio(DARK.ink, bp).toFixed(2) + ':1');
+  // It lives on a light page too, so it has to stand off paper as well.
+  ck(ratio(bp, LIGHT.page) >= 3, 'and it stands off the paper page', ratio(bp, LIGHT.page).toFixed(2) + ':1');
+
+  // The one island left, and the only banner that needs one: its fill is the
+  // SAME literal in both themes, so the ink on it has to be a literal too.
+  // The five pale ones flip their fill instead and need nothing. Pinned to
+  // the DARK values, which makes the rule a no-op in dark mode and the whole
+  // point in light - without it the rank was 2.27:1 and the score 2.61:1.
+  const bpIsland = (() => {
+    const m = css.match(/\.banner_blueprint \{\s*(--c-[\s\S]*?)\}/);
+    if (!m) return null;
+    const o = {};
+    for (const x of m[1].matchAll(/--c-([\w-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) o[x[1]] = x[2];
+    return o;
+  })();
+  ck(!!bpIsland, 'Blueprint pins the ink that goes on it');
+  for (const [what, tok, min] of [['name', 'ink', 4.5], ['rank', 'ink-4', 3.0],
+                                  ['date', 'ink-5', 2.5], ['score', 'endless', 3.0]]) {
+    const v = bpIsland && bpIsland[tok];
+    ck(v === DARK[tok], `Blueprint pins --c-${tok} to the dark palette's value`,
+       `${v || '(absent)'} vs ${DARK[tok]}`);
+    if (!v) continue;
+    // One measurement, because it is pinned: the number is the same in both
+    // themes, which is exactly the property being bought here.
+    ck(ratio(v, bp) >= min, `Blueprint: the ${what} reads on it, in BOTH themes`,
+       ratio(v, bp).toFixed(2) + ':1');
+  }
 }
-// The point of all of it: with the island, what the reader gets on a light
-// banner is the paper number; without it, the name is gone.
-for (const b of lightBanners) {
-  const fill = (css.match(new RegExp('\\.' + b + '\\s*\\{\\s*background-color:\\s*(#[0-9a-fA-F]{3,8})')) || [])[1];
-  ck(!!fill, `${b} paints a flat colour we can measure`, fill || '(gradient only)');
-  if (!fill) continue;
-  ck(ratio(island.ink, fill) >= 4.5, `${b}: a name on it still reads in dark`,
-     ratio(island.ink, fill).toFixed(2) + ':1');
-  // And the regression itself, stated as the number it would be.
-  ck(ratio(DARK.ink, fill) < 2, `${b}: (for the record, the dark ink on it would be unreadable)`,
-     ratio(DARK.ink, fill).toFixed(2) + ':1');
+
+// The five: a light fill with the light tokens, a dark fill with the dark
+// ones. Every part of the row, both ways - the rank and the score are what
+// the first version of this missed by only checking the name.
+const ROW = [['name', 'ink', 4.5], ['rank', 'ink-4', 3.0], ['date', 'ink-5', 2.5], ['score', 'endless', 3.0]];
+for (const b of inkGroup) {
+  const light = fillOf('.' + b, false);
+  const dark = fillOf('.' + b, true);
+  ck(!!light, `${b} has a light fill`, light || '(gradient only)');
+  ck(!!dark, `${b} has a dark fill for dark mode`, dark || '(MISSING)');
+  if (!light || !dark) continue;
+  // A copy-paste that left a light value in the dark rule would pass every
+  // ratio below, because light ink on light fill is only wrong by theme.
+  ck(ratio(dark, DARK.page) < ratio(light, DARK.page),
+     `${b}'s dark fill is actually darker than its light one`,
+     `${dark} vs ${light}`);
+  for (const [what, tok, min] of ROW) {
+    ck(ratio(LIGHT[tok], light) >= min, `${b}: the ${what} reads on it in light`,
+       ratio(LIGHT[tok], light).toFixed(2) + ':1');
+    ck(ratio(DARK[tok], dark) >= min, `${b}: the ${what} reads on it in dark`,
+       ratio(DARK[tok], dark).toFixed(2) + ':1');
+  }
+  // And the fault that started all of this, stated as the number it would be.
+  ck(ratio(DARK.ink, light) < 2, `${b}: (for the record, dark ink on the LIGHT fill would be gone)`,
+     ratio(DARK.ink, light).toFixed(2) + ':1');
 }
 
 // 5. colorblind mode: two literal fills, so two literal inks

@@ -258,7 +258,7 @@ try {
   ck(effectNames.length >= 20, `found the name effects to check (${effectNames.length})`);
 
   const HALO_LEGIBLE = ['effect_void', 'effect_singularity'];
-  const nameRows = await p.evaluate(({ banners, effects, HALO_LEGIBLE }) => {
+  const swept = await p.evaluate(({ banners, effects, HALO_LEGIBLE }) => {
     const parse = (c) => (c.match(/[\d.]+/g) || []).map(Number);
     const lum = ([r, g, b]) => {
       const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -269,12 +269,30 @@ try {
     host.id = 'daily-board-container';
     document.body.appendChild(host);
     const out = [];
+    const figures = [];
     // Both themes. The light shop banners are the whole reason: their fill is
     // a literal in both, and before the island rule in the stylesheet the ink
     // on them followed the theme while the fill did not.
     for (const theme of ['light', 'dark']) {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     for (const bn of banners) {
+      // The rank and the score, once per banner - they do not depend on the
+      // effect. Nothing was measuring these: Blueprint shipped at 2.27:1 on
+      // the rank and 2.61:1 on the score for exactly as long as this sweep
+      // looked only at the name in the middle.
+      host.innerHTML = `<div class="lb-entry ${bn}"><div class="lb-rank">1</div>` +
+        `<div class="lb-name-col"><div class="lb-name effect_none">PLAYER</div></div>` +
+        `<div class="lb-score">900</div></div>`;
+      for (const part of ['lb-rank', 'lb-score']) {
+        const el = host.querySelector('.' + part);
+        let n = el, bg = null;
+        while (n) {
+          const c = parse(getComputedStyle(n).backgroundColor);
+          if (c.length < 4 || c[3] > 0.99) { bg = c.slice(0, 3); break; }
+          n = n.parentElement;
+        }
+        figures.push([theme, bn, part, ratio(parse(getComputedStyle(el).color).slice(0, 3), bg || [255, 255, 255])]);
+      }
       for (const ef of effects) {
         host.innerHTML = `<div class="lb-entry ${bn}"><div class="lb-rank">1</div>` +
           `<div class="lb-name-col"><div class="lb-name ${ef}">PLAYER</div></div>` +
@@ -304,8 +322,9 @@ try {
     }
     document.documentElement.classList.remove('dark');
     host.remove();
-    return out;
+    return { out, figures };
   }, { banners: bannerNames, effects: effectNames, HALO_LEGIBLE });
+  const nameRows = swept.out;
 
   // The two skipped above are not exempt, they are measured differently: their
   // legibility IS the text-shadow, so that is what gets pinned. Delete the halo
@@ -362,6 +381,14 @@ try {
   ck(preview >= 4.5, `a default name still reads inside the black shop preview (${PREVIEW_THEME})`,
      preview.toFixed(2) + ':1');
   }
+
+  // The two small figures either side of the name. 12px bold uppercase, so
+  // 3:1 - the same floor the keys and tiles are held to.
+  const FIGURE_MIN = 3.0;
+  const faintFigures = swept.figures.filter(([, , , r]) => r < FIGURE_MIN);
+  ck(faintFigures.length === 0,
+     `the rank and the score read on every banner, in both themes (${swept.figures.length} measured)`,
+     faintFigures.slice(0, 8).map(([th, b, w, r]) => `${th}:${b}/${w} ${r.toFixed(2)}:1`).join(' | '));
 
   const unreadable = nameRows.filter(([, , , r]) => r < 4.5);
   ck(unreadable.length === 0,

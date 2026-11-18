@@ -222,12 +222,22 @@
               (marathon 7.72 vs 7.67, present 4.79 vs 4.77), which is why
               it is this value rather than simply #000.
 
-           2. The six light shop banners become light-palette islands. They
-              paint a literal background in BOTH themes, because that is
-              what the cosmetic is, while the name, rank, date and score on
-              them all read tokens -- so a plain swap puts light ink on a
-              light banner and the name measures 1.10:1. See the island
-              rule below.
+           2. The five pale shop banners paint a DARK counterpart here.
+              Their fill is a literal while the name, rank, date and score
+              on them read tokens, so leaving the fill alone put light ink
+              on a light banner and the name measured 1.10:1.
+
+              Pinning the INK to paper values was the first fix and it
+              worked. Flipping the FILL is the better one: with a dark
+              plate under it, every token on the row goes back to doing its
+              ordinary job -- --c-ink is light ink on a dark surface, which
+              is what it is everywhere else on this page -- and the row
+              needs no special case at all. The fills live beside their
+              light twins, down in the banner block.
+
+              Blueprint is not one of the five any more. A blueprint is
+              light lines on dark paper; the dark drawing is the better
+              object and it is now the only one, in both themes.
 
            Colorblind mode is the third place the same boundary bites, and
            it is fixed where it lives, next to the Okabe-Ito pair.
@@ -288,27 +298,6 @@
            entry, so it stays a literal in both themes -- and 45% of a warm
            brown over this page is not a scrim. */
         :root.dark .modal-overlay { background-color: rgba(0, 0, 0, .66); }
-        /* THE LIGHT-BANNER ISLAND. Point 2 above. These are the paper
-           values, unchanged, so what gets drawn on a light banner is
-           identical in both themes -- which also means board-contrast
-           measures the same numbers there that it always did.
-
-           Six tokens, because six are reachable inside a row: the name
-           (--c-ink), the rank (--c-ink-4), the date (--c-ink-5), the score
-           (--c-endless), your own row's tint (--c-correct) and the rule
-           between entries (--c-line). Declared on the banner ELEMENT, which
-           covers all three shapes the class appears in: as an ancestor of
-           the name, as the name itself, and inside the shop's preview
-           monitor. */
-        :root.dark :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) {
-            --c-ink: #2a2420;
-            --c-ink-4: #6f675a;
-            --c-ink-5: #847c6c;
-            --c-endless: #4a7c59;
-            --c-correct: #24688f;
-            --c-line: #e6dece;
-        }
-
         * { touch-action: manipulation; box-sizing: border-box; }
         /* Only 7 of ~19 interactive selectors carried font-family: inherit, so
            the on-screen keyboard, every modal button, the tabs, the inputs and
@@ -1158,11 +1147,13 @@
            resets the colour to transparent, so this sets the layer underneath
            and leaves every gradient on top of it untouched.
 
-           The light banners are the other exception, for the same reason
-           in reverse: they were drawn FOR paper, so a black plate under
-           one is exactly the mismatch this rule exists to prevent. A
-           :not() list takes the specificity of its most specific
-           argument, so adding them changes nothing for the dark ones. */
+           The six banners that own their background are the other
+           exception. Five of them are pale on paper, where a black plate
+           under one is exactly the mismatch this rule exists to prevent;
+           the sixth is Blueprint, which is dark in both themes and wants
+           its own blue rather than this black. A :not() list takes the
+           specificity of its most specific argument, so naming them
+           changes nothing for the rest. */
         [class*="banner_"]:not(.banner_default, .banner_linen, .banner_sage, .banner_firstlight, .banner_blueprint, .banner_goldleaf, .banner_watercolor) { background-color: #121213; }
         .banner_cyan { background: linear-gradient(90deg, rgba(0,255,255,0.15) 0%, rgba(0,255,255,0.02) 100%); border-left: 3px solid #00ffff; border-radius: 3px;}
         .banner_magenta { background: linear-gradient(90deg, rgba(255,0,255,0.15) 0%, rgba(255,0,255,0.02) 100%); border-left: 3px solid #ff00ff; border-radius: 3px;}
@@ -1198,19 +1189,27 @@
            Not in this list: Void Black and Event Horizon, whose whole design
            is dark ink legible by its halo. They need no plate and a light one
            would destroy them. */
-        /* The light banners take the page's ink, the same exception
+        /* The pale banners take the page's ink, the same exception
            .banner_default gets above and for the same reason: .effect_none is
            white because every banner that existed when it was written was
-           black. Written with :is() rather than eighteen selectors. */
-        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) :is(.lb-name, .daily-board-name).effect_none,
-        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor).lb-name.effect_none { color: var(--c-ink); }
+           black. Written with :is() rather than fifteen selectors.
+
+           This is the whole of what dark mode needs for these five, now that
+           the fill flips with the theme: --c-ink is dark ink on a pale
+           banner on paper and light ink on a dark one here, which is what
+           the token means in both places. No second rule, no pinned
+           literals. (.banner_blueprint is not in this list any more - it is
+           dark in both themes, so it takes the white every other dark banner
+           takes.) */
+        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_goldleaf, .banner_watercolor) :is(.lb-name, .daily-board-name).effect_none,
+        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_goldleaf, .banner_watercolor).lb-name.effect_none { color: var(--c-ink); }
         /* And inside the shop's preview monitor, which forces white with an
            ID and therefore outranks any number of classes. */
-        #shop-preview-monitor :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) .lb-name.effect_none { color: var(--c-ink); }
+        #shop-preview-monitor :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_goldleaf, .banner_watercolor) .lb-name.effect_none { color: var(--c-ink); }
         /* The ten neon effects need their black plate here too - a white
            glitch on linen is the same invisible name the plate above exists
            to prevent. */
-        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_blueprint, .banner_goldleaf, .banner_watercolor) .lb-name:is(.effect_pulse, .effect_glitch, .effect_electric, .effect_fire, .effect_chromatic, .effect_supernova, .effect_neon_outline, .effect_static, .effect_haunted, .effect_countdown) {
+        :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_goldleaf, .banner_watercolor) .lb-name:is(.effect_pulse, .effect_glitch, .effect_electric, .effect_fire, .effect_chromatic, .effect_supernova, .effect_neon_outline, .effect_static, .effect_haunted, .effect_countdown) {
             background-color: #121213; padding: 0 7px; border-radius: 3px;
         }
 
@@ -1252,13 +1251,44 @@
         .banner_firstlight { background-color: #ffd9b2;
             background-image: linear-gradient(100deg, #fff7ea 0%, #ffe8ca 55%, #ffd9b2 100%);
             border-left: 3px solid var(--c-present); border-radius: 3px; }
-        .banner_blueprint { background-color: #e9eff5;
-            background-image: linear-gradient(rgba(36,104,143,.16) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(36,104,143,.16) 1px, transparent 1px);
+        /* Dark in BOTH themes, and the only banner here that is. It was pale
+           blue with darker rules on it, which is a blueprint photocopied; a
+           blueprint is a cyanotype, and a cyanotype is white lines on dark
+           blue. The dark drawing is simply the better object, so it is the
+           one everybody gets. "Drawn to scale." still fits.
+           It stays in the :not() list above for the ordinary reason: it owns
+           its background and does not want the #121213 plate. */
+        .banner_blueprint { background-color: #2a343c;
+            background-image: linear-gradient(rgba(150,195,225,.20) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(150,195,225,.20) 1px, transparent 1px);
             background-size: 12px 12px; border-left: 3px solid var(--c-correct); border-radius: 3px; }
+        /* AND IT IS AN ISLAND, in both themes - the one banner here that is.
+           The five pale ones do not need one because their fill flips with
+           the theme, so the ordinary tokens land the right way up in both.
+           Blueprint's fill is deliberately the SAME literal in both, so the
+           ink on it has to be a literal too: this is the rule the note at
+           the top of :root draws about cosmetics, and the same one the
+           colorblind pair follows two hundred lines up.
+
+           Without it the rank and the score were the light theme's dark
+           inks on a dark plate, at 2.27:1 and 2.61:1 against a 3:1 floor.
+           Found by rendering it, not by the suite: board-contrast measures
+           the NAME on every banner and nothing was measuring the two small
+           figures either side of it. The dark-mode suite does now.
+
+           These are the dark palette's values, so in dark mode the rule is
+           a no-op and in light mode it is the whole point. */
+        .banner_blueprint {
+            --c-ink: #e6e2da;
+            --c-ink-4: #8b8880;
+            --c-ink-5: #76726b;
+            --c-endless: #5b8867;
+            --c-correct: #6795ad;
+        }
         .banner_goldleaf { background-color: #e6cd8e;
             background-image: linear-gradient(100deg, #fdf6e3 0%, #f2e2b6 45%, #e6cd8e 100%);
             border-left: 3px solid #b8912f; border-radius: 3px; }
+
         /* The one animated light banner, and the only one priced like it.
            Reuses the `shine` keyframe the name effects already use rather
            than adding a second way to say the same thing. */
@@ -1266,6 +1296,54 @@
             background-image: linear-gradient(100deg, #fde9e6 0%, #e9f0fa 28%, #eaf5ea 58%, #fdf3e2 100%);
             background-size: 220% auto; animation: shine 9s linear infinite;
             border-left: 3px solid #c6a3bd; border-radius: 3px; }
+
+        /* THE SAME FIVE, ON A DARK PAGE. Same construction every time --
+           same gradient geometry, same texture, same number of stops --
+           dropped to the dark plate's lightness with the SPREAD between
+           stops kept, which is the gradient, and the hue carried down as
+           far as sRGB has room for it. Chroma is multiplied on the way:
+           the same a/b that reads as a colour at L=90 reads as grey at
+           L=21, and without the boost all five arrive as the same brown.
+
+           The textures invert with the fill, because that is what they
+           are: linen is pale thread on dark cloth here, not dark thread
+           on pale.
+
+           Nothing else about the row changes. The name, rank, date and
+           score are the ordinary tokens and they are now light ink on a
+           dark plate, which is the job they do on every other surface in
+           this theme. Measured: name 12.5-13.7:1, rank 3.53-3.87:1,
+           score 3.07-3.37:1 -- against 9.8-13.3, 3.58-4.86 and 3.12-4.24
+           for the same row on paper. */
+        :root.dark .banner_linen { background-color: #3a3220;
+            background-image: repeating-linear-gradient(90deg, rgba(226,214,190,.07) 0 1px, transparent 1px 4px),
+                              repeating-linear-gradient(0deg, rgba(226,214,190,.07) 0 1px, transparent 1px 4px); }
+        :root.dark .banner_sage { background-color: #1f321e;
+            background-image: linear-gradient(180deg, #333a30 0%, #1f321e 100%); }
+        :root.dark .banner_firstlight { background-color: #3c2400;
+            background-image: linear-gradient(100deg, #453b27 0%, #442e00 55%, #3c2400 100%); }
+        :root.dark .banner_goldleaf { background-color: #2c2300;
+            background-image: linear-gradient(100deg, #494224 0%, #3c3200 45%, #2c2300 100%); }
+        :root.dark .banner_watercolor { background-color: #263341;
+            background-image: linear-gradient(100deg, #442926 0%, #263341 28%, #273828 58%, #3f341a 100%); }
+        /* The black nameplate comes OFF here. Nine of the ten neon effects
+           were drawn for a dark surface and this is one, so the plate would
+           be a visible box sitting on an already-dark banner - on linen's
+           warm brown it reads as a bug rather than a nameplate.
+
+           Fire is the tenth and is not in this list, in either theme. At
+           #ff4500 it measures 5.44:1 on the #121213 plate it was drawn for
+           and 3.7-4.2:1 on these, so the plate is not decoration for Fire,
+           it is the only reason it clears. Every other effect here sits
+           between 9.3:1 and 15.6:1 with nothing underneath it. */
+        :root.dark :is(.banner_linen, .banner_firstlight, .banner_sage, .banner_goldleaf, .banner_watercolor) .lb-name:is(.effect_pulse, .effect_glitch, .effect_electric, .effect_chromatic, .effect_supernova, .effect_neon_outline, .effect_static, .effect_haunted, .effect_countdown) {
+            background-color: transparent; padding: 0;
+        }
+        /* Blueprint left the pale group, so it gets no plate from the rule
+           up there - and needs none, except for Fire, for the same reason. */
+        .banner_blueprint .lb-name.effect_fire {
+            background-color: #121213; padding: 0 7px; border-radius: 3px;
+        }
 
         /* NEW EFFECTS */
         .effect_pulse { color: #00ffff; animation: text-pulse 2s infinite; }
