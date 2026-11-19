@@ -70,7 +70,29 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
 {
   const tabs = [...modal.matchAll(/id="tab-(\w+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2].trim()]);
   eq('every tab is a mode, Sprint leading', tabs.map(([, label]) => label),
-     ['Sprint', 'Stakes', 'Marathon', 'Trifecta', 'Clash', 'FFA']);
+     ['Sprint', 'Marathon', 'Stakes', 'Trifecta', 'Clash', 'FFA']);
+  // The VISIBLE tabs are held to the nav's order rather than to a literal,
+  // because that is the drift this cannot afford: a player meets the four
+  // modes in the nav and then meets them again here, and two orders for the
+  // same four is the kind of thing nobody reports and everybody notices.
+  // The closed ones are left out of it - their tabs are hidden, so where
+  // they sit matters only on the day one reopens, and the literal above
+  // still pins that.
+  //
+  // `all` is the Stakes board's key, for the same historical reason the
+  // mode is `endless` in the table: both predate the names.
+  const TAB_KEY = { endless: 'all' };
+  // The table is column-aligned, so every separator in it is a RUN of
+  // spaces. A pattern with single spaces in it matches only the one row
+  // whose label happens to be the longest, which looks like a working
+  // regex returning one mode.
+  const navOrder = [...html.matchAll(/^\s+(\w+):\s*\{\s*label:\s*"[^"]+",\s*cls:/gm)]
+    .map((m) => m[1])
+    .filter((m) => !new RegExp(`${m}:[^\n]*hidden: true`).test(html));
+  ck(navOrder.length >= 4, 'read the open modes out of the MODES table', navOrder.join(','));
+  eq('and the open tabs are in the nav\'s order',
+     tabs.map(([id]) => id).filter((id) => navOrder.some((m) => (TAB_KEY[m] || m) === id)),
+     navOrder.map((m) => TAB_KEY[m] || m));
   ck(!tabs.some(([, l]) => /all time|weekly|daily/i.test(l)),
      'and none of them is a time window', tabs.map(([, l]) => l).join(','));
   // FFA is a closed mode; applyHiddenModeUi takes its tab down by the
