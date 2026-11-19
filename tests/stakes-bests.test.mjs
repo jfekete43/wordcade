@@ -206,6 +206,39 @@ ck(/\{ merge: true \}/.test(TOOL), 'it writes with set+merge, so a deleted accou
 // the mode rule is what it exists to undo.
 ck(!/function isStakesRun/.test(TOOL) && !/mode !== "sprint"/.test(TOOL),
    'and keeps no copy of the mode rule of its own');
+// ---- the tool's own self-check, which nothing was exercising ------------
+// repair-stakes-bests.mjs refuses to run if its lifted copy of the rule fails
+// a probe. That probe was the one piece of the tool this suite never touched,
+// and it shipped asserting isStakesRun(null) === false - which the shipped
+// function has never done, since run && run.mode is null for a null run and
+// null matches none of the three excluded modes. The tool then did exactly
+// what it promises, refused to touch anything, and blocked the repair over an
+// expectation that was the probe's opinion rather than the function's
+// behaviour. A guard nobody runs is a guard nobody has checked.
+{
+  const pairs = (() => {
+    const m = TOOL.match(/for \(const \[run, want\] of (\[[\s\S]*?\])\) \{/);
+    try { return m ? new Function(`return ${m[1]}`)() : null; } catch (e) { return null; }
+  })();
+  ck(Array.isArray(pairs) && pairs.length >= 4,
+     "found the tool's self-check table", pairs ? String(pairs.length) : '(unreadable)');
+  for (const [run, want] of pairs || []) {
+    ck(isStakesRun(run) === want,
+       `the self-check's expectation for ${JSON.stringify(run)} matches the real rule`,
+       `probe wants ${want}, isStakesRun says ${isStakesRun(run)}`);
+  }
+  // The window half of the same probe, for the same reason.
+  const at = TOOL.match(/periodKeyFor\(new Date\("([^"]+)"\)\)/);
+  const want = TOOL.match(/wantKey = PERIOD === "monthly" \? "([\d-]+)" : "([\d-]+)"/);
+  ck(!!at && !!want, "found the self-check's window probe", at ? at[1] : '(none)');
+  if (at && want) {
+    const expected = PERIOD === 'monthly' ? want[1] : want[2];
+    ck(periodKeyFor(new Date(at[1])) === expected,
+       "and its expected window key is the one periodKeyFor actually returns",
+       `probe wants ${expected}, periodKeyFor says ${periodKeyFor(new Date(at[1]))}`);
+  }
+}
+
 const PURE = fs.readFileSync(REPO('tools/stakes-bests.mjs'), 'utf8');
 ck(!/mode !== "sprint"/.test(PURE), 'nor does the decision module');
 

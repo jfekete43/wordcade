@@ -93,8 +93,15 @@ const { isStakesRun, periodKeyFor } = new Function(
 // asked something with a known result before it is trusted with real runs.
 {
   const bad = [];
+  // Exactly the rule and nothing more. This shipped with [null, false] in
+  // it, which the shipped function has never done - run && run.mode is null
+  // for a null run, and null matches none of the three excluded modes, so it
+  // comes back true. The tool then did what it promises and refused to touch
+  // anything, over an expectation that was the probe's opinion rather than
+  // the function's behaviour. A null run cannot reach this code anyway: the
+  // sweep skips anything without a uid.
   for (const [run, want] of [[{}, true], [{ mode: "sprint" }, false], [{ mode: "marathon" }, false],
-                             [{ mode: "daily" }, false], [{ mode: "endless" }, true], [null, false]]) {
+                             [{ mode: "daily" }, false], [{ mode: "endless" }, true]]) {
     if (isStakesRun(run) !== want) bad.push(`${JSON.stringify(run)} -> ${isStakesRun(run)}, wanted ${want}`);
   }
   // 2026-11-18 is a Wednesday; its week opened on Monday the 16th.
