@@ -9,9 +9,11 @@
  *
  * Two things here are worth pinning rather than eyeballing:
  *
- *   SPRINT IS A STREAK, NOT A SCORE. A Sprint tops out at 500 and a
+ *   SPRINT IS A WIN COUNT, NOT A SCORE. A Sprint tops out at 500 and a
  *   first-guess solve pays it, so a score board would be a hundred-way tie at
- *   500 ordered by nothing at all.
+ *   500 ordered by nothing at all. It ranked on the best STREAK until wins
+ *   replaced it: a streak rewarded turning up, a win rewards finishing a day
+ *   on top, and sprintWins is a field only the server can write.
  *
  *   THE TRIFECTA BOARD HAD TO BE EMPTIED. It held best single scores from
  *   when the mode was ten words and then seven; three words pay 1,500 against
@@ -26,6 +28,7 @@ const DIR = path.dirname(fileURLToPath(import.meta.url));
 const read = (f) => fs.readFileSync(path.join(DIR, '..', f), 'utf8').replace(/\r\n/g, '\n');
 const html = read('index.html');
 const fn = read('functions/index.js');
+const rules = read('firestore.rules');
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
@@ -153,59 +156,67 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
 {
   const sprintBranch = between(loader, "currentLbTime === 'sprint'", "currentLbTime === 'all'");
   ck(sprintBranch.length > 50, 'the Sprint board has a branch of its own', String(sprintBranch.length));
-  ck(/orderBy\("sprintBestStreak", "desc"\)/.test(sprintBranch),
-     'it ranks on the best streak', sprintBranch.slice(0, 160).replace(/\s+/g, ' '));
+  ck(/orderBy\("sprintWins", "desc"\)/.test(sprintBranch),
+     'it ranks on days WON', sprintBranch.slice(0, 200).replace(/\s+/g, ' '));
   ck(!/bestRunScore|score: d\.sprintBestScore/.test(sprintBranch),
-     'not on a score, which would tie at 500', sprintBranch.slice(0, 160));
+     'not on a score, which would tie at 500', sprintBranch.slice(0, 200));
+  ck(!/sprintBestStreak/.test(sprintBranch),
+     'and no longer on the streak, which rewarded turning up rather than winning',
+     sprintBranch.slice(0, 200));
   ck(/collection\(db, "users"\)/.test(sprintBranch),
      'off /users like every other board here, so it reads 100 documents flat');
-  // The field has to be one the server actually maintains.
-  ck(/update\.sprintBestStreak = streak/.test(fn),
-     'and onRunCreated maintains that field', (fn.match(/[^\n]*sprintBestStreak[^\n]*/) || [''])[0].trim());
-  // A streak is days. Printing a bare number next to Stakes' 4,600 invites
-  // reading it as points. Lifted and RUN, rather than matched: the rule is
-  // three conditions deep and a regex over it asserts the spelling.
+
+  // The field has to be one the SERVER maintains and the client cannot.
+  // That second half is the whole reason a win count is safe to rank on: the
+  // number is settled in the morning digest, inside the transaction that
+  // claims the day, and firestore.rules refuses a client that sends it.
+  ck(/const field = mode === "sprint" \? "sprintWins"/.test(fn),
+     'awardBoardWin writes sprintWins', (fn.match(/[^\n]*"sprintWins"[^\n]*/) || [''])[0].trim());
+  ck(/!\('sprintWins' in request\.resource\.data\)/.test(rules),
+     'and firestore.rules forbids a client writing it',
+     (rules.match(/[^\n]*sprintWins[^\n]*/) || [''])[0].trim());
+
+  // (Your own line is checked against the same field further down, in the
+  // block that scopes USERS_BOARD by name - a board ordered on one field with
+  // your position counted on another says #4 under a list you are nowhere in.)
+
+  // A win count is days, not points. Printing a bare number next to Stakes'
+  // 4,600 invites reading it as a score. Lifted and RUN, rather than matched:
+  // the rule is three conditions deep and a regex over it asserts the spelling.
   const fmt = new Function('score', 'mode',
     (html.match(/const lbScoreText = [\s\S]*?;\r?\n/) || [''])[0].replace(/^\s+/, '')
     + 'return lbScoreText(mode, score);');
-  eq('one day reads as a day', fmt(1, 'sprint'), '1 day');
-  eq('and more than one reads as days', fmt(12, 'sprint'), '12 days');
-  eq('a streak of none still says the unit', fmt(0, 'sprint'), '0 days');
-  // The flame says the streak is still RUNNING, which the board's own number
-  // cannot: it ranks on the best ever, and a record is not a state.
-  {
-    const live = (html.match(/        function sprintStreakLive\(d\) \{\n[\s\S]*?\n        \}/) || [''])[0];
-    ck(live.length > 200, 'the liveness test is findable', String(live.length));
-    const shift = (d, n) => {
-      const t = new Date(d + 'T00:00:00Z');
-      t.setUTCDate(t.getUTCDate() + n);
-      return t.toISOString().slice(0, 10);
-    };
-    const run = new Function('getTodayDateStr', 'shiftDateStr',
-      `${live}\nreturn sprintStreakLive;`)(() => '2026-11-11', shift);
-    const doc = (o) => Object.assign(
-      { sprintBestStreak: 10, sprintStreak: 10, sprintLastDate: '2026-11-11' }, o);
-    ck(run(doc({})), 'a best streak that is also current and played today is live');
-    ck(run(doc({ sprintLastDate: '2026-11-10' })),
-       'and yesterday counts, because a streak breaks on a day MISSED');
-    ck(!run(doc({ sprintLastDate: '2026-11-09' })),
-       'but two days ago is a lapsed streak, whatever the stored number says');
-    ck(!run(doc({ sprintStreak: 3 })),
-       'a best of ten with a current of three is not a ten-day streak');
-    ck(!run(doc({ sprintBestStreak: 0, sprintStreak: 0 })),
-       'and nobody with no streak at all is lit');
-    ck(!run({}), 'a document with none of the fields is not an error');
-  }
-  // Both rows that can carry it get it from the same function.
-  ck(/entry\.live \? STREAK_FLAME/.test(loader), 'the board rows can show it', 'entry.live');
-  ck(/mode === "sprint" && sprintStreakLive\(live\) \? STREAK_FLAME/.test(html),
-     'and so can your own line, off the same test', 'your position');
-  ck(/live: sprintStreakLive\(d\)/.test(loader),
-     'computed from the document the board already read, so it costs no extra query');
+  eq('one win reads as a win', fmt(1, 'sprint'), '1 win');
+  eq('and more than one reads as wins', fmt(12, 'sprint'), '12 wins');
+  eq('none still says the unit', fmt(0, 'sprint'), '0 wins');
   eq('and no other board gets a unit at all', fmt(4600, 'all'), '4,600');
-  eq('which is still grouped', fmt(4600, 'sprint'), '4,600 days');
+  eq('which is still grouped', fmt(4600, 'sprint'), '4,600 wins');
+
+  // The streak flame went with the streak board. It answered "is this record
+  // also a RUNNING streak", which a win count does not raise - and a flame
+  // beside a win total would be claiming something about a field nobody reads
+  // any more. Checked across the whole file: a dangling reference to a deleted
+  // helper is a crash on tab open, not a cosmetic leftover. (This very test
+  // names both, so it checks index.html, never itself.)
+  const flame = 'STREAK' + '_FLAME';
+  ck(!html.includes(flame), 'the streak flame is gone from the board',
+     (html.match(/[^\n]*STREAK_FLAME[^\n]*/) || [''])[0].trim());
+  ck(!html.includes('sprintStreak' + 'Live'), 'and so is the liveness test that fed it',
+     (html.match(/[^\n]*sprintStreakLive[^\n]*/) || [''])[0].trim());
+  ck(!/entry\.live/.test(loader), 'and the row no longer reads a live flag',
+     (loader.match(/[^\n]*entry\.live[^\n]*/) || [''])[0].trim());
+
+  // The streak itself is NOT deleted - onRunCreated still maintains it and the
+  // Profile still shows it. Going back to a streak board is two edits, not a
+  // migration, which is what makes this reversible if wins turn out gameable.
+  ck(/update\.sprintBestStreak = streak/.test(fn),
+     'the streak is still maintained server-side, so this is reversible',
+     (fn.match(/[^\n]*update\.sprintBestStreak[^\n]*/) || [''])[0].trim());
+  ck(/stat-sprint-wins/.test(html), 'and the Profile already shows the win count',
+     (html.match(/[^\n]*stat-sprint-wins[^\n]*/) || [''])[0].trim());
+
   // Both places that print a score in that column go through it, so your own
-  // line cannot read "3" under a list of "3 days".
+  // line cannot read "3" under a list of "3 wins".
   ck(/lb-score">[^<]*lbScoreText\(currentLbTime, entry\.score\)/.test(loader),
      'the board rows print through it', (loader.match(/lb-score">[^<]{0,90}/) || [''])[0]);
   ck(/paint\([\s\S]{0,220}?lbScoreText\(mode, mine\)/.test(html),
@@ -214,7 +225,7 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
 // ---- the date stamp belongs to one tab ----------------------------------
 // Stakes is the all-time board, and when a best run happened is half of what
 // a row on it claims. No other tab here ranks a single dated run - a career
-// bank, a rating and a streak are not events - so a date on one of those
+// bank, a rating and a win count are not events - so a date on one of those
 // would be labelling the wrong thing. Run rather than matched: the guard is
 // one condition and a regex over it asserts its spelling.
 {
@@ -277,11 +288,11 @@ ck(modal.length > 400 && loader.length > 2000, 'the modal and its loader are bot
   const board = between(html, 'const USERS_BOARD = {', '};');
   const entryOf = (mode) => (board.match(new RegExp(`\\b${mode}:\\s*\\{([^}]*)\\}`)) || [])[1];
   const sprint = String(entryOf('sprint')).replace(/\s+/g, ' ');
-  ck(/field: "sprintBestStreak"/.test(sprint),
+  ck(/field: "sprintWins"/.test(sprint),
      'your own position is counted against the same field', sprint.slice(0, 120));
   ck(!entryOf('weekly'), 'and the weekly entry went with its tab', String(entryOf('weekly')).slice(0, 90));
   ck(/excludesUnset: true/.test(sprint),
-     'a player with no streak is off the board rather than bottom of it', sprint.slice(0, 120));
+     'a player with no wins is off the board rather than bottom of it', sprint.slice(0, 120));
 }
 
 // ---- the Trifecta board starts again --------------------------------------
