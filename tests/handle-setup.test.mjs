@@ -6,9 +6,13 @@
  * G_Crane_4821 carried straight onto the leaderboards. Nothing told the player
  * they could change it, and the one line that mentioned a custom handle lived in
  * the guest promo block, which stops being shown the instant you stop being a
- * guest. The Profile modal hides the handle field from guests entirely, so
- * signing up is not merely a good moment to ask — it is the FIRST moment there
- * is anything to ask about.
+ * guest.
+ *
+ * A guest now gets ONE change of their own, so signing up is no longer the
+ * first moment there is anything to ask about — but it is still a moment
+ * worth asking at, and the two prompts say different things because they can
+ * promise different things. Section D covers the guest offer and the gate
+ * behind it.
  *
  * Two things have to hold, and they pull in opposite directions:
  *
@@ -30,6 +34,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', f);
 const html = fs.readFileSync(REPO('index.html'), 'utf8');
+const fn = fs.readFileSync(REPO('functions/index.js'), 'utf8');
 
 const t = [];
 const ck = (name, cond, detail = '') => t.push({ name, cond: !!cond, detail });
@@ -90,10 +95,14 @@ ck('returning email player is NOT asked to pick a handle', e && !e.recoveryPath.
 ck('returning google player still gets a reload', g && /location\.reload/.test(g.recoveryPath));
 ck('returning email player still gets a reload', e && /location\.reload/.test(e.recoveryPath));
 
-// Nothing else in the file may open this prompt: every other entry point is
-// either a guest (who cannot have a handle) or an existing account.
+// Three callers and the declaration: the two link paths, and the guest offer.
+// Nothing else may open it — every other entry point is an existing account
+// that chose its name long ago.
 const callSites = (html.match(/showHandleSetup\(/g) || []).length;
-ck('exactly the two link paths plus the declaration reference it', callSites === 3, String(callSites));
+ck('the two link paths, the guest offer and the declaration reference it',
+   callSites === 4, String(callSites));
+ck('and the guest offer is the one that passes null',
+   /showHandleSetup\(null\)/.test(html));
 
 // --- B. markup ---
 
@@ -141,9 +150,14 @@ const parts = [
 ];
 ck('extracted all four functions verbatim', parts.every(p => p && p.length > 60),
    parts.map(p => (p ? p.length : 'MISSING')).join(','));
-// The trailing semicolons the two assignments need, and one line exposing the
-// inner declaration. Nothing in the extracted code itself is altered.
-const src = parts.join(';\n') + ';\nwindow.__showHandleSetup = showHandleSetup;';
+// The trailing semicolons the two assignments need, one line exposing the
+// inner declaration, and the flag the three lifted functions share — declared
+// here because bodyAt lifts functions, not the `let` that sits between two of
+// them. Nothing in the extracted code itself is altered.
+const src = 'let handleSetupIsGuestOffer = false;\n' + parts.join(';\n')
+  + ';\nwindow.__showHandleSetup = showHandleSetup;';
+ck('the lifted functions really do share that flag, rather than the test inventing it',
+   /let handleSetupIsGuestOffer = false;/.test(html));
 
 // The markup only — the page's own module cannot run offline, and running it
 // would fetch Firebase and sign in.
@@ -153,7 +167,7 @@ async function scenario(opts) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.setContent(markupOnly);
   return await page.evaluate(async ({ src, opts }) => {
-    const out = { reloads: 0, sent: [] };
+    const out = { reloads: 0, sent: [], repaints: 0, boardRefreshes: 0 };
     const fakeWindow = { location: { reload: () => { out.reloads++; } } };
     const callChangeUsername = async (payload) => {
       out.sent.push(payload);
@@ -162,8 +176,12 @@ async function scenario(opts) {
     };
     const profile = opts.username === null ? null : { username: opts.username };
     // eslint-disable-next-line no-new-func
-    new Function('window', 'document', 'userProfileData', 'callChangeUsername', src)
-      (fakeWindow, document, profile, callChangeUsername);
+    // The guest exit repaints in place instead of reloading, so those two
+    // are counted the same way the reload is.
+    new Function('window', 'document', 'userProfileData', 'callChangeUsername',
+                 'applyProfileToLanding', 'refreshModeBoard', src)
+      (fakeWindow, document, profile, callChangeUsername,
+       () => { out.repaints++; }, () => { out.boardRefreshes++; });
 
     const el = (id) => document.getElementById(id);
     const snap = () => ({
@@ -173,6 +191,7 @@ async function scenario(opts) {
       error: el('handle-setup-error').textContent,
       skipLabel: el('handle-setup-skip').textContent,
       saveLabel: el('handle-setup-save').textContent,
+      terms: el('handle-setup-terms').textContent,
       saveDisabled: el('handle-setup-save').disabled,
       value: el('handle-setup-input').value,
       selection: el('handle-setup-input').selectionEnd - el('handle-setup-input').selectionStart,
@@ -180,7 +199,7 @@ async function scenario(opts) {
     });
 
     el('auth-modal').style.display = 'flex';       // as it is when the player taps Sign Up
-    fakeWindow.__showHandleSetup(opts.label || 'this email');
+    fakeWindow.__showHandleSetup(opts.guestOffer ? null : (opts.label || 'this email'));
     out.afterPrompt = snap();
 
     if (opts.type !== undefined) el('handle-setup-input').value = opts.type;
@@ -351,6 +370,227 @@ ck('skipping still reloads, so the page stops looking like a guest’s', skipped
      m.blurb.size === m.blurb.parentSize, `${m.blurb.size} vs ${m.blurb.parentSize}`);
   ck('and in the same colour', m.blurb.color === m.blurb.parentColor, `${m.blurb.color} vs ${m.blurb.parentColor}`);
   ck('and at the same weight', m.blurb.weight === m.blurb.parentWeight, `${m.blurb.weight} vs ${m.blurb.parentWeight}`);
+}
+
+// --- E. the guest's one change ---
+//
+// A guest used to be unable to rename at all, and the only thing enforcing
+// that was the Profile hiding the field. The callable accepted the call from
+// anyone — so the rule lived in the page, which is to say it did not live
+// anywhere. Deliberately showing guests the field makes that gap load-bearing,
+// so the gate goes where firestore.rules has already made `username` and
+// `handleChanges` unwritable by a client: in the function.
+
+const changeFn = bodyAt(fn, 'exports.changeUsername = onCall(async (request)');
+ck('found changeUsername', changeFn && changeFn.length > 800, String(changeFn && changeFn.length));
+ck('it works out whether the caller is anonymous',
+   /sign_in_provider === "anonymous"/.test(changeFn || ''),
+   (changeFn || '').slice(0, 0) || 'no sign_in_provider check');
+/*
+ * The gate's condition is LIFTED AND RUN, not matched.
+ *
+ * A regex over it passes on `if (false && isAnonymous && ...)` — the text is
+ * all still there and the gate is dead. Since this one condition is the whole
+ * feature, it gets a truth table instead of a spelling check.
+ */
+{
+  const line = (changeFn || '').split('\n').find((l) => /if \(isAnonymous/.test(l)) || '';
+  const cond = (line.match(/if \(([\s\S]*?)\) \{\s*$/) || [])[1] || '';
+  ck('found the gate condition', cond.includes('handleChanges'), JSON.stringify(line.trim()));
+  let gate = null;
+  try { gate = new Function('isAnonymous', 'data', `return (${cond});`); } catch (e) { /* reported below */ }
+  ck('the condition parses on its own', typeof gate === 'function', cond);
+  if (gate) {
+    ck('a guest who has spent their change is refused', gate(true, { handleChanges: 1 }) === true);
+    ck('a guest who has spent several is refused', gate(true, { handleChanges: 7 }) === true);
+    ck('a guest who still has theirs is let through', gate(true, { handleChanges: 0 }) === false);
+    ck('a guest with no counter at all is let through', gate(true, {}) === false);
+    ck('a signed-in player is never refused by it', gate(false, { handleChanges: 99 }) === false);
+    // The whole point: a gate short-circuited to nothing still reads correctly.
+    ck('and it is actually live, not short-circuited off',
+       gate(true, { handleChanges: 1 }) !== gate(true, { handleChanges: 0 }), cond);
+  }
+}
+ck('with permission-denied, not invalid-argument — nothing about the name is wrong',
+   /new HttpsError\("permission-denied",\s*\n?\s*"Guests get one handle change\. Create an account/.test(changeFn || ''),
+   (changeFn || '').slice(((changeFn || '').indexOf('Guests get one')) - 90, ((changeFn || '').indexOf('Guests get one')) + 40));
+// Two tabs, both reading zero, both spending the same single change. The read
+// that decides has to be the transaction's.
+{
+  const tx = (changeFn || '').indexOf('db.runTransaction');
+  const gate = (changeFn || '').indexOf('isAnonymous &&');
+  ck('the gate is inside the transaction, so it cannot be spent twice at once',
+     tx > 0 && gate > tx, `transaction at ${tx}, gate at ${gate}`);
+}
+// A signed-in player renames as often as they like; the number only ever
+// gates the anonymous case.
+ck('a signed-in player is not gated by the same counter',
+   !/handleChanges\) \|\| 0\) >= 1[\s\S]{0,200}isAnonymous/.test(changeFn || ''));
+ck('counted off handleChanges, so every guest alive today starts eligible',
+   /handleChanges/.test(changeFn || '') && !/guestHandleUsed|guestRenameUsed/.test(fn));
+
+// The client half: what it SHOWS, which must agree with what the server allows.
+const freeFn = bodyAt(html, 'function guestHasFreeHandleChange()');
+ck('found guestHasFreeHandleChange', freeFn && freeFn.length > 60, String(freeFn && freeFn.length));
+{
+  const free = new Function(`${freeFn}\nreturn guestHasFreeHandleChange;`)();
+  const run = (profile) => new Function('userProfileData', `${freeFn}\nreturn guestHasFreeHandleChange();`)(profile);
+  ck('a guest who has never renamed has one', run({ isGuest: true, handleChanges: 0 }) === true);
+  ck('a guest with no counter at all has one too — that is every guest today',
+     run({ isGuest: true }) === true);
+  ck('a guest who has spent it does not', run({ isGuest: true, handleChanges: 1 }) === false);
+  ck('a signed-in player is not offered a guest change', run({ isGuest: false, handleChanges: 0 }) === false);
+  ck('no profile loaded is not an error', run(null) === false);
+  ck('and a string counter is not mistaken for zero',
+     run({ isGuest: true, handleChanges: '2' }) === false);
+  ck('the function itself is callable with no argument', typeof free === 'function');
+}
+
+// The offer, run against a real DOM and a real localStorage.
+{
+  const offerFn = bodyAt(html, 'function maybeShowHandleOffer()');
+  const openFn = bodyAt(html, 'function somethingElseIsOpen()');
+  // bodyAt lifts functions, so the two module-level declarations the offer
+  // reads come from the file separately. The KEY is taken from index.html
+  // rather than retyped here: a copy in the test would let the two drift and
+  // the drift would read as a pass.
+  const keyDecl = (html.match(/const HANDLE_OFFER_KEY = "[^"]+";/) || [])[0] || '';
+  const key = (keyDecl.match(/"([^"]+)"/) || [])[1] || '';
+  ck('found the offer-seen key declared in the page', !!key, keyDecl);
+  const decls = 'let handleOfferTriedThisLoad = false;\n' + keyDecl + '\n';
+  ck('found maybeShowHandleOffer', offerFn && offerFn.length > 200, String(offerFn && offerFn.length));
+  ck('found somethingElseIsOpen', openFn && openFn.length > 100, String(openFn && openFn.length));
+
+  /*
+   * A real DOM for somethingElseIsOpen, and an injected localStorage the way
+   * announcements.test.mjs does it: setContent gives an opaque origin where
+   * the real one throws SecurityError, and a fake is the only way to exercise
+   * the blocked-storage branch anyway.
+   */
+  async function offer(opts) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.setContent(markupOnly);
+    return await page.evaluate(({ opts }) => {
+      const out = { shown: [], store: {}, threw: false };
+      const storage = {
+        getItem: (k) => {
+          if (opts.blocked) { out.threw = true; throw new Error('denied'); }
+          return Object.prototype.hasOwnProperty.call(out.store, k) ? out.store[k] : null;
+        },
+        setItem: (k, v) => {
+          if (opts.blocked) { out.threw = true; throw new Error('denied'); }
+          out.store[k] = String(v);
+        },
+      };
+      if (opts.seen) out.store[opts.key] = '1';
+      if (opts.somethingOpen) document.getElementById('profile-modal').style.display = 'flex';
+      const showHandleSetup = (label) => out.shown.push(label);
+      // eslint-disable-next-line no-new-func
+      const run = new Function('userProfileData', 'showHandleSetup', 'location', 'localStorage',
+        `${opts.decls}${opts.freeFn}\n${opts.openFn}\n${opts.offerFn}\nreturn maybeShowHandleOffer;`)
+        (opts.profile, showHandleSetup, { search: opts.search || '' }, storage);
+      run();
+      if (opts.twice) run();
+      out.key = Object.prototype.hasOwnProperty.call(out.store, opts.key) ? out.store[opts.key] : null;
+      return out;
+    }, { opts: { ...opts, offerFn, openFn, freeFn, decls, key } }).finally(() => page.close());
+  }
+
+  const guest = { isGuest: true, handleChanges: 0 };
+  const a = await offer({ profile: guest });
+  ck('an eligible guest is offered the card', a.shown.length === 1, JSON.stringify(a.shown));
+  ck('as the guest variant, not the just-linked one', a.shown[0] === null, JSON.stringify(a.shown[0]));
+  ck('and the browser remembers it was offered', a.key === '1', String(a.key));
+
+  const b = await offer({ profile: guest, twice: true });
+  ck('one load cannot show it twice, however often it is called',
+     b.shown.length === 1, String(b.shown.length));
+
+  const c = await offer({ profile: guest, seen: true });
+  ck('a guest already offered is not asked again', c.shown.length === 0, JSON.stringify(c.shown));
+
+  const d = await offer({ profile: { isGuest: true, handleChanges: 1 } });
+  ck('a guest who has spent their change is never offered it',
+     d.shown.length === 0, JSON.stringify(d.shown));
+
+  const e = await offer({ profile: { isGuest: false, handleChanges: 0 } });
+  ck('a signed-in player is not offered it', e.shown.length === 0, JSON.stringify(e.shown));
+
+  const f = await offer({ profile: guest, somethingOpen: true });
+  ck('it stands down for anything already open', f.shown.length === 0, JSON.stringify(f.shown));
+  // Standing down must not spend the one chance to ask, or a player who had
+  // another card up that morning would never be offered a name at all.
+  ck('and standing down does not burn the offer', f.key === null, String(f.key));
+
+  const h = await offer({ profile: guest, blocked: true });
+  ck('blocked storage still offers the card rather than throwing',
+     h.shown.length === 1 && h.threw, JSON.stringify(h.shown));
+
+  const g = await offer({ profile: guest, search: '?join=ABC123' });
+  ck('a tap-to-join is mid-flow and is left alone', g.shown.length === 0, JSON.stringify(g.shown));
+}
+
+// The two prompts promise different things, because they can.
+const guestPrompt = await scenario({ username: 'G_CRANE_4821', guestOffer: true });
+ck('the guest prompt opens', guestPrompt.afterPrompt.modalShown === 'flex');
+ck('its blurb names the guest, not an account',
+   /playing as a guest/i.test(guestPrompt.afterPrompt.blurb), guestPrompt.afterPrompt.blurb);
+ck('and its terms say the change is one-time',
+   /needs an account/.test(guestPrompt.afterPrompt.terms), guestPrompt.afterPrompt.terms);
+ck('the linked prompt still says the first change is free',
+   /first change is free/.test(fresh.afterPrompt.terms), fresh.afterPrompt.terms);
+ck('the two prompts do not say the same thing',
+   guestPrompt.afterPrompt.terms !== fresh.afterPrompt.terms);
+ck('keeping is still labelled with the name it keeps',
+   guestPrompt.afterPrompt.skipLabel === 'Keep G_CRANE_4821', guestPrompt.afterPrompt.skipLabel);
+
+// Accepting the preset: the player answered, and nothing was spent.
+const kept = await scenario({ username: 'G_CRANE_4821', guestOffer: true, skip: true });
+ck('keeping the preset sends nothing', kept.sent.length === 0, JSON.stringify(kept.sent));
+ck('and does not reload a page whose shape has not changed',
+   kept.reloads === 0, String(kept.reloads));
+ck('the card closes', kept.after.modalShown === 'none', kept.after.modalShown);
+
+// Spending it.
+const guestSaved = await scenario({ username: 'G_CRANE_4821', guestOffer: true, type: 'soda', save: true });
+ck('a guest can save a name', guestSaved.sent.length === 1 && guestSaved.sent[0].username === 'SODA',
+   JSON.stringify(guestSaved.sent));
+ck('and is not reloaded for it', guestSaved.reloads === 0, String(guestSaved.reloads));
+ck('the landing is repainted instead', guestSaved.repaints === 1, String(guestSaved.repaints));
+ck('and the board behind the card is refreshed, as the Profile rename does',
+   guestSaved.boardRefreshes === 1, String(guestSaved.boardRefreshes));
+ck('the card closes on success', guestSaved.after.modalShown === 'none', guestSaved.after.modalShown);
+// The linked path keeps its reload: every guest-only affordance on the page
+// behind it has just become wrong.
+ck('a just-linked player is still reloaded', saved.reloads === 1, String(saved.reloads));
+ck('and is not repainted in place instead', saved.repaints === 0, String(saved.repaints));
+
+// The Profile, which is where a skipped change is still sitting.
+{
+  const prof = bodyAt(html, 'window.openProfileMenu = async function()');
+  ck('found openProfileMenu', prof && prof.length > 400, String(prof && prof.length));
+  ck('the guest branch asks whether the change is still there',
+     /guestHasFreeHandleChange\(\)/.test(prof || ''));
+  ck('and shows the field only then',
+     /username-section"\)\.style\.display = freeChange \? "block" : "none"/.test(prof || ''));
+  ck('with the caveat beside it',
+     /username-guest-note"\)\.style\.display = freeChange \? "block" : "none"/.test(prof || ''));
+  // The promo offers an account as the way to change a handle. Said to someone
+  // who can still change it for free, that is simply untrue.
+  ck('the promo only claims a handle change once there is not one left',
+     /auth-promo-handle"\)\.style\.display = freeChange \? "none" : "inline"/.test(prof || ''));
+  ck('a guest still gets the promo either way',
+     /auth-promo-section"\)\.style\.display = "block"/.test(prof || ''));
+  ck('and a signed-in player never sees the guest caveat',
+     /username-guest-note"\)\.style\.display = "none"/.test(prof || ''));
+}
+{
+  const note = html.indexOf('id="username-guest-note"');
+  ck('the caveat exists in the markup', note > 0);
+  ck('and is hidden until a guest is shown it',
+     /id="username-guest-note" style="display: none;/.test(html));
+  ck('the promo clause exists and is inline, so it reads as part of the sentence',
+     /<span id="auth-promo-handle">, and change your Arcade Handle again<\/span>/.test(html));
 }
 
 await browser.close();

@@ -1336,6 +1336,25 @@ async function uniqueHandle(base, uid) {
 
 exports.changeUsername = onCall(async (request) => {
   const uid = requireAuth(request);
+  /*
+   * A guest gets ONE handle change, and then needs an account.
+   *
+   * This gate did not exist before: the callable let anyone rename as often
+   * as they liked, and the only thing stopping a guest was that the Profile
+   * hid the field from them - a check in the page, not in the product. So
+   * the rule was already bypassable by anybody who opened a console, and the
+   * moment the field is deliberately shown to guests it stops being a rule
+   * at all. It belongs here, where firestore.rules has already made sure a
+   * client cannot write `username` or `handleChanges` for itself.
+   *
+   * Counted off handleChanges rather than a new flag, which means every
+   * guest who exists today is at 0 and gets the offer on their next visit -
+   * what was asked for - with no migration to run. A guest who later makes
+   * an account keeps whatever count they had; signed-in renames stay free
+   * and unlimited, so the number only ever gates this one case.
+   */
+  const token = (request.auth && request.auth.token) || {};
+  const isAnonymous = !!(token.firebase && token.firebase.sign_in_provider === "anonymous");
   const raw = (request.data && request.data.username) || "";
   const name = String(raw)
     .replace(/[^a-zA-Z0-9_\s-]/g, "")
@@ -1383,6 +1402,12 @@ exports.changeUsername = onCall(async (request) => {
     // so a player who has not played today costs two reads and writes nothing.
     const runSnaps = await tx.getAll(...runRefs);
     const data = snap.data();
+    // Inside the transaction, so two tabs cannot each read zero and each
+    // spend the same single change.
+    if (isAnonymous && (Number(data.handleChanges) || 0) >= 1) {
+      throw new HttpsError("permission-denied",
+        "Guests get one handle change. Create an account to change it again.");
+    }
     // Renaming is free. It used to cost 5,000 pts after the first one, which
     // is a toll on the one thing a new player wants to fix about their
     // account in the first minute - and the people it actually stopped were

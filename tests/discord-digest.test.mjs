@@ -209,8 +209,14 @@ const dailyRow = (username, solved, score) => ({ username, score, wordsGuessed: 
   // actually enforces. A literal there and a constant here is two numbers
   // that agree until one of them moves, and the column is the one that
   // would then start cutting names short.
-  const change = fn.slice(fn.indexOf('exports.changeUsername'),
-                          fn.indexOf('exports.changeUsername') + 900);
+  // The whole function, not its first 900 characters: that window was one
+  // added comment away from sliding past the line it is looking for, and a
+  // check that stops finding what it checks reads as a regression in the code.
+  const change = (() => {
+    const a = fn.indexOf('exports.changeUsername');
+    const b = fn.indexOf('\nexports.', a + 1);
+    return b < 0 ? fn.slice(a) : fn.slice(a, b);
+  })();
   ck(/\.substring\(0, HANDLE_MAX\)/.test(change),
      'and changeUsername enforces that same constant, not a literal of its own',
      (change.match(/\.substring\([^)]*\)/) || [''])[0]);

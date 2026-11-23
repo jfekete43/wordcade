@@ -2569,7 +2569,7 @@
         <div class="modal-box" style="border-color: var(--c-correct); max-width: 360px;">
             <h2 class="modal-title">Pick Your Handle</h2>
             <div class="modal-stats" style="font-size: var(--fs-3); color: var(--c-ink-2); margin-bottom: 15px; line-height: 1.5; text-align: center;">
-                <span id="handle-setup-blurb">Your progress is saved.</span> This is the name that shows on the leaderboards — your first change is free.
+                <span id="handle-setup-blurb">Your progress is saved.</span> <span id="handle-setup-terms">This is the name that shows on the leaderboards — your first change is free.</span>
             </div>
             <input type="text" id="handle-setup-input" class="input-field" maxlength="12" placeholder="Enter name" autocomplete="off">
             <div id="handle-setup-error" style="font-size: var(--fs-2); color: var(--c-loss); line-height: 1.4; min-height: 17px;"></div>
@@ -2790,9 +2790,16 @@
                     <input type="text" id="username-input" class="input-field" maxlength="12" placeholder="Enter name">
                     <button class="btn-primary" onclick="window.saveUsername()" style="width: 100%;">Update Handle</button>
                 </div>
+                <!-- Shown to a guest who still has their one change, and to
+                     nobody else. Saying the cost BEFORE the button is the
+                     point: a one-time change that announces itself after it
+                     has been spent is a trap. -->
+                <div id="username-guest-note" style="display: none; font-size: var(--fs-2); color: var(--c-ink-4); margin-top: 8px; line-height: 1.4;">
+                    One change as a guest — after this, changing your handle needs an account.
+                </div>
                 <div id="auth-promo-section" style="display: none; margin-top: 10px;">
                     <div style="font-size: var(--fs-2); color: var(--c-ink-3); margin-bottom: 10px; line-height: 1.4;">
-                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Sign up from the Main Menu to keep it forever, play from any device, and set a custom Arcade Handle.
+                        You're playing as a Guest — this profile lives only in this browser and can't be recovered if it's ever cleared. Sign up from the Main Menu to keep it forever, play from any device<span id="auth-promo-handle">, and change your Arcade Handle again</span>.
                     </div>
                 </div>
             </div>
@@ -3383,6 +3390,52 @@
             if (document.getElementById("consent-bar")) return true;
             return [...document.querySelectorAll(".modal-overlay")]
                 .some((m) => getComputedStyle(m).display !== "none");
+        }
+
+        /*
+         * A guest still holding their one free handle change.
+         *
+         * handleChanges is written only by the changeUsername callable, and
+         * firestore.rules refuses a client that tries to write it or
+         * `username` directly - so this reads a number the browser cannot
+         * fake. It decides what to SHOW; the callable decides what is
+         * allowed, and refuses the same case server-side.
+         */
+        function guestHasFreeHandleChange() {
+            return !!(userProfileData && userProfileData.isGuest
+                && (Number(userProfileData.handleChanges) || 0) === 0);
+        }
+
+        let handleOfferTriedThisLoad = false;
+        const HANDLE_OFFER_KEY = "wordcade_handle_offer_seen";
+
+        /*
+         * The one-time offer, for newcomers and for every guest who was here
+         * before it existed.
+         *
+         * The localStorage key stops the card reappearing on every visit; it
+         * is not the gate. Clearing it shows the card again, which is fine,
+         * because the CHANGE is gated on handleChanges by the callable - a
+         * guest who skips keeps their change and can still spend it from the
+         * Profile, and a guest who has spent it gets no card however much
+         * storage they clear.
+         *
+         * An anonymous session lives in this browser's storage too, so
+         * someone who clears it is a different guest with a different name
+         * and has genuinely not been offered anything yet.
+         */
+        function maybeShowHandleOffer() {
+            if (handleOfferTriedThisLoad) return;
+            handleOfferTriedThisLoad = true;
+            if (!guestHasFreeHandleChange()) return;
+            // A tap-to-join is mid-flow, same reason the announcement skips it.
+            if (new URLSearchParams(location.search).has("join")) return;
+            try {
+                if (localStorage.getItem(HANDLE_OFFER_KEY)) return;
+            } catch (e) { /* storage blocked: offer it, and it may ask again */ }
+            if (somethingElseIsOpen()) return;
+            try { localStorage.setItem(HANDLE_OFFER_KEY, "1"); } catch (e) {}
+            showHandleSetup(null);
         }
 
         function maybeShowAnnouncement() {
@@ -4295,7 +4348,11 @@
                 // card dropped on it, and on a delay so the board has painted
                 // first - an announcement that beats the game to the screen
                 // is an interruption rather than news.
-                setTimeout(() => maybeShowAnnouncement(), 1400);
+                // The handle offer first: it is onboarding, and it is the
+                // one card a brand new player benefits from. Announcements
+                // already stand down for anything open, so a guest sees one
+                // card rather than two stacked.
+                setTimeout(() => { maybeShowHandleOffer(); maybeShowAnnouncement(); }, 1400);
                 // Opened from the address bar, once there is a signed-in
                 // user for getDrafts to check. Anonymous sign-in carries no
                 // verified email, so an uninvited visitor gets a refusal
@@ -4474,7 +4531,18 @@
         function showHandleSetup(label) {
             document.getElementById('auth-modal').style.display = 'none';
             const current = (userProfileData && userProfileData.username) || "";
-            document.getElementById("handle-setup-blurb").textContent = "Your progress is now saved to " + label + ".";
+            // A null label is the guest offer. The two differ in what they can
+            // promise: a player who has just linked an account can rename
+            // whenever they like afterwards, and a guest cannot, so saying
+            // "your first change is free" to a guest would be describing a
+            // door that shuts behind them without mentioning the door.
+            handleSetupIsGuestOffer = (label === null);
+            document.getElementById("handle-setup-blurb").textContent = handleSetupIsGuestOffer
+                ? "You're playing as a guest, and this is the name you were given."
+                : "Your progress is now saved to " + label + ".";
+            document.getElementById("handle-setup-terms").textContent = handleSetupIsGuestOffer
+                ? "It shows on the leaderboards. Change it once now or keep it — changing it again needs an account."
+                : "This is the name that shows on the leaderboards — your first change is free.";
             document.getElementById("handle-setup-error").textContent = "";
             // Naming the name in the skip button is the only thing that tells a
             // player what declining actually leaves them with.
@@ -4487,10 +4555,17 @@
             input.focus(); input.select();
         }
 
-        // Both exits reload for the reason the old alert() path did: the page was
-        // painted for a guest, and every guest-only affordance on it is now wrong.
+        // Which caller opened it, because the two exits differ. After LINKING,
+        // both reload for the reason the old alert() path did: the page was
+        // painted for a guest and every guest-only affordance on it is now
+        // wrong. After the GUEST offer nothing of the sort has happened - they
+        // are still a guest - so a reload would be a second of loading spinner
+        // as the reward for answering a question.
+        let handleSetupIsGuestOffer = false;
+
         window.skipHandleSetup = function() {
             document.getElementById("handle-setup-modal").style.display = "none";
+            if (handleSetupIsGuestOffer) return;
             window.location.reload();
         };
 
@@ -4503,7 +4578,18 @@
             try {
                 // The same callable the Profile uses: it screens the name, checks
                 // it is not taken, and charges a player nothing for their first.
-                await callChangeUsername({ username: name });
+                const result = await callChangeUsername({ username: name });
+                if (handleSetupIsGuestOffer) {
+                    // The same in-place update the Profile's own rename does,
+                    // rather than a reload: nothing about the page's shape has
+                    // changed, only the name on it.
+                    userProfileData.username = result.data.username;
+                    userProfileData.handleChanges = (Number(userProfileData.handleChanges) || 0) + 1;
+                    document.getElementById("handle-setup-modal").style.display = "none";
+                    applyProfileToLanding();
+                    refreshModeBoard();
+                    return;
+                }
                 window.location.reload();
             } catch (e) {
                 // Taken, refused by the handle screen, or offline — all fixable by
@@ -4640,8 +4726,19 @@
 
         window.openProfileMenu = async function() {
                 document.getElementById('main-menu-modal').style.display = 'none'; if(!currentUser || !userProfileData) return;
-                if (userProfileData.isGuest) { document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`; document.getElementById("username-section").style.display = "none"; document.getElementById("auth-promo-section").style.display = "block"; } 
-                else { document.getElementById("login-status-text").innerText = "Signed in \u2014 " + authProviderLabel(); document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("auth-promo-section").style.display = "none"; }
+                if (userProfileData.isGuest) {
+                    // A guest who skipped the card still has the change, so the
+                    // field is here. One who has spent it gets the promo's
+                    // reason to make an account instead. Both get the promo.
+                    const freeChange = guestHasFreeHandleChange();
+                    document.getElementById("login-status-text").innerText = `Playing as: ${userProfileData.username}`;
+                    document.getElementById("username-input").value = userProfileData.username;
+                    document.getElementById("username-section").style.display = freeChange ? "block" : "none";
+                    document.getElementById("username-guest-note").style.display = freeChange ? "block" : "none";
+                    document.getElementById("auth-promo-handle").style.display = freeChange ? "none" : "inline";
+                    document.getElementById("auth-promo-section").style.display = "block";
+                } 
+                else { document.getElementById("login-status-text").innerText = "Signed in \u2014 " + authProviderLabel(); document.getElementById("username-input").value = userProfileData.username; document.getElementById("username-section").style.display = "block"; document.getElementById("username-guest-note").style.display = "none"; document.getElementById("auth-promo-section").style.display = "none"; }
     
                 const docSnap = await getDoc(doc(db, "users", currentUser.uid));
                 if(docSnap.exists()) {
