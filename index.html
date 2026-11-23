@@ -2107,6 +2107,10 @@
         <div id="board-actions">
             <button id="home-board-more" class="btn-quiet" onclick="window.expandHomeBoard()">Full leaderboard</button>
             <button id="sprint-archive-btn" class="btn-quiet" style="display:none;" onclick="window.openArchive('sprint')">Past Sprints</button>
+            <!-- Marathon's twin of the button above. Separate rather than one
+                 relabelled, because the card is shared and both have to be
+                 hidden independently when the other mode is showing. -->
+            <button id="marathon-archive-btn" class="btn-quiet" style="display:none;" onclick="window.openArchive('marathon')">Past Marathons</button>
         </div>
     </div>
 
@@ -4102,6 +4106,8 @@
             moreBtn.textContent = "Full leaderboard";
             // Sprint's, and only ever Sprint's — this card is shared.
             document.getElementById("sprint-archive-btn").style.display = "none";
+            const mArch = document.getElementById("marathon-archive-btn");
+            if (mArch) mArch.style.display = "none";
         }
 
         async function loadHomeBoard() {
@@ -6440,6 +6446,14 @@
                 const el = document.getElementById(id);
                 if (el) el.style.display = "none";
             }
+            // Shown only once a week has actually finished, the same test the
+            // Sprint button makes: marathonNumber returns null for anything
+            // before Marathon #1, so the first week offers no empty archive.
+            const pastM = document.getElementById("marathon-archive-btn");
+            if (pastM) {
+                pastM.style.display =
+                    marathonNumber(shiftDateStr(marathonKeyFor(new Date()), -7)) ? "block" : "none";
+            }
             boardLbTab = "marathon";
             const moreEl = document.getElementById("home-board-more");
             // Named for what it opens. This card shows THIS week; the Hall of
@@ -7073,6 +7087,19 @@
             return days >= 1 ? days : null;
         }
 
+        // Marathon #1 is the week of the Monday the mode went weekly. Weeks,
+        // not days: a key that is not a Monday of the series is not a Marathon,
+        // and returning 0 for one is what stops the archive walking backwards
+        // forever past the first week.
+        const MARATHON_EPOCH = "2026-11-09"; // Monday of Marathon #1
+        function marathonNumber(weekKey) {
+            if (typeof weekKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(weekKey)) return null;
+            const toUTC = (x) => { const [y, m, d] = x.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+            const days = Math.floor((toUTC(weekKey) - toUTC(MARATHON_EPOCH)) / 86400000);
+            if (days < 0 || days % 7 !== 0) return null;
+            return days / 7 + 1;
+        }
+
         window.shareSprintResult = function(btnId) {
             if (!sprintAttempt) return;
             const guesses = sprintAttempt.guesses || [];
@@ -7170,6 +7197,8 @@
             if (more) { more.style.display = ""; more.textContent = "Full leaderboard"; }
             const past = document.getElementById("sprint-archive-btn");
             if (past) past.style.display = sprintNumber(shiftDateStr(getTodayDateStr(), -1)) ? "block" : "none";
+            const pastMara = document.getElementById("marathon-archive-btn");
+            if (pastMara) pastMara.style.display = "none";
 
             const list = document.getElementById("daily-board-list");
             if (!list) return;
@@ -7317,6 +7346,23 @@
         // so this needs no new index for either mode. Callers still handle it
         // throwing — see showPreviousCallout.
         async function fetchArchiveStanding(cfg, dateStr, run) {
+            // The weekly archive already holds every row, reduced and sorted,
+            // so its placement is an index lookup rather than three count
+            // queries - and the count queries would be WRONG here anyway:
+            // over /runs they would count words, so a five-player week would
+            // report "4th of 100".
+            if (cfg.weekly) {
+                const rows = await marathonWeekRows(dateStr);
+                const key = cfg.tieKey(run);
+                // Competition ranking, matching renderArchiveBoard: the number
+                // of rows strictly ahead, plus one. Ties share a place.
+                let place = 1;
+                for (const r of rows) {
+                    if (cfg.tieKey(r) === key) break;
+                    place++;
+                }
+                return { place, total: rows.length };
+            }
             const mine = Math.max(0, Number(run.score) || 0);
             const scoped = cfg.scoped(dateStr);
             // Ahead of me = a better score, OR the same score and ahead on
@@ -7731,6 +7777,9 @@
                     where("score", "==", runScore(r)),
                     where("wordsGuessed", ">", Math.max(0, Number(r.wordsGuessed) || 0)),
                     orderBy("wordsGuessed", "desc"))),
+                step: -1,
+                firstKey: () => shiftDateStr(getTodayDateStr(), -1),
+                dateLabel: (d) => formatPuzzleDate(d),
                 callout: "gauntlet-callout",
                 yesterday: "Yesterday's Trifecta",
                 index: { href: "/gauntlet/", text: "Every past Trifecta, with the words →" },
@@ -7774,8 +7823,43 @@
                         where("score", "==", runScore(r)),
                         where("elapsedMs", "<", runClock(r)),
                         orderBy("elapsedMs", "asc")))),
+                step: -1,
+                firstKey: () => shiftDateStr(getTodayDateStr(), -1),
+                dateLabel: (d) => formatPuzzleDate(d),
                 callout: "sprint-callout",
                 yesterday: "Yesterday's Sprint",
+                index: null,
+                full: null,
+            },
+            marathon: {
+                title: "Past Marathons",
+                name: (n) => (n ? `Marathon #${n}` : "Past Marathon"),
+                number: (w) => marathonNumber(w),
+                colour: "var(--c-marathon)",
+                blurb: "A Marathon runs Monday to Sunday. Pick a past week to see how it finished.",
+                none: "No Marathons have finished yet — this week's is the first.",
+                empty: "Nobody played this Marathon.",
+                // The one weekly archive, which is what every `step`, `firstKey`
+                // and `weekly` branch in this file exists for.
+                weekly: true,
+                step: -7,
+                firstKey: () => shiftDateStr(marathonKeyFor(new Date()), -7),
+                dateLabel: (w) => `Week of ${formatPuzzleDate(w)}`,
+                // Already reduced to one row per player, so the board is handed
+                // the same {data()} shape a QuerySnapshot gives it.
+                fetchDay: (w) => marathonWeekRows(w)
+                    .then((rows) => rows.slice(0, 100).map((r) => ({ data: () => r }))),
+                tieKey: (r) => `${runScore(r)}:${Math.max(0, Number(r.marathonWords) || 0)}`,
+                detail: (r) => `${Math.max(0, Number(r.marathonWords) || 0)} of 20`,
+                scoreCell: (r) => runScore(r).toLocaleString(),
+                // Both of these are answered off the reduced rows instead of by
+                // query, so they are null here: a count query over /runs would
+                // count WORDS, and report a field of twenty when five played.
+                runId: null,
+                scoped: null,
+                tied: null,
+                callout: null,
+                yesterday: null,
                 index: null,
                 full: null,
             },
@@ -7795,6 +7879,64 @@
         }
         function archiveCfg() { return ARCHIVES[archiveKind] || ARCHIVES.daily; }
 
+        /*
+         * A finished Marathon week's standings.
+         *
+         * The other two archives are one query away: a Trifecta and a Sprint
+         * write ONE run per player per day, so the board IS the query, ordered
+         * and capped at a hundred. A Marathon writes one run per WORD, twenty
+         * of them, and those documents carry no `score` field at all - the
+         * running total lives in marathonScore. So there is nothing to order
+         * by that yields one row per player.
+         *
+         * Reduced the same way postWeeklyDigest does it, to each player's
+         * FURTHEST word: marathonScore is cumulative, so the furthest word
+         * carries the final score. Deliberately not read off /users - that
+         * doc's marathonKey is the week a player is CURRENTLY on, and
+         * onRunCreated moves it the moment they start the next one. Reading a
+         * finished week there drops exactly the players who came back, which
+         * is the bug commit 6e62247 fixed in the digest.
+         *
+         * It costs a read per word per player rather than one per player.
+         * That is the price of the week being reconstructable at all, and it
+         * is paid once per week viewed: the result is cached, because a
+         * finished week cannot change.
+         */
+        let marathonWeekCache = { key: null, rows: null };
+        async function marathonWeekRows(weekKey) {
+            if (marathonWeekCache.key === weekKey && marathonWeekCache.rows) return marathonWeekCache.rows;
+            const snap = await getDocs(query(collection(db, "runs"),
+                where("marathonKey", "==", weekKey), limit(5000)));
+            const best = new Map();
+            snap.forEach((d) => {
+                const r = d.data();
+                if (!r || !r.uid) return;
+                const words = Math.max(0, Number(r.marathonWords) || 0);
+                const prev = best.get(r.uid);
+                if (!prev || words > prev.marathonWords) {
+                    // `score` rather than marathonScore, because renderArchiveBoard
+                    // and runScore() both read .score - this row has to be the
+                    // same shape the other two archives hand them.
+                    best.set(r.uid, {
+                        uid: r.uid,
+                        username: r.username,
+                        equipped: r.equipped,
+                        score: Math.max(0, Number(r.marathonScore) || 0),
+                        marathonWords: words,
+                    });
+                }
+            });
+            // Score, then how far they got, then uid so a dead-level pair comes
+            // back in the same order every time. The same three keys the digest
+            // sorts on, so the archive and the Monday post cannot disagree.
+            const rows = [...best.values()].sort((a, b) =>
+                b.score - a.score
+                || b.marathonWords - a.marathonWords
+                || String(a.uid).localeCompare(String(b.uid)));
+            marathonWeekCache = { key: weekKey, rows };
+            return rows;
+        }
+
         // Your own run for one past day, or null if you never played it. A
         // single doc read rather than a query, because both modes write runs
         // under a deterministic id (see functions/index.js) - which is also
@@ -7802,6 +7944,14 @@
         // exact.
         async function fetchMyArchiveRun(cfg, dateStr) {
             if (!currentUser) return null;
+            // A Marathon has no single run document for the week - it has
+            // twenty - so the row the board already built is the answer.
+            if (cfg.weekly) {
+                try {
+                    const rows = await marathonWeekRows(dateStr);
+                    return rows.find((r) => r.uid === currentUser.uid) || null;
+                } catch (e) { console.error("Past run lookup failed", e); return null; }
+            }
             try {
                 const snap = await getDoc(doc(db, "runs", cfg.runId(currentUser.uid, dateStr)));
                 return snap.exists() ? snap.data() : null;
@@ -7836,9 +7986,10 @@
         function renderArchiveList() {
             const cfg = archiveCfg();
             const listEl = document.getElementById("archive-list");
-            // Yesterday backwards: today is excluded because it's the live
-            // board on the play screen, and it isn't final yet anyway.
-            let dateStr = shiftDateStr(getTodayDateStr(), -1);
+            // Backwards from the last FINISHED one: today, or this week, is
+            // the live board on the play screen and isn't final anyway. A day
+            // for the two daily modes, a week for Marathon.
+            let dateStr = cfg.firstKey();
             let html = "";
             let shown = 0;
             while (shown < archiveShown) {
@@ -7846,7 +7997,7 @@
                 if (!num) break; // walked back past that mode's #1
                 html += `<button class="archive-row" onclick="window.viewPastDay('${dateStr}')">` +
                         `<span>${escapeHtml(cfg.name(num))}</span><span class="gar-date">${escapeHtml(formatPuzzleDate(dateStr))}</span></button>`;
-                dateStr = shiftDateStr(dateStr, -1);
+                dateStr = shiftDateStr(dateStr, cfg.step);
                 shown++;
             }
             listEl.innerHTML = html || `<div class="gauntlet-empty">${escapeHtml(cfg.none)}</div>`;
@@ -7867,7 +8018,7 @@
             const full = document.getElementById("archive-full");
             full.style.display = cfg.full ? "block" : "none";
             if (cfg.full) { full.href = cfg.full.href(dateStr); full.innerText = cfg.full.text; full.style.color = cfg.colour; }
-            standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span>`;
+            standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(cfg.dateLabel(dateStr))}</span>`;
             boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
 
             try {
@@ -7882,7 +8033,7 @@
             // it still reports a placement outside the visible top 100.
             const run = await fetchMyArchiveRun(cfg, dateStr);
             if (!run) {
-                standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))} — you didn't play this one.</span>`;
+                standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(cfg.dateLabel(dateStr))} — you didn't play this one.</span>`;
                 return;
             }
             const score = runScore(run);
@@ -7894,7 +8045,7 @@
                 badge = placeBadge(place);
             } catch (e) { console.error("Past board standing failed", e); }
             // Same sentence as the callout, so it gets the same badge.
-            standingEl.innerHTML = `${badge} <span style="color:var(--c-ink-4);">${escapeHtml(formatPuzzleDate(dateStr))}</span> — ${line}`;
+            standingEl.innerHTML = `${badge} <span style="color:var(--c-ink-4);">${escapeHtml(cfg.dateLabel(dateStr))}</span> — ${line}`;
         };
 
         // "You finished 12th of 47" for yesterday, shown when you come back

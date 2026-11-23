@@ -596,8 +596,19 @@ const boardSrc = html.slice(html.indexOf('async function loadMarathonBoard()'),
   eq('and a zero attempt does not invent a row', run([], WEEK, { attempt: mine(0, 0) }).length, 0);
 
   // The loader has to actually call it, or the merge is a function nobody runs.
-  const loader = html.slice(html.indexOf('async function loadMarathonBoard()'),
-                            html.indexOf('async function loadMarathonBoard()') + 2500);
+  // Brace-counted to the end of the function rather than a fixed 2500
+  // characters: that window sat 242 characters short of the call it checks the
+  // moment anything was added above it, and a check that stops finding what it
+  // checks reads as a regression in the code rather than in the ruler.
+  const loader = (() => {
+    const start = html.indexOf('async function loadMarathonBoard()');
+    let depth = 0;
+    for (let i = html.indexOf('{', start); i < html.length; i++) {
+      if (html[i] === '{') depth++;
+      else if (html[i] === '}' && --depth === 0) return html.slice(start, i + 1);
+    }
+    return html.slice(start);
+  })();
   ck(/withMyMarathonRow\(rows, week\)/.test(loader),
      'and the loader merges before it renders', loader.slice(0, 200));
   ck(/uid: d\.id/.test(loader),
