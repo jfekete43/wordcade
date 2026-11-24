@@ -600,8 +600,16 @@ ck(/createBoard\(\); resetKeyboardColors\(\); checkDangerRow\(\); updateSkipButt
 // broke the extraction outright. An anchor has to be something that is not
 // itself under test.
 const blurb = between(html, '<section id="site-intro">', 'Support the project', 'homepage blurb');
-ck(/this is your place/.test(blurb), 'the Wordle line reads as asked');
-ck(/today's Wordle/.test(blurb), 'and still makes the Wordle comparison, which is how people find this');
+// The hook, not the sentence it used to sit in. The blurb was three
+// sentences and is now one; what has to survive a trim is the Wordle
+// comparison, because that is how people find this, and the fact that you can
+// start without an account. Pinning "this is your place" pinned the prose
+// instead, so shortening the paragraph read as losing the hook.
+ck(/today's Wordle/.test(blurb), 'the blurb makes the Wordle comparison, which is how people find this',
+   (blurb.match(/<p[^>]*>[^<]*/) || [''])[0].slice(0, 120));
+ck(/no account needed/.test(blurb), 'and says you can start without an account');
+// Five-letter is the other search term it has to keep.
+ck(/five-letter/.test(blurb), 'and that the words are five letters');
 const MODE_TOKENS = MODE_KEYS.map((m) => m === 'gauntlet' ? '--c-gauntlet' : '--c-' + m);
 // What a reader actually sees. A closed mode's line is parked in a <template>
 // rather than deleted, which is inert and unindexed — so it is stripped here

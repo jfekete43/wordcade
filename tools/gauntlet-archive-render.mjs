@@ -405,7 +405,7 @@ const NAV = `        <div class="nav-links">
         </div>`;
 
 const SUPPORT = `        <div class="support">
-            Lexathon is a small project, free to play, with no ads and nothing to buy that affects the game.
+            Lexathon is a small project, free to play, with nothing to buy that affects the game.
             If you'd like to help keep it running, <a href="https://ko-fi.com/lexathon" rel="noopener">support it on Ko-fi</a>.
         </div>`;
 

@@ -104,6 +104,29 @@ for (const sig of ['ad_storage', 'ad_user_data', 'ad_personalization']) {
      (consent.match(new RegExp(`[^\\n]*${sig}[^\\n]*granted[^\\n]*`)) || [''])[0].trim());
 }
 
+// ---- and nothing on the site promises the opposite ------------------------
+// The support note on the home page said "free and always will be - no ads,
+// no paywall", and all 53 archive pages said "free to play, with no ads". The
+// ad script makes that a promise the site is actively working to break: if the
+// application is approved, an ad renders directly above the sentence denying
+// there are any. A claim in prose is not covered by the consent checks above,
+// so it is checked here, where the tag is.
+{
+  const promises = [];
+  for (const f of pages) {
+    const body = read(f)
+      .replace(/<!--[\s\S]*?-->/g, ' ')          // the consent comments discuss ads at length
+      .replace(/<(script|style)[\s\S]*?<\/\1>/g, ' ');
+    if (/\bno ads\b|\bad[- ]free\b|\bwithout ads\b/i.test(body)) promises.push(f);
+  }
+  eq('no page promises there are no ads, because one is loaded on all of them', promises, []);
+  // Free, no paywall and nothing-bought-affects-scoring are all still true and
+  // still said - the trim took the false claim, not the honest ones.
+  const home = read('index.html');
+  ck(/no paywall/.test(home), 'the home page still says there is no paywall');
+  ck(/score higher/.test(home), 'and that nothing in the shop makes anyone score higher');
+}
+
 // ---- and the policy says that, rather than the opposite -------------------
 const privacy = read('privacy.html');
 ck(!/no advertising network is loaded on the site/.test(privacy),
