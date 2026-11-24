@@ -1876,6 +1876,22 @@
             window.__applyTheme(pref);
         })();
     </script>
+    <!-- Google AdSense. Google requires this on every page: it is how the
+         site is verified and, later, how ads are placed. It loads
+         unconditionally, which is a change from how Google Analytics is
+         handled here - gtag.js is injected only after a visitor says yes.
+         The difference is that a review cannot accept cookies, so a tag
+         gated behind consent is a tag Google never sees.
+
+         What keeps that defensible is consent.js, which queues
+         ad_storage, ad_user_data and ad_personalization as DENIED before
+         anything loads and never grants them - Accept grants
+         analytics_storage and nothing else. So this script runs with
+         advertising storage switched off, and privacy.html says so.
+         A certified CMP takes these signals over when ads actually
+         serve to EEA/UK traffic; see DEPLOY.md. -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8930711990683620"
+         crossorigin="anonymous"></script>
 </head>
 <body>
 

@@ -434,6 +434,12 @@ function head(title, description, canonical) {
          nothing from Google until a visitor has said yes. See consent.js. -->
     <script defer src="/consent.js"></script>
 
+    <!-- Google AdSense, on every page because Google requires it there.
+         Loads unconditionally; consent.js has already queued all three
+         advertising signals as denied, and never grants them. -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8930711990683620"
+         crossorigin="anonymous"></script>
+
     <!-- analytics:cloudflare | Cookieless, so no consent banner is required.
          Change the token or turn it off everywhere at once with:
              node tools/set-analytics-token.mjs <token|--off> -->

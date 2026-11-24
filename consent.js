@@ -6,7 +6,11 @@
  * copies of a banner is sixty chances for one of them to say something
  * different from the policy.
  *
- * NOTHING REACHES GOOGLE BEFORE A YES. The consent defaults below are queued
+ * NOTHING REACHES GOOGLE ANALYTICS BEFORE A YES. (AdSense is the exception
+ * and is loaded unconditionally from every page's head - Google cannot
+ * verify a tag it never sees. It runs with all three advertising signals
+ * denied, which the defaults below set and nothing here ever grants.)
+ * The consent defaults below are queued
  * into dataLayer, which is a local array and no network at all; gtag.js is
  * only injected once consent has actually been given, this visit or a
  * previous one. Google's own Consent Mode pattern is to load the tag

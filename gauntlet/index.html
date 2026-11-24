@@ -170,6 +170,11 @@
          Change the token or turn it off everywhere at once with:
              node tools/set-analytics-token.mjs <token|--off> -->
     <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"21957ededacf4e538abc5a0c42767ce7"}'></script>
+    <!-- Google AdSense, on every page because Google requires it there.
+         Loads unconditionally; consent.js has already queued all three
+         advertising signals as denied, and never grants them. -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8930711990683620"
+         crossorigin="anonymous"></script>
 </head>
 <body>
 
