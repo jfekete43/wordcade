@@ -6252,11 +6252,23 @@
             } else if (isFfaMode) {
                 if (!confirm("Leave the FFA match? If it's in progress, the match continues without you and you're locked into the lowest remaining placement.")) return;
                 if (currentMatchId) window.leaveFfaMatch(); else window.cancelFfaLobby();
-            } else if (target !== "endless" && (score > 0 || runStats.played > 0)) {
-                // Only an Stakes run in progress has anything to bank.
-                if (!confirm("Switching to " + MODES[target].label + " will bank your current Stakes run. Continue?")) return;
-                saveRunToCloud();
             }
+            // Leaving Stakes banks nothing and asks nothing. It is the mode
+            // with no end - play for a minute or an hour, come back tomorrow -
+            // so a prompt demanding you cash out before looking at Sprint was
+            // charging a toll on the one mode that has no finish line.
+            //
+            // The run is already safe: saveLocalState() writes score,
+            // continues, stats, the word in progress and its guesses after
+            // every single guess, and loadLocalState() puts them back. Leaving
+            // and returning resumed the run before this change; it just banked
+            // it on the way out as well.
+            //
+            // That was the bug underneath the complaint. This branch called
+            // saveRunToCloud() and then reset NOTHING - unlike the two real
+            // endings, which both clearLocalState() first. So the points were
+            // paid out, the run stayed on the screen, and leaving a second
+            // time paid them again on top of whatever had been added since.
 
             // Stakes is the one destination the leave path above has already
             // painted, so it is the one that does not wait for anything.
