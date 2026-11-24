@@ -232,6 +232,6 @@ const hubDays = [...known.values()].sort((a, b) => (a.date > b.date ? -1 : 1));
 write(path.join("gauntlet", "index.html"), R.renderHubPage(hubDays));
 
 const sitemapPath = path.join(REPO, "sitemap.xml");
-write("sitemap.xml", R.renderSitemap(fs.readFileSync(sitemapPath, "utf8"), hubDays));
+write("sitemap.xml", R.renderSitemap(fs.readFileSync(sitemapPath, "utf8")));
 
 console.log(`done: ${built.length} page(s) built, ${hubDays.length} in the archive`);

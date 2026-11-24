@@ -338,34 +338,104 @@ ok('the hub says today is not listed', /play it first/i.test(hub));
 ok('the hub has a canonical url', hub.includes('<link rel="canonical" href="https://lexathon.gg/gauntlet/">'));
 
 // ---- 9. the sitemap rewrite ---------------------------------------------
+// This section was inverted on purpose. It used to assert that the rewrite
+// ADDS the hub and every day; the archive is now deliberately out of the
+// sitemap and noindexed, so the same function is checked for the opposite.
+// Google rejected the AdSense application for "low value content" while 53 of
+// the 60 URLs it was offered were ~220-word day reports of a closed mode, 44
+// of them covering a day exactly one person played. The pages still work for
+// anyone holding a link - that is what they are for - they just stop being
+// what gets sampled.
 const existing = fs.readFileSync(REPO('sitemap.xml'), 'utf8');
-// Count only the hand-written urls. This used to count every <url> and
-// assert "old total + hub + days", which quietly encoded "sitemap.xml has
-// no archive entries yet" — true when it was written, false the moment the
-// first backfill landed. The real invariant is that a rewrite replaces the
-// archive block and leaves everything else alone, whatever is in there now.
-const beforeAll = (existing.match(/<url>/g) || []).length;
 const before = [...existing.matchAll(/<url>[\s\S]*?<\/url>/g)]
   .filter((m) => !/\/gauntlet\//.test(m[0])).length;
-const sm = R.renderSitemap(existing, days);
+const sm = R.renderSitemap(existing);
 ok('hand-written urls survive', sm.includes('https://lexathon.gg/how-to-play.html') && sm.includes('https://lexathon.gg/strategy.html'));
-ok('the hub is listed', sm.includes('<loc>https://lexathon.gg/gauntlet/</loc>'));
-ok('every day is listed', days.every((d) => sm.includes(`<loc>https://lexathon.gg/gauntlet/${d.date}/</loc>`)));
-ok('each day carries its own lastmod', sm.includes('<lastmod>2026-09-24</lastmod>'));
-ok('the result is the hand-written urls plus hub plus days',
-   (sm.match(/<url>/g) || []).length === before + 1 + days.length,
-   `${before} hand-written (+${beforeAll - before} archive already there) -> ${(sm.match(/<url>/g) || []).length}`);
-ok('an archive entry already in the file is replaced, not added to',
-   (sm.match(/\/gauntlet\//g) || []).length === 1 + days.length,
-   String((sm.match(/\/gauntlet\//g) || []).length));
-// Re-running must not stack duplicates.
-const twice = R.renderSitemap(sm, days);
-ok('re-running the rewrite is idempotent',
-   (twice.match(/<url>/g) || []).length === (sm.match(/<url>/g) || []).length,
+ok('the result is the hand-written urls and nothing else',
+   (sm.match(/<url>/g) || []).length === before,
+   `${before} hand-written -> ${(sm.match(/<url>/g) || []).length}`);
+ok('no archive url is listed at all',
+   !/<loc>[^<]*\/gauntlet\//.test(sm),
+   (sm.match(/<loc>[^<]*\/gauntlet\/[^<]*/) || [''])[0]);
+ok('not even the hub', !sm.includes('<loc>https://lexathon.gg/gauntlet/</loc>'));
+// Fed a sitemap that still carries them - which is what the first run after
+// this change gets - it has to take them out rather than leave them be.
+{
+  const dirty = existing.replace('</urlset>',
+    '  <url>\n    <loc>https://lexathon.gg/gauntlet/2026-09-24/</loc>\n  </url>\n</urlset>');
+  ok('an archive entry already in the file is removed',
+     !/\/gauntlet\//.test(R.renderSitemap(dirty)),
+     (R.renderSitemap(dirty).match(/[^\n]*gauntlet[^\n]*/) || [''])[0].trim());
+}
+// Re-running must not stack duplicates or shed real pages.
+const twice = R.renderSitemap(sm);
+ok('re-running the rewrite is idempotent', twice === sm,
    `${(sm.match(/<url>/g) || []).length} -> ${(twice.match(/<url>/g) || []).length}`);
-ok('a day dropped from the set is dropped from the sitemap',
-   !R.renderSitemap(sm, [days[0]]).includes('/gauntlet/2026-09-23/'));
 ok('the sitemap is well-formed xml', sm.startsWith('<?xml') && sm.trimEnd().endsWith('</urlset>'));
+// A blank line where the archive block used to be would be the giveaway that
+// the entries were emptied rather than removed.
+ok('and has no empty line left where the archive block was', !/\n\s*\n/.test(sm),
+   JSON.stringify(sm.slice(-120)));
+
+// ---- 9a. the pages say the same thing the sitemap does ------------------
+// A page in no sitemap but still inviting indexing is only half the change;
+// one in the sitemap AND noindexed is a contradiction Search Console reports
+// as an error. Both renderers share head(), so both are checked.
+{
+  for (const [what, p] of [['a day page', page], ['the hub', hub]]) {
+    ok(`${what} is noindex`, /<meta name="robots" content="noindex, follow">/.test(p),
+       (p.match(/<meta name="robots"[^>]*>/) || ['no robots meta'])[0]);
+    // follow, not the other one: the links back into the real pages should
+    // still count. Read out of the robots tags themselves, not the page text -
+    // the generator's own comment explains the choice and names both values, so
+    // a bare search for the wrong one finds the explanation and fails on it.
+    const robots = [...p.matchAll(/<meta name="robots" content="([^"]*)"/g)].map((m) => m[1]);
+    ok(`${what} has exactly one robots directive`, robots.length === 1, JSON.stringify(robots));
+    ok(`${what} does not say nofollow`, robots.every((r) => !/nofollow/.test(r)), JSON.stringify(robots));
+    ok(`${what} keeps its canonical`, /<link rel="canonical"/.test(p));
+  }
+}
+
+// ---- 9a-ii. and so do the files actually shipped ------------------------
+// The generator emitting noindex does not put it on the 52 pages already on
+// disk: build-gauntlet-archive only writes days it rebuilt, and re-reads the
+// rest of the hub's numbers out of their own HTML (build-gauntlet-archive.mjs,
+// "a day already on disk but not rebuilt this run"). Trifecta is closed, so
+// those pages will very likely never be regenerated at all - which makes the
+// shipped bytes the only thing that matters here, and the one thing a
+// generator-only test would never notice.
+{
+  const dir = REPO('gauntlet');
+  const shipped = fs.existsSync(dir)
+    ? [...fs.readdirSync(dir).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).map((d) => `gauntlet/${d}/index.html`),
+       'gauntlet/index.html'].filter((f) => fs.existsSync(REPO(f)))
+    : [];
+  ok('found the shipped archive pages', shipped.length > 40, String(shipped.length));
+  const bare = shipped.filter((f) => !/<meta name="robots" content="noindex, follow">/.test(fs.readFileSync(REPO(f), 'utf8')));
+  ok('every shipped archive page is noindex', bare.length === 0,
+     `${bare.length} without it: ${bare.slice(0, 3).join(', ')}`);
+  // In the head, where a crawler reads it, not somewhere in the body.
+  const late = shipped.filter((f) => {
+    const h = fs.readFileSync(REPO(f), 'utf8');
+    return h.indexOf('name="robots"') > h.indexOf('</head>');
+  });
+  ok('all of them in the head', late.length === 0, late.slice(0, 3).join(', '));
+
+  // The shipped sitemap, not the generator's idea of one.
+  const live = fs.readFileSync(REPO('sitemap.xml'), 'utf8');
+  ok('the shipped sitemap lists no archive url',
+     !/<loc>[^<]*\/gauntlet\//.test(live),
+     (live.match(/<loc>[^<]*\/gauntlet\/[^<]*/) || [''])[0]);
+  ok('it still lists the real pages',
+     ['/', '/how-to-play.html', '/about.html', '/faq.html', '/privacy.html', '/terms.html', '/strategy.html']
+       .every((u) => live.includes(`<loc>https://lexathon.gg${u}</loc>`)),
+     String((live.match(/<loc>/g) || []).length) + ' urls');
+  // A fixpoint: the next workflow run rewrites this file, and if the shipped
+  // copy were not already what the generator produces, the archive urls would
+  // come back - or the real ones would move - on the next nightly build.
+  ok('and the next rebuild would leave it byte-identical', R.renderSitemap(live) === live,
+     JSON.stringify(R.renderSitemap(live).slice(0, 80)));
+}
 
 // ---- 9b. which days get a page, and what a rebuild deletes --------------
 ok('a day with players is published', R.shouldPublish(1) && R.shouldPublish(47));

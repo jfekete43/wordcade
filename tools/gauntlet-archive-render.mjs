@@ -408,6 +408,22 @@ function head(title, description, canonical) {
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <link rel="canonical" href="${escapeHtml(canonical)}">
+    <!-- Not indexed, deliberately.
+
+         There are 52 of these day pages, 178-247 words each, every one of them
+         a report on a single day of a mode that is now closed - and 44 cover a
+         day exactly one person played, 8 a day two did. None had three. They
+         were also 53 of the 60 URLs in sitemap.xml, so a crawler sampling this
+         site was reading, almost entirely, those. AdSense declined the site for
+         low-value content.
+
+         They stay reachable, because a shared link should still open, and the
+         robots value is follow rather than nofollow so the links back into the
+         real pages still count. What changes is only that they stop presenting
+         themselves as what the site is. renderSitemap drops them to match: a
+         URL in the sitemap and noindex in the page contradict each other, and
+         Search Console reports that as an error. -->
+    <meta name="robots" content="noindex, follow">
     <!-- How a shared archive link unfurls. These pages are the ones most
          likely to be posted on their own - "look what word beat everyone
          yesterday" - so a bare URL costs more here than on the static pages.
@@ -627,35 +643,31 @@ ${NAV}
 }
 
 /*
- * Rewrites sitemap.xml so the archive URLs sit alongside the hand-written
- * ones. Existing non-archive entries are preserved verbatim; every
- * /gauntlet/ entry is replaced, so re-running never duplicates or strands a
- * URL. lastmod is the puzzle's own date — these pages never change after the
- * day they cover.
+ * Rewrites sitemap.xml to the hand-written pages ALONE.
+ *
+ * It used to list the hub and every day as well, which made the archive 53 of
+ * the 60 URLs: a crawler sampling the sitemap was reading, almost entirely,
+ * ~220-word reports on one day of a closed mode, 44 of them a day exactly one
+ * person played.
+ *
+ * So this now prunes rather than rebuilds. Existing non-/gauntlet/ entries are
+ * preserved verbatim and every /gauntlet/ entry is dropped, which makes
+ * re-running idempotent and, on the first run after this change, removes the
+ * ones already in the file. The pages stay reachable and keep their canonical
+ * and their links home; they carry noindex (see head) so the page and the
+ * sitemap say the same thing.
  */
-export function renderSitemap(existingXml, days) {
+export function renderSitemap(existingXml) {
   const kept = [...existingXml.matchAll(/<url>[\s\S]*?<\/url>/g)]
     .map((m) => m[0])
     .filter((u) => !/<loc>[^<]*\/gauntlet\//.test(u));
 
-  const archive = [`  <url>
-    <loc>${SITE}/gauntlet/</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>`];
-  for (const d of days) {
-    archive.push(`  <url>
-    <loc>${SITE}/gauntlet/${d.date}/</loc>
-    <lastmod>${d.date}</lastmod>
-    <changefreq>never</changefreq>
-    <priority>0.6</priority>
-  </url>`);
-  }
-
+  // Nothing is added back. The day pages and the hub carry noindex (see head),
+  // and a sitemap is a request to index, so listing them there would contradict
+  // the pages themselves - which Search Console reports as an error.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${kept.map((u) => u.replace(/^\s*/gm, (m) => m.length ? m : "  ")).join("\n")}
-${archive.join("\n")}
 </urlset>
 `;
 }
