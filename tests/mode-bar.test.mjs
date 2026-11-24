@@ -260,6 +260,43 @@ const between = (src, a, b) => {
   await browser.close();
 }
 
+// ---- G. finishing a run offers the other modes ---------------------------
+// The button is old; what it did stopped being enough. It used to tear the
+// mode down and land you on Stakes, which was the whole offer because the
+// four-up grid sat on the screen you landed on. On a phone that grid is gone.
+{
+  for (const modal of ['sprint-end-modal', 'marathon-end-modal']) {
+    const block = html.slice(html.indexOf(`id="${modal}"`),
+                             html.indexOf(`id="${modal}"`) + 3000);
+    const btn = (block.match(/<button[^>]*>Play Another Mode<\/button>/) || [''])[0];
+    ck(btn.length > 0, `${modal} offers another mode when you finish`, block.slice(0, 80));
+    ck(/pickAnotherMode\(\)/.test(btn),
+       `${modal}'s button offers the modes rather than choosing one`, btn);
+    ck(!/leaveSprint\(\)|leaveMarathon\(\)/.test(btn),
+       `${modal} no longer lands you on Stakes without asking`, btn);
+  }
+
+  // Run it. Tearing down here would be wrong twice over: goToMode already
+  // does it, and doing it early moves a player who then closes the menu.
+  const fnSrc = between(html, 'window.pickAnotherMode = function() {', '\n        };');
+  const shown = {};
+  const doc = { getElementById: (id) => ({ style: { set display(v) { shown[id] = v; }, get display() { return shown[id]; } } }) };
+  let menuOpened = 0;
+  new Function('document', 'window', `(function() {${fnSrc}})();`)
+    (doc, { showMainMenu: () => { menuOpened++; },
+            leaveSprint: () => ck(false, 'pickAnotherMode must not tear Sprint down'),
+            leaveMarathon: () => ck(false, 'pickAnotherMode must not tear Marathon down') });
+  eq('it closes the Sprint result', shown['sprint-end-modal'], 'none');
+  eq('and the Marathon one', shown['marathon-end-modal'], 'none');
+  eq('and opens the menu, which leads with the modes', menuOpened, 1);
+
+  // The teardown path itself is untouched: goToMode still does it when a
+  // mode is actually picked.
+  const go = between(html, 'window.goToMode = async function(target) {', '\n        };');
+  ck(/window\.leaveSprint\(\)/.test(go) && /window\.leaveMarathon\(\)/.test(go),
+     'and goToMode still tears the old mode down when one is picked');
+}
+
 for (const [ok, name, detail] of t) console.log(ok ? 'ok  ' : 'FAIL', name, ok ? '' : '— ' + detail);
 const bad = t.filter((x) => !x[0]).length;
 console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);

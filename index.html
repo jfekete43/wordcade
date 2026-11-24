@@ -2605,7 +2605,7 @@
                      that brings anybody else in. The other two navigate. -->
                 <button class="btn-primary" id="btn-marathon-share" onclick="window.shareMarathonResult()">Share Result</button>
                 <button class="btn-quiet" onclick="document.getElementById('marathon-end-modal').style.display='none'">View the Standings</button>
-                <button class="btn-quiet" onclick="window.leaveMarathon()">Play Another Mode</button>
+                <button class="btn-quiet" onclick="window.pickAnotherMode()">Play Another Mode</button>
             </div>
         </div>
     </div>
@@ -2637,7 +2637,7 @@
                      equally, which they do not. -->
                 <button class="btn-primary" id="btn-sprint-share" onclick="window.shareSprintResult()">Share Result</button>
                 <button class="btn-quiet" onclick="window.dismissSprintEnd()">Today's Leaderboard</button>
-                <button class="btn-quiet" onclick="window.leaveSprint()">Play Another Mode</button>
+                <button class="btn-quiet" onclick="window.pickAnotherMode()">Play Another Mode</button>
             </div>
         </div>
     </div>
@@ -6098,6 +6098,29 @@
 
         // Picking a mode closes the menu it was picked from. goToMode alone
         // would leave the sheet sitting over the board it just switched to.
+        /*
+         * "Play Another Mode", at the end of a Sprint or a Marathon.
+         *
+         * The button is not new; what it did stopped being enough. It used to
+         * call leaveSprint()/leaveMarathon(), which tear the mode down and
+         * land you on Stakes - and that WAS the whole offer, because the
+         * four-up mode grid sat at the top of the screen you landed on, so
+         * the choice was made for you but the alternatives were right there.
+         * On a phone that grid is gone, and the button was left quietly
+         * picking Stakes with nothing to say you could have had anything else.
+         *
+         * So it offers the modes instead of choosing one. Nothing is torn
+         * down here: goToMode already does that properly, through the same
+         * path the nav has always used, and it only runs once a mode is
+         * actually picked. Close the menu without picking and you are still
+         * on the result you just finished, rather than somewhere else.
+         */
+        window.pickAnotherMode = function() {
+            document.getElementById("sprint-end-modal").style.display = "none";
+            document.getElementById("marathon-end-modal").style.display = "none";
+            window.showMainMenu();
+        };
+
         window.pickModeFromMenu = function(mode) {
             document.getElementById("main-menu-modal").style.display = "none";
             window.goToMode(mode);
