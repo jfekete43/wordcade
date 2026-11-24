@@ -493,17 +493,13 @@
                is ever visible - so `margin-left: auto` is enough to put the
                visible one against the right edge. The page-level width and
                padding they carry as rows of their own come off here. */
-            #mode-bar > #endless-header, #mode-bar > #score-board,
+            #mode-bar > #score-board,
             #mode-bar > #sprint-header, #mode-bar > #marathon-header,
             #mode-bar > #daily-header {
                 width: auto; max-width: none; padding: 0; margin: 0 0 0 auto;
                 flex-wrap: nowrap; justify-content: flex-end;
             }
             #mode-bar > #score-board { flex-direction: row; align-items: center; }
-            /* The lockup already says STAKES in Stakes' own colour. Saying it
-               again two centimetres below was the duplicate nobody had
-               mentioned but everybody was reading twice. */
-            #endless-mode-label { display: none; }
             /* In the bar the numbers are a readout, not cards: the panel,
                border and padding each pill carries as a row of its own are
                what pushed three of them past the width and wrapped the line.
@@ -534,7 +530,8 @@
            the pairing worth keeping. */
         @media (max-width: 340px) {
             #mode-bar { flex-wrap: wrap; }
-            #mode-bar > #endless-header { width: 100%; margin-left: 0; justify-content: flex-start; }
+            #mode-bar > #score-board { width: 100%; margin-left: 0; }
+            #mode-bar .score-row { flex-wrap: wrap; justify-content: flex-end; }
         }
         
         /* Four slots, one per mode, in the table's order — a mode's button
@@ -587,7 +584,7 @@
         /* STAKES UI */
         /* One measure for the strip, the pills and the Bank button, matching
            the page column so their outer edges line up with everything else. */
-        #score-board, #daily-header, #sprint-header, #marathon-header, #endless-header {
+        #score-board, #daily-header, #sprint-header, #marathon-header {
             width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
             font-size: var(--fs-2); margin: 0 0 var(--s-5) 0; font-weight: var(--fw-bold);
             letter-spacing: var(--ls-label); text-transform: uppercase;
@@ -634,10 +631,6 @@
         /* Already filled, so hover brightens rather than inverting. */
         .cash-out-btn:hover { filter: brightness(1.07); }
         .score-text { color: var(--c-endless); }
-        /* A faint separator between the mode name and the word number, as
-           generated content so no divider element enters the markup that the
-           display toggles would then have to manage. */
-        #endless-mode-label::after { content: "·"; color: var(--c-ink-6); margin-left: var(--s-4); font-weight: var(--fw-bold); }
         .lives-text { color: var(--c-loss); }
         /* A label and a figure are two roles, and the old line set both at 18px
            bold: a score growing to seven digits had no more presence than the
@@ -1952,12 +1945,24 @@
          nesting it costs no JS: the existing display toggles on #btn-cash-out
          still run and still work, they just happen inside a parent that was
          already being hidden with them. -->
-    <!-- The mode you are in, named. The Trifecta has had a header since it
-         shipped; Stakes had none, so the default mode was the one with no
-         label anywhere on screen — which is how a player ended up complaining
-         that one of "today's words" was obscure when he was not in the daily
-         at all. Word count included because an endless run with no visible
-         progress reads as if nothing is being kept. -->
+    <!-- Word, Score and Continues, as three pills on one line.
+
+         Stakes used to carry a second row above this one reading
+         "STAKES · WORD 15". The mode name was already the highlighted button
+         directly above it, so that row spent a whole line of the page saying
+         something the nav had just said and one number. The phone build had
+         already hidden the name for exactly that reason (the lockup says it);
+         desktop was the half that never got the same treatment.
+
+         The number itself was worth keeping - an endless run with no visible
+         progress reads as if nothing is being kept - so it moves into a pill
+         beside the other two, which is where Marathon has always put its
+         word count. Word first: progress, then score, then lives.
+
+         #endless-header is gone rather than emptied. Its eleven display
+         toggles each sat beside a #score-board toggle setting the identical
+         value, so the two rows were never independently shown; merging them
+         deletes eleven lines of JS and cannot desynchronise. -->
     <!-- Shown only when the last visit opened on the Trifecta, and only until
          the mode settles. The flip itself is now one round trip rather than
          five, but it is still a flip, and being moved off a board you were
@@ -1965,13 +1970,9 @@
          anything and always clears itself, so a slow or failed sign-in leaves
          a playable Stakes board rather than a stuck spinner. -->
 
-    <div id="endless-header">
-        <div class="score-text" id="endless-mode-label" style="color:var(--c-endless);">STAKES</div>
-        <div class="score-text" id="endless-word-text" style="color:var(--c-ink-4);">WORD <span id="endless-word-index">1</span></div>
-    </div>
-
     <div id="score-board">
         <div class="score-row">
+            <div class="stat-pill" id="endless-word-pill"><em>Word</em><b id="endless-word-index">1</b></div>
             <div class="score-text stat-pill"><em>Score</em><b id="score">0</b></div>
             <div class="lives-text stat-pill"><em>Continues</em><b id="continues">1</b></div>
         </div>
@@ -6175,7 +6176,6 @@
         // there why.
         function showStandardSurface() {
             document.getElementById("mode-loading").style.display = "none";
-            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             renderModeNav();
@@ -6207,7 +6207,6 @@
         // costs a few property writes and is never seen.
         function enterModeLoading(target) {
             pendingMode = target;
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("daily-header").style.display = "none";
@@ -6297,7 +6296,6 @@
         window.openClashLobby = async function() {
             isVersusMode = true;
             renderModeNav();
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("versus-track-container").style.display = "block";
@@ -6317,7 +6315,6 @@
             document.getElementById("versus-lobby-modal").style.display = "none";
             isVersusMode = false;
             renderModeNav();
-            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("versus-track-container").style.display = "none";
@@ -6423,7 +6420,6 @@
 
             isMarathonMode = true;
             renderModeNav();
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("versus-track-container").style.display = "none";
@@ -7053,7 +7049,6 @@
             document.getElementById("sprint-card").style.display = "none";
             document.getElementById("sprint-done-panel").style.display = "none";
             renderModeNav();
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("versus-track-container").style.display = "none";
@@ -7494,7 +7489,6 @@
             isSprintMode = true;
             sprintAttempt = null;
             document.getElementById("sprint-done-panel").style.display = "none";
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("daily-header").style.display = "none";
@@ -8401,7 +8395,6 @@
 
             isDailyMode = true;
             renderModeNav();
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             document.getElementById("versus-track-container").style.display = "none";
@@ -8684,7 +8677,6 @@
             hidePreviousCallout("daily");
             stopGauntletFeed();
             renderModeNav();
-            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             showStandardPanels(true);
@@ -9379,7 +9371,6 @@
         window.openFfaLobby = async function() {
             isFfaMode = true;
             renderModeNav();
-            document.getElementById("endless-header").style.display = "none";
             document.getElementById("score-board").style.display = "none";
             document.getElementById("btn-cash-out").style.display = "none";
             boardDisplay.innerHTML = "";
@@ -9395,7 +9386,6 @@
             document.getElementById("ffa-lobby-modal").style.display = "none";
             isFfaMode = false;
             renderModeNav();
-            document.getElementById("endless-header").style.display = "flex";
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("ffa-track-container").style.display = "none";

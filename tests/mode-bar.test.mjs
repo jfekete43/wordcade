@@ -191,15 +191,20 @@ const between = (src, a, b) => {
   // It is inside the bar, which is what puts the numbers on the lockup's line.
   const bar = html.slice(html.indexOf('<div id="mode-bar"'),
                          html.indexOf('<!-- Out of #score-board'));
-  for (const id of ['mode-lockup', 'endless-header', 'score-board',
+  for (const id of ['mode-lockup', 'score-board',
                     'sprint-header', 'marathon-header', 'daily-header']) {
     ck(bar.includes(`id="${id}"`), `#${id} rides in the bar`);
   }
   ck(!bar.includes('id="btn-cash-out"'),
      'and the full-width action does not ride on a line of numbers',
      (bar.match(/[^\n]*btn-cash-out[^\n]*/) || [''])[0].trim());
-  ck(/#endless-mode-label \{ display: none; \}/.test(html),
-     'Stakes stops naming itself twice: the lockup already does');
+  // Stakes used to name itself twice - the lockup, then a row below saying
+  // STAKES again - and the phone build hid the second one with a CSS rule.
+  // The row is gone outright now, on both halves, so the rule has nothing to
+  // hide and the check is that the element does not exist at all.
+  ck(!/endless-mode-label/.test(html),
+     'Stakes does not name itself twice: the element is gone, not hidden',
+     (html.match(/[^\n]*endless-mode-label[^\n]*/) || [''])[0].trim());
 }
 
 // ---- F. it is one line, and it fits ---------------------------------------
@@ -232,7 +237,9 @@ const between = (src, a, b) => {
       };
     });
     ck(!r.overflow, `${label} (${w}px): the page does not scroll sideways`);
-    ck(r.kids >= 3, `${label}: the lockup and the mode's numbers are both in the bar`, String(r.kids));
+    // Two: the lockup and the one visible mode header. It was three while
+    // Stakes carried a separate word-count row beside its pills.
+    ck(r.kids >= 2, `${label}: the lockup and the mode's numbers are both in the bar`, String(r.kids));
     // Height, not a row count: bucketing centres splits a line whenever two
     // items differ enough in size, which on this bar they always do. One line
     // is the tallest item plus nothing; a wrap is visibly taller than that.

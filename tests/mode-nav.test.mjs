@@ -64,7 +64,6 @@ const rgbOf = (tok) => {
 
 const css = grab(/<style>[\s\S]*?<\/style>/, 'stylesheet').replace(/<\/?style>/g, '');
 const nav = grab(/    <nav class="arcade-menu"[\s\S]*?<\/nav>/, 'nav');
-const endlessHeader = grab(/    <div id="endless-header">[\s\S]*?\n    <\/div>/, 'endless header');
 const scoreBoard = grab(/    <div id="score-board">[\s\S]*?\n    <\/div>/, 'score board');
 // The bar now CONTAINS both of those, plus the lockup and the other three
 // mode headers. Sliced by index rather than by regex: every block inside it
@@ -424,22 +423,39 @@ ck(/id="gauntlet-card-btn" onclick="window\.goToMode\('gauntlet'\)"/.test(html),
 ck(!/window\.toggleMode\(\)|window\.toggleFfaMode\(\)/.test(html),
    'the old per-button toggles are gone, including from the invite-link path');
 
-// ===== 3. the mode you are in is named, and the button states its purpose ==
-ck(/<div id="endless-header">/.test(html), 'Stakes has a header of its own');
-const eh = endlessHeader;
-ck(/STAKES/.test(eh), 'and it says STAKES');
-ck(/endless-word-index/.test(eh), 'and shows which word you are on');
+// ===== 3. the mode you are in is named ONCE, and the button states its job =
+// Stakes used to carry a row reading "STAKES · WORD 15" above the pills. The
+// name was already the highlighted nav button directly above it, so the row
+// spent a line of the page repeating the nav and showing one number; the
+// phone build had hidden the name for that reason and desktop had not. The
+// number moved into a pill beside Score and Continues and the row went.
+ck(!/id="endless-header"/.test(html), 'the separate Stakes header row is gone',
+   (html.match(/[^\n]*id="endless-header"[^\n]*/) || [''])[0].trim());
+ck(!/endless-mode-label/.test(html), 'and nothing prints the mode name a second time');
+// The word count survived the row it used to live in. Scoped to the score
+// row, because "the page contains endless-word-index" would also pass with
+// the pill left loose somewhere outside it.
+const scoreRow = scoreBoard;
+ck(/endless-word-index/.test(scoreRow), 'the word count is in the score row',
+   scoreRow.replace(/\s+/g, ' ').trim().slice(0, 150));
+ck(/<em>Word<\/em>/.test(scoreRow), 'as a labelled pill like the other two');
+const pills = (scoreRow.match(/class="[^"]*stat-pill/g) || []).length;
+eq('three pills on the line: word, score, continues', pills, 3);
+// Order is information: progress, then score, then what is left.
+const order = [...scoreRow.matchAll(/<em>(\w+)<\/em>/g)].map((m) => m[1]);
+eq('in that order', order, ['Word', 'Score', 'Continues']);
 // Membership, not the whole selector list. Pinned as an exact string, this
 // broke every time a mode was ADDED to the rule - which is the correct
 // change - and reported it as Stakes inventing its own layout.
 const headerRule = (html.match(/^\s*#score-board[^{]*\{/m) || [''])[0];
-ck(/#endless-header/.test(headerRule),
-   'it shares the layout rules with the other headers rather than inventing its own',
+ck(/#score-board/.test(headerRule) && /#marathon-header/.test(headerRule),
+   'the row shares the layout rules with the other mode headers',
    headerRule.trim());
-// Shown and hidden with the score board at every mode switch.
-const show = [...html.matchAll(/getElementById\("endless-header"\)\.style\.display = "(\w+)"/g)].map((m) => m[1]);
+// One row to toggle now, which is the point: the old pair was shown and
+// hidden at eleven places and had to agree at every one of them.
+const show = [...html.matchAll(/getElementById\("score-board"\)\.style\.display = "(\w+)"/g)].map((m) => m[1]);
 ck(show.length >= 6 && show.includes('none') && show.includes('flex'),
-   'the Stakes header is toggled at every mode switch', show.join(','));
+   'and is toggled at every mode switch', show.join(','));
 
 const bank = grab(/<button class="cash-out-btn"[^>]*>[^<]*<\/button>/, 'bank button');
 ck(/Bank/.test(bank) && !/Cash Out/.test(bank), 'the button says Bank, not Cash Out', bank);
