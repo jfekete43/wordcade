@@ -158,6 +158,16 @@
             --c-on-accent: #ffffff;
             /* Elevation, now that a glow cannot do it. */
             --c-shadow: 0 1px 0 rgba(42, 36, 32, .05), 0 2px 8px rgba(42, 36, 32, .10);
+            /* The mark: a lit top face, a right wall in half shadow, a bottom
+               wall in full shadow, and a rim that catches the light. Four
+               tones rather than a fill and a shadow, because a single flat
+               side reads as a parallelogram instead of a key. The face stays
+               paper in every mode - a keycap is a cream object in the world -
+               and the LETTER takes the mode's colour. */
+            --kc-face: #fbf7ee;
+            --kc-rim: #ffffff;
+            --kc-right: #cdc1a8;
+            --kc-bottom: #b6a88d;
 
             /* ---- type, space and geometry -----------------------------
                The page had sixteen font sizes on a 1px ramp and thirty-one
@@ -290,6 +300,10 @@
             --c-ink-5: #76726b;
             --c-ink-6: #58554e;
             --c-on-accent: #0b0a08;
+            --kc-face: #39352e;
+            --kc-rim: #4b463d;
+            --kc-right: #211e19;
+            --kc-bottom: #15120f;
             /* The paper shadow is a 5%/10% warm brown, which has nothing to
                darken here. Elevation on this page is a hole, not a smudge. */
             --c-shadow: 0 1px 0 rgba(0, 0, 0, .35), 0 2px 10px rgba(0, 0, 0, .45);
@@ -363,6 +377,72 @@
         /* minmax(0, 1fr), not 1fr: with plain 1fr the min-content floor of
            DAILY widens its column and squeezes the other three, which
            hides real overflow behind body's overflow-x: hidden. */
+        /*
+         * The mobile top bar: one row where the wordmark and the 2x2 mode grid
+         * used to be two.
+         *
+         * Players said the top of the screen was doing too much - the game's
+         * name, a menu button, four mode buttons over two rows, then the
+         * mode's own numbers, before any board. That came to 246px of a 664px
+         * phone. The name and the grid go; what is left says which mode you
+         * are in, in that mode's colour, and opens everything on a tap.
+         *
+         * Phone only. Above 600px - the same breakpoint the grid already uses
+         * to fold to two columns - the header and the nav are unchanged,
+         * because none of this is a problem with room to spare.
+         */
+        /* `contents` rather than a block: above 600px the wrapper vanishes
+           and every child lays out as the body-level row it has always been,
+           so the desktop header is untouched by any of this. */
+        #mode-bar { display: contents; }
+        /* The page's own colour rather than `transparent`: it looks identical
+           and it gives the contrast suite something to measure the mode name
+           against, instead of walking the tree for an opaque ancestor and
+           falling back to black. */
+        #mode-lockup { display: none; align-items: center; gap: var(--s-4);
+            background: var(--c-page); border: var(--bw) solid var(--c-line-2);
+            border-radius: var(--r-3); padding: 3px var(--s-5) 3px var(--s-3);
+            font-family: inherit; cursor: pointer; color: var(--c-mode, var(--c-sprint)); }
+        #mode-lockup b { font-size: var(--fs-4); font-weight: var(--fw-bold);
+            letter-spacing: .4px; white-space: nowrap; }
+        /* The chevron is what says this is a control rather than a label.
+           Drawn rather than typed: a glyph would take the font's own idea of
+           its size and sit off the text's optical centre. */
+        #mode-lockup::after { content: ""; flex: none; width: 0; height: 0;
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-top: 6px solid currentColor; opacity: .75; }
+        #mode-lockup:hover { border-color: var(--c-mode, var(--c-sprint)); }
+
+        /* The mark, as a key you could pull off a board. Geometry: a 68-unit
+           square face in a 100 box, swept 19 right and 19 down - one solid
+           outline with two bridges, not a square stacked on a square. The
+           paths are literal so the mark is there before any script runs, the
+           same reason the nav carries its Sprint-default state in markup. */
+        .lex-keycap { width: 34px; height: 34px; flex: none; overflow: visible; display: block; }
+        .lex-keycap .kc-body { fill: var(--kc-right); }
+        .lex-keycap .kc-foot { fill: var(--kc-bottom); }
+        .lex-keycap .kc-face { fill: var(--kc-face); }
+        .lex-keycap .kc-rim { fill: none; stroke: var(--kc-rim); stroke-width: 1.6; opacity: .85; }
+        /* Top-left, where a moulded key prints its legend - centred is what a
+           TILE does, and a tile is the one thing this must not be read as. */
+        .lex-keycap .kc-glyph { fill: none; stroke: var(--c-mode, var(--c-sprint));
+            stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* The modes, inside the one menu. They lead it rather than sitting
+           under the utilities: burying them is the cost of taking the grid
+           off the screen, and giving them the colour and the area is what
+           pays it back. Each also gets a line saying what it IS, which four
+           bare nav buttons never had room for. */
+        #menu-modes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-top: var(--s-6); }
+        .menu-mode-card { display: flex; flex-direction: column; gap: 2px;
+            align-items: flex-start; text-align: left; border: var(--bw) solid transparent;
+            border-radius: var(--r-2); padding: var(--s-4) var(--s-5);
+            background: var(--c-mode); color: var(--c-on-accent);
+            font-family: inherit; cursor: pointer; }
+        .menu-mode-card b { font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: var(--ls-label); }
+        .menu-mode-card em { font-style: normal; font-size: var(--fs-1); opacity: .88; line-height: 1.3; }
+        .menu-mode-card[aria-current="true"] { box-shadow: 0 0 0 2px var(--c-panel), 0 0 0 4px var(--c-mode); }
+
         .arcade-menu { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
             display: grid; grid-template-columns: repeat(var(--mode-cols, 4), minmax(0, 1fr)); gap: var(--s-2);
             margin-bottom: var(--s-6); position: relative; z-index: 2;}
@@ -397,6 +477,64 @@
         }
         @media (max-width: 319px) {
             .arcade-menu { grid-template-columns: repeat(min(var(--mode-cols, 4), 2), minmax(0, 1fr)); }
+        }
+        /* Last, deliberately. Both of these carry `display` on a plain class
+           selector, so this has to come after them on source order or the
+           base rules win the tie and the grid stays on the screen it is
+           supposed to be leaving. */
+        @media (max-width: 600px) {
+            .arcade-head, .arcade-menu { display: none; }
+            #mode-lockup { display: flex; }
+            #mode-bar { display: flex; align-items: center; gap: var(--s-5);
+                width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
+                margin: 0 auto var(--s-5); }
+            /* Whichever mode is showing, its numbers ride on the right of the
+               lockup's line. Each one keeps its own display toggle - only one
+               is ever visible - so `margin-left: auto` is enough to put the
+               visible one against the right edge. The page-level width and
+               padding they carry as rows of their own come off here. */
+            #mode-bar > #endless-header, #mode-bar > #score-board,
+            #mode-bar > #sprint-header, #mode-bar > #marathon-header,
+            #mode-bar > #daily-header {
+                width: auto; max-width: none; padding: 0; margin: 0 0 0 auto;
+                flex-wrap: nowrap; justify-content: flex-end;
+            }
+            #mode-bar > #score-board { flex-direction: row; align-items: center; }
+            /* The lockup already says STAKES in Stakes' own colour. Saying it
+               again two centimetres below was the duplicate nobody had
+               mentioned but everybody was reading twice. */
+            #endless-mode-label { display: none; }
+            /* In the bar the numbers are a readout, not cards: the panel,
+               border and padding each pill carries as a row of its own are
+               what pushed three of them past the width and wrapped the line.
+               The label and the figure are all that is left. */
+            #mode-bar .score-row { flex-wrap: nowrap; gap: var(--s-5); }
+            #mode-bar .stat-pill {
+                background: none; border: 0; padding: 0; min-width: 0;
+                box-shadow: none; text-align: right;
+            }
+            #mode-bar .stat-pill b { font-size: var(--fs-4); }
+            /* "WORD 1" broke across two lines at 360px and pushed the row
+               taller than the key beside it. Nothing in the bar wraps. */
+            #mode-bar .score-text, #mode-bar .lives-text { white-space: nowrap; }
+        }
+        /* The same 385px the nav already steps down at. Four things on one
+           line - a key, a mode name, a word count and two figures - is 319px
+           of content in 320px of room at that width, so the mark and the name
+           give some back rather than the line breaking. */
+        @media (max-width: 385px) {
+            .lex-keycap { width: 28px; height: 28px; }
+            #mode-lockup b { font-size: var(--fs-3); }
+            #mode-lockup { padding-right: var(--s-4); }
+            #mode-bar { gap: var(--s-4); }
+        }
+        /* Below this the four of them genuinely do not fit, so the word count
+           takes a line of its own rather than any of it being dropped or the
+           page scrolling sideways. The figures stay beside the mark, which is
+           the pairing worth keeping. */
+        @media (max-width: 340px) {
+            #mode-bar { flex-wrap: wrap; }
+            #mode-bar > #endless-header { width: 100%; margin-left: 0; justify-content: flex-start; }
         }
         
         /* Four slots, one per mode, in the table's order — a mode's button
@@ -1774,6 +1912,22 @@
         <button class="mode-nav-btn" id="btn-nav-6" style="display:none;" onclick="window.goToMode(this.dataset.mode)"></button>
     </nav>
 
+    <!-- What replaces both rows above on a phone. Carries Sprint's name and
+         colour in the markup for the same reason the nav does: it is correct
+         before any script runs, and renderModeNav only moves it after that. -->
+    <div id="mode-bar" style="--c-mode: var(--c-sprint);">
+        <button id="mode-lockup" type="button" aria-haspopup="dialog"
+                aria-label="Lexathon menu and game modes" onclick="window.showMainMenu()">
+            <svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                <path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/>
+                <path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/>
+                <rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/>
+                <path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/>
+                <path class="kc-glyph" d="M19 17 V38 H35"/>
+            </svg>
+            <b id="mode-lockup-name">SPRINT</b>
+        </button>
+
     <!-- STANDARD UI -->
     <!-- Cash Out lives here, not in the mode nav. Up there it read as a fifth
          MODE sitting beside Trifecta/Clash/FFA, when it is an action on the
@@ -1805,6 +1959,51 @@
             <div class="score-text stat-pill"><em>Score</em><b id="score">0</b></div>
             <div class="lives-text stat-pill"><em>Continues</em><b id="continues">1</b></div>
         </div>
+    </div>
+    <div id="marathon-header" style="display:none;">
+        <div class="stat-pill" id="marathon-progress-text"><em>Word</em><b style="color:var(--c-marathon);"><span id="marathon-word-index">1</span>/<span id="marathon-word-count">20</span></b></div>
+        <!-- Swapped in for the one above once the week is finished, when a
+             word count would be describing a board that is no longer on
+             screen. The label changes with it: it is the WEEK that is
+             complete, not a word. -->
+        <div class="stat-pill" id="marathon-complete-text" style="display:none;"><em>Week</em><b style="color:var(--c-marathon);">Complete</b></div>
+        <div class="stat-pill"><em>Score</em><b id="marathon-score">0</b></div>
+        <!-- Last, so that on a narrow screen it is the field that wraps.
+             A week-long mode with no visible deadline is just a long list;
+             the clock on it is the only thing making it a marathon.
+
+             The label is fixed and the VALUE carries the phrasing, because
+             two of the three things this says are not numbers: the last day
+             says so rather than counting to one, and a week that has rolled
+             over says that rather than showing a zero. -->
+        <div class="stat-pill"><em>Time left</em><b id="marathon-days"></b></div>
+    </div>
+    <div id="sprint-header" style="display:none;">
+        <!-- Score first, clock second, matching the board row below it. The
+             clock is the tiebreaker, not the result, and leading with it put
+             the secondary number in the primary position. -->
+        <!-- WORTH while playing, SCORE once the word is done. Two labels
+             for one slot rather than one label that quietly changes
+             meaning: before you solve this is what is on the table, after
+             you solve it is what you banked, and those are not the same
+             claim. No colon - "WORTH 500" reads as a quantity, "WORTH:
+             500" reads like a form field. -->
+        <div class="stat-pill"><em id="sprint-score-label">Worth</em><b id="sprint-score">500</b></div>
+        <div class="stat-pill"><em>Time</em><b id="sprint-clock" style="color:var(--c-sprint);">0.0s</b></div>
+    </div>
+    <div id="daily-header" style="display:none;">
+        <div class="score-text" id="daily-progress-text" style="color:var(--c-gauntlet);">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
+        <!-- Swapped in once today's run is over, when "WORD 1/10" would be
+             describing a board that is no longer on screen. -->
+        <div class="score-text" id="daily-complete-text" style="color:var(--c-gauntlet); display:none;">COMPLETE</div>
+        <div class="score-text">SCORE: <span id="daily-score">0</span></div>
+    </div>
+    </div>
+
+    <!-- Out of #score-board, which has moved into the bar as the pills alone.
+         It kept its own eleven display toggles the whole time it was nested,
+         so un-nesting costs no JS - and a full-width action has no business
+         riding on a line of numbers. -->
         <!-- "Cash Out" was a casino term for an action nobody had been told
              they were supposed to take, on a mode that never ends by itself.
              People played a few words and left without ever banking a score —
@@ -1812,7 +2011,6 @@
              carries the number now, so the button states its own purpose and
              there is something visible to lose by walking away. -->
         <button class="cash-out-btn" id="btn-cash-out" onclick="window.triggerCashOut()">Bank 0 pts</button>
-    </div>
 
     <!-- DAILY PUZZLE UI -->
     <!-- Sprint. One word, so there is no progress fraction to show — the
@@ -1852,46 +2050,8 @@
     <!-- Marathon. The position is the week's shape, so it carries the
          fraction the way the Trifecta does; the score beside it is the
          running week total rather than one word's. -->
-    <div id="marathon-header" style="display:none;">
-        <div class="stat-pill" id="marathon-progress-text"><em>Word</em><b style="color:var(--c-marathon);"><span id="marathon-word-index">1</span>/<span id="marathon-word-count">20</span></b></div>
-        <!-- Swapped in for the one above once the week is finished, when a
-             word count would be describing a board that is no longer on
-             screen. The label changes with it: it is the WEEK that is
-             complete, not a word. -->
-        <div class="stat-pill" id="marathon-complete-text" style="display:none;"><em>Week</em><b style="color:var(--c-marathon);">Complete</b></div>
-        <div class="stat-pill"><em>Score</em><b id="marathon-score">0</b></div>
-        <!-- Last, so that on a narrow screen it is the field that wraps.
-             A week-long mode with no visible deadline is just a long list;
-             the clock on it is the only thing making it a marathon.
 
-             The label is fixed and the VALUE carries the phrasing, because
-             two of the three things this says are not numbers: the last day
-             says so rather than counting to one, and a week that has rolled
-             over says that rather than showing a zero. -->
-        <div class="stat-pill"><em>Time left</em><b id="marathon-days"></b></div>
-    </div>
 
-    <div id="sprint-header" style="display:none;">
-        <!-- Score first, clock second, matching the board row below it. The
-             clock is the tiebreaker, not the result, and leading with it put
-             the secondary number in the primary position. -->
-        <!-- WORTH while playing, SCORE once the word is done. Two labels
-             for one slot rather than one label that quietly changes
-             meaning: before you solve this is what is on the table, after
-             you solve it is what you banked, and those are not the same
-             claim. No colon - "WORTH 500" reads as a quantity, "WORTH:
-             500" reads like a form field. -->
-        <div class="stat-pill"><em id="sprint-score-label">Worth</em><b id="sprint-score">500</b></div>
-        <div class="stat-pill"><em>Time</em><b id="sprint-clock" style="color:var(--c-sprint);">0.0s</b></div>
-    </div>
-
-    <div id="daily-header" style="display:none;">
-        <div class="score-text" id="daily-progress-text" style="color:var(--c-gauntlet);">WORD <span id="daily-word-index">1</span>/<span id="daily-word-count">10</span></div>
-        <!-- Swapped in once today's run is over, when "WORD 1/10" would be
-             describing a board that is no longer on screen. -->
-        <div class="score-text" id="daily-complete-text" style="color:var(--c-gauntlet); display:none;">COMPLETE</div>
-        <div class="score-text">SCORE: <span id="daily-score">0</span></div>
-    </div>
 
     <!-- Yesterday's placement, shown on entering the Trifecta. The daily
          board resets at midnight ET, so without this the only way to learn
@@ -2486,6 +2646,9 @@
     <div id="main-menu-modal" class="modal-overlay">
         <div class="modal-box" style="min-width: 300px;">
             <h2 class="modal-title">Menu</h2>
+            <!-- Filled by renderMenuModes from the same table the nav reads,
+                 so a mode hidden in the table disappears from both. -->
+            <div id="menu-modes"></div>
             <div class="modal-buttons" style="gap: 12px; margin-top: 25px;">
                 <!-- Signing in is the most valuable thing a guest can do here -
                      it is what keeps their streak, their wallet and their place on
@@ -4677,7 +4840,7 @@
             }
         };
 
-        window.showMainMenu = function() { document.activeElement.blur(); refreshClaimableDot(); document.getElementById('main-menu-modal').style.display = 'flex'; }
+        window.showMainMenu = function() { document.activeElement.blur(); refreshClaimableDot(); renderMenuModes(pendingMode || currentMode()); document.getElementById('main-menu-modal').style.display = 'flex'; }
         
         // Global position on a rating ladder: count everyone above you, add
         // one. `field` is which ladder — Clash's mmr or FFA's ffaMmr — and
@@ -5814,12 +5977,12 @@
         // Marathon missing from it. That is a gap in the modal, not in the
         // ordering.
         const MODES = {
-            sprint:   { label: "SPRINT",   cls: "mode-sprint",   color: "var(--c-sprint)" },
-            marathon: { label: "MARATHON", cls: "mode-marathon", color: "var(--c-marathon)" },
-            endless:  { label: "STAKES",   cls: "mode-endless",  color: "var(--c-endless)" },
-            clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)" },
-            ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)",      hidden: true },
-            gauntlet: { label: "TRIFECTA", cls: "mode-gauntlet", color: "var(--c-gauntlet)", hidden: true },
+            sprint:   { label: "SPRINT",   cls: "mode-sprint",   color: "var(--c-sprint)",   blurb: "One word, once a day" },
+            marathon: { label: "MARATHON", cls: "mode-marathon", color: "var(--c-marathon)", blurb: "Twenty words, all week" },
+            endless:  { label: "STAKES",   cls: "mode-endless",  color: "var(--c-endless)",  blurb: "Bank it or keep going" },
+            clash:    { label: "CLASH",    cls: "mode-clash",    color: "var(--c-clash)",    blurb: "Head to head, ranked" },
+            ffa:      { label: "FFA",      cls: "mode-ffa",      color: "var(--c-ffa)",      blurb: "Everyone at once",     hidden: true },
+            gauntlet: { label: "TRIFECTA", cls: "mode-gauntlet", color: "var(--c-gauntlet)", blurb: "Three words, one shot", hidden: true },
         };
         // Derived, not restated: the slot order and the table cannot drift.
         const MODE_ORDER = Object.keys(MODES);
@@ -5898,7 +6061,47 @@
                 if (m === here) btn.setAttribute("aria-current", "true");
                 else btn.removeAttribute("aria-current");
             });
+            // The phone's bar and the menu's cards answer the same question
+            // the nav just answered, off the same `here`. Called from in here
+            // rather than beside each of renderModeNav's twelve call sites,
+            // which is how one of three surfaces ends up a mode behind.
+            renderModeLockup(here);
+            renderMenuModes(here);
         }
+
+        // The bar says which mode you are in, in that mode's colour. One
+        // variable carries it: --c-mode drives the name AND the letter on the
+        // mark, so the two cannot disagree about which mode this is.
+        function renderModeLockup(here) {
+            const bar = document.getElementById("mode-bar");
+            if (!bar) return;
+            const cfg = MODES[here] || MODES[VISIBLE_MODES[0]];
+            if (!cfg) return;
+            bar.style.setProperty("--c-mode", cfg.color);
+            const name = document.getElementById("mode-lockup-name");
+            if (name) name.innerText = cfg.label;
+        }
+
+        // Built from VISIBLE_MODES, so a mode retired in the table leaves the
+        // menu at the same moment it leaves the nav.
+        function renderMenuModes(here) {
+            const host = document.getElementById("menu-modes");
+            if (!host) return;
+            host.innerHTML = VISIBLE_MODES.map((m) => {
+                const cfg = MODES[m];
+                const current = m === here ? ' aria-current="true"' : "";
+                return `<button type="button" class="menu-mode-card" style="--c-mode: ${cfg.color};"` +
+                    `${current} onclick="window.pickModeFromMenu('${m}')">` +
+                    `<b>${escapeHtml(cfg.label)}</b><em>${escapeHtml(cfg.blurb || "")}</em></button>`;
+            }).join("");
+        }
+
+        // Picking a mode closes the menu it was picked from. goToMode alone
+        // would leave the sheet sitting over the board it just switched to.
+        window.pickModeFromMenu = function(mode) {
+            document.getElementById("main-menu-modal").style.display = "none";
+            window.goToMode(mode);
+        };
 
         // How many columns a phone gets. Three across spills the longest
         // label on every phone width, so the nav wraps - but it has to wrap

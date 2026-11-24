@@ -309,7 +309,7 @@ ck(/if \(snap\.exists\) return;/.test(gen),
 // handlers and the scoring all still here and still correct — which is what
 // made reopening it deleting one word rather than rewriting a mode. The
 // Trifecta is behind the same door now.
-ck(/marathon: \{ label: "MARATHON", cls: "mode-marathon", color: "var\(--c-marathon\)" \}/.test(html),
+ck(/marathon: \{ label: "MARATHON", cls: "mode-marathon", color: "var\(--c-marathon\)",\s+blurb: "[^"]+" \}/.test(html),
    'Marathon is in the table and open',
    (html.match(/marathon: \{[^}]*\}/) || [''])[0]);
 ck(/gauntlet: \{[^}]*hidden: true/.test(html),

@@ -1,0 +1,266 @@
+/*
+ * The phone's top bar: one line where the wordmark and the 2x2 mode grid were
+ * two, with the mode's own numbers riding on the right of it.
+ *
+ * Players said the top of the screen was doing too much. It came to 246px of a
+ * 664px phone before any board: the game's name, a menu button, four mode
+ * buttons over two rows, then the mode's figures. The name and the grid go;
+ * what is left says which mode you are in, in that mode's colour, and opens
+ * everything on a tap.
+ *
+ * Four things here are easy to get wrong and silent:
+ *
+ *   THE CASCADE. `.arcade-menu` carries `display: grid` on a plain class
+ *   selector. The rule that hides it has the same specificity, so it only
+ *   wins by coming later in the file. Written above it - which is where it
+ *   first went - the grid stays on the screen it is supposed to be leaving,
+ *   and nothing says so.
+ *
+ *   THE DESKTOP. None of this is a problem with room to spare, so above 600px
+ *   the header and the grid are untouched. #mode-bar is `display: contents`
+ *   there, which hides the WRAPPER and not its children: the lockup has to be
+ *   hidden in its own right or it turns up under the real header.
+ *
+ *   THE THREE SURFACES. The nav, the bar and the menu's cards all answer "which
+ *   mode am I in". They are painted from one function off one answer, because
+ *   three call sites is how one of them ends up a mode behind.
+ *
+ *   THE BANK BUTTON. #score-board moved into the bar as its pills alone. The
+ *   button was nested in it precisely so one display toggle served both; it
+ *   has its own, which is what makes un-nesting free, and this checks they are
+ *   still there.
+ *
+ * Pure; no emulator. Playwright for the parts that are layout.
+ */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const REPO = (f) => path.join(path.dirname(fileURLToPath(import.meta.url)), '..', f);
+const html = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
+
+const t = [];
+const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
+const eq = (name, got, want) => ck(JSON.stringify(got) === JSON.stringify(want), name,
+  `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+const between = (src, a, b) => {
+  const i = src.indexOf(a); if (i < 0) throw new Error('missing ' + a);
+  const j = src.indexOf(b, i + a.length); if (j < 0) throw new Error('missing end of ' + a);
+  return src.slice(i + a.length, j);
+};
+
+// ---- A. the cascade, which is the bug this nearly shipped with ------------
+{
+  const hide = html.indexOf('.arcade-head, .arcade-menu { display: none; }');
+  ck(hide > 0, 'there is a rule that takes the header and the grid off a phone');
+  // Every rule that puts `display` on either of them, by class, at the same
+  // specificity. The hide has to be after the LAST of them.
+  const base = [...html.matchAll(/^\s*\.arcade-(?:head|menu) \{[^}]*display:[^}]*\}/gm)]
+    .map((m) => m.index);
+  ck(base.length > 0, 'and base rules that set their display', String(base.length));
+  ck(hide > Math.max(...base),
+     'the hide comes after all of them, or it loses the tie on source order',
+     `hide at ${hide}, last base at ${Math.max(...base)}`);
+  // It is a phone rule, not a rule.
+  const block = html.slice(html.lastIndexOf('@media', hide), hide);
+  ck(/max-width:\s*600px/.test(block),
+     'and it is inside the 600px query the grid already folds at', block.slice(0, 60));
+}
+
+// ---- B. the desktop is left alone -----------------------------------------
+{
+  ck(/#mode-bar \{ display: contents; \}/.test(html),
+     'the bar is `contents` by default, so above the breakpoint it is not a row at all');
+  ck(/#mode-lockup \{ display: none;/.test(html),
+     'the lockup is hidden by default - `contents` hides the wrapper, not the children');
+  ck(/#mode-lockup \{ display: flex; \}/.test(html),
+     'and only the phone query turns it on');
+}
+
+// ---- C. one answer, three surfaces ----------------------------------------
+{
+  const nav = between(html, 'function renderModeNav() {', '\n        }');
+  ck(/renderModeLockup\(here\)/.test(nav), 'the nav paints the bar off its own `here`');
+  ck(/renderMenuModes\(here\)/.test(nav), 'and the menu cards too');
+  // The menu is also painted when it opens: renderModeNav runs off the mode
+  // flow, which has not necessarily happened by the time somebody taps.
+  ck(/showMainMenu = function\(\)[^\n]*renderMenuModes\(/.test(html),
+     'and again when the menu is opened, so the cards are right when looked at');
+
+  const modes = between(html, 'const MODES = {', '\n        };');
+  const lockup = between(html, 'function renderModeLockup(here) {', '\n        }');
+  const cards = between(html, 'function renderMenuModes(here) {', '\n        }');
+  const run = new Function('document', 'escapeHtml', `
+    const MODES = {${modes}};
+    const MODE_ORDER = Object.keys(MODES);
+    const VISIBLE_MODES = MODE_ORDER.filter((m) => !MODES[m].hidden);
+    function renderModeLockup(here) {${lockup}}
+    function renderMenuModes(here) {${cards}}
+    return { renderModeLockup, renderMenuModes, MODES, VISIBLE_MODES };`);
+
+  const el = (id) => ({ id, innerHTML: '', innerText: '', style: { props: {},
+    setProperty(k, v) { this.props[k] = v; } } });
+  const nodes = { 'mode-bar': el('mode-bar'), 'mode-lockup-name': el('n'), 'menu-modes': el('m') };
+  const doc = { getElementById: (id) => nodes[id] || null };
+  const api = run(doc, (s) => String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+
+  api.renderModeLockup('marathon');
+  eq('the lockup takes the mode’s label', nodes['mode-lockup-name'].innerText, 'MARATHON');
+  eq('and the mode’s colour, as one variable', nodes['mode-bar'].style.props['--c-mode'],
+     'var(--c-marathon)');
+  api.renderModeLockup('endless');
+  eq('Stakes is spelled the way the table spells it, not "endless"',
+     nodes['mode-lockup-name'].innerText, 'STAKES');
+  // A mode that is not in the table at all must not blank the bar.
+  const before = nodes['mode-lockup-name'].innerText;
+  api.renderModeLockup('nonsense');
+  ck(nodes['mode-lockup-name'].innerText.length > 0,
+     'an unknown mode falls back rather than emptying the bar', nodes['mode-lockup-name'].innerText);
+  void before;
+
+  api.renderMenuModes('sprint');
+  const cardsHtml = nodes['menu-modes'].innerHTML;
+  const labels = [...cardsHtml.matchAll(/<b>([^<]*)<\/b>/g)].map((m) => m[1]);
+  eq('one card per mode a player can reach', labels, api.VISIBLE_MODES.map((m) => api.MODES[m].label));
+  ck(!/TRIFECTA|FFA/.test(cardsHtml),
+     'and none for a mode the table has closed', cardsHtml.slice(0, 120));
+  const blurbs = [...cardsHtml.matchAll(/<em>([^<]*)<\/em>/g)].map((m) => m[1]);
+  ck(blurbs.length === labels.length && blurbs.every((b) => b.length > 3),
+     'each says what the mode IS, which four bare buttons never had room for',
+     JSON.stringify(blurbs));
+  eq('the one you are in is marked, once',
+     (cardsHtml.match(/aria-current="true"/g) || []).length, 1);
+  ck(cardsHtml.indexOf('aria-current="true"') < cardsHtml.indexOf('MARATHON'),
+     'and it is the right one', cardsHtml.slice(0, 160));
+  ck(/--c-mode: var\(--c-sprint\)/.test(cardsHtml), 'each card carries its own colour');
+  // Picking closes the sheet it was picked from.
+  ck(/pickModeFromMenu = function[\s\S]{0,200}main-menu-modal[\s\S]{0,120}goToMode/.test(html),
+     'picking a mode closes the menu and then switches');
+}
+
+// ---- D. the mark ----------------------------------------------------------
+{
+  const svg = between(html, '<svg class="lex-keycap"', '</svg>');
+  for (const part of ['kc-body', 'kc-foot', 'kc-face', 'kc-rim', 'kc-glyph']) {
+    ck(svg.includes(part), `the keycap has its ${part}`);
+  }
+  // Paper face, coloured letter: the face is a fixed token and only the
+  // glyph follows the mode. A face that took --c-mode would be the other
+  // variant, and would stop matching the home-screen icon.
+  ck(/\.lex-keycap \.kc-face \{ fill: var\(--kc-face\); \}/.test(html),
+     'the face is paper in every mode');
+  ck(/\.lex-keycap \.kc-glyph \{[^}]*stroke: var\(--c-mode/.test(html),
+     'and the letter is what carries the mode');
+  ck(!/\.lex-keycap \.kc-face \{[^}]*--c-mode/.test(html),
+     'the face never takes the mode colour');
+  // Top-left, where a moulded key prints its legend. The glyph starts well
+  // inside the face's top-left quadrant; a centred one would start past the
+  // middle of a 68-unit face that begins at 3.
+  // Compare the glyph's CENTRE with the face's. "Starts left of the middle"
+  // is not enough: a centred L starts at 26 on a face that spans 3..71, which
+  // is left of 37 and still dead centre once its own width is counted.
+  const d = (svg.match(/class="kc-glyph" d="M([\d.]+) ([\d.]+) ?V([\d.]+) ?H([\d.]+)/) || []);
+  ck(d.length === 5, 'the legend is an L: down, then right', svg.match(/kc-glyph[^/]*/) || '');
+  if (d.length === 5) {
+    const [x1, y1, y2, x2] = d.slice(1).map(Number);
+    const sw = Number((html.match(/\.lex-keycap \.kc-glyph \{[\s\S]*?stroke-width: ([\d.]+)/) || [])[1]);
+    ck(sw > 0, 'with a stroke width to size it by', String(sw));
+    // Round caps, so the ink reaches half a stroke past each end.
+    const gc = [(Math.min(x1, x2) - sw / 2 + Math.max(x1, x2) + sw / 2) / 2,
+                (Math.min(y1, y2) - sw / 2 + Math.max(y1, y2) + sw / 2) / 2];
+    const faceC = [3 + 68 / 2, 4 + 68 / 2];
+    const off = [(faceC[0] - gc[0]) / 68, (faceC[1] - gc[1]) / 68];
+    ck(off[0] > 0.10 && off[1] > 0.10,
+       'the legend sits up and left of the face\u2019s middle, as a key prints it',
+       `centre ${gc.map((v) => v.toFixed(1))} vs face ${faceC}, offset ${off.map((v) => (v * 100).toFixed(0) + '%')}`);
+  }
+  for (const tok of ['--kc-face', '--kc-rim', '--kc-right', '--kc-bottom']) {
+    eq(`${tok} is defined for both themes`,
+       (html.match(new RegExp(tok + ':', 'g')) || []).length >= 2, true);
+  }
+}
+
+// ---- E. the Bank button kept its own toggles ------------------------------
+{
+  const board = between(html, '<div id="score-board">', '\n    </div>');
+  ck(!/btn-cash-out/.test(board), 'the Bank button is no longer nested in #score-board', board.slice(0, 120));
+  ck(/id="score-board"[\s\S]{0,400}id="continues"/.test(html), 'which still holds the two pills');
+  const toggles = (html.match(/btn-cash-out"\)\.style\.display/g) || []).length;
+  ck(toggles >= 6, 'and the button has display toggles of its own, so un-nesting costs no JS',
+     String(toggles));
+  // It is inside the bar, which is what puts the numbers on the lockup's line.
+  const bar = html.slice(html.indexOf('<div id="mode-bar"'),
+                         html.indexOf('<!-- Out of #score-board'));
+  for (const id of ['mode-lockup', 'endless-header', 'score-board',
+                    'sprint-header', 'marathon-header', 'daily-header']) {
+    ck(bar.includes(`id="${id}"`), `#${id} rides in the bar`);
+  }
+  ck(!bar.includes('id="btn-cash-out"'),
+     'and the full-width action does not ride on a line of numbers',
+     (bar.match(/[^\n]*btn-cash-out[^\n]*/) || [''])[0].trim());
+  ck(/#endless-mode-label \{ display: none; \}/.test(html),
+     'Stakes stops naming itself twice: the lockup already does');
+}
+
+// ---- F. it is one line, and it fits ---------------------------------------
+{
+  let chromium;
+  try { ({ chromium } = await import('playwright')); }
+  catch { const { execSync } = await import('node:child_process');
+    ({ chromium } = await import(path.join(execSync('npm root -g', { encoding: 'utf8' }).trim(), 'playwright', 'index.mjs'))); }
+  const launch = {};
+  if (fs.existsSync('/opt/pw-browsers/chromium')) launch.executablePath = '/opt/pw-browsers/chromium';
+  const browser = await chromium.launch(launch);
+  const file = 'file://' + REPO('index.html');
+  for (const [w, label] of [[430, 'large phone'], [390, 'phone'], [375, 'SE'], [360, 'narrow'], [320, 'fold']]) {
+    const p = await browser.newPage({ viewport: { width: w, height: 760 } });
+    await p.goto(file, { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(1200);
+    const r = await p.evaluate(() => {
+      const bar = document.getElementById('mode-bar');
+      const kids = [...bar.children].filter((c) => getComputedStyle(c).display !== 'none');
+      return {
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        barH: Math.round(bar.getBoundingClientRect().height),
+        // Centres, not tops: `align-items: center` gives a 42px lockup and a
+        // 17px word count different top edges on the same line.
+        rows: new Set(kids.map((c) => {
+          const q = c.getBoundingClientRect();
+          return Math.round((q.top + q.bottom) / 2 / 8);
+        })).size,
+        kids: kids.length,
+      };
+    });
+    ck(!r.overflow, `${label} (${w}px): the page does not scroll sideways`);
+    ck(r.kids >= 3, `${label}: the lockup and the mode's numbers are both in the bar`, String(r.kids));
+    // Height, not a row count: bucketing centres splits a line whenever two
+    // items differ enough in size, which on this bar they always do. One line
+    // is the tallest item plus nothing; a wrap is visibly taller than that.
+    if (w > 340) ck(r.barH <= 56, `${label}: all on one line`, `${r.barH}px tall`);
+    // 320px is the one width where four things genuinely do not fit, and the
+    // word count takes a line rather than the page scrolling sideways.
+    else ck(r.barH > 56, `${label}: the word count wraps instead of overflowing`, `${r.barH}px tall`);
+    await p.close();
+  }
+  // Desktop: nothing moved.
+  const p = await browser.newPage({ viewport: { width: 900, height: 900 } });
+  await p.goto(file, { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(1200);
+  const d = await p.evaluate(() => {
+    const show = (s) => { const e = document.querySelector(s);
+      return !!e && getComputedStyle(e).display !== 'none'; };
+    return { head: show('.arcade-head'), nav: show('.arcade-menu'), lockup: show('#mode-lockup'),
+             barDisplay: getComputedStyle(document.getElementById('mode-bar')).display };
+  });
+  ck(d.head && d.nav, 'desktop keeps the wordmark row and the mode grid',
+     `head ${d.head} nav ${d.nav}`);
+  ck(!d.lockup, 'and never shows the phone lockup', String(d.lockup));
+  eq('with the bar itself laying out as nothing', d.barDisplay, 'contents');
+  await p.close();
+  await browser.close();
+}
+
+for (const [ok, name, detail] of t) console.log(ok ? 'ok  ' : 'FAIL', name, ok ? '' : '— ' + detail);
+const bad = t.filter((x) => !x[0]).length;
+console.log(bad ? `\n${bad} of ${t.length} FAILED` : `\nAll ${t.length} passed`);
+process.exit(bad ? 1 : 0);

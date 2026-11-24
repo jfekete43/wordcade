@@ -66,12 +66,31 @@ const css = grab(/<style>[\s\S]*?<\/style>/, 'stylesheet').replace(/<\/?style>/g
 const nav = grab(/    <nav class="arcade-menu"[\s\S]*?<\/nav>/, 'nav');
 const endlessHeader = grab(/    <div id="endless-header">[\s\S]*?\n    <\/div>/, 'endless header');
 const scoreBoard = grab(/    <div id="score-board">[\s\S]*?\n    <\/div>/, 'score board');
+// The bar now CONTAINS both of those, plus the lockup and the other three
+// mode headers. Sliced by index rather than by regex: every block inside it
+// closes at the same four-space indent, so a lazy match stops at the first
+// one and hands back a third of the markup.
+const modeBar = (() => {
+  const a = html.indexOf('    <div id="mode-bar"');
+  const b = html.indexOf('\n\n    <!-- Out of #score-board', a);
+  if (a < 0 || b < 0) throw new Error('could not extract the mode bar');
+  return html.slice(a, b);
+})();
+if (!/id="mode-lockup"/.test(modeBar) || !/id="score-board"/.test(modeBar)) {
+  throw new Error('the mode bar slice is missing its contents');
+}
 // The table and the renderer, lifted whole.
 const modesSrc = 'const MODES = {' + between(html, 'const MODES = {', '\n        };', 'MODES') + '\n};\n'
   // Lifted from the file rather than restated, so the slot order the renderer
   // walks is the same one the page ships with.
   + grab(/const MODE_ORDER = [^\n]*/, 'MODE_ORDER');
-const renderSrc = 'function renderModeNav() {' + between(html, 'function renderModeNav() {', '\n        }', 'renderModeNav') + '\n}';
+const renderSrc = 'function renderModeNav() {' + between(html, 'function renderModeNav() {', '\n        }', 'renderModeNav') + '\n}'
+  // The phone bar and the menu's cards are painted from inside renderModeNav,
+  // off the same `here`. Lifted rather than stubbed: a stub would let the real
+  // ones drift, and in this harness - which has neither element - both return
+  // at their first line anyway.
+  + '\nfunction renderModeLockup(here) {' + between(html, 'function renderModeLockup(here) {', '\n        }', 'renderModeLockup') + '\n}'
+  + '\nfunction renderMenuModes(here) {' + between(html, 'function renderMenuModes(here) {', '\n        }', 'renderMenuModes') + '\n}';
 // Lifted, not restated. A hand-written copy of currentMode() in the harness
 // went stale the moment a fifth mode was added: the copy still knew four
 // flags, so the new mode could never be "current" here and the suite blew up
@@ -117,8 +136,7 @@ const page_html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css
 <style>* { transition: none !important; animation: none !important; }</style>
 </head><body>
 ${nav}
-${endlessHeader}
-${scoreBoard}
+${modeBar}
 <script>
 ${FLAG_DECL}
 ${modesSrc}
@@ -342,11 +360,37 @@ for (const width of [280, 320, 360, 390, 428]) {
       const rr = document.createRange(); rr.selectNodeContents(b);
       return +(rr.getBoundingClientRect().width - inner).toFixed(1);
     });
+    const shown = (sel) => {
+      const el = document.querySelector(sel);
+      return !!el && getComputedStyle(el).display !== 'none';
+    };
     return {
-      spill, worst: Math.max(...spill),
+      spill, worst: btns.length ? Math.max(...spill) : 0,
       rows: new Set(btns.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+      navShown: shown('.arcade-menu'), headShown: shown('.arcade-head'),
+      barShown: shown('#mode-bar'), lockupShown: shown('#mode-lockup'),
     };
   });
+  /*
+   * At 600px and below the nav is not on the screen at all - the phone gets
+   * the one-line bar instead, which is the whole point of that layout. So
+   * below the breakpoint this suite checks the SWAP happened rather than
+   * measuring a grid that is display:none, where every button reports a 6px
+   * spill off a zero-width box and the four of them share one phantom row.
+   */
+  if (width <= 600) {
+    ck(!r.navShown, `${width}px: the mode grid is off the screen`, String(r.navShown));
+    ck(!r.headShown, `${width}px: and so is the wordmark row`, String(r.headShown));
+    ck(r.barShown && r.lockupShown,
+       `${width}px: the bar and its lockup are there instead`,
+       `bar ${r.barShown} lockup ${r.lockupShown}`);
+    await p.close();
+    continue;
+  }
+  ck(r.navShown && r.headShown,
+     `${width}px: above the breakpoint the header and the grid are untouched`,
+     `head ${r.headShown} nav ${r.navShown}`);
+  ck(!r.lockupShown, `${width}px: and the phone lockup stays out of it`, String(r.lockupShown));
   ck(r.worst <= 0, `${width}px: no nav label spills out of its own button`, r.spill.join(' '));
   // Below 320px the stylesheet drops to two columns, so the row count is
   // whatever MODE_KEYS needs at two-up; at and above it, every mode is on
