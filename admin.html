@@ -109,6 +109,26 @@
                 <button class="go" id="btn-player">Their runs</button>
                 <button id="btn-flag">Flag / unflag</button>
             </div>
+
+            <div style="margin-top:14px; border-top: var(--bw) solid var(--c-line); padding-top:12px;">
+                <div class="row">
+                    <div>
+                        <label for="newname">Rename to (blank = a safe generated name)</label>
+                        <input id="newname" placeholder="leave blank to generate one" maxlength="12"
+                               autocapitalize="off" autocorrect="off" spellcheck="false">
+                    </div>
+                </div>
+                <label style="margin-top:8px;">
+                    <input type="checkbox" id="scrub" style="width:auto; margin-right:6px;">
+                    Also rewrite the name on their past runs
+                </label>
+                <p class="muted" style="margin:6px 0 0;">
+                    Their own handle change is not spent. The new name is screened and must be
+                    unique, same as a player's. Past Trifecta archive pages bake names into static
+                    HTML and a rename does not reach them.
+                </p>
+                <div class="btns"><button class="danger" id="btn-rename">Rename</button></div>
+            </div>
         </div>
 
         <div class="card" id="results-card" hidden>
@@ -246,6 +266,26 @@ $("btn-flag").onclick = async () => {
     await run("btn-flag", async () => {
         const { data } = await call("adminFlagUser")({ handle, flagged: on });
         msg(`${handle} is ${data.flagged ? "flagged" : "no longer flagged"}.`, "ok");
+    });
+};
+
+$("btn-rename").onclick = async () => {
+    const handle = $("handle").value.trim();
+    if (!handle) return msg("Type a handle first.");
+    const newName = $("newname").value.trim();
+    const scrub = $("scrub").checked;
+    if (!confirm(`Rename ${handle}` +
+                 `${newName ? ` to "${newName}"` : " to a safe generated name"}?` +
+                 `${scrub ? "\n\nAND rewrite the name on every past run of theirs." : ""}`)) return;
+    await run("btn-rename", async () => {
+        const { data } = await call("adminRenameUser")({
+            handle, newName, scrubHistory: scrub, reason: $("reason").value.trim(),
+        });
+        msg(`${data.was || handle} is now ${data.now}` +
+            `${data.scrubbed ? `, ${data.rewritten} past run(s) rewritten` : ""}.`, "ok");
+        // The handle box still holds the OLD name, which no longer resolves.
+        $("handle").value = data.now;
+        $("newname").value = "";
     });
 };
 

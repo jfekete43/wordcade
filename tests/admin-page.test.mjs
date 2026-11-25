@@ -144,6 +144,49 @@ const between = (src, a, b) => {
      (onRun.match(/[^\n]*flagged[^\n]*/) || [''])[0].trim());
 }
 
+// ---- 5b. renaming ---------------------------------------------------------
+{
+  const body = between(fns, 'exports.adminRenameUser = ', '\n}));');
+  // The hole this would open if it skipped either check is bigger than the
+  // one it closes: an admin rename that could set anything is a way to put a
+  // slur on a profile, not a way to take one off.
+  ck(/HANDLE\.isBlockedHandle\(name\)/.test(body),
+     'the new name goes through the same filter players get');
+  ck(/await handleTaken\(name, uid\)/.test(body),
+     'and has to be unique, same as a player\u2019s');
+  // Same sanitiser as changeUsername, character for character. Two spellings
+  // of "what a handle may contain" is how an admin sets something the game
+  // itself would have refused.
+  const mine = (body.match(/replace\(\/\[\^[^/]+\/g, ""\)/) || [''])[0];
+  const theirs = (between(fns, 'exports.changeUsername = ', '\n});')
+    .match(/replace\(\/\[\^[^/]+\/g, ""\)/) || [''])[0];
+  ck(mine && mine === theirs, 'and is sanitised exactly as changeUsername sanitises',
+     `${mine} vs ${theirs}`);
+  ck(/substring\(0, HANDLE_MAX\)/.test(body), 'and capped at the same length');
+
+  // A blank name is the one-tap case: make this go away, do not make me
+  // think of another one.
+  ck(/asked \|\| HANDLE\.safeFallbackHandle\(\)/.test(body),
+     'blank generates a safe handle rather than failing');
+
+  // An admin rename is not something the player did.
+  const code = body.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  ck(!/handleChanges/.test(code), 'it does not spend the player\u2019s own handle change',
+     (code.match(/[^\n]*handleChanges[^\n]*/) || [''])[0].trim());
+  ck(/renamedByAdmin: adminUid/.test(body), 'and the profile records who did it');
+  ck(/renamedFrom: prev/.test(body), 'and what it used to be');
+
+  // History is the expensive half and the reason this exists at all: runs
+  // carry a frozen copy of the handle and the board ranks off that copy.
+  ck(/scrubHistory = false/.test(body), 'rewriting history is opt-in');
+  ck(/where\("uid", "==", uid\)/.test(body), 'and when asked for, it finds their runs');
+  ck(/i \+= 400/.test(body), 'in chunks under the 500-write batch limit');
+  // Today's two documents go in the SAME transaction as the profile, so
+  // there is never a moment where the board and the profile disagree.
+  ck(/tx\.update\(runSnap\.ref, \{ username: name \}\)/.test(body),
+     'today\u2019s runs are patched inside the transaction');
+}
+
 // ---- 6. the page ----------------------------------------------------------
 {
   ck(/<meta name="robots" content="noindex, nofollow">/.test(page), 'admin.html is noindex, nofollow');
@@ -170,6 +213,17 @@ const between = (src, a, b) => {
      'and it is the only thing that sends force: true',
      String((page.match(/force: true/g) || []).length));
   eq('exactly one place sends force', (page.match(/force: true/g) || []).length, 1);
+  // Renaming is destructive enough to confirm, and the confirm has to say
+  // whether history is going with it.
+  ck(/call\("adminRenameUser"\)/.test(page), 'the page can rename');
+  const ren = between(page, '$("btn-rename").onclick', '};');
+  ck(/confirm\(/.test(ren), 'and asks first', ren.slice(0, 80));
+  ck(/rewrite the name on every past run/.test(ren),
+     'and the confirm says when history goes with it');
+  // The box still holds the old handle, which stops resolving the moment the
+  // rename lands - so the next click would say "no account with that handle".
+  ck(/\$\("handle"\)\.value = data\.now/.test(ren),
+     'and it moves the lookup box onto the new name');
   // 16px inputs: anything smaller makes iOS zoom the page on focus, which on
   // a phone is the difference between usable and not.
   ck(/font-size: 16px;.*iOS|iOS zooms/.test(page), 'inputs are 16px so a phone does not zoom on focus');

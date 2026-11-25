@@ -3120,6 +3120,98 @@ exports.adminFlagUser = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Fla
   return { uid, flagged: !!flagged };
 }));
 
+/*
+ * Renaming somebody, for the handle that got through the filter.
+ *
+ * The screening on changeUsername is good and is not perfect, and the thing
+ * it misses is exactly the thing that most needs removing: `runs` documents
+ * carry a frozen copy of `username`, and the leaderboard ranks off that copy.
+ * A slur that gets through is not just on a profile, it is on every board row
+ * that player has ever appeared in.
+ *
+ * So this differs from changeUsername in three ways, each on purpose.
+ *
+ * It does not spend the player's handle change. An admin rename is not
+ * something they did, and a guest who gets cleaned up keeps their one.
+ *
+ * It can rewrite HISTORY. changeUsername deliberately patches today only -
+ * "a finished day is a record of who played it under that name" - and that
+ * reasoning is right for a player renaming themselves and wrong here, where
+ * the whole point is that the old name should stop being visible. Opt-in,
+ * because it is the expensive half and not always wanted.
+ *
+ * The new name is still screened and still has to be unique. The admin is
+ * picking a replacement, not an exception, and a rename that could set
+ * anything would be a worse hole than the one it closes. Leave it blank and
+ * the server generates a safe one, which is the one-tap case: make this name
+ * go away and do not make me think of another.
+ *
+ * What it CANNOT fix: the generated Trifecta archive pages under /gauntlet/
+ * bake names into static HTML. They are noindexed now and the mode is closed,
+ * but a rename does not reach them - that needs the generator re-run.
+ */
+exports.adminRenameUser = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Renaming that player", async (request) => {
+  const adminUid = requireAdmin(request);
+  const { handle, newName = "", scrubHistory = false, reason = "" } = request.data || {};
+  const uid = await adminResolveUid(handle);
+
+  // Same sanitising as changeUsername: one spelling of what a handle may
+  // contain, so an admin cannot set something the game would have refused.
+  const asked = String(newName || "").replace(/[^a-zA-Z0-9_\s-]/g, "").trim().substring(0, HANDLE_MAX);
+  const name = asked || HANDLE.safeFallbackHandle();
+  if (name.length < 3) throw new HttpsError("invalid-argument", "A handle needs at least 3 valid characters.");
+  if (HANDLE.isBlockedHandle(name)) {
+    throw new HttpsError("invalid-argument", `"${name}" is blocked by the same filter players get. Pick another.`);
+  }
+  if (await handleTaken(name, uid)) {
+    throw new HttpsError("already-exists", `"${name}" is already taken.`);
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const today = getTodayDateStr();
+  const runRefs = PER_DAY_RUN_MODES.map((mode) => db.collection("runs").doc(runDocId(mode, uid, today)));
+
+  const was = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(userRef);
+    if (!snap.exists) throw new HttpsError("not-found", "Profile not found.");
+    // Every read before any write, which a transaction requires.
+    const runSnaps = await tx.getAll(...runRefs);
+    const prev = snap.data().username || null;
+    tx.update(userRef, {
+      username: name,
+      usernameLower: name.toLowerCase(),
+      // handleChanges is NOT bumped - see the note above.
+      renamedByAdminAt: FieldValue.serverTimestamp(),
+      renamedByAdmin: adminUid,
+      ...(prev ? { renamedFrom: prev } : {}),
+      ...(reason ? { renamedReason: reason } : {}),
+    });
+    // In the same transaction as the rename, so there is no window where the
+    // profile says one name and today's board says another.
+    for (const runSnap of runSnaps) {
+      if (runSnap.exists) tx.update(runSnap.ref, { username: name });
+    }
+    return prev;
+  });
+
+  // History, outside the transaction because it is unbounded and a
+  // transaction is not the place for it. Chunked under Firestore's 500-write
+  // batch limit; a player here has tens of runs, not thousands.
+  let rewritten = 0;
+  if (scrubHistory) {
+    const snap = await db.collection("runs").where("uid", "==", uid).get();
+    const docs = snap.docs.filter((d) => (d.data().username || null) !== name);
+    for (let i = 0; i < docs.length; i += 400) {
+      const batch = db.batch();
+      for (const d of docs.slice(i, i + 400)) batch.update(d.ref, { username: name });
+      await batch.commit();
+      rewritten += Math.min(400, docs.length - i);
+    }
+  }
+
+  return { uid, was, now: name, rewritten, scrubbed: !!scrubHistory };
+}));
+
 async function postTweet(text, creds) {
   const header = oauthHeader("POST", X_POST_URL, creds,
     randomBytes(16).toString("hex"), Math.floor(Date.now() / 1000));
