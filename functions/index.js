@@ -2840,13 +2840,7 @@ async function saveDraft({ mode, dateStr, rows, words }) {
  * by reading the collection directly.
  */
 exports.getDrafts = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Loading the drafts", async (request) => {
-  requireAuth(request);
-  const token = (request.auth && request.auth.token) || {};
-  const want = String(ADMIN_EMAIL.value() || "").trim().toLowerCase();
-  const got = String(token.email || "").trim().toLowerCase();
-  if (!want || !got || token.email_verified !== true || got !== want) {
-    throw new HttpsError("permission-denied", "Not an admin.");
-  }
+  requireAdmin(request);
   const snap = await db.collection("adminDrafts").orderBy("at", "desc").limit(10).get();
   return {
     drafts: snap.docs.map((d) => {
@@ -2854,6 +2848,276 @@ exports.getDrafts = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Loading
       return { id: d.id, mode: v.mode, key: v.key, label: v.label, text: v.text };
     }),
   };
+}));
+
+// ============================================================================
+// ADMIN — looking at runs, and correcting them.
+//
+// Everything here is gated by requireAdmin, which is getDrafts' check lifted
+// out of it so there is ONE gate rather than two that can drift apart. The
+// gate is the caller's VERIFIED email against the ADMIN_EMAIL secret: a uid
+// has to be looked up in a console, an address is already known, and an
+// unverified address on a token is a claim the provider never checked.
+//
+// These exist because the alternative was a laptop, Cloud Shell, working
+// application-default credentials and a command line. A cheated run sitting
+// at the top of the board for nine hours because the operator was on a phone
+// is a worse outcome than any of the risk this adds.
+//
+// The page that calls these is admin.html, which is noindexed and not linked
+// from anywhere. That is tidiness, not security: every call below is checked
+// here, so the URL being known gains nobody anything.
+// ============================================================================
+
+function requireAdmin(request) {
+  requireAuth(request);
+  const token = (request.auth && request.auth.token) || {};
+  const want = String(ADMIN_EMAIL.value() || "").trim().toLowerCase();
+  const got = String(token.email || "").trim().toLowerCase();
+  if (!want || !got || token.email_verified !== true || got !== want) {
+    throw new HttpsError("permission-denied", "Not an admin.");
+  }
+  return request.auth.uid;
+}
+
+/*
+ * A handle to a uid, the way the game itself resolves one: usernameLower is
+ * the field the "already taken" check uses, so what is typed here resolves
+ * exactly as what is typed in the game does, whatever its capitalisation.
+ *
+ * Refuses on more than one match rather than picking. Two accounts cannot
+ * normally share a lower-cased handle, and if they ever do, guessing which
+ * one to edit is the worst available answer.
+ */
+async function adminResolveUid(handleOrUid) {
+  const raw = String(handleOrUid || "").trim();
+  if (!raw) throw new HttpsError("invalid-argument", "No handle given.");
+  const who = await db.collection("users")
+    .where("usernameLower", "==", raw.toLowerCase()).limit(2).get();
+  if (who.size > 1) throw new HttpsError("failed-precondition", `${raw} matches more than one account.`);
+  if (!who.empty) return who.docs[0].id;
+  // Fall back to treating it as a uid, so a row that shows one can be acted
+  // on without a second lookup.
+  const direct = await db.collection("users").doc(raw).get();
+  if (direct.exists) return raw;
+  throw new HttpsError("not-found", `No account with the handle ${raw}.`);
+}
+
+const adminRunRow = (d) => {
+  const r = d.data() || {};
+  return {
+    id: d.id,
+    uid: r.uid || null,
+    username: r.username || null,
+    date: r.puzzleDate || r.date || null,
+    mode: r.mode || null,
+    score: Number(r.score) || 0,
+    elapsedMs: r.elapsedMs === undefined ? null : r.elapsedMs,
+    wordsGuessed: Number(r.wordsGuessed) || 0,
+    // The bucket that is set IS the guess count; a voided run has none set.
+    guesses: [1, 2, 3, 4, 5].find((n) => Number(r["guess" + n]) > 0) || null,
+    at: r.timestamp && r.timestamp.toMillis ? r.timestamp.toMillis() : null,
+    voidedAt: r.voidedAt && r.voidedAt.toMillis ? r.voidedAt.toMillis() : null,
+    voidedReason: r.voidedReason || null,
+  };
+};
+
+exports.adminLookupUser = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Looking up that player", async (request) => {
+  requireAdmin(request);
+  const uid = await adminResolveUid((request.data || {}).handle);
+  const u = (await db.collection("users").doc(uid).get()).data() || {};
+  return {
+    uid,
+    username: u.username || null,
+    wallet: Number(u.wallet) || 0,
+    careerBank: Number(u.careerBank) || 0,
+    sprintPlayed: Number(u.sprintPlayed) || 0,
+    sprintSolved: Number(u.sprintSolved) || 0,
+    sprintWins: Number(u.sprintWins) || 0,
+    isGuest: !!u.isGuest,
+    flagged: !!u.flagged,
+    handleChanges: Number(u.handleChanges) || 0,
+  };
+}));
+
+exports.adminUserRuns = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Loading that player's runs", async (request) => {
+  requireAdmin(request);
+  const { handle, mode = "sprint" } = request.data || {};
+  const uid = await adminResolveUid(handle);
+  // One equality filter, so the automatic single-field index covers it; the
+  // mode is filtered in memory because a second one would need a composite.
+  const snap = await db.collection("runs").where("uid", "==", uid).get();
+  const runs = snap.docs.map(adminRunRow).filter((r) => r.mode === mode);
+  runs.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  return { uid, runs };
+}));
+
+exports.adminDayBoard = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Loading that day", async (request) => {
+  requireAdmin(request);
+  const { date, mode = "sprint" } = request.data || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))) {
+    throw new HttpsError("invalid-argument", "Need a date as YYYY-MM-DD.");
+  }
+  const snap = await db.collection("runs").where("puzzleDate", "==", date).get();
+  const runs = snap.docs.map(adminRunRow).filter((r) => r.mode === mode);
+  // The board's own order: score, then the clock. ?? not ||, because a
+  // first-guess solve has an elapsed of exactly 0 and 0 is falsy - which
+  // would send the fastest possible run to the back of the tie it just won.
+  runs.sort((a, b) => b.score - a.score || ((a.elapsedMs ?? Infinity) - (b.elapsedMs ?? Infinity)));
+  const puz = await db.collection("sprintPuzzles").doc(date).get();
+  return { date, answer: puz.exists ? String(puz.data().word || "").toUpperCase() : null, runs };
+}));
+
+exports.adminAttempt = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Loading that attempt", async (request) => {
+  requireAdmin(request);
+  const { handle, date } = request.data || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))) {
+    throw new HttpsError("invalid-argument", "Need a date as YYYY-MM-DD.");
+  }
+  const uid = await adminResolveUid(handle);
+  // The guesses live on the ATTEMPT. The run document carries what the board
+  // ranks and the words themselves are only here.
+  const att = await sprintAttemptRef(uid, date).get();
+  const puz = await db.collection("sprintPuzzles").doc(date).get();
+  if (!att.exists) return { uid, date, found: false, answer: puz.exists ? puz.data().word : null };
+  const a = att.data();
+  return {
+    uid, date, found: true,
+    answer: puz.exists ? String(puz.data().word || "").toUpperCase() : null,
+    guesses: Array.isArray(a.guesses) ? a.guesses : [],
+    solved: !!a.solved,
+    status: a.status || null,
+    score: Number(a.score) || 0,
+    startedAtMs: a.startedAtMs || null,
+    solvedAtMs: a.solvedAtMs || null,
+    elapsedMs: a.elapsedMs === undefined ? null : a.elapsedMs,
+  };
+}));
+
+/*
+ * Correcting a run.
+ *
+ * Two shapes, and the safe one is the default.
+ *
+ * CONSTRAINED (no `force`): say what the run should have been and the server
+ * works out the rest. `guesses: 3` sets the score to SCORE_POINTS[2] and the
+ * histogram to match; `guesses: 0` is a void - score 0, clock cleared,
+ * histogram cleared, which is what void-sprint-run.mjs writes. There is no
+ * way to type a number here that puts somebody on 50,000 points, because no
+ * number is typed.
+ *
+ * FREE-FORM (`force: true`): score and clock go through as given. Needed
+ * occasionally and dangerous always, so it is a separate decision rather
+ * than a field somebody fills in by accident. The page puts a confirm in
+ * front of it; this is the half that cannot be clicked past.
+ *
+ * Either way the write is a transaction that re-reads the run, and every
+ * change is stamped with adminEditedAt/adminEditedBy so the row says it was
+ * touched rather than just looking odd later.
+ */
+exports.adminSetRun = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Correcting that run", async (request) => {
+  const adminUid = requireAdmin(request);
+  const { handle, date, guesses, score, elapsedMs, force = false, reason = "", reclaim = false } = request.data || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))) {
+    throw new HttpsError("invalid-argument", "Need a date as YYYY-MM-DD.");
+  }
+  const uid = await adminResolveUid(handle);
+  const runRef = db.collection("runs").doc(runDocId("sprint", uid, date));
+
+  let patch;
+  if (force) {
+    const sc = Number(score);
+    if (!Number.isFinite(sc) || sc < 0) throw new HttpsError("invalid-argument", "Score must be a number of 0 or more.");
+    // No upper bound on purpose: this path exists for the cases the tiers
+    // cannot express, and a cap would just be another thing to work around.
+    // What keeps it safe is that it is never the default.
+    const el = elapsedMs === null || elapsedMs === undefined || elapsedMs === "" ? null : Number(elapsedMs);
+    if (el !== null && (!Number.isFinite(el) || el < 0)) throw new HttpsError("invalid-argument", "Clock must be a number of ms, or empty.");
+    patch = { score: sc, elapsedMs: el };
+  } else {
+    const g = Number(guesses);
+    if (!Number.isInteger(g) || g < 0 || g > DAILY_GAUNTLET_MAX_GUESSES) {
+      throw new HttpsError("invalid-argument", `Guesses must be 0 (void) to ${DAILY_GAUNTLET_MAX_GUESSES}.`);
+    }
+    const solved = g > 0;
+    patch = {
+      score: solved ? SCORE_POINTS[g - 1] : 0,
+      wordsGuessed: solved ? 1 : 0,
+      fails: solved ? 0 : 1,
+      bestStreak: solved ? 1 : 0,
+      guess1: 0, guess2: 0, guess3: 0, guess4: 0, guess5: 0,
+    };
+    if (solved) patch["guess" + g] = 1;
+    // A void has no clock. A corrected solve keeps whatever it had, because
+    // the time is a separate fact from how many guesses it took.
+    if (!solved) patch.elapsedMs = null;
+  }
+
+  const before = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(runRef);
+    if (!snap.exists) throw new HttpsError("not-found", `No Sprint run for that player on ${date}.`);
+    const was = snap.data();
+    tx.update(runRef, {
+      ...patch,
+      ...(patch.score === 0 ? { voidedAt: FieldValue.serverTimestamp(), voidedReason: reason || "voided by operator" } : {}),
+      adminEditedAt: FieldValue.serverTimestamp(),
+      adminEditedBy: adminUid,
+      ...(reason ? { adminEditReason: reason } : {}),
+    });
+    // The payout already happened: onRunCreated banked the score and moved
+    // the counters when the run landed. Reclaiming is a SEPARATE decision,
+    // asked for explicitly, because quietly clawing points back is a bigger
+    // action than correcting a leaderboard row.
+    if (reclaim) {
+      const paid = Math.max(0, Number(was.score) || 0);
+      const now = Math.max(0, Number(patch.score) || 0);
+      const delta = paid - now;
+      if (delta !== 0) {
+        // set+merge like every other user write here: an account can be
+        // deleted and leave its runs behind, and update() on a missing
+        // document would fail the whole transaction.
+        tx.set(db.collection("users").doc(uid), {
+          wallet: FieldValue.increment(-delta),
+          careerBank: FieldValue.increment(-delta),
+        }, { merge: true });
+      }
+    }
+    return was;
+  });
+
+  return {
+    uid, date,
+    was: { score: Number(before.score) || 0, elapsedMs: before.elapsedMs === undefined ? null : before.elapsedMs },
+    now: { score: patch.score, elapsedMs: patch.elapsedMs === undefined ? (before.elapsedMs ?? null) : patch.elapsedMs },
+    reclaimed: !!reclaim,
+  };
+}));
+
+/*
+ * A flag that sticks, for the repeat case.
+ *
+ * Voiding one run is a correction. Somebody doing it weekly is a different
+ * problem, and chasing each run by hand is how an operator ends up not
+ * bothering.
+ *
+ * RIGHT NOW THIS ONLY RECORDS. Nothing reads `flagged` yet - onRunCreated
+ * does not check it, and a flagged player's runs score exactly as before.
+ * Making the flag bite is a deliberate second step (see ANTI-CHEAT.md), and
+ * it is a few lines inside onRunCreated when it is wanted. Until then this
+ * is a note to the operator that survives a page refresh, which is still
+ * more than a memory of who was trouble last week.
+ */
+exports.adminFlagUser = onCall({ secrets: [ADMIN_EMAIL] }, readableFailures("Flagging that player", async (request) => {
+  const adminUid = requireAdmin(request);
+  const { handle, flagged = true, reason = "" } = request.data || {};
+  const uid = await adminResolveUid(handle);
+  await db.collection("users").doc(uid).set({
+    flagged: !!flagged,
+    flaggedReason: flagged ? (reason || "flagged by operator") : FieldValue.delete(),
+    flaggedAt: flagged ? FieldValue.serverTimestamp() : FieldValue.delete(),
+    flaggedBy: flagged ? adminUid : FieldValue.delete(),
+  }, { merge: true });
+  return { uid, flagged: !!flagged };
 }));
 
 async function postTweet(text, creds) {

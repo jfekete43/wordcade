@@ -440,8 +440,9 @@ eq('X_LINK ships empty, which is the cheap rate', /^const X_LINK = "([^"]*)";/m.
       .replace(/^exports\.getDrafts = onCall\(\{[^}]*\}, readableFailures\("[^"]*", /, '')
       .replace(/\)\);$/, '');
     ck(/^async \(request\) => \{/.test(inner), 'the callable body is findable', inner.slice(0, 40));
+    const guard = grab(/^function requireAdmin\(request\) \{[\s\S]*?\n\}$/m, 'requireAdmin');
     const body = new Function('db', 'ADMIN_EMAIL', 'HttpsError', 'requireAuth', 'TOKEN',
-      `const fn = ${inner};\nreturn fn({ auth: { uid: 'u1', token: TOKEN } });`);
+      `${guard}\nconst fn = ${inner};\nreturn fn({ auth: { uid: 'u1', token: TOKEN } });`);
     try {
       await body(db, { value: () => secret }, HttpsError, () => 'u1', token);
       return { ok: true, read };

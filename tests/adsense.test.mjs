@@ -50,6 +50,7 @@ const pages = [];
 const walk = (dir) => {
   for (const e of fs.readdirSync(REPO(dir), { withFileTypes: true })) {
     if (e.name === 'node_modules' || e.name === 'tests' || e.name.startsWith('.')) continue;
+    if (e.name === 'admin.html') continue;   // internal tooling - see the note below
     const rel = dir ? `${dir}/${e.name}` : e.name;
     if (e.isDirectory()) walk(rel);
     else if (e.name.endsWith('.html')) pages.push(rel);

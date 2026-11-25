@@ -508,7 +508,14 @@ ok('the short date really is shorter',
 
 // The same fix had to go onto the hand-written pages, which had the bug first.
 // Found on disk: a list written out here skips whatever was added after it.
-const STATIC_PAGES = fs.readdirSync(REPO('.')).filter((f) => f.endsWith('.html') && f !== 'index.html').sort();
+// admin.html is internal tooling, not a page the public can reach: noindex,
+// nofollow, linked from nowhere, and every call it makes is gated server-side
+// on a verified admin email. It carries no ad tag, no analytics, no social
+// card and no copyright line, all deliberately - there is nobody to serve an
+// ad to, nothing to count, and nothing to unfurl. Excluded here rather than
+// given the furniture it has no use for.
+const STATIC_PAGES = fs.readdirSync(REPO('.'))
+  .filter((f) => f.endsWith('.html') && f !== 'index.html' && f !== 'admin.html').sort();
 ok('found the hand-written pages', STATIC_PAGES.length >= 7, STATIC_PAGES.join(','));
 for (const f of STATIC_PAGES) {
   const page = fs.readFileSync(REPO(f), 'utf8');

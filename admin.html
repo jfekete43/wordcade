@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexathon — Admin</title>
+    <!-- Not indexed, and not linked from anywhere. That is tidiness rather
+         than security: every call this page makes is checked server-side
+         against the ADMIN_EMAIL secret and a VERIFIED email claim, so the URL
+         being known gains nobody anything. Treat it as a convenience, never
+         as the lock. -->
+    <meta name="robots" content="noindex, nofollow">
+    <style>
+        /* The player palette, trimmed to what one tool screen needs. Not
+           shared with index.html on purpose: this page is not part of the
+           game and must not drag the game's stylesheet around with it. */
+        :root {
+            --c-page: #f7f3ea; --c-panel: #ffffff; --c-raised: #fdfbf6;
+            --c-line: #e6dece; --c-line-2: #d8ceb8;
+            --c-ink: #2a2420; --c-ink-3: #5c5447; --c-ink-4: #6f675a; --c-ink-5: #857c6c;
+            --c-sprint: #7a4a73; --c-clash: #b5563f; --c-endless: #4a7c59;
+            --c-loss: #b5563f; --c-correct: #24688f;
+            --r: 8px; --bw: 1px;
+            color-scheme: light;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 16px 16px 64px; background: var(--c-page); color: var(--c-ink);
+            font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 15px; line-height: 1.5;
+        }
+        .wrap { max-width: 860px; margin: 0 auto; }
+        h1 { font-size: 19px; margin: 0 0 2px; letter-spacing: .2px; }
+        .sub { color: var(--c-ink-4); font-size: 13px; margin: 0 0 18px; }
+        .card { background: var(--c-panel); border: var(--bw) solid var(--c-line);
+                border-radius: var(--r); padding: 14px; margin-bottom: 14px; }
+        .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
+                   color: var(--c-ink-5); margin: 0 0 10px; font-weight: 700; }
+        label { display: block; font-size: 12px; color: var(--c-ink-4); margin-bottom: 3px; }
+        input, select {
+            width: 100%; padding: 9px 10px; font: inherit; font-size: 16px; /* 16px: iOS zooms anything smaller */
+            border: var(--bw) solid var(--c-line-2); border-radius: 6px;
+            background: var(--c-raised); color: var(--c-ink);
+        }
+        .row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .row > * { flex: 1 1 150px; min-width: 0; }
+        button {
+            padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer;
+            border-radius: 6px; border: var(--bw) solid var(--c-line-2);
+            background: var(--c-raised); color: var(--c-ink);
+        }
+        button.go { background: var(--c-correct); border-color: var(--c-correct); color: #fff; }
+        button.danger { background: var(--c-clash); border-color: var(--c-clash); color: #fff; }
+        button:disabled { opacity: .5; cursor: default; }
+        .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+             color: var(--c-ink-5); padding: 6px 6px; border-bottom: var(--bw) solid var(--c-line); }
+        td { padding: 7px 6px; border-bottom: var(--bw) solid var(--c-line); vertical-align: top; }
+        tr.voided td { color: var(--c-ink-5); text-decoration: line-through; }
+        tr.voided td.tag { text-decoration: none; color: var(--c-clash); }
+        .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .who { font-weight: 600; }
+        .pick { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+        .scroll { overflow-x: auto; }
+
+        .pat { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 2px; }
+        .msg { padding: 10px 12px; border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+        .msg.err { background: #fdeceb; border: var(--bw) solid #f0c2bb; color: #7d2c1c; }
+        .msg.ok  { background: #ecf5ef; border: var(--bw) solid #c3dfcd; color: #255c38; }
+        .muted { color: var(--c-ink-4); font-size: 13px; }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Lexathon admin</h1>
+    <p class="sub">Look at runs, and correct them. Every call is checked against the admin email server-side.</p>
+
+    <div id="msg" hidden></div>
+
+    <!-- Sign-in. The gate is not here - it is in the callable - so this is
+         only about getting a token with a verified email onto the request. -->
+    <div class="card" id="auth-card">
+        <h2>Sign in</h2>
+        <p class="muted" id="auth-state">Checking…</p>
+        <div class="btns">
+            <button class="go" id="btn-signin">Sign in with Google</button>
+            <button id="btn-signout" hidden>Sign out</button>
+        </div>
+    </div>
+
+    <div id="tools" hidden>
+        <div class="card">
+            <h2>A day's board</h2>
+            <div class="row">
+                <div><label for="day">Date</label><input id="day" type="date"></div>
+            </div>
+            <div class="btns"><button class="go" id="btn-day">Load day</button></div>
+        </div>
+
+        <div class="card">
+            <h2>One player</h2>
+            <div class="row">
+                <div><label for="handle">Handle</label><input id="handle" placeholder="Taint_2963" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+            </div>
+            <div class="btns">
+                <button class="go" id="btn-player">Their runs</button>
+                <button id="btn-flag">Flag / unflag</button>
+            </div>
+        </div>
+
+        <div class="card" id="results-card" hidden>
+            <h2 id="results-title">Results</h2>
+            <div id="results"></div>
+        </div>
+
+        <div class="card" id="attempt-card" hidden>
+            <h2>Attempt</h2>
+            <div id="attempt"></div>
+        </div>
+
+        <div class="card" id="edit-card" hidden>
+            <h2 id="edit-title">Correct a run</h2>
+            <p class="muted" id="edit-who"></p>
+            <div class="row">
+                <div>
+                    <label for="guesses">What it should have been</label>
+                    <select id="guesses">
+                        <option value="0">Void — score 0</option>
+                        <option value="1">Solved in 1 — 500</option>
+                        <option value="2">Solved in 2 — 250</option>
+                        <option value="3">Solved in 3 — 150</option>
+                        <option value="4">Solved in 4 — 50</option>
+                        <option value="5">Solved in 5 — 10</option>
+                    </select>
+                </div>
+                <div><label for="reason">Reason (kept on the run)</label><input id="reason" placeholder="prior knowledge of the answer"></div>
+            </div>
+            <div class="btns">
+                <label style="flex:1 1 100%; margin-top:4px;">
+                    <input type="checkbox" id="reclaim" style="width:auto; margin-right:6px;">
+                    Also reclaim the points from their wallet and career bank
+                </label>
+                <button class="danger" id="btn-apply">Apply</button>
+                <button id="btn-freeform">Free-form…</button>
+            </div>
+            <div id="freeform" hidden style="margin-top:12px; border-top: var(--bw) solid var(--c-line); padding-top:12px;">
+                <p class="muted">Sets the score and clock to exactly what you type. No tier, no bounds.</p>
+                <div class="row">
+                    <div><label for="ff-score">Score</label><input id="ff-score" inputmode="numeric" placeholder="0"></div>
+                    <div><label for="ff-ms">Clock, ms (blank = none)</label><input id="ff-ms" inputmode="numeric" placeholder=""></div>
+                </div>
+                <div class="btns"><button class="danger" id="btn-ff-apply">Apply free-form</button></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFunctions, httpsCallable }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+// Same project as the game. A Firebase web config is not a secret - it
+// identifies the project, it does not authorise anything - and every call
+// this page makes is gated server-side regardless.
+const app = initializeApp({
+    apiKey: "AIzaSyCIJwc8SUom9KcyEwD8-JHFz8j19Ti9Tl8",
+    authDomain: "wordcade-387e8.firebaseapp.com",
+    projectId: "wordcade-387e8",
+    storageBucket: "wordcade-387e8.firebasestorage.app",
+    messagingSenderId: "720073432718",
+    appId: "1:720073432718:web:3f0a9dea471126e912b3df",
+});
+const auth = getAuth(app);
+const fns = getFunctions(app);
+const call = (name) => httpsCallable(fns, name);
+
+const $ = (id) => document.getElementById(id);
+const msg = (text, kind = "err") => {
+    const el = $("msg");
+    if (!text) { el.hidden = true; return; }
+    el.className = "msg " + kind; el.textContent = text; el.hidden = false;
+    el.scrollIntoView({ block: "nearest" });
+};
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const secs = (ms) => (ms === null || ms === undefined ? "—" : (Number(ms) / 1000).toFixed(1) + "s");
+const when = (ms) => (ms ? new Date(ms).toISOString().replace("T", " ").slice(0, 19) : "—");
+// # right letter right place, + in the word elsewhere, . not in the word.
+const pattern = (cols) => (Array.isArray(cols) ? cols : [])
+    .map((c) => (c === 2 ? "#" : c === 1 ? "+" : ".")).join("");
+
+let selected = null;   // { handle, date } — what the edit card acts on
+
+// ---- sign in ---------------------------------------------------------------
+onAuthStateChanged(auth, (user) => {
+    const inAs = user && !user.isAnonymous;
+    $("auth-state").textContent = inAs
+        ? `Signed in as ${user.email}${user.emailVerified ? "" : " (NOT verified — calls will be refused)"}`
+        : "Not signed in.";
+    $("btn-signin").hidden = !!inAs;
+    $("btn-signout").hidden = !inAs;
+    $("tools").hidden = !inAs;
+});
+$("btn-signin").onclick = async () => {
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); msg(""); }
+    catch (e) { msg(e.message); }
+};
+$("btn-signout").onclick = () => signOut(auth);
+
+// ---- a day's board ---------------------------------------------------------
+$("btn-day").onclick = async () => {
+    const date = $("day").value;
+    if (!date) return msg("Pick a date first.");
+    await run("btn-day", async () => {
+        const { data } = await call("adminDayBoard")({ date, mode: "sprint" });
+        $("results-title").textContent = `${date}${data.answer ? " — the word was " + data.answer : ""}`;
+        renderRuns(data.runs, { showWho: true, date });
+    });
+};
+
+// ---- one player ------------------------------------------------------------
+$("btn-player").onclick = async () => {
+    const handle = $("handle").value.trim();
+    if (!handle) return msg("Type a handle first.");
+    await run("btn-player", async () => {
+        const who = await call("adminLookupUser")({ handle });
+        const u = who.data;
+        const { data } = await call("adminUserRuns")({ handle, mode: "sprint" });
+        $("results-title").textContent =
+            `${u.username || handle} — ${u.sprintPlayed} played, ${u.sprintSolved} solved, ` +
+            `${u.wallet.toLocaleString()} in wallet${u.flagged ? " — FLAGGED" : ""}`;
+        renderRuns(data.runs, { showWho: false, handle });
+    });
+};
+
+$("btn-flag").onclick = async () => {
+    const handle = $("handle").value.trim();
+    if (!handle) return msg("Type a handle first.");
+    const on = confirm(`Flag ${handle}?\n\nOK = flag, Cancel = remove the flag.\n\nThis only RECORDS it. Nothing scores differently yet.`);
+    await run("btn-flag", async () => {
+        const { data } = await call("adminFlagUser")({ handle, flagged: on });
+        msg(`${handle} is ${data.flagged ? "flagged" : "no longer flagged"}.`, "ok");
+    });
+};
+
+// ---- the table -------------------------------------------------------------
+function renderRuns(runs, { showWho, date, handle }) {
+    $("results-card").hidden = false;
+    $("attempt-card").hidden = true;
+    $("edit-card").hidden = true;
+    if (!runs.length) { $("results").innerHTML = '<p class="muted">Nothing here.</p>'; return; }
+    const head = `<tr>${showWho ? "<th>#</th><th>Who</th>" : "<th>Day</th>"}` +
+        `<th class="num">Score</th><th class="num">Guesses</th><th class="num">Time</th><th>Recorded</th><th></th></tr>`;
+    const rows = runs.map((r, i) => {
+        const who = showWho
+            ? `<td class="num">${i + 1}</td><td class="who">${esc(r.username || r.uid)}</td>`
+            : `<td>${esc(r.date)}</td>`;
+        const key = showWho ? (r.username || r.uid) : handle;
+        return `<tr class="${r.voidedAt ? "voided" : ""}">${who}` +
+            `<td class="num">${r.score.toLocaleString()}</td>` +
+            `<td class="num">${r.guesses == null ? "—" : r.guesses}</td>` +
+            `<td class="num">${secs(r.elapsedMs)}</td>` +
+            `<td class="muted">${when(r.at)}</td>` +
+            `<td class="tag"><span class="pick" data-handle="${esc(key)}" data-date="${esc(r.date)}">open</span>` +
+            `${r.voidedAt ? " · VOIDED" : ""}</td></tr>`;
+    }).join("");
+    $("results").innerHTML = `<div class="scroll"><table>${head}${rows}</table></div>`;
+    $("results").querySelectorAll(".pick").forEach((el) => {
+        el.onclick = () => openAttempt(el.dataset.handle, el.dataset.date);
+    });
+}
+
+// ---- one attempt, guess by guess -------------------------------------------
+async function openAttempt(handle, date) {
+    selected = { handle, date };
+    await run(null, async () => {
+        const { data } = await call("adminAttempt")({ handle, date });
+        $("attempt-card").hidden = false;
+        if (!data.found) {
+            $("attempt").innerHTML = `<p class="muted">No attempt document for ${esc(handle)} on ${esc(date)}.</p>`;
+        } else {
+            const gs = data.guesses.map((g, i) =>
+                `<tr><td class="num">${i + 1}</td><td class="who">${esc(String(g.guess || "").toUpperCase())}</td>` +
+                `<td class="pat">${pattern(g.colors)}</td></tr>`).join("");
+            $("attempt").innerHTML =
+                `<p class="muted">${esc(handle)} · ${esc(date)}${data.answer ? " · the word was <b>" + esc(data.answer) + "</b>" : ""}</p>` +
+                `<div class="scroll"><table>${gs || '<tr><td class="muted">Opened the board, never guessed.</td></tr>'}</table></div>` +
+                `<p class="muted" style="margin-top:10px;">Clock ${secs(data.elapsedMs)} (first guess to solve) · ` +
+                `first guess ${when(data.startedAtMs)} · solved ${when(data.solvedAtMs)}</p>` +
+                `<p class="muted">( # right letter right place · + in the word elsewhere · . not in the word )</p>`;
+        }
+        $("edit-card").hidden = false;
+        $("edit-who").textContent = `${handle} · ${date}`;
+        $("freeform").hidden = true;
+    });
+}
+
+// ---- correcting ------------------------------------------------------------
+$("btn-freeform").onclick = () => { $("freeform").hidden = !$("freeform").hidden; };
+
+$("btn-apply").onclick = async () => {
+    if (!selected) return msg("Open a run first.");
+    const guesses = Number($("guesses").value);
+    const reclaim = $("reclaim").checked;
+    const what = guesses === 0 ? "VOID it (score 0)" : `set it to solved in ${guesses}`;
+    if (!confirm(`${selected.handle} · ${selected.date}\n\n${what}` +
+                 `${reclaim ? "\nAND reclaim the points from their wallet and career bank." : ""}\n\nGo ahead?`)) return;
+    await run("btn-apply", async () => {
+        const { data } = await call("adminSetRun")({
+            handle: selected.handle, date: selected.date, guesses, reclaim,
+            reason: $("reason").value.trim(),
+        });
+        msg(`${selected.handle} · ${selected.date}: ${data.was.score.toLocaleString()} → ` +
+            `${data.now.score.toLocaleString()}${data.reclaimed ? ", points reclaimed" : ""}.`, "ok");
+    });
+};
+
+$("btn-ff-apply").onclick = async () => {
+    if (!selected) return msg("Open a run first.");
+    const score = $("ff-score").value.trim();
+    const ms = $("ff-ms").value.trim();
+    if (score === "") return msg("Free-form needs a score.");
+    // Deliberately wordier than the constrained confirm. This is the path
+    // with no tiers and no bounds behind it, so the sentence does the work
+    // the validation is not doing.
+    if (!confirm(`FREE-FORM EDIT — no tier, no bounds.\n\n${selected.handle} · ${selected.date}\n\n` +
+                 `score → ${score}\nclock → ${ms === "" ? "none" : ms + "ms"}\n\n` +
+                 `This writes exactly those values. Go ahead?`)) return;
+    await run("btn-ff-apply", async () => {
+        const { data } = await call("adminSetRun")({
+            handle: selected.handle, date: selected.date, force: true,
+            score: Number(score), elapsedMs: ms === "" ? null : Number(ms),
+            reclaim: $("reclaim").checked, reason: $("reason").value.trim(),
+        });
+        msg(`${selected.handle} · ${selected.date}: ${data.was.score.toLocaleString()} → ` +
+            `${data.now.score.toLocaleString()} (free-form).`, "ok");
+    });
+};
+
+// One place that disables the button, clears the last message and turns a
+// thrown callable into a line the operator can read. Without it every handler
+// grows its own copy and one of them forgets to re-enable.
+async function run(btnId, fn) {
+    const btn = btnId && $(btnId);
+    if (btn) btn.disabled = true;
+    msg("");
+    try { await fn(); }
+    catch (e) { msg(e && e.message ? e.message : String(e)); }
+    finally { if (btn) btn.disabled = false; }
+}
+
+// Today, in the project's own timezone, so the date box opens on the day the
+// puzzle is actually keyed to rather than the viewer's.
+$("day").value = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }))
+    .toISOString().slice(0, 10);
+</script>
+</body>
+</html>

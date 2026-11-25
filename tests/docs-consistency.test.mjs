@@ -460,7 +460,7 @@ ok('DEPLOY.md documents it', /bash tools\/deploy\.sh/.test(read('DEPLOY.md')));
 // no traffic while the test stays green. 404.html was added and was invisible
 // to every suite here for exactly that reason.
 const ANALYTICS_FILES = [
-  ...fs.readdirSync(REPO_DIR).filter((f) => f.endsWith('.html')).sort(),
+  ...fs.readdirSync(REPO_DIR).filter((f) => f.endsWith('.html') && f !== 'admin.html').sort(),
   'tools/gauntlet-archive-render.mjs',
 ];
 const analytics = ANALYTICS_FILES.map((f) => {

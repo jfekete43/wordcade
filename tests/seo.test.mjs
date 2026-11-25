@@ -26,7 +26,13 @@ const REPO = (f) => path.join(REPO_DIR, f);
 const t = [];
 const ck = (name, cond, detail = '') => t.push({ name, cond: !!cond, detail });
 
-const pages = fs.readdirSync(REPO_DIR).filter((f) => f.endsWith('.html')).sort();
+// admin.html is internal tooling, not a page the public can reach: noindex,
+// nofollow, linked from nowhere, and every call it makes is gated server-side
+// on a verified admin email. It carries no ad tag, no analytics, no social
+// card and no copyright line, all deliberately - there is nobody to serve an
+// ad to, nothing to count, and nothing to unfurl. Excluded here rather than
+// given the furniture it has no use for.
+const pages = fs.readdirSync(REPO_DIR).filter((f) => f.endsWith('.html') && f !== 'admin.html').sort();
 ck('found the site pages', pages.length >= 8, pages.join(','));
 
 const read = (f) => fs.readFileSync(REPO(f), 'utf8');
