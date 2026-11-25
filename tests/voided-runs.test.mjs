@@ -19,7 +19,7 @@
  * Pure; no emulator, no browser, no Firestore. The tool's Firestore half is
  * behind an import.meta.url guard, so importing it runs nothing.
  */
-import { when, secs, guesses, sortRuns, parseArgs, playRate } from '../tools/voided-runs.mjs';
+import { when, secs, guesses, sortRuns, parseArgs, playRate, pattern } from '../tools/voided-runs.mjs';
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
@@ -90,11 +90,13 @@ eq('the mode can be changed', parseArgs(['--date=2026-11-17', '--mode=daily']),
    { date: '2026-11-17', handle: null, mode: 'daily' });
 eq('a handle is taken', parseArgs(['--handle=ELERUMMY']),
    { date: null, handle: 'ELERUMMY', mode: 'sprint' });
-// Two different questions - one day's board, or one player across days. Taking
-// both would quietly answer only one of them.
-ck(parseArgs(['--handle=X', '--date=2026-11-17']).error,
-   'a handle and a date together are refused rather than one being ignored',
-   JSON.stringify(parseArgs(['--handle=X', '--date=2026-11-17'])));
+// Three questions, not two. A handle alone is one player across days; a date
+// alone is one day's board; together they are that player's attempt on that
+// day, guess by guess. An earlier version refused the pair, which was wrong -
+// it is the view you reach for once the other two have told you who and when.
+eq('a handle and a date together are the third view',
+   parseArgs(['--handle=X', '--date=2026-11-17']),
+   { date: '2026-11-17', handle: 'X', mode: 'sprint' });
 ck(parseArgs(['--date=17/11/2026']).error, 'a date in the wrong shape is refused',
    JSON.stringify(parseArgs(['--date=17/11/2026'])));
 ck(parseArgs(['--reclaim']).error, 'an unknown flag is refused rather than ignored',
@@ -102,6 +104,16 @@ ck(parseArgs(['--reclaim']).error, 'an unknown flag is refused rather than ignor
 // --reclaim belongs to void-sprint-run and WRITES. A read-only tool silently
 // accepting it would be the worst kind of near-miss.
 ck(/unknown/.test(parseArgs(['--reclaim']).error || ''), 'and says so');
+
+// ---- a guess, as the board painted it ------------------------------------
+eq('a solve is five greens', pattern([2, 2, 2, 2, 2]), '#####');
+eq('a miss with two letters placed and one loose', pattern([2, 0, 1, 0, 2]), '#.+.#');
+eq('nothing at all', pattern([0, 0, 0, 0, 0]), '.....');
+// Colours arrive from Firestore and a corrupt or short array must not throw
+// in the middle of printing an investigation.
+eq('a missing grading does not crash the line', pattern(undefined), '');
+eq('and an unexpected value reads as absent rather than vanishing',
+   pattern([2, 9, 1]), '#.+');
 
 // ---- the base rate, which is what makes a coincidence mean anything -------
 {

@@ -5,6 +5,7 @@
  *   node tools/voided-runs.mjs
  *   node tools/voided-runs.mjs --date=2026-11-17
  *   node tools/voided-runs.mjs --handle=ELERUMMY
+ *   node tools/voided-runs.mjs --handle=Woozy_8362 --date=2026-11-25
  *
  * void-sprint-run.mjs stamps voidedAt and voidedReason on the run it zeroes,
  * so the record of an operator decision lives in the data rather than in
@@ -27,6 +28,17 @@
  * the board most days coincides with everything. Submission times are printed
  * to the second for the same reason - one person running two accounts shows
  * up as runs landing seconds apart, which rounding to the minute hides.
+ *
+ * With BOTH it prints that player's attempt on that day guess by guess, with
+ * each grading as the board painted it and the word that was being looked
+ * for. The guesses live on the attempt document, not the run: the run carries
+ * the histogram the leaderboard ranks, and the words themselves are only in
+ * sprintAttempts.
+ *
+ * What it cannot show is how long they stared at the board before typing.
+ * Only two moments are recorded - the first guess and the solve - so the gap
+ * before guess one, which is the number that separates knowing the word from
+ * working it out, does not exist for any past day.
  *
  * It is a tool for looking, not for concluding. Nothing in a run distinguishes
  * a fast solve from a repeat under a second account; that remains the
@@ -74,6 +86,14 @@ export const sortRuns = (rows) => [...rows].sort((a, b) =>
   (Number(b.score) || 0) - (Number(a.score) || 0) ||
   ((a.elapsedMs ?? Infinity) - (b.elapsedMs ?? Infinity)));
 
+/*
+ * One guess, as the player saw it. 2 is the right letter in the right place,
+ * 1 is in the word but elsewhere, 0 is not in the word - the same three the
+ * board paints.
+ */
+export const pattern = (colors) =>
+  (Array.isArray(colors) ? colors : []).map((c) => (c === 2 ? "#" : c === 1 ? "+" : ".")).join("");
+
 export function parseArgs(argv) {
   const val = (f) => { const a = argv.find((x) => x.startsWith(f + "=")); return a ? a.slice(f.length + 1) : null; };
   const unknown = argv.filter((a) => !/^--(date=.*|mode=.*|handle=.*)$/.test(a));
@@ -81,7 +101,10 @@ export function parseArgs(argv) {
   const date = val("--date");
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "--date=YYYY-MM-DD" };
   const handle = val("--handle");
-  if (handle && date) return { error: "--handle and --date are separate questions; pass one" };
+  // handle AND date is a third question - one player's attempt on one day,
+  // guess by guess - not a conflict. An earlier version refused the pair,
+  // which was wrong: it is the view you want once the other two have told
+  // you who and when.
   return { date, handle, mode: val("--mode") || "sprint" };
 }
 
@@ -111,6 +134,48 @@ async function main() {
   const { getFirestore } = await import("firebase-admin/firestore");
   if (!getApps().length) initializeApp({ credential: applicationDefault() });
   const db = getFirestore();
+
+  // ---- one player, one day: the attempt itself --------------------------
+  if (HANDLE && DATE) {
+    const who = await db.collection("users")
+      .where("usernameLower", "==", HANDLE.toLowerCase()).limit(2).get();
+    if (who.empty) { console.log(`no account with the handle ${HANDLE}`); return; }
+    if (who.size > 1) { console.log(`${HANDLE} matches more than one account; refusing to guess`); return; }
+    const uid = who.docs[0].id;
+
+    // The guesses live on the ATTEMPT, not the run. The run document carries
+    // the histogram the board ranks - how many guesses, how fast - and the
+    // words themselves are only here.
+    const att = await db.collection("sprintAttempts").doc(uid).collection("days").doc(DATE).get();
+    if (!att.exists) { console.log(`${HANDLE} has no Sprint attempt on ${DATE}.`); return; }
+    const a = att.data();
+    const puz = await db.collection("sprintPuzzles").doc(DATE).get();
+    const answer = puz.exists ? String(puz.data().word || "").toUpperCase() : null;
+
+    console.log(`${HANDLE} -> ${uid}`);
+    console.log(`Sprint ${DATE}${answer ? `, the word was ${answer}` : ""}\n`);
+    const gs = Array.isArray(a.guesses) ? a.guesses : [];
+    if (!gs.length) { console.log("  (opened the board, never guessed)"); }
+    gs.forEach((g, i) => {
+      console.log(`  ${i + 1}.  ${String(g.guess || "?").toUpperCase().padEnd(7)} ${pattern(g.colors)}`);
+    });
+    console.log("");
+    console.log(`  status    ${a.status || "?"}${a.solved ? " (solved)" : ""}`);
+    console.log(`  score     ${Number(a.score) || 0}`);
+    console.log(`  clock     ${secs(a.elapsedMs)}  (first guess to solve)`);
+    // Only two timestamps exist: the first guess and the solve. Nothing
+    // records when the board was OPENED, so how long they looked at it before
+    // typing - the one number that separates knowing the word from working it
+    // out - cannot be recovered for any past day.
+    if (a.startedAtMs) {
+      console.log(`  1st guess ${new Date(a.startedAtMs).toISOString().replace("T", " ").slice(0, 19)}`);
+    }
+    if (a.solvedAtMs) {
+      console.log(`  solved    ${new Date(a.solvedAtMs).toISOString().replace("T", " ").slice(0, 19)}`);
+    }
+    console.log("\n  (# right letter right place, + in the word elsewhere, . not in the word)");
+    return;
+  }
 
   if (HANDLE) {
     // Resolved through usernameLower, the same field the game's own
