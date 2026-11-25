@@ -100,7 +100,8 @@ const between = (src, a, b) => {
   const el = (id) => ({ id, innerHTML: '', innerText: '', style: { props: {},
     setProperty(k, v) { this.props[k] = v; } } });
   const nodes = { 'mode-bar': el('mode-bar'), 'mode-lockup-name': el('n'), 'menu-modes': el('m') };
-  const doc = { getElementById: (id) => nodes[id] || null };
+  const body = el('body');
+  const doc = { getElementById: (id) => nodes[id] || null, body };
   const api = run(doc, (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
 
@@ -108,9 +109,22 @@ const between = (src, a, b) => {
   eq('the lockup takes the mode’s label', nodes['mode-lockup-name'].innerText, 'MARATHON');
   eq('and the mode’s colour, as one variable', nodes['mode-bar'].style.props['--c-mode'],
      'var(--c-marathon)');
+  // The desktop wordmark follows the mode too. It lives in .arcade-head, a
+  // SIBLING of the bar, so it cannot inherit a variable set on the bar - this
+  // goes on body, the nearest common ancestor.
+  eq('the wordmark follows the mode, from body', body.style.props['--wm-mode'],
+     'var(--wm-marathon)');
+  // --wm-*, not --c-*. The mode colours are built as a button FILL behind
+  // white text; as small text on a keycap face six of the twelve measured
+  // under 4.5:1. They are also signals, so they cannot be repainted - hence a
+  // parallel token of the same hue rather than a tweak to --c-marathon.
+  ck(!/--c-marathon/.test(body.style.props['--wm-mode'] || ''),
+     'and not the raw mode colour, which is a signal and is not legible there',
+     String(body.style.props['--wm-mode']));
   api.renderModeLockup('endless');
   eq('Stakes is spelled the way the table spells it, not "endless"',
      nodes['mode-lockup-name'].innerText, 'STAKES');
+  eq('and the wordmark moves with it', body.style.props['--wm-mode'], 'var(--wm-endless)');
   // A mode that is not in the table at all must not blank the bar.
   const before = nodes['mode-lockup-name'].innerText;
   api.renderModeLockup('nonsense');

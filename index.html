@@ -132,11 +132,33 @@
             --c-clash: #b5563f;
             --c-ffa: #8a6b26;
             --c-sprint: #7a4a73;
-            /* The wordmark's letters. Sprint's purple on paper, but its OWN
-               token: --c-sprint is a signal (which mode you are in) and a
-               signal may not be repainted for a brand. Dark gets a lifted
-               value because the letters sit on the keycap FACE, which is a
-               raised surface and much lighter than the page. */
+            /* The wordmark's letters, one per mode, following whichever mode
+               you are in - the same thing the phone lockup's L does.
+
+               They are NOT --c-sprint and friends. Two reasons, and both
+               matter. A mode colour is a signal (which mode you are in) and
+               this file's own rule is that a signal is never repainted for
+               something else. And the signals are built to work as a button
+               FILL behind white text and as text on the page; the wordmark is
+               small text on a raised keycap face, which is a different and
+               much less forgiving surface. Measured there, six of the twelve
+               mode colours came in under 4.5:1 - Clash at 2.97 in dark and
+               4.50 in light, Stakes 3.00, FFA 3.10, Trifecta 3.67.
+
+               So each is the mode's own hue moved in lightness until it holds
+               5.5:1 on the face, and the dark twin is then lifted to the same
+               ratio - the method the seasonal accents below already use. Three
+               of the light six are the mode colour unchanged, because they
+               already cleared it.
+
+               --wm-ink is the pre-script default and the fallback, and equals
+               the Sprint value: Sprint is the mode the markup ships showing. */
+            --wm-sprint: #7a4a73;
+            --wm-marathon: #1d5c5c;
+            --wm-endless: #416e4f;
+            --wm-clash: #9f4c37;
+            --wm-ffa: #7c6022;
+            --wm-gauntlet: #6b5b95;
             --wm-ink: #7a4a73;
             --c-marathon: #1d5c5c;
             /* a letter that is in no part of the word */
@@ -276,8 +298,17 @@
             --c-clash: #bc654f;
             --c-ffa: #987d3f;
             --c-sprint: #ae90a4;
-            /* 6.43:1 on --kc-face, the ratio the light pair holds. #ae90a4,
-               the mode colour, measures 4.25:1 there. */
+            /* Each holds its light twin's ratio on --kc-face, which the mode
+               colours themselves do not: on this face they measure 4.25 down
+               to 2.97, because --kc-face is a RAISED surface (#39352e) and far
+               lighter than the page (#1a1712) that the dark palette was tuned
+               against. Same hue, lifted in L; see the note in :root. */
+            --wm-sprint: #cab7c4;
+            --wm-marathon: #b8cbc8;
+            --wm-endless: #93b79c;
+            --wm-clash: #d7a396;
+            --wm-ffa: #c5ac73;
+            --wm-gauntlet: #b3abc6;
             --wm-ink: #cab7c4;
             --c-marathon: #89a8a3;
             /* a letter that is in no part of the word */
@@ -369,7 +400,7 @@
         .arcade-title {
             display: flex; gap: 3px; align-items: center;
             margin: 0;
-            color: var(--wm-ink);
+            color: var(--wm-mode, var(--wm-ink));
             --wm: min(34px, calc((100vw - 142px) / 8));
             position: relative;
             z-index: 2;
@@ -6124,6 +6155,15 @@
             const cfg = MODES[here] || MODES[VISIBLE_MODES[0]];
             if (!cfg) return;
             bar.style.setProperty("--c-mode", cfg.color);
+            // The wordmark follows the mode too, and it lives in .arcade-head
+            // - a SIBLING of the bar, not a descendant, so it cannot inherit
+            // a variable set on the bar. body is the nearest common ancestor.
+            //
+            // --wm-mode, not --c-mode: the wordmark needs the legible-on-a-
+            // keycap version of the mode's hue (see the note in :root), and
+            // setting --c-mode this high would also hand every unscoped
+            // var(--c-mode) on the page a value it never had before.
+            if (document.body) document.body.style.setProperty("--wm-mode", cfg.color.replace("--c-", "--wm-"));
             const name = document.getElementById("mode-lockup-name");
             if (name) name.innerText = cfg.label;
         }

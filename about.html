@@ -51,11 +51,33 @@
             --c-clash: #b5563f;
             --c-ffa: #8a6b26;
             --c-sprint: #7a4a73;
-            /* The wordmark's letters. Sprint's purple on paper, but its OWN
-               token: --c-sprint is a signal (which mode you are in) and a
-               signal may not be repainted for a brand. Dark gets a lifted
-               value because the letters sit on the keycap FACE, which is a
-               raised surface and much lighter than the page. */
+            /* The wordmark's letters, one per mode, following whichever mode
+               you are in - the same thing the phone lockup's L does.
+
+               They are NOT --c-sprint and friends. Two reasons, and both
+               matter. A mode colour is a signal (which mode you are in) and
+               this file's own rule is that a signal is never repainted for
+               something else. And the signals are built to work as a button
+               FILL behind white text and as text on the page; the wordmark is
+               small text on a raised keycap face, which is a different and
+               much less forgiving surface. Measured there, six of the twelve
+               mode colours came in under 4.5:1 - Clash at 2.97 in dark and
+               4.50 in light, Stakes 3.00, FFA 3.10, Trifecta 3.67.
+
+               So each is the mode's own hue moved in lightness until it holds
+               5.5:1 on the face, and the dark twin is then lifted to the same
+               ratio - the method the seasonal accents below already use. Three
+               of the light six are the mode colour unchanged, because they
+               already cleared it.
+
+               --wm-ink is the pre-script default and the fallback, and equals
+               the Sprint value: Sprint is the mode the markup ships showing. */
+            --wm-sprint: #7a4a73;
+            --wm-marathon: #1d5c5c;
+            --wm-endless: #416e4f;
+            --wm-clash: #9f4c37;
+            --wm-ffa: #7c6022;
+            --wm-gauntlet: #6b5b95;
             --wm-ink: #7a4a73;
             --c-marathon: #1d5c5c;
             /* a letter that is in no part of the word */

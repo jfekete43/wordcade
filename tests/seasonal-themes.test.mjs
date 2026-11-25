@@ -405,6 +405,51 @@ ck('every season has its own accent, none shared',
   }, Seasons.TABLE.map((s) => s.id));
   await face.close();
 
+  // The wordmark follows the MODE as well as the season, so the same question
+  // has to be asked of all six mode colours. It is not rhetorical: measured on
+  // the keycap face, the raw --c-* values come in at 2.97 (Clash, dark) to
+  // 4.50 (Clash, light) and six of the twelve are under 4.5, which is why
+  // --wm-* exists as a parallel set rather than the wordmark just pointing at
+  // --c-mode.
+  {
+    const modes = await browser.newPage({ viewport: { width: 900, height: 800 } });
+    await modes.setContent(markup);
+    const got = await modes.evaluate(() => {
+      const lum = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number);
+        const f = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; };
+        return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+      const out = {};
+      const t = document.querySelector('.arcade-title');
+      const legend = t.querySelector('.kc-legend'), face = t.querySelector('.kc-face');
+      for (const theme of ['light', 'dark']) {
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        for (const m of ['sprint', 'marathon', 'endless', 'clash', 'ffa', 'gauntlet']) {
+          // exactly what renderModeLockup writes
+          document.body.style.setProperty('--wm-mode', `var(--wm-${m})`);
+          const a = lum(getComputedStyle(legend).fill), b = lum(getComputedStyle(face).fill);
+          out[theme + '/' + m] = {
+            ratio: Math.round(((Math.max(a, b) + .05) / (Math.min(a, b) + .05)) * 100) / 100,
+            fill: getComputedStyle(legend).fill,
+          };
+        }
+      }
+      document.documentElement.classList.remove('dark');
+      document.body.style.removeProperty('--wm-mode');
+      return out;
+    });
+    await modes.close();
+    for (const [k, v] of Object.entries(got)) {
+      ck(`${k}: the wordmark is legible on the keycap`, v.ratio >= 4.5, v.ratio.toFixed(2) + ':1');
+    }
+    for (const theme of ['light', 'dark']) {
+      const fills = Object.entries(got).filter(([k]) => k.startsWith(theme + '/')).map(([, v]) => v.fill);
+      // Six modes, six wordmarks. If any two collapse to the same colour the
+      // feature is invisible for those two and should not exist.
+      ck(`${theme}: every mode gives the wordmark its own colour`,
+         new Set(fills).size === 6, `${new Set(fills).size} distinct of 6`);
+    }
+  }
+
   for (const [k, r] of Object.entries(rows)) {
     // 4.5, not 3: the legend renders about 10px, which is small text however
     // bold it is. The lockup's L is a thick stroke and is the large-text case.
