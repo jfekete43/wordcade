@@ -178,6 +178,29 @@
     </div>
 </div>
 
+<!--
+  Outside the module on purpose. If the Firebase SDK cannot be fetched from
+  gstatic the module never executes at all, so a timeout living inside it
+  could not report the one failure most worth reporting. This is a plain
+  script with no imports: it runs either way.
+-->
+<script>
+(function () {
+    var t = setTimeout(function () {
+        var el = document.getElementById("auth-state");
+        if (!el || el.textContent !== "Checking\u2026") return;
+        el.textContent = "Could not reach Google sign-in. Check your connection, then reload.";
+        var m = document.getElementById("msg");
+        if (m) {
+            m.className = "msg err";
+            m.textContent = "Firebase Auth did not answer. Nothing is wrong with the page \u2014 it cannot reach the network.";
+            m.hidden = false;
+        }
+    }, 10000);
+    window.clearAuthWatchdog = function () { if (t) { clearTimeout(t); t = null; } };
+})();
+</script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
@@ -218,7 +241,13 @@ const pattern = (cols) => (Array.isArray(cols) ? cols : [])
 let selected = null;   // { handle, date } — what the edit card acts on
 
 // ---- sign in ---------------------------------------------------------------
+// "Checking…" is the markup's placeholder and onAuthStateChanged replaces it.
+// If Auth cannot be reached it fires NEITHER callback - it retries quietly -
+// so the word sits there for as long as the page is open, which is how this
+// looked like a broken admin page rather than a connection that was not
+// getting through. Cleared by the first auth event, whichever way it goes.
 onAuthStateChanged(auth, (user) => {
+    if (window.clearAuthWatchdog) window.clearAuthWatchdog();
     const inAs = user && !user.isAnonymous;
     $("auth-state").textContent = inAs
         ? `Signed in as ${user.email}${user.emailVerified ? "" : " (NOT verified — calls will be refused)"}`

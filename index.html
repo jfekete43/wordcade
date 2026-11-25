@@ -3311,6 +3311,59 @@
 
     <script src="words.js"></script>
 
+    <!--
+      The board watchdog, deliberately OUTSIDE the module below.
+
+      Every board loader already handles a Firestore ERROR. What none of them
+      handle is a call that never comes back: onSnapshot retries quietly and
+      getDocs just sits there, so the markup's "Loading…" stays on screen for
+      as long as the page is open.
+
+      The first version of this armed itself inside those loaders, which was
+      useless for the case it was written for - if Auth never answers, boot
+      never finishes, the loaders never run, and the watchdog never arms. And
+      a module whose import from gstatic fails does not execute at all, so
+      anything inside it cannot report that nothing loaded.
+
+      So it lives here: a plain script with no imports, which runs even when
+      the module does not. It judges by what is ON SCREEN rather than by what
+      any call did, so no loader has to remember to cancel it.
+    -->
+    <script>
+    (function () {
+        var PLACEHOLDER = "Loading\u2026";
+        var timer = null;
+        function el() { return document.getElementById("daily-board-list"); }
+        window.armBoardWatchdog = function (ms) {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(function () {
+                timer = null;
+                var e = el();
+                if (!e || e.textContent.trim() !== PLACEHOLDER) return;
+                e.innerHTML =
+                    '<div style="color:var(--c-ink-4); font-style:normal;">' +
+                    'Could not reach the leaderboard. Check your connection.' +
+                    '<br><button type="button" onclick="window.retryHomeBoard()" ' +
+                    'style="margin-top:8px; padding:6px 12px; font:inherit; font-size:var(--fs-2); ' +
+                    'border:var(--bw) solid var(--c-line-2); border-radius:var(--r-2); ' +
+                    'background:var(--c-raised); color:var(--c-ink); cursor:pointer;">Try again</button></div>';
+            }, ms || 12000);
+        };
+        window.retryHomeBoard = function () {
+            var e = el();
+            if (e) e.textContent = PLACEHOLDER;
+            window.armBoardWatchdog();
+            // Only there once the module has run. If it has not, re-arming
+            // above is all that can be done and the message comes back.
+            if (window.loadHomeBoard) window.loadHomeBoard();
+        };
+        // Armed on load, not on first use. This is the whole point.
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", function () { window.armBoardWatchdog(); });
+        } else { window.armBoardWatchdog(); }
+    })();
+    </script>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, linkWithPopup, linkWithCredential, EmailAuthProvider, signInWithEmailAndPassword, sendPasswordResetEmail, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -4278,6 +4331,27 @@
                 + `<span class="daily-board-score">${scoreCell}</span></div>`;
         }
 
+        /*
+         * A board that never answers.
+         *
+         * Every loader below already handles an ERROR - "Board unavailable
+         * right now." - but a Firestore call on a bad connection does not
+         * error. onSnapshot retries quietly and getDocs sits there, so
+         * neither callback runs and the markup's "Loading…" stays on screen
+         * for as long as the page is open. Reported from a phone on one bar:
+         * a rendered page with a leaderboard that never arrives and no way to
+         * tell a slow network from a broken site.
+         *
+         * This watches the OUTCOME rather than the call. When it fires it
+         * looks at what is actually in the element: if a board painted, or an
+         * error message landed, the text is no longer the placeholder and it
+         * does nothing. That way no loader has to remember to cancel it, and
+         * a loader added later is covered without being told.
+         *
+         * Only the first load is covered, deliberately. A reload that hangs
+         * leaves the PREVIOUS board on screen, and stale rows beat an error
+         * message replacing standings that were fine a second ago.
+         */
         function renderDailyBoardRows(rows, emptyText) {
             document.getElementById("daily-board-list").innerHTML =
                 rows.map((r, i) => dailyBoardRow(r.place || i + 1, r.name, r.equipped, boardScore(r.score), boardDate(r.ts))).join("")
@@ -4353,10 +4427,14 @@
             if (mArch) mArch.style.display = "none";
         }
 
+        // Published for the watchdog in the plain script above, which cannot
+        // see module scope and is the only thing still running if boot stalls.
+        window.loadHomeBoard = () => loadHomeBoard();
         async function loadHomeBoard() {
             // Sprint and Marathon are showing their own standings in this
             // container. Repainting over them is what a tab tap did.
             if (modeOwnsHomeBoard()) return;
+            window.armBoardWatchdog && window.armBoardWatchdog();
             renderHomeBoardChrome();
             // Only one board is ever live, and only the daily one needs to be.
             if (dailyBoardUnsub) { dailyBoardUnsub(); dailyBoardUnsub = null; }
@@ -4400,6 +4478,7 @@
         // often enough to be worth a live listener, and a listener on an
         // unfiltered orderBy is the expensive kind.
         async function loadUsersBoard() {
+            window.armBoardWatchdog && window.armBoardWatchdog();
             const cfg = HOME_BOARDS[homeBoard];
             try {
                 const constraints = homeBoard === "weekly"
@@ -4722,6 +4801,15 @@
         };
 
         window.signInWithGoogle = async function() {
+            // currentUser is only ever set inside onAuthStateChanged. If Auth
+            // has not answered - no network, a blocked host - it is still
+            // null here, and the SDK's own message for that is "null is not
+            // an object (evaluating 'n.auth')", which tells a player nothing
+            // and reads like the site is broken.
+            if (!currentUser) {
+                alert("Still connecting to Lexathon. Check your connection and try again in a moment.");
+                return;
+            }
             try {
                 // linkWithPopup upgrades the CURRENT anonymous session to a
                 // Google-backed one — same uid, same Firestore doc, so every
@@ -4860,6 +4948,15 @@
             const email = document.getElementById('email-auth-email').value.trim();
             const password = document.getElementById('email-auth-password').value;
             if (!email || !password) { alert("Enter both an email and a password."); return; }
+            // currentUser is only ever set inside onAuthStateChanged. If Auth
+            // has not answered - no network, a blocked host - it is still
+            // null here, and the SDK's own message for that is "null is not
+            // an object (evaluating 'n.auth')", which tells a player nothing
+            // and reads like the site is broken.
+            if (!currentUser) {
+                alert("Still connecting to Lexathon. Check your connection and try again in a moment.");
+                return;
+            }
 
             try {
                 // Same principle as Google: link this credential to the CURRENT
@@ -6785,6 +6882,7 @@
         }
 
         async function loadMarathonBoard() {
+            window.armBoardWatchdog && window.armBoardWatchdog();
             // Same borrow as Sprint, and the same bug without it.
             document.getElementById("daily-board-container").style.display = "block";
             document.getElementById("home-board-tabs").style.display = "none";
@@ -7529,6 +7627,7 @@
         // values, so the clock is what actually orders the rows — it is shown
         // because without it the board looks arbitrary.
         async function loadSprintBoard() {
+            window.armBoardWatchdog && window.armBoardWatchdog();
             // Borrow the board container. openSprint calls showStandardPanels(false)
             // to clear the Stakes furniture, which hides this whole container -
             // so without taking it back, every row written below landed in a
