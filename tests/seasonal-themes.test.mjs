@@ -406,15 +406,45 @@ ck('every season has its own accent, none shared',
   await face.close();
 
   // The wordmark follows the MODE as well as the season, so the same question
-  // has to be asked of all six mode colours. It is not rhetorical: measured on
-  // the keycap face, the raw --c-* values come in at 2.97 (Clash, dark) to
-  // 4.50 (Clash, light) and six of the twelve are under 4.5, which is why
-  // --wm-* exists as a parallel set rather than the wordmark just pointing at
-  // --c-mode.
+  // has to be asked of every mode colour. It is not rhetorical: measured on
+  // the keycap face the raw --c-* values run 2.97 (Clash, dark) to 4.50
+  // (Clash, light), and four of the eight live combinations are under 4.5 -
+  // which is why --wm-* is a parallel set rather than the wordmark simply
+  // pointing at --c-mode.
+  //
+  // The list is DERIVED from the MODES table, not written out here. Written
+  // out, it carried --wm-ffa and --wm-gauntlet long after both modes were
+  // hidden: two tokens nothing could ever select, swept for contrast every
+  // run, and copied into nine palettes. Derived, un-hiding a mode fails this
+  // until it has a colour, and hiding one stops it being asked for.
   {
+    // NOTE: ck in this suite is (name, cond, detail) - the reverse of the
+    // other suites here. Four of the checks below went in condition-first and
+    // passed on a truthy string until a mutation run caught them.
+    const tStart = html.indexOf('const MODES = {');
+    const table = html.slice(tStart, html.indexOf('\n        };', tStart));
+    const VISIBLE = [...table.matchAll(/^\s*(\w+):\s*\{([^}]*)\}/gm)]
+      .filter((m) => !/hidden:\s*true/.test(m[2])).map((m) => m[1]);
+    const HIDDEN = [...table.matchAll(/^\s*(\w+):\s*\{([^}]*)\}/gm)]
+      .filter((m) => /hidden:\s*true/.test(m[2])).map((m) => m[1]);
+    ck('read the visible modes off the table', VISIBLE.length >= 3, VISIBLE.join(','));
+    ck('and the hidden ones', HIDDEN.length > 0, HIDDEN.join(','));
+    // A visible mode with no wordmark colour falls back to --wm-ink, which is
+    // Sprint's: the wordmark would silently stop following the mode for it.
+    for (const m of VISIBLE) {
+      ck(`${m} has a wordmark colour`, new RegExp(`--wm-${m}:\\s*#`).test(html),
+         `--wm-${m} is not declared`);
+    }
+    // And the reverse, which is what went wrong: a token for a mode nobody
+    // can be in is dead weight in nine files.
+    for (const m of HIDDEN) {
+      ck(`${m} is hidden, so it carries no wordmark colour`,
+         !new RegExp(`--wm-${m}:`).test(html),
+         (html.match(new RegExp(`[^\\n]*--wm-${m}:[^\\n]*`)) || [''])[0].trim());
+    }
     const modes = await browser.newPage({ viewport: { width: 900, height: 800 } });
     await modes.setContent(markup);
-    const got = await modes.evaluate(() => {
+    const got = await modes.evaluate((visible) => {
       const lum = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number);
         const f = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; };
         return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
@@ -423,7 +453,7 @@ ck('every season has its own accent, none shared',
       const legend = t.querySelector('.kc-legend'), face = t.querySelector('.kc-face');
       for (const theme of ['light', 'dark']) {
         document.documentElement.classList.toggle('dark', theme === 'dark');
-        for (const m of ['sprint', 'marathon', 'endless', 'clash', 'ffa', 'gauntlet']) {
+        for (const m of visible) {
           // exactly what renderModeLockup writes
           document.body.style.setProperty('--wm-mode', `var(--wm-${m})`);
           const a = lum(getComputedStyle(legend).fill), b = lum(getComputedStyle(face).fill);
@@ -436,7 +466,7 @@ ck('every season has its own accent, none shared',
       document.documentElement.classList.remove('dark');
       document.body.style.removeProperty('--wm-mode');
       return out;
-    });
+    }, VISIBLE);
     await modes.close();
     for (const [k, v] of Object.entries(got)) {
       ck(`${k}: the wordmark is legible on the keycap`, v.ratio >= 4.5, v.ratio.toFixed(2) + ':1');
@@ -446,7 +476,8 @@ ck('every season has its own accent, none shared',
       // Six modes, six wordmarks. If any two collapse to the same colour the
       // feature is invisible for those two and should not exist.
       ck(`${theme}: every mode gives the wordmark its own colour`,
-         new Set(fills).size === 6, `${new Set(fills).size} distinct of 6`);
+         new Set(fills).size === VISIBLE.length,
+         `${new Set(fills).size} distinct of ${VISIBLE.length}`);
     }
   }
 

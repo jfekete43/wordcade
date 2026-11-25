@@ -60,15 +60,22 @@
                something else. And the signals are built to work as a button
                FILL behind white text and as text on the page; the wordmark is
                small text on a raised keycap face, which is a different and
-               much less forgiving surface. Measured there, six of the twelve
-               mode colours came in under 4.5:1 - Clash at 2.97 in dark and
-               4.50 in light, Stakes 3.00, FFA 3.10, Trifecta 3.67.
+               much less forgiving surface. Measured there, four of the eight
+               live combinations came in under 4.5:1 - Clash at 2.97 in dark
+               and 4.50 in light, Stakes 3.00, Sprint 4.25 in dark.
 
                So each is the mode's own hue moved in lightness until it holds
                5.5:1 on the face, and the dark twin is then lifted to the same
-               ratio - the method the seasonal accents below already use. Three
-               of the light six are the mode colour unchanged, because they
-               already cleared it.
+               ratio - the method the seasonal accents below already use. Two
+               of the four light values are the mode colour unchanged, because
+               they already cleared it.
+
+               One token per VISIBLE mode. FFA and the Trifecta are hidden in
+               the MODES table, so nothing can ever set --wm-mode to theirs;
+               unlike their table entries, which currentMode() and old share
+               links still need, a wordmark colour for a mode nobody can be in
+               is unreachable. The test derives this list from the table, so
+               un-hiding a mode fails until it is given one.
 
                --wm-ink is the pre-script default and the fallback, and equals
                the Sprint value: Sprint is the mode the markup ships showing. */
@@ -76,8 +83,6 @@
             --wm-marathon: #1d5c5c;
             --wm-endless: #416e4f;
             --wm-clash: #9f4c37;
-            --wm-ffa: #7c6022;
-            --wm-gauntlet: #6b5b95;
             --wm-ink: #7a4a73;
             --c-marathon: #1d5c5c;
             /* a letter that is in no part of the word */
