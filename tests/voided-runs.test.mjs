@@ -19,7 +19,7 @@
  * Pure; no emulator, no browser, no Firestore. The tool's Firestore half is
  * behind an import.meta.url guard, so importing it runs nothing.
  */
-import { when, secs, guesses, sortRuns, parseArgs } from '../tools/voided-runs.mjs';
+import { when, secs, guesses, sortRuns, parseArgs, playRate } from '../tools/voided-runs.mjs';
 
 const t = [];
 const ck = (ok, name, detail = '') => t.push([!!ok, name, detail]);
@@ -82,10 +82,19 @@ eq('and so does an unsolved one', guesses({ fails: 1 }), '—');
 }
 
 // ---- arguments ------------------------------------------------------------
-eq('no arguments means "list the voided runs"', parseArgs([]), { date: null, mode: 'sprint' });
-eq('a date is taken', parseArgs(['--date=2026-11-17']), { date: '2026-11-17', mode: 'sprint' });
+eq('no arguments means "list the voided runs"', parseArgs([]),
+   { date: null, handle: null, mode: 'sprint' });
+eq('a date is taken', parseArgs(['--date=2026-11-17']),
+   { date: '2026-11-17', handle: null, mode: 'sprint' });
 eq('the mode can be changed', parseArgs(['--date=2026-11-17', '--mode=daily']),
-   { date: '2026-11-17', mode: 'daily' });
+   { date: '2026-11-17', handle: null, mode: 'daily' });
+eq('a handle is taken', parseArgs(['--handle=ELERUMMY']),
+   { date: null, handle: 'ELERUMMY', mode: 'sprint' });
+// Two different questions - one day's board, or one player across days. Taking
+// both would quietly answer only one of them.
+ck(parseArgs(['--handle=X', '--date=2026-11-17']).error,
+   'a handle and a date together are refused rather than one being ignored',
+   JSON.stringify(parseArgs(['--handle=X', '--date=2026-11-17'])));
 ck(parseArgs(['--date=17/11/2026']).error, 'a date in the wrong shape is refused',
    JSON.stringify(parseArgs(['--date=17/11/2026'])));
 ck(parseArgs(['--reclaim']).error, 'an unknown flag is refused rather than ignored',
@@ -94,9 +103,32 @@ ck(parseArgs(['--reclaim']).error, 'an unknown flag is refused rather than ignor
 // accepting it would be the worst kind of near-miss.
 ck(/unknown/.test(parseArgs(['--reclaim']).error || ''), 'and says so');
 
+// ---- the base rate, which is what makes a coincidence mean anything -------
+{
+  // A player on the board nearly every day coincides with everything, so
+  // "they were both there" is only evidence when being there is uncommon.
+  const daily = playRate(['2026-11-10','2026-11-11','2026-11-12','2026-11-13','2026-11-14']);
+  eq('five days out of five is a 100% player', [daily.days, daily.span, Math.round(daily.rate * 100)],
+     [5, 5, 100]);
+  const rare = playRate(['2026-11-10', '2026-11-17']);
+  eq('two days across eight is not', [rare.days, rare.span, Math.round(rare.rate * 100)],
+     [2, 8, 25]);
+  // Repeats must not inflate it: two runs on one day is one day played.
+  const dupes = playRate(['2026-11-10', '2026-11-10', '2026-11-12']);
+  eq('playing twice in a day still counts as one day', [dupes.days, dupes.span], [2, 3]);
+  eq('and the span runs first to last', [dupes.first, dupes.last], ['2026-11-10', '2026-11-12']);
+  eq('no runs at all is not a division by zero', playRate([]), { days: 0, span: 0, rate: 0 });
+  // Out of order in, sorted out - the dates come back from Firestore unordered.
+  const jumbled = playRate(['2026-11-17', '2026-11-01', '2026-11-09']);
+  eq('unordered dates still give the right span', [jumbled.first, jumbled.last, jumbled.span],
+     ['2026-11-01', '2026-11-17', 17]);
+}
+
 // ---- timestamps -----------------------------------------------------------
-eq('a Firestore timestamp reads as a date and time',
-   when({ toDate: () => new Date('2026-11-17T18:57:31Z') }), '2026-11-17 18:57');
+// Seconds, not minutes. One person running two accounts shows up as runs
+// landing seconds apart; rounded to the minute, most of that signal is gone.
+eq('a Firestore timestamp reads to the second',
+   when({ toDate: () => new Date('2026-11-17T18:57:31Z') }), '2026-11-17 18:57:31');
 eq('a missing timestamp does not crash the row', when(null), '?');
 eq('and neither does a plain value that is not one', when(1763405851), '?');
 
