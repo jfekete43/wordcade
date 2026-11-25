@@ -140,10 +140,36 @@ const between = (src, a, b) => {
 
 // ---- D. the mark ----------------------------------------------------------
 {
-  const svg = between(html, '<svg class="lex-keycap"', '</svg>');
+  // Scoped to the LOCKUP. The desktop wordmark is eight of the same mark now
+  // and sits earlier in the document, so an unscoped slice took its L - which
+  // carries a typeset kc-legend, not the lockup's stroked kc-glyph - and
+  // reported the lockup as having lost its letter.
+  const lockup = between(html, '<button id="mode-lockup"', '</button>');
+  const svg = between(lockup, '<svg class="lex-keycap"', '</svg>');
   for (const part of ['kc-body', 'kc-foot', 'kc-face', 'kc-rim', 'kc-glyph']) {
     ck(svg.includes(part), `the keycap has its ${part}`);
   }
+  // The wordmark reuses the mark rather than reimplementing it: same four
+  // shapes, same classes, so one CSS block serves both and they cannot drift.
+  const title = between(html, '<h1 class="arcade-title"', '</h1>');
+  const wmCaps = (title.match(/<svg class="lex-keycap"/g) || []).length;
+  eq('the wordmark is eight of the same mark', wmCaps, 8);
+  const wmFirst = between(title, '<svg class="lex-keycap"', '</svg>');
+  for (const part of ['kc-body', 'kc-foot', 'kc-face', 'kc-rim']) {
+    ck(wmFirst.includes(part), `a wordmark cap has its ${part}`);
+  }
+  // Typeset, not stroked: eight hand-cut letterforms would have to agree with
+  // each other, and the lockup's L only has to agree with itself.
+  ck(wmFirst.includes('kc-legend') && !wmFirst.includes('kc-glyph'),
+     'and a typeset legend rather than the stroked one', wmFirst.slice(-90));
+  eq('the letters are real text nodes, in order',
+     [...title.matchAll(/<text class="kc-legend"[^>]*>([^<]+)<\/text>/g)].map((m) => m[1]).join(''),
+     'LEXATHON');
+  // currentColor, so .arcade-title keeps the colour decision - which is where
+  // the season rule and the seasonal contrast suite both already look.
+  ck(/\.lex-keycap \.kc-legend \{[^}]*fill: currentColor/.test(html),
+     'the legend takes its colour from .arcade-title, not a literal',
+     (html.match(/\.lex-keycap \.kc-legend \{[^}]*/) || [''])[0].slice(0, 110));
   // Paper face, coloured letter: the face is a fixed token and only the
   // glyph follows the mode. A face that took --c-mode would be the other
   // variant, and would stop matching the home-screen icon.

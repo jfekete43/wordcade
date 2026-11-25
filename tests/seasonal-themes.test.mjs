@@ -369,6 +369,57 @@ const distinct = new Set(Seasons.TABLE.map((s) => titles[s.id]));
 ck('every season has its own accent, none shared',
    distinct.size === Seasons.TABLE.length, `${distinct.size} distinct of ${Seasons.TABLE.length}`);
 
+// ---- the surface the letters are actually ON -----------------------------
+// The sweep above measures the title against the PAGE, which was right while
+// the wordmark was eight flat tiles sitting on the paper. The letters are
+// legends on a keycap now, and --kc-face is a raised surface: in dark it is
+// #39352e against a #1a1712 page, far lighter, so every accent loses roughly
+// 1.4x of ratio crossing onto it. Six of the eight dark seasons were under
+// 4.5:1 there while still passing the page check - halloween at 3.74 - which
+// is exactly the kind of miss a test measuring the wrong surface produces.
+// Both are kept: the page one for the mark's surroundings, this one for the
+// thing a player reads.
+{
+  const face = await browser.newPage({ viewport: { width: 900, height: 800 } });
+  await face.setContent(markup);
+  const rows = await face.evaluate((ids) => {
+    const lum = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number);
+      const f = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; };
+      return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+    const out = {};
+    const t = document.querySelector('.arcade-title');
+    const legend = t.querySelector('.kc-legend');
+    const faceEl = t.querySelector('.kc-face');
+    for (const theme of ['light', 'dark']) {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      for (const id of ['', ...ids]) {
+        document.body.className = id ? 'season-' + id : '';
+        const a = lum(getComputedStyle(legend).fill), b = lum(getComputedStyle(faceEl).fill);
+        out[theme + '/' + (id || 'default')] =
+          Math.round(((Math.max(a, b) + .05) / (Math.min(a, b) + .05)) * 100) / 100;
+      }
+    }
+    document.documentElement.classList.remove('dark');
+    document.body.className = '';
+    return out;
+  }, Seasons.TABLE.map((s) => s.id));
+  await face.close();
+
+  for (const [k, r] of Object.entries(rows)) {
+    // 4.5, not 3: the legend renders about 10px, which is small text however
+    // bold it is. The lockup's L is a thick stroke and is the large-text case.
+    ck(`${k}: the legend is legible ON THE KEYCAP`, r >= 4.5, r.toFixed(2) + ':1');
+  }
+  // Light and dark should land on the same ratio for each season - that is
+  // what "lifted at constant hue until it holds its light twin's ratio" MEANS,
+  // and it is the property that keeps the dark palette from being guesswork.
+  for (const id of ['default', ...Seasons.TABLE.map((s) => s.id)]) {
+    const l = rows['light/' + id], d = rows['dark/' + id];
+    ck(`${id}: dark holds the same ratio on the face as light`, Math.abs(l - d) <= 0.25,
+       `light ${l.toFixed(2)} vs dark ${d.toFixed(2)}`);
+  }
+}
+
 await browser.close();
 for (const c of t) console.log(c.cond ? 'ok  ' : 'FAIL', c.name, c.cond ? '' : '— ' + c.detail);
 const bad = t.filter((c) => !c.cond).length;

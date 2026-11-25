@@ -132,6 +132,12 @@
             --c-clash: #b5563f;
             --c-ffa: #8a6b26;
             --c-sprint: #7a4a73;
+            /* The wordmark's letters. Sprint's purple on paper, but its OWN
+               token: --c-sprint is a signal (which mode you are in) and a
+               signal may not be repainted for a brand. Dark gets a lifted
+               value because the letters sit on the keycap FACE, which is a
+               raised surface and much lighter than the page. */
+            --wm-ink: #7a4a73;
             --c-marathon: #1d5c5c;
             /* a letter that is in no part of the word */
             --c-absent: #c9c0ae;
@@ -270,6 +276,9 @@
             --c-clash: #bc654f;
             --c-ffa: #987d3f;
             --c-sprint: #ae90a4;
+            /* 6.43:1 on --kc-face, the ratio the light pair holds. #ae90a4,
+               the mode colour, measures 4.25:1 there. */
+            --wm-ink: #cab7c4;
             --c-marathon: #89a8a3;
             /* a letter that is in no part of the word */
             --c-absent: #4c4842;
@@ -348,26 +357,24 @@
         .arcade-head { width: 100%; max-width: var(--w-col); padding: 0 var(--pad-page);
             display: flex; align-items: center; justify-content: space-between;
             gap: var(--s-5); margin: var(--s-2) 0 var(--s-5); position: relative; z-index: 2; }
-        /* Eight tiles and a Menu button come to more than a 280px screen at a
-           fixed size, so the tile is derived from the viewport. 142 is a budget,
-           not a round number: 40 (gutter) + 70 (the Menu button) + 21 (seven 3px
-           gaps) + 11 slack. Change the Menu label or its size and recompute it.
+        /* Eight keycaps and a Menu button. The budget below is kept as a
+           guard rather than a working constraint: .arcade-head is hidden under
+           600px, so the clamp cannot bind any more - at 601px it allows 57px
+           and the cap asks for 34. 142 is 40 (gutter) + 70 (the Menu button) +
+           21 (seven 3px gaps) + 11 slack.
 
-           `color` stays HERE rather than on the tile, and the tile inherits it.
-           That is what lets a season reach the letters. */
+           `color` stays HERE and the legend inherits it through currentColor.
+           That is what lets a season reach the letters, and it is why the
+           contrast suite can go on measuring .arcade-title's own colour. */
         .arcade-title {
             display: flex; gap: 3px; align-items: center;
             margin: 0;
-            color: var(--c-ink);
-            --wm: min(26px, calc((100vw - 142px) / 8));
+            color: var(--wm-ink);
+            --wm: min(34px, calc((100vw - 142px) / 8));
             position: relative;
             z-index: 2;
         }
-        .arcade-title .wm-t { width: var(--wm); height: calc(var(--wm) * 1.08);
-            border-radius: 5px; background: var(--c-raised); border: var(--bw) solid var(--c-line-2);
-            color: inherit; box-shadow: var(--c-shadow); display: grid; place-items: center;
-            font-size: calc(var(--wm) * .58); font-weight: var(--fw-bold);
-            letter-spacing: var(--ls-glyph); line-height: 1; }
+        .arcade-title .lex-keycap { width: var(--wm); height: var(--wm); }
         .menu-btn { background: transparent; border: var(--bw) solid var(--c-line-2);
             color: var(--c-ink-4); border-radius: var(--r-2); height: 34px; padding: 0 var(--s-5);
             font-size: var(--fs-2); font-weight: var(--fw-med); letter-spacing: var(--ls-ui);
@@ -427,6 +434,13 @@
            TILE does, and a tile is the one thing this must not be read as. */
         .lex-keycap .kc-glyph { fill: none; stroke: var(--c-mode, var(--c-sprint));
             stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+        /* The wordmark's legends, in the same corner. Typeset rather than
+           stroked: the lockup's L is one letter and can be drawn, eight would
+           be eight hand-cut letterforms that have to agree with each other.
+           currentColor, so the colour decision stays on .arcade-title where
+           the season rule and the contrast suite both already look. */
+        .lex-keycap .kc-legend { fill: currentColor; font-family: inherit;
+            font-weight: var(--fw-bold); font-size: 30px; letter-spacing: 0; }
 
         /* The modes, inside the one menu. They lead it rather than sitting
            under the utilities: burying them is the cost of taking the grid
@@ -953,19 +967,21 @@
            the board-game object, not the table it sits on — which is why this
            waited for the tile wordmark to exist. */
         body[class*="season-"] .arcade-title { color: var(--c-season); }
-        /* The season lives on the wordmark now. It used to be a 26px emoji on
+        /* The season lives on the wordmark. It used to be a 26px emoji on
            .arcade-title::after, which was fine beside a text h1 and is not
-           beside a flex row of eight tiles: the emoji became a flex item,
+           beside a flex row of eight marks: the emoji became a flex item,
            took 24px out of the 19.5px of free room between the wordmark and
            the Menu button, and pushed the page 16.7px sideways at 320px.
 
            This is the better answer anyway, and the one the decoration was
            reaching for when it came off: a season should colour the
            board-game object rather than wallpaper the table it sits on. The
-           letters already inherit --c-season through .arcade-title; the edge
-           carries it too, so eight tiles read as seasonal at a glance and
-           cost nothing in width. */
-        body[class*="season-"] .arcade-title .wm-t { border-color: var(--c-season); }
+           legends inherit --c-season through .arcade-title above.
+
+           The companion rule that tinted each tile's border went with the
+           tiles. A keycap has no border - its edges are the lit rim and the
+           two shadowed walls, which are what make it read as a solid object,
+           and recolouring those turns the season into a light source. */
 
         body.season-thanksgiving {
             --c-page: #f9f1e2; --c-panel: #fffcf5; --c-raised: #fef7eb;
@@ -1023,8 +1039,17 @@
 
            The accent is the other way round: it is read AS text on the
            wordmark, so it keeps its hue and is lifted in L until it holds
-           the ratio the light one holds on the light page (easter 7.99:1
-           both ways, thanksgiving 5.67:1 both ways).
+           the ratio the light one holds.
+
+           That target is now the KEYCAP FACE rather than the page. The
+           wordmark used to be eight flat tiles and the letters sat on the
+           paper; they sit on a raised cap now, and --kc-face is far lighter
+           than --c-page in dark (#39352e against #1a1712). Measured against
+           the page these eight all cleared 4.5:1; measured against the face
+           they ran 3.74 to 5.45, and six of the eight were under. Each has
+           been lifted again at constant hue to the ratio its light twin
+           holds on the light face: halloween 5.78:1 both ways, easter
+           8.20:1 both ways, nothing below 5.80.
 
            --c-absent is deliberately not in here, in either theme: a letter
            that is in no part of the word is a signal, and the note at the
@@ -1032,42 +1057,42 @@
         :root.dark body.season-halloween {
             --c-page: #1c170d; --c-panel: #282319; --c-raised: #312c24;
             --c-line: #332c23; --c-line-2: #3b3227;
-            --c-season: #d27739; }
+            --c-season: #e2a67e; }
 
         :root.dark body.season-thanksgiving {
             --c-page: #1c170c; --c-panel: #272319; --c-raised: #312c24;
             --c-line: #322d22; --c-line-2: #3b3226;
-            --c-season: #c48345; }
+            --c-season: #d8ae85; }
 
         :root.dark body.season-christmas {
             --c-page: #151817; --c-panel: #26231e; --c-raised: #2b2d2c;
             --c-line: #24302f; --c-line-2: #233737;
-            --c-season: #62ad76; }
+            --c-season: #9bcba7; }
 
         :root.dark body.season-newyear {
             --c-page: #16171d; --c-panel: #26231e; --c-raised: #2b2c31;
             --c-line: #262d3e; --c-line-2: #24344f;
-            --c-season: #b08c43; }
+            --c-season: #ccb078; }
 
         :root.dark body.season-valentines {
             --c-page: #1d1519; --c-panel: #28221e; --c-raised: #312b2e;
             --c-line: #362936; --c-line-2: #402d43;
-            --c-season: #f36c8c; }
+            --c-season: #f8a7ba; }
 
         :root.dark body.season-stpatricks {
             --c-page: #141816; --c-panel: #26231e; --c-raised: #2b2d2c;
             --c-line: #22302e; --c-line-2: #203835;
-            --c-season: #5ba975; }
+            --c-season: #95c8a6; }
 
         :root.dark body.season-easter {
             --c-page: #19161d; --c-panel: #26231e; --c-raised: #2d2c31;
             --c-line: #2b2c3e; --c-line-2: #2e3151;
-            --c-season: #c49cf2; }
+            --c-season: #e0ccf8; }
 
         :root.dark body.season-julyfourth {
             --c-page: #16171d; --c-panel: #26231e; --c-raised: #2b2c31;
             --c-line: #242e3f; --c-line-2: #213451;
-            --c-season: #85a6f4; }
+            --c-season: #b9ccf9; }
 
         /* One card, one measure. These six panels carried six different
            widths (90%/340, 90%/420, 95%/450, 95%/500, 95%/520) and five
@@ -1889,10 +1914,13 @@
 <body>
 
     <div class="arcade-head">
-        <!-- aria-label restores the single word: eight separate inline
+        <!-- Eight keycaps, the same mark the phone lockup carries, one per
+             letter. aria-label restores the single word: eight separate
              elements otherwise make a screen reader spell it out. The letters
-             stay in the DOM so crawlers still read them. -->
-        <h1 class="arcade-title" aria-label="Lexathon"><span class="wm-t" aria-hidden="true">L</span><span class="wm-t" aria-hidden="true">E</span><span class="wm-t" aria-hidden="true">X</span><span class="wm-t" aria-hidden="true">A</span><span class="wm-t" aria-hidden="true">T</span><span class="wm-t" aria-hidden="true">H</span><span class="wm-t" aria-hidden="true">O</span><span class="wm-t" aria-hidden="true">N</span></h1>
+             are real <text> nodes, so they stay in the DOM for crawlers, and
+             the paths are literal so the wordmark is there before any script
+             runs - the same reason the lockup carries its own. -->
+        <h1 class="arcade-title" aria-label="Lexathon"><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">L</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">E</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">X</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">A</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">T</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">H</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">O</text></svg><svg class="lex-keycap" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path class="kc-body" d="M14 4L60 4A11 11 0 0 1 67.78 7.22L86.78 26.22A11 11 0 0 1 90 34L90 80A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78L6.22 68.78A11 11 0 0 1 3 61L3 15A11 11 0 0 1 14 4Z"/><path class="kc-foot" d="M6.22 68.78A11 11 0 0 0 14 72L60 72A11 11 0 0 0 67.78 68.78L86.78 87.78A11 11 0 0 1 79 91L33 91A11 11 0 0 1 25.22 87.78Z"/><rect class="kc-face" x="3" y="4" width="68" height="68" rx="11"/><path class="kc-rim" d="M5.5 61V15A8.5 8.5 0 0 1 14 6.5H60"/><text class="kc-legend" x="17" y="40">N</text></svg></h1>
         <button class="menu-btn" onclick="window.showMainMenu()">Menu</button>
     </div>
     
