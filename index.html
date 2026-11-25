@@ -6222,6 +6222,38 @@
             loadHomeBoard();
         }
 
+        // Coming back to Stakes RESUMES the run you left. It does not start a
+        // new one.
+        //
+        // Three return paths called startNewRun() instead: cancelling the
+        // Clash lobby, cancelling the FFA lobby, and leaving the Trifecta.
+        // startNewRun is the END-of-run action - it zeroes score, continues
+        // and stats and calls clearLocalState() - so the run was destroyed in
+        // memory and on disk in the same breath, with nothing to recover.
+        // Searching for a public Clash match and then cancelling the search
+        // cost a Stakes run of any size. leaveSprint and leaveMarathon already
+        // went through showStandardSurface and were never affected; the guard
+        // inside it, and the comment above that guard, are about exactly this.
+        //
+        // The SAVE is what this trusts, not the globals. saveLocalState
+        // refuses to write while Clash, FFA or the Trifecta is on, so whatever
+        // is on disk is still the Stakes run - while the in-memory word may
+        // well be a Clash word, since startRound writes targetWord for those
+        // modes too.
+        //
+        // Callers must clear their own mode flag BEFORE calling this:
+        // loadLocalState refuses to read while isVersusMode or isFfaMode is
+        // still set, and would quietly report "no run" and start a new one.
+        function resumeStandardRun() {
+            if (!loadLocalState()) { window.startNewRun(); return; }
+            // A save written immediately after a solve carries no word in
+            // progress. showStandardSurface reads an empty targetWord as "no
+            // run at all" and would start a new one, zeroing the score this
+            // just restored - so the run is given its next word first.
+            if (!targetWord) startRound();
+            showStandardSurface();
+        }
+
         // What the screen says while a mode that needs the server is on its
         // way. Every leave path puts the Stakes screen back, which is right
         // when Stakes is where you are going and wrong when it is not: the
@@ -6348,7 +6380,7 @@
             document.getElementById("versus-track-container").style.display = "none";
             document.getElementById("clash-chat-container").style.display = "none"; // HIDE CHAT
             resetChatState();
-            window.startNewRun();
+            resumeStandardRun();
             showStandardPanels(true);
         }
 
@@ -8708,7 +8740,7 @@
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             showStandardPanels(true);
-            window.startNewRun();
+            resumeStandardRun();
         }
 
         // Kept because the Trifecta card on the home screen calls it. The nav
@@ -9417,7 +9449,7 @@
             document.getElementById("score-board").style.display = "flex";
             document.getElementById("btn-cash-out").style.display = "inline-block";
             document.getElementById("ffa-track-container").style.display = "none";
-            window.startNewRun();
+            resumeStandardRun();
             showStandardPanels(true);
         }
 
