@@ -557,7 +557,13 @@
                 background: none; border: 0; padding: 0; min-width: 0;
                 box-shadow: none; text-align: right;
             }
-            #mode-bar .stat-pill b { font-size: var(--fs-4); }
+            #mode-bar .stat-pill b { font-size: var(--fs-4); white-space: nowrap; }
+            /* Neither half of a readout may break. "Time left" over two lines
+               made the whole row 50px instead of 36 and was most of why
+               Marathon's bar looked crushed; "WEEK OVER" breaking does the
+               same thing one pill along. Whether the ROW fits is handled
+               below - by giving it its own line, not by splitting words. */
+            #mode-bar .stat-pill em { white-space: nowrap; }
             /* "WORD 1" broke across two lines at 360px and pushed the row
                taller than the key beside it. Nothing in the bar wraps. */
             #mode-bar .score-text, #mode-bar .lives-text { white-space: nowrap; }
@@ -572,6 +578,23 @@
             #mode-lockup { padding-right: var(--s-4); }
             #mode-bar { gap: var(--s-4); }
         }
+        /* Marathon says three things where the other modes say two, and the
+           lockup spends 178px saying MARATHON. Measured at 390px: the lockup,
+           a 12px gap, three readouts and their gaps come to 399px of 358, and
+           no amount of shrinking type closes that - at --fs-3 with 12px gaps
+           it still overflows at 360, 375 and 390.
+           So the row gets its own line rather than being crushed into the
+           lockup's. It costs about 35px of height on the one mode with the
+           most to report, which is the same trade the 340px rule below
+           already makes for every mode, just reached sooner. The class is set
+           by renderModeLockup, because only it knows which mode is showing. */
+        @media (max-width: 430px) {
+            #mode-bar.bar-roomy { flex-wrap: wrap; row-gap: var(--s-4); }
+            #mode-bar.bar-roomy > #marathon-header {
+                width: 100%; margin-left: 0; justify-content: flex-start; gap: var(--s-6);
+            }
+        }
+
         /* Below this the four of them genuinely do not fit, so the word count
            takes a line of its own rather than any of it being dropped or the
            page scrolling sideways. The figures stay beside the mark, which is
@@ -6296,6 +6319,10 @@
             const cfg = MODES[here] || MODES[VISIBLE_MODES[0]];
             if (!cfg) return;
             bar.style.setProperty("--c-mode", cfg.color);
+            // Marathon reports three things and needs the width; see the
+            // bar-roomy rule. Set here because this is the one place that
+            // knows which mode the bar is currently showing.
+            bar.classList.toggle("bar-roomy", here === "marathon");
             // The wordmark follows the mode too, and it lives in .arcade-head
             // - a SIBLING of the bar, not a descendant, so it cannot inherit
             // a variable set on the bar. body is the nearest common ancestor.

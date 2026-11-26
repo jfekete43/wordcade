@@ -125,6 +125,105 @@ ok('390, 414 and 428 are untouched by the narrow-screen rules',
 ok('the narrow rules are bounded, not global',
    /@media \(max-width: 385px\)/.test(home) && !/\.key \{[^}]*min-width: 0[^}]*\}\s*\n\s*\.key:active/.test(home));
 
+// ---- 2b. Marathon's readouts ---------------------------------------------
+/*
+ * Marathon reports three things - week, score, time left - where every other
+ * mode reports two, and the lockup spends 178px saying MARATHON. Measured at
+ * 390px, the lockup, the three readouts and their gaps come to 399px of the
+ * 358 available, so something has to give. What gave was the labels: "Time
+ * left" wrapped onto two lines, taking the row from 36px to 50px, which is
+ * what "this is rather smushed" looked like on the phone.
+ *
+ * The fix drops the readouts onto a line of their own below 431px. This
+ * measures the result rather than reading the rule - labels on one line,
+ * readouts clear of the lockup, no sideways scroll - in a state the sweep
+ * above never reaches, because the bar boots in Sprint.
+ *
+ * The class comes from renderModeLockup, which mode-bar.test.mjs pins. Here
+ * it is set directly, so this file measures only the CSS behind it.
+ */
+const marathonBar = async (width, days) => {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  await page.setContent(home);
+  await page.waitForTimeout(140);
+  const m = await page.evaluate((d) => {
+    const bar = document.getElementById('mode-bar');
+    bar.classList.add('bar-roomy');
+    document.getElementById('mode-lockup-name').innerText = 'MARATHON';
+    for (const id of ['score-board', 'sprint-header', 'daily-header']) {
+      const e = document.getElementById(id); if (e) e.style.display = 'none';
+    }
+    const mh = document.getElementById('marathon-header');
+    mh.style.display = 'flex';
+    document.getElementById('marathon-progress-text').style.display = 'none';
+    document.getElementById('marathon-complete-text').style.display = '';
+    document.getElementById('marathon-score').innerText = '1,080';
+    document.getElementById('marathon-days').innerText = d;
+    const box = (e) => e.getBoundingClientRect();
+    const pills = [...mh.querySelectorAll('.stat-pill')]
+      .filter((e) => getComputedStyle(e).display !== 'none');
+    return {
+      pills: pills.length,
+      // The bar is display:none on desktop, where the wordmark takes over.
+      // Without this, a "wide screen" check measures an element with no box
+      // and passes for the wrong reason.
+      barW: Math.round(box(bar).width),
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      pillH: pills.map((e) => Math.round(box(e).height)),
+      // A readout whose top is at or below the lockup's bottom is on its
+      // own line; one that overlaps that band is sharing the lockup's row.
+      ownRow: box(pills[0]).top >= box(document.getElementById('mode-lockup')).bottom,
+      // Giving the row its own line leaves enough slack that nothing wraps
+      // anyway, so an outcome check cannot see these rules. They are the
+      // guard for a value longer than today's: with them a readout that no
+      // longer fits pushes the row sideways, where the overflow check above
+      // catches it, instead of quietly going two lines tall again.
+      noWrap: pills.every((e) => ['em', 'b'].every((tag) => {
+        const part = e.querySelector(tag);
+        return !part || getComputedStyle(part).whiteSpace === 'nowrap';
+      })),
+      gaps: pills.slice(1).map((e, i) => Math.round(box(e).left - box(pills[i]).right)),
+    };
+  }, days);
+  await page.close();
+  return m;
+};
+
+// 428 is the widest phone in the list and still under the 431px breakpoint.
+const PHONES = WIDTHS.filter((w) => w <= 428);
+for (const days of ['5 DAYS', 'WEEK OVER']) {
+  const wide = [], tall = [], crowded = [], shared = [], breakable = [];
+  let seen = 0;
+  for (const w of PHONES) {
+    const m = await marathonBar(w, days);
+    seen = m.pills;
+    if (m.overflow > 1) wide.push(`${w}px +${m.overflow}`);
+    // 36px is one line, 50px is two. Anything over 44 means a label wrapped.
+    if (Math.max(...m.pillH) > 44) tall.push(`${w}px ${m.pillH.join('/')}`);
+    if (Math.min(...m.gaps) < 10) crowded.push(`${w}px ${m.gaps.join('/')}`);
+    if (!m.ownRow) shared.push(`${w}px`);
+    if (!m.noWrap) breakable.push(`${w}px`);
+  }
+  ok(`Marathon "${days}": all three readouts are showing`, seen === 3, String(seen));
+  ok(`Marathon "${days}": no horizontal overflow at any phone width`, wide.length === 0, wide.join(', '));
+  ok(`Marathon "${days}": nothing wraps onto a second line`, tall.length === 0, tall.join(', '));
+  ok(`Marathon "${days}": the readouts are not crowded together`, crowded.length === 0, crowded.join(', '));
+  ok(`Marathon "${days}": they get a row of their own`, shared.length === 0, shared.join(', '));
+  ok(`Marathon "${days}": neither half of a readout may break mid-phrase`,
+     breakable.length === 0, breakable.join(', '));
+}
+// Bounded, like every other narrow-screen rule here. 440px is the first
+// width above the breakpoint where the bar still exists at all - by 900px it
+// is display:none and the desktop wordmark has taken over, so measuring
+// there proves nothing. At 440 the lockup's 178px and the readouts' 222px
+// fit on one row with room to spare, which is why the cut sits at 431.
+{
+  const m = await marathonBar(440, 'WEEK OVER');
+  ok('the bar is really on screen at 440px', m.barW > 300, `${m.barW}px wide`);
+  ok('and just above the breakpoint they stay up beside the lockup', !m.ownRow,
+     `heights ${m.pillH.join('/')}`);
+}
+
 // ---- 3. the quick-chat chips ---------------------------------------------
 // The chat box is display:none until a match starts, so the sweep above never
 // sees it. The chips are the ONLY way to talk in a public match and they are

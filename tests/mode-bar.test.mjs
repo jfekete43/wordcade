@@ -98,9 +98,17 @@ const between = (src, a, b) => {
     return { renderModeLockup, renderMenuModes, MODES, VISIBLE_MODES };`);
 
   const el = (id) => ({ id, innerHTML: '', innerText: '', style: { props: {},
-    setProperty(k, v) { this.props[k] = v; } } });
+    setProperty(k, v) { this.props[k] = v; } },
+    // Real nodes have one; the stub did not, so the first thing the lockup
+    // did with a class crashed the whole file rather than failing a check.
+    classes: new Set(),
+    classList: {
+      toggle(k, on) { on ? this.owner.classes.add(k) : this.owner.classes.delete(k); },
+      contains(k) { return this.owner.classes.has(k); },
+    } });
   const nodes = { 'mode-bar': el('mode-bar'), 'mode-lockup-name': el('n'), 'menu-modes': el('m') };
   const body = el('body');
+  for (const n of [...Object.values(nodes), body]) n.classList.owner = n;
   const doc = { getElementById: (id) => nodes[id] || null, body };
   const api = run(doc, (s) => String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
@@ -121,7 +129,19 @@ const between = (src, a, b) => {
   ck(!/--c-marathon/.test(body.style.props['--wm-mode'] || ''),
      'and not the raw mode colour, which is a signal and is not legible there',
      String(body.style.props['--wm-mode']));
+  // Marathon is the only mode with three readouts, and at 390px they do not
+  // fit beside a 178px lockup - measured, they come to 399px of 358. The
+  // class is what drops them onto their own line; without it the row is
+  // crushed, which is what it looked like in the game. Only this function
+  // knows which mode is showing, so only it can set the class.
+  ck(nodes['mode-bar'].classList.contains('bar-roomy'),
+     'Marathon marks the bar as needing the extra row',
+     [...nodes['mode-bar'].classes].join(',') || '(none)');
+
   api.renderModeLockup('endless');
+  ck(!nodes['mode-bar'].classList.contains('bar-roomy'),
+     'and leaving Marathon takes it off again, rather than leaving every mode roomy',
+     [...nodes['mode-bar'].classes].join(',') || '(none)');
   eq('Stakes is spelled the way the table spells it, not "endless"',
      nodes['mode-lockup-name'].innerText, 'STAKES');
   eq('and the wordmark moves with it', body.style.props['--wm-mode'], 'var(--wm-endless)');
