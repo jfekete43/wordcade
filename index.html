@@ -2635,6 +2635,7 @@
             <!-- One past day's final board. -->
             <div id="archive-detail" style="display:none;">
                 <div id="archive-standing" style="font-size: var(--fs-3); color: var(--c-ink-3); margin-bottom: 10px; text-align: center;"></div>
+                <div id="archive-live-note" style="display:none; font-size: var(--fs-2); color: var(--c-ink-4); margin-bottom: 10px; text-align: center;">Still in progress &mdash; <span data-rollover>&nbsp;</span>. The board resets at midnight Eastern.</div>
                 <div id="archive-board"></div>
                 <!-- The static page carries what this panel deliberately does
                      not: the day's words themselves, per-word difficulty, and
@@ -4135,6 +4136,33 @@
           // for the leaderboard's puzzleDate filter. America/New_York (an IANA
           // zone, not a fixed offset) keeps this correct across EST/EDT.
           function getTodayDateStr() { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+
+        /*
+         * How long today's board has left.
+         *
+         * A puzzle day is an America/New_York date, which is invisible to
+         * everybody not in it: a player on the US west coast loses the day at
+         * 9pm their time, one in the UK at 5am. Nothing on screen said so, and
+         * "you finished 1st" on a board that was still running was the
+         * version of that confusion somebody reported.
+         *
+         * The arithmetic is msUntilPuzzleRollover()'s, not a second copy. The
+         * first version of this computed wall-clock seconds left in the ET
+         * day - which that function's own comment had already rejected, and
+         * explained: on the two DST days an ET day is 23 or 25 hours long, so
+         * wall-clock subtraction puts the countdown a full hour out. It
+         * resolves a real instant instead. The boundary is the same one for
+         * every daily mode, because it is simply when getTodayDateStr()
+         * changes, so there was never a reason for Sprint to have its own.
+         */
+        let rolloverTimer = null;
+        function paintRollover() {
+            const els = document.querySelectorAll("[data-rollover]");
+            if (!els.length) return;
+            const text = formatCountdown(msUntilPuzzleRollover()) + " left";
+            els.forEach((el) => { el.textContent = text; });
+            if (!rolloverTimer) rolloverTimer = setInterval(paintRollover, 30000);
+        }
 
           // Recurring annual "MM-DD" window (UTC), wrap-safe for windows that
           // cross the New Year (e.g. Dec 1 -> Jan 5). Must match the identical
@@ -7637,7 +7665,14 @@
             const youEl = document.getElementById("daily-board-you");
             if (youEl) youEl.innerHTML = ""; // a Stakes "your line" under a Sprint board
             const titleEl = document.getElementById("daily-board-title");
-            if (titleEl) titleEl.innerText = "Today's Sprint";
+            // innerHTML rather than innerText, for the countdown beside it.
+            // This is the card people read before wondering whether the
+            // standings are final, so it is the first place to answer.
+            if (titleEl) {
+                titleEl.innerHTML = "Today's Sprint" +
+                    '<span class="daily-board-title" data-rollover>&nbsp;</span>';
+                paintRollover();
+            }
             const prev = document.getElementById("daily-board-prev");
             const next = document.getElementById("daily-board-next");
             if (prev) prev.style.display = "none";
@@ -7990,14 +8025,14 @@
         // local, which is 06:00/07:00 UTC — later than both the naive
         // timestamp (00:00 UTC) and the answer (04:00/05:00 UTC), so on a
         // transition day the two always land on the same side of the switch.
-        function nextGauntletInstant(todayEtDate) {
+        function nextPuzzleInstant(todayEtDate) {
             const [y, m, d] = shiftDateStr(todayEtDate, 1).split("-").map(Number);
             const naive = Date.UTC(y, m - 1, d);
             return naive + etOffsetMs(naive);
         }
 
-        function msUntilNextGauntlet() {
-            return nextGauntletInstant(getTodayDateStr()) - Date.now();
+        function msUntilPuzzleRollover() {
+            return nextPuzzleInstant(getTodayDateStr()) - Date.now();
         }
 
         function formatCountdown(ms) {
@@ -8011,7 +8046,7 @@
             // one now, so re-read rather than counting down against a stale
             // attempt.
             if (gauntletCardDate && gauntletCardDate !== getTodayDateStr()) { refreshGauntletCard(); return; }
-            document.getElementById("gauntlet-card-timer").innerText = "Next in " + formatCountdown(msUntilNextGauntlet());
+            document.getElementById("gauntlet-card-timer").innerText = "Next in " + formatCountdown(msUntilPuzzleRollover());
         }
 
         function stopGauntletCardTimer() {
@@ -8470,6 +8505,15 @@
             full.style.display = cfg.full ? "block" : "none";
             if (cfg.full) { full.href = cfg.full.href(dateStr); full.innerText = cfg.full.text; full.style.color = cfg.colour; }
             standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(cfg.dateLabel(dateStr))}</span>`;
+            // Said on the board itself, not only in your own line: somebody
+            // who did not play still wants to know whether these numbers can
+            // still move.
+            const liveNote = document.getElementById("archive-live-note");
+            if (liveNote) {
+                const isLive = dateStr === (cfg.weekly ? marathonKeyFor(new Date()) : getTodayDateStr());
+                liveNote.style.display = isLive ? "block" : "none";
+                if (isLive) paintRollover();
+            }
             boardEl.innerHTML = '<div class="gauntlet-empty">Loading final standings...</div>';
 
             try {
@@ -8482,9 +8526,18 @@
 
             // Your own line above the board. Separate from the board query so
             // it still reports a placement outside the visible top 100.
+            // This view renders a FINISHED day for every row in the archive
+            // list - which starts at yesterday - and the live one too, because
+            // Sprint's "Full leaderboard" sends today straight here rather
+            // than to a Hall of Fame tab ranking something else. So the only
+            // thing separating the two cases is the date, and the wording has
+            // to ask. "You finished 1st of 11" on a board people can still
+            // play says the day is over when it is not.
+            const live = dateStr === (cfg.weekly ? marathonKeyFor(new Date()) : getTodayDateStr());
             const run = await fetchMyArchiveRun(cfg, dateStr);
             if (!run) {
-                standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(cfg.dateLabel(dateStr))} — you didn't play this one.</span>`;
+                standingEl.innerHTML = `<span style="color:var(--c-ink-4);">${escapeHtml(cfg.dateLabel(dateStr))} — ` +
+                    `${live ? "you haven't played this one yet." : "you didn't play this one."}</span>`;
                 return;
             }
             const score = runScore(run);
@@ -8492,7 +8545,8 @@
             let badge = PLACE_BADGES.plain;
             try {
                 const { place, total } = await fetchArchiveStanding(cfg, dateStr, run);
-                line = `you finished <span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span>`;
+                const where = `<span style="color:var(--c-ink); font-weight:bold;">${ordinal(place)} of ${total}</span>`;
+                line = live ? `you're ${where} so far` : `you finished ${where}`;
                 badge = placeBadge(place);
             } catch (e) { console.error("Past board standing failed", e); }
             // Same sentence as the callout, so it gets the same badge.

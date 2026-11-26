@@ -21,8 +21,8 @@ const src = [
   grab(/        function shiftDateStr\(dateStr, days\) \{\n[\s\S]*?\n        \}/),
   grab(/          function getTodayDateStr\(\)[^\n]*/),
   grab(/        function etOffsetMs\(instant\) \{\n[\s\S]*?\n        \}/),
-  grab(/        function nextGauntletInstant\(todayEtDate\) \{\n[\s\S]*?\n        \}/),
-  grab(/        function msUntilNextGauntlet\(\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function nextPuzzleInstant\(todayEtDate\) \{\n[\s\S]*?\n        \}/),
+  grab(/        function msUntilPuzzleRollover\(\) \{\n[\s\S]*?\n        \}/),
   grab(/        function formatCountdown\(ms\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
 console.log('extracted from index.html:', src.length, 'chars');
@@ -39,7 +39,7 @@ const build = new Function('NOW_MS', 'RealDate', `
     get: (t, k) => k === 'now' ? () => NOW_MS : t[k],
   });
   ${src}
-  return { msUntilNextGauntlet, formatCountdown, getTodayDateStr, etOffsetMs };
+  return { msUntilPuzzleRollover, formatCountdown, getTodayDateStr, etOffsetMs };
 `);
 const at = (iso) => build(global.Date.parse(iso), global.Date);
 
@@ -47,7 +47,7 @@ const H = 3600000, M = 60000;
 const t = [];
 const ck = (ok, name, detail = '') => t.push([ok, name, detail]);
 const expect = (iso, wantMs, name) => {
-  const got = at(iso).msUntilNextGauntlet();
+  const got = at(iso).msUntilPuzzleRollover();
   ck(got === wantMs, name, `got ${(got / H).toFixed(2)}h want ${(wantMs / H).toFixed(2)}h`);
 };
 
@@ -73,12 +73,12 @@ expect('2026-11-01T07:30:00Z', 21 * H + 30 * M, 'just after falling back');
 
 // --- the offset helper it rests on ---------------------------------------
 // Signed as "what to add to a naive UTC timestamp to reach that ET wall-clock
-// time", which is the direction nextGauntletInstant consumes it in.
+// time", which is the direction nextPuzzleInstant consumes it in.
 const off = (iso) => at(iso).etOffsetMs(global.Date.parse(iso));
 ck(off('2026-09-16T12:00:00Z') === 4 * H, 'EDT (September) is +4h to apply', 'got ' + off('2026-09-16T12:00:00Z') / H);
 ck(off('2026-12-15T12:00:00Z') === 5 * H, 'EST (December) is +5h to apply', 'got ' + off('2026-12-15T12:00:00Z') / H);
 
-// The single-offset-lookup shortcut in nextGauntletInstant rests on the naive
+// The single-offset-lookup shortcut in nextPuzzleInstant rests on the naive
 // timestamp and the answer sharing a UTC offset. That holds for ET because the
 // switch is at 02:00 local (06:00/07:00 UTC), later than both — but it is an
 // assumption, so pin it on both transition days rather than leave it implied.
