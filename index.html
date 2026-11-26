@@ -10162,7 +10162,13 @@
         // that's already over as though it were still in progress — see the
         // resume guard below for what that looked like.
         function saveLocalState(wordFinished = false) {
-            if (isVersusMode || isDailyMode || isFfaMode) return;
+            // The same stale list checkDangerRow had, closed the same way.
+            // Only a Stakes run lives in local storage; Sprint and Marathon
+            // keep theirs on the server. Nothing in those two reaches here
+            // today - their guesses go through submitSprintGuess and
+            // submitMarathonGuess, never checkGuess - so this is the trap
+            // shut rather than a second bug fixed.
+            if (inAltMode()) return;
             // targetWord/currentWordGuesses persist the word currently in
             // progress — without these, a refresh always started a brand
             // new random word (losing whatever guesses weren't yet a win),
@@ -10232,9 +10238,24 @@
             updateBankLabel(score);
         }
 
+        // Continues are a Stakes idea, and so is this: the red row says "miss
+        // this one and the run ends". No other mode has lives to lose, so no
+        // other mode may ever paint it.
+        //
+        // It asked !Clash && !Trifecta && !FFA, which was every other mode
+        // that existed when it was written. Sprint and Marathon arrived after
+        // and were never added to the list, so a `continues` left at 0 by an
+        // earlier Stakes run - a module global Sprint neither sets nor clears
+        // - lit the fifth row red on a Sprint board, on the first keystroke,
+        // because updateCurrentRowDisplay calls this on every one.
+        //
+        // inAltMode() exists for exactly this failure: it derives the answer
+        // from currentMode() rather than from a list that goes stale the next
+        // time a mode is added. It was written after the same bug bit the
+        // auth handler; this was the other copy of the list.
         function checkDangerRow() {
             document.querySelectorAll('.tile').forEach(t => t.classList.remove('danger-tile', 'danger-row-static'));
-            if (!isVersusMode && !isDailyMode && !isFfaMode && continues <= 0) {
+            if (!inAltMode() && continues <= 0) {
                 for (let j = 0; j < 5; j++) { 
                     let tile = document.getElementById(`tile-${maxGuesses - 1}-${j}`); 
                     if (tile) { if (currentRow === maxGuesses - 1) tile.classList.add('danger-tile'); else tile.classList.add('danger-row-static'); } 
