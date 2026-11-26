@@ -523,21 +523,23 @@ for (const f of STATIC_PAGES) {
   ok(`${f}: has the narrow-screen breakpoint`, /@media \(max-width: 480px\)/.test(page));
 }
 
-// ---- 10. the homepage actually points at the archive --------------------
-// The reason this is pinned: a link inside a modal is behind an interaction,
-// and content behind interaction is discounted by crawlers. The archive only
-// gets found if there is a link in the always-rendered part of the page.
+// ---- 10. the homepage no longer advertises the archive ------------------
+// This block used to pin the opposite, and the reason is worth keeping: a
+// link inside a modal is behind an interaction, and content behind
+// interaction is discounted by crawlers, so an always-rendered link was what
+// got the archive crawled at all.
+//
+// That was written for a live mode with sixty indexable day pages. Trifecta
+// is closed and those pages are now noindex and out of the sitemap - thin
+// archive pages were part of why the ad review came back "low content" - so
+// being crawled is the thing they must NOT be, and the always-visible footer
+// was sending every visitor to a mode that no longer runs.
 const home = fs.readFileSync(REPO('index.html'), 'utf8').replace(/\r\n/g, '\n');
 const intro = (home.match(/<section id="site-intro"[\s\S]*?<\/section>/) || [''])[0];
 ok('site-intro exists and was extracted', intro.length > 500, `${intro.length} chars`);
-// The requirement is an always-rendered link, not one in this particular
-// block: site-intro used to carry a whole archive paragraph and no longer
-// does, because it restated a page one tap away. The footer check below is
-// what now holds the invariant, so this asks the question the comment above
-// actually poses - is there a non-modal link at all?
 const outsideModals = home.replace(/<div [^>]*class="modal-overlay"[\s\S]*?\n    <\/div>/g, '');
-ok('something outside every modal links to the archive',
-   outsideModals.includes('href="/gauntlet/"'),
+ok('nothing outside the modals points a crawler at the archive',
+   !outsideModals.includes('href="/gauntlet/"'),
    `${(outsideModals.match(/href="\/gauntlet\/"/g) || []).length} non-modal links`);
 // "Today is never listed" moved to the hub, which is the page that would do
 // the spoiling and so the page that should promise not to.
@@ -579,14 +581,28 @@ ok('...and both links are hidden rather than left pointing at the Trifecta',
    && /full\.style\.display = cfg\.full \? "block" : "none"/.test(home));
 // Nothing on the site may link to a day that has not finished.
 ok('no hardcoded link to a specific Trifecta day', !/href="\/gauntlet\/\d{4}-\d{2}-\d{2}\//.test(home));
-// site-intro is below the fold. The footer strip is always visible with no
-// interaction at all, which is where "seems a bit hard to find" gets fixed.
+// The footer strip is always visible with no interaction at all, which is why
+// "Past Trifectas" sat there - and why it had to go once the mode closed.
 const footer = (home.match(/Always-visible footer[\s\S]*?<\/div>/) || [''])[0];
-ok('the always-visible footer links to the archive', footer.includes('href="/gauntlet/"'), `${footer.length} chars`);
+ok('found the always-visible footer', footer.length > 600, `${footer.length} chars`);
+ok('the footer does not send everyone to a closed mode',
+   !footer.includes('/gauntlet/') && !/Past Trifectas/.test(footer),
+   footer.replace(/\s+/g, ' ').slice(-220));
+// What it must still carry: the pages that ARE in the sitemap, and the two
+// policy links the ad review wants reachable with zero interaction.
+for (const page of ['how-to-play.html', 'strategy.html', 'about.html', 'faq.html',
+                    'privacy.html', 'terms.html']) {
+  ok(`the footer still links to ${page}`, footer.includes(`href="${page}"`));
+}
+// Dropping the link must not orphan the pages for a player who wants them:
+// the in-app route is the Trifecta screen's button into the archive modal,
+// and the modal's own link out to the hub.
+ok('the archive still has an in-app way in',
+   /id="gauntlet-archive-btn"[^>]*onclick="window\.openArchive\('daily'\)"/.test(home));
 ok('the archive modal browse view links to the hub too',
    /archive-more[\s\S]{0,400}?id="archive-index-link"[\s\S]{0,200}?href="\/gauntlet\/"/.test(home));
-ok('the archive is reachable from at least three places',
-   (home.match(/href="\/gauntlet\/"/g) || []).length >= 3,
+ok('and both remaining hub links are inside a modal, not on the page',
+   (home.match(/href="\/gauntlet\/"/g) || []).length === 2,
    String((home.match(/href="\/gauntlet\/"/g) || []).length));
 
 let failed = 0;
