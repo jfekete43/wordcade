@@ -1184,6 +1184,19 @@
         .gauntlet-empty { color: var(--c-ink-5); text-align: center; padding: var(--s-4) 0; font-size: var(--fs-2); }
 
         #daily-board-title { flex: 1; }
+        /* The countdown beside a card's eyebrow.
+           It first reused .daily-board-title, which is the same 11px bold the
+           eyebrow itself is and inherits the parent's uppercase and
+           letter-spacing - so "TODAY'S SPRINT" and "2H 22M LEFT" ran together
+           into one unbroken string with no space at all between them.
+           A separator and a gap, then: lighter weight, normal spacing, and
+           sentence case, so the label reads as a label and the clock reads as
+           a number rather than more label. */
+        .board-rollover { margin-left: var(--s-4); font-weight: var(--fw-med);
+            letter-spacing: normal; text-transform: none; color: var(--c-ink-5);
+            white-space: nowrap; }
+        .board-rollover::before { content: "\00b7"; margin-right: var(--s-4);
+            color: var(--c-ink-6); font-weight: var(--fw-bold); }
         /* Tighter than the modal's, which has a title above it and room to
            spare; this one sits inside a card on the home screen. */
         #home-board-tabs { margin-bottom: var(--s-5); }
@@ -7670,7 +7683,7 @@
             // standings are final, so it is the first place to answer.
             if (titleEl) {
                 titleEl.innerHTML = "Today's Sprint" +
-                    '<span class="daily-board-title" data-rollover>&nbsp;</span>';
+                    '<span class="board-rollover" data-rollover>&nbsp;</span>';
                 paintRollover();
             }
             const prev = document.getElementById("daily-board-prev");

@@ -151,6 +151,27 @@ const PAST = '2026-11-20';
   eq('and a day already over does not go negative', fmt(-5000), 'under a minute');
 }
 
+// ---- 5c. and it is readable beside the label ------------------------------
+{
+  // It first reused .daily-board-title, which is the same 11px bold the card
+  // eyebrow is and inherits the parent's uppercase and letter-spacing. The
+  // two rendered as "TODAY'S SPRINT2H 22M LEFT" - one string, no space.
+  const card = between(html, "titleEl.innerHTML = \"Today's Sprint\"", ';');
+  ck(/class="board-rollover"/.test(card), 'the card countdown has its own class', card);
+  ck(!/daily-board-title/.test(card), 'and not the eyebrow\u2019s', card);
+
+  const css = between(html, '.board-rollover {', '}');
+  ck(/text-transform: none/.test(css), 'it opts out of the inherited uppercase', css);
+  ck(/letter-spacing: normal/.test(css), 'and the inherited eyebrow letter-spacing', css);
+  ck(/margin-left:/.test(css), 'and is pushed off the label', css);
+  ck(/--fw-med/.test(css) && !/--fw-bold/.test(css),
+     'and is lighter than the label beside it', css);
+  // The separator is what makes it two things rather than one run-on string.
+  const before = between(html, '.board-rollover::before {', '}');
+  ck(/content:/.test(before) && /margin-right:/.test(before),
+     'with a separator that has room on both sides', before);
+}
+
 // ---- 6. the boundary is named ---------------------------------------------
 {
   // A player west of Eastern loses the day before their own clock says
