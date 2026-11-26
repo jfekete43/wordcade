@@ -564,6 +564,10 @@ ok('no preset phrase is longer than the free-text limit',
   // the same bug wearing a disguise, so check the stylesheets are actually
   // USING them. The exceptions are deliberate and named: brand marks, and the
   // shop preview that stays black on purpose.
+  // 5865F2 is Discord's, and its button is currently shelved (SHELVED.md),
+  // so nothing matches it today. It stays so that restoring the button is a
+  // paste rather than a paste plus a puzzled look at a failing colour check;
+  // tests/shelved.test.mjs pins that it stays for exactly that long.
   const ALLOWED = /#(0a0a0a|fff|3c4043|e8eaed|0072B2|E69F00|5865F2|FF5E5B|4285F4|34A853|FBBC05|EA4335)\b/gi;
 
   const base = roots['index.html'];
