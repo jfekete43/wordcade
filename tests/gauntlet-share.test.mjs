@@ -51,6 +51,20 @@ const src = [
   grab(/        window\.shareDailyStats = function\(\) \{\n[\s\S]*?\n        \}/),
   grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
+// The two share URLs, lifted rather than written out here: which one a call
+// passes is now the whole of the card decision, so a test that hardcoded
+// them could agree with itself while disagreeing with the page.
+const SHARE_URLS = [
+  grab(/        const SHARE_URL_SITE = "[^"]*";/),
+  grab(/        const SHARE_URL_SCORE = "[^"]*";/),
+  // The mode table too, because scoreShareUrl reads it to decide whether a
+  // mode is still open. Lifting the function and stubbing the table would
+  // let the Trifecta's fallback pass here while failing in the page.
+  grab(/        const MODES = \{\n[\s\S]*?\n        \};/),
+  grab(/        function scoreShareUrl\(mode\) \{\n[\s\S]*?\n        \}/),
+].join('\n');
+const URL_SITE = /SHARE_URL_SITE = "([^"]*)"/.exec(SHARE_URLS)[1];
+const URL_SCORE = /SHARE_URL_SCORE = "([^"]*)"/.exec(SHARE_URLS)[1];
 console.log('extracted from index.html:', src.length, 'chars');
 
 const t = [];
@@ -64,6 +78,7 @@ const buildShare = new Function('attempt', `
   const document = { getElementById: () => ({}) };
   let captured = null;
   function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, opts) { captured = { title, message, url, opts }; }
+  ${SHARE_URLS}
   let dailyAttempt = attempt;
   ${src.replace(/        function shareViaSheetOrClipboard[\s\S]*$/, '')}
   window.shareDailyStats();
@@ -126,11 +141,13 @@ ck(out.message.includes('5,000 pts'), 'scores are thousands-separated', JSON.str
 // link is appended by it.
 ck(!/lexathon\.gg/i.test(out.message), 'the message carries no link of its own',
    JSON.stringify(out.message.slice(-60)));
-// ...and it asks for no preview card, because the result above IS the thing
-// being shared and a 300-pixel card of the game's branding buries it.
-ck(out.opts && out.opts.preview === false,
-   'the Trifecta share suppresses the link preview', JSON.stringify(out.opts));
-ck(out.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.url));
+// ...and it carries the link that has no card behind it, because the result
+// above IS the thing being shared and 630 pixels of the game's branding
+// underneath buries it. Which URL a share passes is the whole decision now:
+// a card belongs to the page, not to the message.
+ck(out.url === URL_SCORE, 'the Trifecta share points at the card-less page', JSON.stringify(out.url));
+ck(out.url !== URL_SITE, 'and not at the site root, which would bring the card back');
+ck(out.opts === undefined, 'with no options object left to get wrong', JSON.stringify(out.opts));
 
 // --- the guess row ------------------------------------------------------
 // Split by MARK, not by code point: a keycap is three of them (the digit,
@@ -250,40 +267,55 @@ ck(viaClip.copied === 'line one\nline two\nhttps://lexathon.gg',
    'the clipboard gets the link on its own line', JSON.stringify(viaClip.copied));
 ck(viaSheet.shared.text === viaClip.copied, 'both paths produce identical text');
 
-// --- the preview, suppressed for a score and kept for an invite ----------
-// <https://...> is how Discord and Slack are told "link, do not unfurl". A
-// shared SCORE is already a grid and a stats line; a card of the game's own
-// branding under it buries the thing being shared. An INVITE is the opposite
-// case — there the card is what tells a stranger what they are joining.
+// --- the link is bare, in every share -------------------------------------
+// It used to be wrapped as <https://...>, which is how Discord and Slack are
+// told "do not unfurl". X does not know that rule, so there the brackets
+// were just punctuation sitting either side of the link. They are gone, and
+// nothing may put them back: whether a card appears is decided by the page
+// the link points at, which is the one mechanism every client honours.
 {
-  const plain = shareRun(false, { preview: false });
-  ck(plain.copied === 'line one\nline two\n<https://lexathon.gg>',
-     'preview: false brackets the link, which is what stops the unfurl',
-     JSON.stringify(plain.copied));
-  ck(shareRun(true, { preview: false }).shared.text === plain.copied,
-     'and the native sheet produces the same bytes, as it does for every other share');
-  // The default is unchanged, so the two invite calls keep their card
-  // without having been touched.
-  ck(viaClip.copied === shareRun(false, undefined).copied
-     && !/[<>]/.test(viaClip.copied),
-     'left alone, a share still carries a bare link', JSON.stringify(viaClip.copied));
-  ck(shareRun(false, {}).copied === viaClip.copied,
-     'and an options object that says nothing about it changes nothing');
+  ck(!/[<>]/.test(viaClip.copied), 'no angle brackets survive anywhere in a share',
+     JSON.stringify(viaClip.copied));
+  ck(viaClip.copied === 'line one\nline two\nhttps://lexathon.gg',
+     'the link goes in exactly as handed over', JSON.stringify(viaClip.copied));
+  ck(shareRun(true).shared.text === viaClip.copied,
+     'and the native sheet produces the same bytes, as it does for every share');
+  // The helper no longer takes an options object at all. A leftover one from
+  // an un-updated call site must not quietly change anything.
+  ck(shareRun(false, { preview: false }).copied === viaClip.copied,
+     'a stray options object changes nothing, because there is nothing left to set',
+     JSON.stringify(shareRun(false, { preview: false }).copied));
+  const fn = grab(/        function shareViaSheetOrClipboard\([^)]*\) \{\n[\s\S]*?\n        \}/);
+  ck(!/preview/.test(fn.split('\n')[0]), 'the helper takes no preview option', fn.split('\n')[0]);
+  ck(!/`<\$\{url\}>`/.test(fn), 'and has no bracketing left in it');
 }
-// Which calls ask for which, read off the call sites themselves: the four
-// score shares suppress, the two match invites do not. The count is written
-// out on purpose -- a new share added without a thought about the card has to
-// come through here and say which side it is on.
+// Which call points where, read off the call sites themselves: the four
+// score shares at the card-less page, the two match invites at the site. The
+// count is written out on purpose -- a new share added without a thought
+// about the card has to come through here and say which side it is on.
 {
   const calls = [...html.matchAll(/shareViaSheetOrClipboard\(\s*"([^"]*)"[\s\S]{0,260}?\);/g)]
-    .map((m) => [m[1], /preview: false/.test(m[0])]);
+    .map((m) => [m[1], /scoreShareUrl\(/.test(m[0]), /SHARE_URL_SITE/.test(m[0])]);
   eq('every share call is accounted for', calls.length, 6);
-  eq('the four score shares drop the card',
-     calls.filter(([, off]) => off).map(([t]) => t).sort(),
+  eq('the four score shares use the card-less link',
+     calls.filter(([, score]) => score).map(([t]) => t).sort(),
      ['Lexathon', 'Lexathon Marathon', 'Lexathon Sprint', 'Lexathon Trifecta']);
-  eq('and both match invites keep it',
-     calls.filter(([, off]) => !off).map(([t]) => t),
+  eq('and both match invites use the site, which keeps its card',
+     calls.filter(([, , site]) => site).map(([t]) => t),
      ['Lexathon \u2014 Join My Match', 'Lexathon \u2014 Join My Match']);
+  // Neither half may be done by writing the URL out by hand: a literal that
+  // drifts from the constant is exactly the bug the constants prevent.
+  eq('and no call writes a lexathon.gg link out by hand',
+     calls.filter(([, score, site]) => !score && !site).map(([t]) => t), []);
+}
+// The two URLs are genuinely different pages, not the same one spelled twice.
+{
+  ck(URL_SCORE !== URL_SITE, 'the two share links are different', `${URL_SITE} / ${URL_SCORE}`);
+  ck(URL_SCORE.startsWith(URL_SITE + '/'), 'both are on lexathon.gg', URL_SCORE);
+  // Trailing slash: the directory form is what GitHub Pages serves, and the
+  // slashless form only gets there via a 301. One hop fewer for the crawler
+  // that has to see this page to NOT build a card from it.
+  ck(URL_SCORE.endsWith('/'), 'the card-less link is the directory form, so it is served directly', URL_SCORE);
 }
 
 let bad = 0;

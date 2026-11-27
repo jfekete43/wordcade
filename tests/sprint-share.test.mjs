@@ -46,6 +46,13 @@ const src = [
   grab(/        const SPRINT_EPOCH = "[^"]*";/),
   grab(/        function sprintNumber\(dateStr\) \{\n[\s\S]*?\n        \}/),
   grab(/        function formatSprintTime\(ms\) \{\n[\s\S]*?\n        \}/),
+  // The share URL is no longer a literal at the call site: it comes from
+  // scoreShareUrl, which reads MODES to decide whether the mode is still
+  // open. Lifted rather than stubbed, so a mode closing changes this test
+  // the same way it changes the page.
+  grab(/        const SHARE_URL_SCORE = "[^"]*";/),
+  grab(/        const MODES = \{\n[\s\S]*?\n        \};/),
+  grab(/        function scoreShareUrl\(mode\) \{\n[\s\S]*?\n        \}/),
   grab(/        window\.shareSprintResult = function\(btnId\) \{\n[\s\S]*?\n        \}/),
 ].join('\n\n');
 console.log('extracted from index.html:', src.length, 'chars');
@@ -148,9 +155,13 @@ const attempt = (rows, over) => ({
 }
 
 // ---- one route out ----------------------------------------------------------
+// The card-less page, and with no ?m= on it: Sprint IS the landing, and the
+// site leads with it, so a Sprint score wants exactly the default. Every
+// other mode's share has to say where it goes; this one is the one that
+// does not.
 eq('it hands the link to the helper rather than baking it into the text',
    buildShare(attempt([row('22222')], { solved: true, score: 500, elapsedMs: 1000 })).url,
-   'https://lexathon.gg');
+   'https://lexathon.gg/play/');
 {
   const out = buildShare(attempt([row('22222')], { solved: true, score: 500, elapsedMs: 1000 }));
   ck(!out.message.includes('lexathon.gg'),

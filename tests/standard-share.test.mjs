@@ -32,7 +32,16 @@ const cashOut = grab(/        function showCashOutModal\(\) \{\n[\s\S]*?saveRunT
 const gameOver = grab(/        function triggerGameOver\(lostScore = 0\) \{\n[\s\S]*?saveRunToCloud\(true, lostScore\); \n        \}/);
 const share = grab(/        window\.shareStats = function\(\) \{\n[\s\S]*?\n        \}/);
 const callSite = grab(/                                    SFX\.wipeout\(\);\n[\s\S]*?triggerGameOver\(finalLostScore\), 1200\);/);
-const src = [decl, cashOut, gameOver, share].join('\n\n');
+// The share URL is no longer a literal at the call site: it comes from
+// scoreShareUrl, which reads MODES to decide whether the mode is still
+// open. Lifted rather than stubbed, so a mode closing changes this test
+// the same way it changes the page.
+const shareUrls = [
+  grab(/        const SHARE_URL_SCORE = "[^"]*";/),
+  grab(/        const MODES = \{\n[\s\S]*?\n        \};/),
+  grab(/        function scoreShareUrl\(mode\) \{\n[\s\S]*?\n        \}/),
+].join('\n');
+const src = [decl, shareUrls, cashOut, gameOver, share].join('\n\n');
 console.log('extracted from index.html:', src.length, 'chars');
 
 const t = [];
@@ -74,12 +83,16 @@ let out = endRunAndShare('cashout', 12400, 31);
 ck(out.captured.message === '🎲 Lexathon\n💰 Banked 12,400 pts · 31 words\nCan you beat it?',
    'a cash-out says what was banked and how many words', JSON.stringify(out.captured.message));
 ck(out.captured.message.split('\n').length === 3, 'heading, result, hook', out.captured.message.split('\n').length);
-ck(out.captured.url === 'https://lexathon.gg', 'and points at the site root', JSON.stringify(out.captured.url));
-ck(!/lexathon\.gg/i.test(out.captured.message), 'the message carries no link of its own');
 // Same as the Trifecta and Sprint shares: the result is the thing being
-// shared, so the link does not grow a card under it.
-ck(out.captured.opts && out.captured.opts.preview === false,
-   'and the share suppresses the link preview', JSON.stringify(out.captured.opts));
+// shared, so the link must not grow a card under it - which is decided by
+// the page it points at, not by anything in the message. And it names its
+// own mode, because the landing is Sprint and a Stakes run opening onto
+// today's Sprint word is not the game the message is about.
+ck(out.captured.url === 'https://lexathon.gg/play/?m=endless',
+   'and points at the card-less page, saying to open Stakes', JSON.stringify(out.captured.url));
+ck(!/lexathon\.gg/i.test(out.captured.message), 'the message carries no link of its own');
+ck(out.captured.opts === undefined,
+   'with no options object left to get wrong', JSON.stringify(out.captured.opts));
 ck(out.captured.buttonEl === out.els['btn-share'], 'the flash lands on the Share Score button');
 ck(out.captured.defaultLabel === 'Share Score', 'and restores its own label', JSON.stringify(out.captured.defaultLabel));
 

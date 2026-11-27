@@ -51,7 +51,13 @@ const walk = (dir) => {
   for (const e of fs.readdirSync(REPO(dir), { withFileTypes: true })) {
     if (e.name === 'node_modules' || e.name === 'tests' || e.name.startsWith('.')) continue;
     if (e.name === 'admin.html') continue;   // internal tooling - see the note below
+    // play/ is the card-less landing a shared score links to: noindex, and
+    // on screen for about one frame before its redirect fires. An ad unit on
+    // a page with no content and no reader is the "low content" problem this
+    // site has already been told off for, not revenue. See
+    // tests/share-no-card.test.mjs, which pins what it does and does not do.
     const rel = dir ? `${dir}/${e.name}` : e.name;
+    if (rel === 'play/index.html') continue;
     if (e.isDirectory()) walk(rel);
     else if (e.name.endsWith('.html')) pages.push(rel);
   }

@@ -41,6 +41,13 @@ const src = [
   grab(/ {8}const FLAG_ICON = "[^"]*";/, 'FLAG_ICON'),
   grab(/ {8}const MID_SEP = "[^"]*";/, 'MID_SEP'),
   grab(/ {8}const DASH_SEP = "[^"]*";/, 'DASH_SEP'),
+  // The share URL is no longer a literal at the call site: it comes from
+  // scoreShareUrl, which reads MODES to decide whether the mode is still
+  // open. Lifted rather than stubbed, so a mode closing changes this test
+  // the same way it changes the page.
+  grab(/ {8}const SHARE_URL_SCORE = "[^"]*";/, 'SHARE_URL_SCORE'),
+  grab(/ {8}const MODES = \{\n[\s\S]*?\n {8}\};/, 'MODES'),
+  grab(/ {8}function scoreShareUrl\(mode\) \{\n[\s\S]*?\n {8}\}/, 'scoreShareUrl'),
   grab(/ {8}window\.shareMarathonResult = function\(\) \{\n[\s\S]*?\n {8}\}/, 'shareMarathonResult'),
 ].join('\n');
 console.log('extracted from index.html:', src.length, 'chars');
@@ -161,11 +168,16 @@ const gridOf = (out) => lines(out).slice(1, -1);
 {
   const out = build(week(clean, 9120));
   eq('it goes out as a Marathon share', out.title, 'Lexathon Marathon');
-  eq('pointing at the site root', out.url, 'https://lexathon.gg');
   // A shared SCORE is already a grid and a stats line; a card of the game's
-  // own branding under it buries the thing being shared.
-  ck(out.opts && out.opts.preview === false, 'with the link card suppressed, like the other two score shares',
-     JSON.stringify(out.opts));
+  // own branding under it buries the thing being shared. The card is decided
+  // by the PAGE a link points at, so the score shares point at a page that
+  // carries no og: or twitter: tags - /play/ - rather than at the site.
+  eq('pointing at the card-less page', out.url, 'https://lexathon.gg/play/?m=marathon');
+  // ...and carrying its own mode, because the landing is Sprint. A twenty
+  // word grid opening onto today's single Sprint word shows the reader a
+  // different game from the one in the message they just read.
+  ck(/\?m=marathon$/.test(out.url), 'and saying which mode to open', out.url);
+  ck(out.opts === undefined, 'with no options object left to get wrong', JSON.stringify(out.opts));
   ck(!/lexathon\.gg/i.test(out.message), 'and no link of its own in the text',
      out.message.slice(-60));
 }
@@ -173,8 +185,8 @@ const gridOf = (out) => lines(out).slice(1, -1);
   // Every share call in the file is accounted for, so a new one cannot
   // quietly default to carrying a card.
   const calls = [...html.matchAll(/shareViaSheetOrClipboard\(\s*"([^"]*)"[\s\S]{0,300}?\);/g)]
-    .map((m) => [m[1], /preview: false/.test(m[0])]);
-  eq('the score shares all suppress the card',
+    .map((m) => [m[1], /scoreShareUrl\(/.test(m[0])]);
+  eq('the score shares all take the card-less link',
      calls.filter(([, off]) => off).map(([x]) => x).sort(),
      ['Lexathon', 'Lexathon Marathon', 'Lexathon Sprint', 'Lexathon Trifecta']);
 }

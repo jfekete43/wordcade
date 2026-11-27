@@ -6868,8 +6868,8 @@
             const when = marathonWeekLabel(marathonAttempt.week);
             const heading = RUN_ICON + " Lexathon Marathon" + (when ? " " + DASH_SEP + " Week of " + when : "");
             const message = [heading, grid, line].filter(Boolean).join("\n");
-            shareViaSheetOrClipboard("Lexathon Marathon", message, "https://lexathon.gg",
-                document.getElementById("btn-marathon-share"), "Share Result", { preview: false });
+            shareViaSheetOrClipboard("Lexathon Marathon", message, scoreShareUrl("marathon"),
+                document.getElementById("btn-marathon-share"), "Share Result");
         }
 
         function showMarathonEndModal(attempt) {
@@ -7664,8 +7664,8 @@
             // Whichever button was pressed is the one whose label reports
             // COPIED! or COPY FAILED; flashing the hidden one would say
             // nothing at all.
-            shareViaSheetOrClipboard("Lexathon Sprint", shareMessage, "https://lexathon.gg",
-                document.getElementById(btnId || "btn-sprint-share"), "Share Result", { preview: false });
+            shareViaSheetOrClipboard("Lexathon Sprint", shareMessage, scoreShareUrl("sprint"),
+                document.getElementById(btnId || "btn-sprint-share"), "Share Result");
         }
 
         // Which cosmetics to draw a /runs row with.
@@ -7782,6 +7782,34 @@
             //
             // The Trifecta's never had the problem because openDailyGauntlet
             // is a tap, and a tap is always after sign-in.
+        }
+
+        /*
+         * ?m=<mode>, the other half of scoreShareUrl: a score shared from
+         * Marathon or Stakes opens on that mode instead of the landing.
+         *
+         * Named `m` and not `mode` deliberately - `mode` already belongs to
+         * the Clash invite links (?join=XXXXX&mode=duel) and reusing it would
+         * have one reader quietly answering to the other's parameter.
+         *
+         * An invite wins outright: it names a match to join, which is a
+         * stronger instruction than a mode to look at. And only `m` is
+         * stripped from the URL afterwards, not the whole query - a blanket
+         * replaceState here would delete a ?join= that tryAutoJoinFromUrl has
+         * not read yet, since that runs off onAuthStateChanged and this runs
+         * off a timer.
+         */
+        function openSharedMode() {
+            const params = new URLSearchParams(location.search);
+            const mode = (params.get("m") || "").trim().toLowerCase();
+            if (!mode) return;
+            params.delete("m");
+            const rest = params.toString();
+            history.replaceState(null, "", location.pathname + (rest ? "?" + rest : ""));
+            if (params.has("join")) return;
+            const cfg = MODES[mode];
+            if (mode === "sprint" || !cfg || cfg.hidden) return;
+            window.goToMode(mode);
         }
 
         window.leaveSprint = function() {
@@ -10475,24 +10503,55 @@
         }
 
         /*
-         * `preview: false` wraps the link in angle brackets.
+         * Which link a share carries is what decides whether it grows a
+         * preview card, because a card is a property of the PAGE, not of the
+         * message it is pasted into. So the two kinds of share point at two
+         * different pages.
          *
-         * Discord and Slack both read <https://...> as "link, do not unfurl",
-         * which is the only portable way to stop a share growing a preview
-         * card. A shared SCORE does not want one: the result is already a
-         * grid and a line of stats, and a 300-pixel card of the game's own
-         * branding under it buries the thing being shared.
+         * A shared SCORE wants no card: the grid and the stat line are the
+         * thing being shared, and 630 pixels of the game's own branding
+         * underneath buries them. Those use SHARE_URL_SCORE, which is a page
+         * carrying no og: or twitter: tags at all and bouncing a human
+         * straight to the game.
          *
-         * An INVITE does want one. There the card is the whole point - it
-         * tells somebody who has never heard of this what they are being
-         * asked to join - so those calls leave it alone.
+         * An INVITE wants one. There the card is the whole point - it tells
+         * somebody who has never heard of this what they are being asked to
+         * join - so invites link to the site itself and keep it. So does
+         * anyone who simply pastes lexathon.gg, which needs nothing from us.
          *
-         * The cost is that a client which does NOT honour the convention
-         * shows the brackets as text. Accepted: the places these get pasted
-         * are overwhelmingly Discord right now.
+         * This replaced `preview: false`, which wrapped the link as
+         * <https://lexathon.gg>: the convention Discord and Slack read as
+         * "do not unfurl". It worked in those two and nowhere else - on X
+         * the brackets were just punctuation sitting around the link, which
+         * is what prompted dropping them. A page with nothing to unfurl
+         * works everywhere, including clients that never knew the rule.
          */
-        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel, { preview = true } = {}) {
-            const payload = `${message}\n${preview ? url : `<${url}>`}`;
+        const SHARE_URL_SITE = "https://lexathon.gg";
+        const SHARE_URL_SCORE = "https://lexathon.gg/play/";
+
+        /*
+         * Where a shared score should put the reader down.
+         *
+         * Sprint is the landing already, and it is what the site leads with,
+         * so a Sprint score and a plain link to lexathon.gg both want exactly
+         * the default and carry no parameter at all. A score from another
+         * mode is the exception: opening a twenty-word Marathon grid onto
+         * today's one-word Sprint leaves the reader looking at a different
+         * game from the one in the message.
+         *
+         * A closed mode falls back to the landing rather than linking
+         * somewhere nobody can go - goToMode refuses a hidden mode, so a
+         * Trifecta link would otherwise open and then sit there doing
+         * nothing.
+         */
+        function scoreShareUrl(mode) {
+            const cfg = MODES[mode];
+            if (!mode || mode === "sprint" || !cfg || cfg.hidden) return SHARE_URL_SCORE;
+            return `${SHARE_URL_SCORE}?m=${mode}`;
+        }
+
+        function shareViaSheetOrClipboard(title, message, url, buttonEl, defaultLabel) {
+            const payload = `${message}\n${url}`;
             const copyInstead = () => copyToClipboard(payload).then((ok) => flashButtonLabel(buttonEl, ok ? "COPIED!" : "COPY FAILED", defaultLabel));
 
             if (prefersNativeShare()) {
@@ -10534,7 +10593,7 @@
                 hook = "Think you can do better?";
             }
             const shareMessage = `\u{1F3B2} Lexathon\n${resultLine}\n${hook}`;
-            shareViaSheetOrClipboard("Lexathon", shareMessage, "https://lexathon.gg", document.getElementById("btn-share"), "Share Score", { preview: false });
+            shareViaSheetOrClipboard("Lexathon", shareMessage, scoreShareUrl("endless"), document.getElementById("btn-share"), "Share Score");
         }
 
         // Puzzle number for the share heading, counted off the first-ever
@@ -10625,7 +10684,7 @@
             const num = gauntletNumber(dailyAttempt.date);
             const heading = num ? `🕹️ Lexathon Trifecta #${num}` : "🕹️ Lexathon Trifecta";
             const shareMessage = `${heading}\n${bar}\n${resultLine}`;
-            shareViaSheetOrClipboard("Lexathon Trifecta", shareMessage, "https://lexathon.gg", document.getElementById("btn-daily-share"), "Share Result", { preview: false });
+            shareViaSheetOrClipboard("Lexathon Trifecta", shareMessage, scoreShareUrl("gauntlet"), document.getElementById("btn-daily-share"), "Share Result");
         }
 
         // Clash/FFA don't have a shared daily puzzle to compare results
@@ -10644,13 +10703,13 @@
             // (see tryAutoJoinFromUrl) — the code is still spelled out in
             // the message too, for anyone who only copies the text.
             const shareMessage = `🕹️ Join my private Lexathon Clash match!\nRoom code: ${currentMatchId}`;
-            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, `https://lexathon.gg/?join=${currentMatchId}&mode=duel`, document.getElementById("btn-share-invite"), "Share Invite");
+            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, `${SHARE_URL_SITE}/?join=${currentMatchId}&mode=duel`, document.getElementById("btn-share-invite"), "Share Invite");
         }
 
         window.shareFfaInvite = function() {
             if (!currentMatchId) return;
             const shareMessage = `🕹️ Join my private Lexathon FFA match!\nRoom code: ${currentMatchId}`;
-            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, `https://lexathon.gg/?join=${currentMatchId}&mode=ffa`, document.getElementById("ffa-btn-share-invite"), "Share Invite");
+            shareViaSheetOrClipboard("Lexathon — Join My Match", shareMessage, `${SHARE_URL_SITE}/?join=${currentMatchId}&mode=ffa`, document.getElementById("ffa-btn-share-invite"), "Share Invite");
         }
 
         window.startNewRun = function() {
@@ -11032,6 +11091,7 @@
             // changes what is on screen, and calls no Cloud Function --
             // the gate's button does that when the player taps it.
             showSprintLanding();
+            openSharedMode();
 
         }, 300);
     </script>

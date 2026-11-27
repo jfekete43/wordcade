@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lexathon</title>
+
+    <!--
+        THIS PAGE DELIBERATELY HAS NO SOCIAL CARD.
+
+        Every other page on the site carries og: and twitter: tags so that a
+        pasted link grows a 1200x630 preview. That is the right behaviour for
+        a link to the game and the wrong behaviour under a shared score: the
+        grid and the stat line ARE the thing being shared, and a card of the
+        game's own branding below them buries it.
+
+        A card is a property of the page a link points at, not of the message
+        it sits in, so the only way to have one share carry a card and another
+        not is to point them at different pages. That is all this file is.
+        Score shares link here; everything else links to the site itself and
+        keeps its card.
+
+        It replaced a convention - wrapping the link as <https://lexathon.gg>,
+        which Discord and Slack read as "do not unfurl". That worked in those
+        two clients and nowhere else: on X the brackets simply showed up as
+        punctuation around the link. Having no tags to unfurl works in every
+        client, including the ones that have never heard of the convention.
+
+        So: no og:*, no twitter:*, no meta description. Adding any of them
+        puts the card back. tests/share-no-card.test.mjs fails if one appears.
+    -->
+    <!--
+        noindex and NO canonical. A canonical pointing at "/" looks right for
+        a redirect page, and the SEO suite caught why it is not: index.html
+        already claims that canonical, so two pages were claiming one URL.
+        Google's own guidance is not to pair noindex with a canonical either
+        - one says "do not index this", the other says "fold this into that"
+        - so the page keeps the instruction that matters and drops the one
+        that contradicts it. `follow` so the link below is still crawled.
+    -->
+    <meta name="robots" content="noindex, follow">
+
+    <style>
+        /* The page is visible for about one frame. It is painted in the
+           site's own paper so that frame is not a white flash on a phone in
+           dark mode, which is where shared scores are opened. */
+        :root { color-scheme: light dark; --page: #f7f3ea; --ink: #2b2722; }
+        @media (prefers-color-scheme: dark) { :root { --page: #1a1712; --ink: #efe7d8; } }
+        html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink); }
+        body {
+            display: flex; align-items: center; justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px; text-align: center; padding: 24px; box-sizing: border-box;
+        }
+        a { color: inherit; }
+    </style>
+</head>
+<body>
+    <!--
+        The redirect is JavaScript rather than a meta refresh or a server
+        redirect, and that is the point rather than a shortcut: crawlers do
+        not run scripts, so the unfurler sees this page and finds no card,
+        while a person is moved on before they can read this sentence. A
+        server redirect or a meta refresh would be followed by the unfurler
+        too, which would land it on the homepage and give it the card back.
+
+        replace(), not assign(), so the back button returns to wherever the
+        link was opened from instead of bouncing through here again.
+
+        The query string is carried over, because it is what says which mode
+        to open: a score shared from Marathon arrives as /play/?m=marathon
+        and has to reach the game still saying so. Dropping it would land
+        every share on the Sprint landing, which is right for Sprint and
+        wrong for everything else.
+    -->
+    <p>Taking you to <a href="/">Lexathon</a>&hellip;</p>
+    <script>window.location.replace("/" + window.location.search);</script>
+</body>
+</html>
